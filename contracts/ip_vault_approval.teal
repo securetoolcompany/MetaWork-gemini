@@ -1,0 +1,384 @@
+#pragma version 8
+txn ApplicationID
+int 0
+==
+bnz main_l31
+txn OnCompletion
+int DeleteApplication
+==
+bnz main_l30
+txn OnCompletion
+int UpdateApplication
+==
+bnz main_l29
+txn OnCompletion
+int CloseOut
+==
+bnz main_l28
+txn OnCompletion
+int OptIn
+==
+bnz main_l27
+txna ApplicationArgs 0
+byte "propose"
+==
+bnz main_l20
+txna ApplicationArgs 0
+byte "finalize"
+==
+bnz main_l19
+txna ApplicationArgs 0
+byte "claim"
+==
+bnz main_l13
+txna ApplicationArgs 0
+byte "opt_in"
+==
+bnz main_l12
+txna ApplicationArgs 0
+byte "get_stakeholder"
+==
+bnz main_l11
+err
+main_l11:
+int 1
+return
+main_l12:
+txn Sender
+byte "creator"
+app_global_get
+==
+assert
+itxn_begin
+int axfer
+itxn_field TypeEnum
+global CurrentApplicationAddress
+itxn_field AssetReceiver
+int 0
+itxn_field AssetAmount
+txna ApplicationArgs 1
+btoi
+itxn_field XferAsset
+int 0
+itxn_field Fee
+itxn_submit
+int 1
+return
+main_l13:
+txn Sender
+addr WNXGR6DCD4FWCK62JHWNI6OE37XMJGZFHO42FYFEGW5P3G4MYO4AJYJGTI
+==
+bnz main_l18
+byte "finalized"
+app_global_get
+int 1
+==
+assert
+txn Sender
+callsub proposedboxkey_2
+box_get
+store 10
+store 9
+load 10
+assert
+load 9
+store 6
+load 6
+extract 0 8
+btoi
+store 7
+load 6
+extract 8 8
+btoi
+store 8
+load 6
+extract 16 8
+btoi
+store 4
+load 7
+int 1
+==
+bnz main_l17
+load 8
+byte "total_supply"
+app_global_get
+callsub percentagetotokens_1
+store 3
+main_l16:
+load 3
+load 4
+-
+store 5
+txna ApplicationArgs 1
+btoi
+int 0
+>
+assert
+txna ApplicationArgs 1
+btoi
+load 5
+<=
+assert
+itxn_begin
+int axfer
+itxn_field TypeEnum
+txn Sender
+itxn_field AssetReceiver
+txna ApplicationArgs 1
+btoi
+itxn_field AssetAmount
+byte "asset_id"
+app_global_get
+itxn_field XferAsset
+int 0
+itxn_field Fee
+itxn_submit
+txn Sender
+callsub proposedboxkey_2
+load 7
+itob
+load 8
+itob
+concat
+load 4
+txna ApplicationArgs 1
+btoi
++
+itob
+concat
+box_put
+int 1
+return
+main_l17:
+load 8
+store 3
+b main_l16
+main_l18:
+byte "finalized"
+app_global_get
+int 1
+==
+assert
+byte "total_supply"
+app_global_get
+callsub calculateplatformallocation_0
+store 3
+byte "platform_claimed"
+app_global_get
+store 4
+load 3
+load 4
+-
+store 5
+txna ApplicationArgs 1
+btoi
+int 0
+>
+assert
+txna ApplicationArgs 1
+btoi
+load 5
+<=
+assert
+itxn_begin
+int axfer
+itxn_field TypeEnum
+txn Sender
+itxn_field AssetReceiver
+txna ApplicationArgs 1
+btoi
+itxn_field AssetAmount
+byte "asset_id"
+app_global_get
+itxn_field XferAsset
+int 0
+itxn_field Fee
+itxn_submit
+byte "platform_claimed"
+load 4
+txna ApplicationArgs 1
+btoi
++
+app_global_put
+int 1
+return
+main_l19:
+byte "finalized"
+app_global_get
+int 0
+==
+assert
+txn Sender
+byte "creator"
+app_global_get
+==
+assert
+byte "total_supply"
+app_global_get
+int 0
+>
+assert
+byte "asset_id"
+app_global_get
+int 0
+>
+assert
+byte "finalized"
+int 1
+app_global_put
+int 1
+return
+main_l20:
+byte "finalized"
+app_global_get
+int 0
+==
+assert
+txn Sender
+byte "creator"
+app_global_get
+==
+assert
+byte "ip_id"
+txna ApplicationArgs 1
+app_global_put
+byte "total_supply"
+txna ApplicationArgs 2
+btoi
+app_global_put
+byte "asset_id"
+txna ApplicationArgs 3
+btoi
+app_global_put
+int 0
+store 1
+int 0
+store 2
+int 4
+store 0
+main_l21:
+load 0
+txn NumAppArgs
+<
+bnz main_l23
+load 1
+txna ApplicationArgs 2
+btoi
+txna ApplicationArgs 2
+btoi
+callsub calculateplatformallocation_0
+-
+<=
+assert
+byte "stk_count"
+load 2
+app_global_put
+int 1
+return
+main_l23:
+load 0
+txnas ApplicationArgs
+extract 0 32
+callsub proposedboxkey_2
+load 0
+txnas ApplicationArgs
+extract 32 8
+load 0
+txnas ApplicationArgs
+extract 40 8
+concat
+int 0
+itob
+concat
+box_put
+load 0
+txnas ApplicationArgs
+extract 32 8
+btoi
+int 1
+==
+bnz main_l26
+load 1
+load 0
+txnas ApplicationArgs
+extract 40 8
+btoi
+txna ApplicationArgs 2
+btoi
+callsub percentagetotokens_1
++
+store 1
+main_l25:
+load 2
+int 1
++
+store 2
+load 0
+int 1
++
+store 0
+b main_l21
+main_l26:
+load 1
+load 0
+txnas ApplicationArgs
+extract 40 8
+btoi
++
+store 1
+b main_l25
+main_l27:
+int 1
+return
+main_l28:
+int 1
+return
+main_l29:
+int 0
+return
+main_l30:
+int 0
+return
+main_l31:
+byte "creator"
+txn Sender
+app_global_put
+byte "finalized"
+int 0
+app_global_put
+byte "stk_count"
+int 0
+app_global_put
+byte "platform_claimed"
+int 0
+app_global_put
+int 1
+return
+
+// calculate_platform_allocation
+calculateplatformallocation_0:
+proto 1 1
+frame_dig -1
+int 2000
+*
+int 10000
+/
+retsub
+
+// percentage_to_tokens
+percentagetotokens_1:
+proto 2 1
+frame_dig -1
+frame_dig -2
+*
+int 10000
+/
+retsub
+
+// proposed_box_key
+proposedboxkey_2:
+proto 1 1
+byte "prop_"
+frame_dig -1
+concat
+retsub

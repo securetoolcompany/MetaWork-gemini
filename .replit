@@ -1,0 +1,42 @@
+modules = ["nodejs-20", "python-3.12", "web"]
+
+# LOCK PORTS - DO NOT MODIFY
+[agent]
+expertMode = true
+portsLocked = true
+
+[nix]
+channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Next.js Dev Server"
+
+[[workflows.workflow]]
+name = "Next.js Dev Server"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "yarn dev"
+waitForPort = 3000
+
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["yarn", "start"]
+build = ["yarn", "build"]

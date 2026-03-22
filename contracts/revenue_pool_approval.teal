@@ -1,0 +1,322 @@
+#pragma version 8
+txn ApplicationID
+int 0
+==
+bnz main_l22
+txn OnCompletion
+int DeleteApplication
+==
+bnz main_l21
+txn OnCompletion
+int UpdateApplication
+==
+bnz main_l20
+txn OnCompletion
+int CloseOut
+==
+bnz main_l19
+txn OnCompletion
+int OptIn
+==
+bnz main_l18
+txna ApplicationArgs 0
+byte "init"
+==
+bnz main_l17
+txna ApplicationArgs 0
+byte "opt_in_assets"
+==
+bnz main_l16
+txna ApplicationArgs 0
+byte "set_stakeholder"
+==
+bnz main_l15
+txna ApplicationArgs 0
+byte "claim_tokens"
+==
+bnz main_l14
+txna ApplicationArgs 0
+byte "deposit"
+==
+bnz main_l13
+txna ApplicationArgs 0
+byte "claim_usdc"
+==
+bnz main_l12
+err
+main_l12:
+byte "initialized"
+app_global_get
+int 1
+==
+assert
+callsub getpoolusdcbalance_0
+store 6
+load 6
+txna ApplicationArgs 2
+btoi
+*
+int 100
+/
+store 7
+txna ApplicationArgs 1
+btoi
+int 0
+>
+assert
+txna ApplicationArgs 1
+btoi
+load 7
+<=
+assert
+txna ApplicationArgs 1
+btoi
+load 6
+<=
+assert
+itxn_begin
+int axfer
+itxn_field TypeEnum
+txn Sender
+itxn_field AssetReceiver
+txna ApplicationArgs 1
+btoi
+itxn_field AssetAmount
+int 10458941
+itxn_field XferAsset
+int 0
+itxn_field Fee
+itxn_submit
+byte "total_claimed"
+byte "total_claimed"
+app_global_get
+txna ApplicationArgs 1
+btoi
++
+app_global_put
+int 1
+return
+main_l13:
+byte "initialized"
+app_global_get
+int 1
+==
+assert
+txn GroupIndex
+int 0
+>
+assert
+txn GroupIndex
+int 1
+-
+gtxns TypeEnum
+int axfer
+==
+assert
+txn GroupIndex
+int 1
+-
+gtxns XferAsset
+int 10458941
+==
+assert
+txn GroupIndex
+int 1
+-
+gtxns AssetReceiver
+global CurrentApplicationAddress
+==
+assert
+byte "total_deposited"
+byte "total_deposited"
+app_global_get
+txn GroupIndex
+int 1
+-
+gtxns AssetAmount
++
+app_global_put
+int 1
+return
+main_l14:
+byte "initialized"
+app_global_get
+int 1
+==
+assert
+byte "stk_"
+txn Sender
+concat
+box_get
+store 5
+store 4
+load 5
+assert
+load 4
+store 3
+load 3
+extract 0 8
+btoi
+store 0
+load 3
+extract 8 8
+btoi
+store 2
+load 0
+load 2
+-
+store 1
+load 1
+int 0
+>
+assert
+itxn_begin
+int axfer
+itxn_field TypeEnum
+txn Sender
+itxn_field AssetReceiver
+load 1
+itxn_field AssetAmount
+byte "rev_token_id"
+app_global_get
+itxn_field XferAsset
+int 0
+itxn_field Fee
+itxn_submit
+byte "stk_"
+txn Sender
+concat
+load 0
+itob
+load 0
+itob
+concat
+box_put
+int 1
+return
+main_l15:
+txn Sender
+byte "creator"
+app_global_get
+==
+assert
+txna ApplicationArgs 2
+btoi
+int 100
+<=
+assert
+txna ApplicationArgs 2
+btoi
+int 0
+>
+assert
+byte "stk_"
+txna ApplicationArgs 1
+concat
+txna ApplicationArgs 2
+btoi
+itob
+int 0
+itob
+concat
+box_put
+int 1
+return
+main_l16:
+txn Sender
+byte "creator"
+app_global_get
+==
+assert
+byte "initialized"
+app_global_get
+int 1
+==
+assert
+itxn_begin
+int axfer
+itxn_field TypeEnum
+global CurrentApplicationAddress
+itxn_field AssetReceiver
+int 0
+itxn_field AssetAmount
+byte "rev_token_id"
+app_global_get
+itxn_field XferAsset
+int 0
+itxn_field Fee
+itxn_submit
+itxn_begin
+int axfer
+itxn_field TypeEnum
+global CurrentApplicationAddress
+itxn_field AssetReceiver
+int 0
+itxn_field AssetAmount
+int 10458941
+itxn_field XferAsset
+int 0
+itxn_field Fee
+itxn_submit
+int 1
+return
+main_l17:
+txn Sender
+byte "creator"
+app_global_get
+==
+assert
+byte "initialized"
+app_global_get
+int 0
+==
+assert
+byte "ip_id"
+txna ApplicationArgs 1
+app_global_put
+byte "rev_token_id"
+txna ApplicationArgs 2
+btoi
+app_global_put
+byte "initialized"
+int 1
+app_global_put
+int 1
+return
+main_l18:
+int 1
+return
+main_l19:
+int 1
+return
+main_l20:
+int 0
+return
+main_l21:
+int 0
+return
+main_l22:
+byte "creator"
+txn Sender
+app_global_put
+byte "total_deposited"
+int 0
+app_global_put
+byte "total_claimed"
+int 0
+app_global_put
+byte "initialized"
+int 0
+app_global_put
+int 1
+return
+
+// get_pool_usdc_balance
+getpoolusdcbalance_0:
+proto 0 1
+byte "total_deposited"
+app_global_get
+byte "total_claimed"
+app_global_get
+-
+retsub

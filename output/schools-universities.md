@@ -1,0 +1,13 @@
+---
+title: "Schools & Universities"
+slug: "schools-universities"
+date: "
+ 2025-11-30 12:08:41 
+"
+type: "
+ page 
+"
+excerpt: ""
+---
+
+<h2>Schools & Universities</h2> <img width="1024" height="683" src="https://securemetawork.com/wp-content/uploads/2025/11/20251130_1542_Campus-Entrepreneurship-Showcase_simple_compose_01kbbersypfwxbbhrvwcrnam51-1024x683.jpg" alt="" srcset="https://securemetawork.com/wp-content/uploads/2025/11/20251130_1542_Campus-Entrepreneurship-Showcase_simple_compose_01kbbersypfwxbbhrvwcrnam51-1024x683.jpg 1024w, https://securemetawork.com/wp-content/uploads/2025/11/20251130_1542_Campus-Entrepreneurship-Showcase_simple_compose_01kbbersypfwxbbhrvwcrnam51-300x200.jpg 300w, https://securemetawork.com/wp-content/uploads/2025/11/20251130_1542_Campus-Entrepreneurship-Showcase_simple_compose_01kbbersypfwxbbhrvwcrnam51-768x512.jpg 768w, https://securemetawork.com/wp-content/uploads/2025/11/20251130_1542_Campus-Entrepreneurship-Showcase_simple_compose_01kbbersypfwxbbhrvwcrnam51-900x600.jpg 900w, https://securemetawork.com/wp-content/uploads/2025/11/20251130_1542_Campus-Entrepreneurship-Showcase_simple_compose_01kbbersypfwxbbhrvwcrnam51-1320x880.jpg 1320w, https://securemetawork.com/wp-content/uploads/2025/11/20251130_1542_Campus-Entrepreneurship-Showcase_simple_compose_01kbbersypfwxbbhrvwcrnam51-600x400.jpg 600w, https://securemetawork.com/wp-content/uploads/2025/11/20251130_1542_Campus-Entrepreneurship-Showcase_simple_compose_01kbbersypfwxbbhrvwcrnam51.jpg 1536w" sizes="(max-width: 1024px) 100vw, 1024px" /> <p>Give students, clubs, and departments a modern way to create, sell, and learn.</p><h3>Who It's For</h3><ul><li>Districts, schools, colleges, clubs, athletics, dorms, makerspaces</li><li>Student entrepreneurs, art/design classes</li></ul><h3>What You Can Launch</h3><ul><li>Official school/club merch; dorm and event drops</li><li>Student-creator licensing programs</li><li>Fundraising collections for teams and causes</li><li>Learning modules: product design, 3D, entrepreneurship, finance</li></ul><h3>How It Works</h3><ol><li>Create school/org account and enable student Aisles</li><li>Students design products or upload IP for licensing</li><li>Approve and publish collections by program or club</li><li>Share Aisle links across campus and events (QR-friendly)</li><li>Automated payouts with admin reporting</li></ol><h3>Why MetaWork for Campus</h3><ul><li>Real-world learning with real revenue</li><li>Compliance-friendly earnings and permissions</li><li>No-cost, no-inventory fundraising at scale</li><li>Portfolio-building for admissions and careers</li></ul><p>[Campus Solutions] • [Student/Club Onboarding]</p>

@@ -1,0 +1,282 @@
+#pragma version 8
+// --- ROUTER ---
+txn ApplicationID
+int 0
+==
+bnz main_l12
+txn OnCompletion
+int 4
+==
+bnz main_l11
+txn OnCompletion
+int 1
+==
+bnz main_l13
+
+// 1. SETUP
+txna ApplicationArgs 0
+byte "create_pool"
+==
+bnz handle_create_pool
+
+// 2. CLAIM (Dual-Mode: Tokens OR Revenue)
+txna ApplicationArgs 0
+byte "claim"
+==
+bnz handle_claim
+
+// 3. DEPOSIT
+txna ApplicationArgs 0
+byte "deposit"
+==
+bnz handle_deposit
+
+// Catch-All
+int 1
+return
+
+// --- LOGIC: CREATE POOL ---
+handle_create_pool:
+global CurrentApplicationAddress
+balance
+store 10 
+
+// Mint 100M Tokens
+itxn_begin
+int acfg
+itxn_field TypeEnum
+txna ApplicationArgs 3 
+itxn_field ConfigAssetName
+txna ApplicationArgs 4 
+itxn_field ConfigAssetUnitName
+int 100000000 
+itxn_field ConfigAssetTotal
+int 0
+itxn_field ConfigAssetDecimals
+global CurrentApplicationAddress
+itxn_field ConfigAssetManager
+itxn_submit
+itxn CreatedAssetID
+store 15 // New Token ID
+
+// Create Box (p_ + IPID)
+txna ApplicationArgs 1
+byte "p_"
+swap
+concat
+store 16 // Box Name
+
+txna ApplicationArgs 5
+len
+int 8
++
+store 17 // Size
+load 16 
+load 17
+box_create
+pop 
+
+// Write Data
+load 16 
+int 0   
+load 15 
+itob    
+box_replace
+load 16 
+int 8   
+txna ApplicationArgs 5 // Allocations
+box_replace
+
+// Refund Excess Algo
+global CurrentApplicationAddress
+min_balance
+store 11
+global CurrentApplicationAddress
+balance
+store 12
+load 12
+load 11
+-
+store 13 
+load 13
+int 100000
+-
+store 14 
+load 14
+int 0
+>
+bz finished_create
+itxn_begin
+int pay
+itxn_field TypeEnum
+txn Sender
+itxn_field Receiver
+load 14
+itxn_field Amount
+int 0
+itxn_field Fee
+itxn_submit
+finished_create:
+int 1
+return
+
+// --- LOGIC: SMART CLAIM ---
+handle_claim:
+// 1. IDENTIFY BOX & TOKEN
+txna ApplicationArgs 1
+byte "p_"
+swap
+concat
+store 20 // Box Name
+
+load 20
+box_len
+bnz box_exists
+err
+box_exists:
+store 50 // Store Box Len
+load 20
+int 0
+int 8
+box_extract
+btoi
+store 21 // Revenue Token ID
+
+// --- PHASE A: CHECK FOR TOKEN DISTRIBUTION ---
+// Loop through Allocations (Offset 8 to End) to see if Sender is owed tokens.
+int 8
+store 30 // Iterator
+
+loop_start:
+load 30
+load 50 // Box Length
+>=
+bnz loop_end // End of list
+
+// Read Address at Iterator (32 bytes)
+load 20
+load 30
+int 32
+box_extract
+txn Sender
+==
+bnz found_stakeholder // Match Found!
+
+// Increment Iterator (32 addr + 8 pct = 40 bytes)
+load 30
+int 40
++
+store 30
+b loop_start
+
+found_stakeholder:
+// FOUND! Sender is in the list.
+// 1. Read Percentage (Next 8 bytes)
+load 20
+load 30
+int 32
++ // Offset to Percentage
+int 8
+box_extract
+btoi
+store 31 // Percentage (e.g. 80)
+
+// 2. Calculate Token Amount: (Pct * TotalSupply / 100)
+load 31
+int 100000000
+mulw
+int 100
+divw
+store 32 // Amount to Send
+
+// 3. Send Revenue Tokens
+itxn_begin
+int axfer
+itxn_field TypeEnum
+txn Sender
+itxn_field AssetReceiver
+load 32
+itxn_field AssetAmount
+load 21 // Token ID
+itxn_field XferAsset
+itxn_submit
+
+// 4. CROSS NAME OFF LIST (Prevent Double Claim)
+// We overwrite their address with 32 zeros
+load 20 // Box Name
+load 30 // Current Offset
+byte 0x0000000000000000000000000000000000000000000000000000000000000000
+box_replace
+
+int 1
+return // DONE (Tokens Sent)
+
+loop_end:
+// --- PHASE B: CHECK FOR USDC PAYOUT ---
+// If we reached here, the user was NOT in the list (or already claimed tokens).
+// Now we check if they HOLD tokens and want USDC.
+
+txn Sender
+load 21
+asset_holding_get AssetBalance
+store 23 // Has Asset?
+store 22 // User Balance
+
+// If they have 0 tokens, just exit (Nothing to do)
+load 22
+int 0
+==
+bnz finished_claim
+
+// Calculate Share of USDC
+global CurrentApplicationAddress
+txna Assets 0 // USDC
+asset_holding_get AssetBalance
+store 25
+store 24 // Pool Total USDC
+
+load 22 // User Tokens
+load 24 // Pool USDC
+mulw
+int 100000000 // Total Supply
+divw
+store 26 // Payout Amount
+
+// If Payout > 0, Send USDC
+load 26
+int 0
+>
+bz finished_claim
+
+itxn_begin
+int axfer
+itxn_field TypeEnum
+txn Sender
+itxn_field AssetReceiver
+load 26
+itxn_field AssetAmount
+txna Assets 0 // USDC
+itxn_field XferAsset
+itxn_submit
+
+finished_claim:
+int 1
+return
+
+// --- LOGIC: DEPOSIT ---
+handle_deposit:
+int 1
+return
+
+// --- STANDARD HANDLERS ---
+main_l11:
+txn Sender
+global CreatorAddress
+==
+return
+main_l12:
+int 1
+return
+main_l13:
+int 1
+return

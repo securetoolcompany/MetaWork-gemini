@@ -1,0 +1,63 @@
+{
+  "Combat Sports": [
+    "fighting",
+    "mma",
+    "boxing",
+    "martial arts",
+    "combat"
+  ],
+  "Photography": [
+    "photo",
+    "photograph",
+    "nature",
+    "urban",
+    "people",
+    "landscape"
+  ],
+  "Nature": [
+    "nature",
+    "wildlife",
+    "landscape",
+    "trees",
+    "forest"
+  ],
+  "Wildlife": [
+    "wildlife",
+    "animals",
+    "birds",
+    "creatures"
+  ],
+  "Animals": [
+    "animal",
+    "dog",
+    "cat",
+    "lion",
+    "elephant"
+  ],
+  "Urban": [
+    "urban",
+    "city",
+    "street",
+    "building",
+    "architecture"
+  ],
+  "Landscapes": [
+    "landscape",
+    "mountains",
+    "hills",
+    "valley"
+  ],
+  "Anime & Cartoons": [
+    "anime",
+    "cartoon",
+    "manga",
+    "animation"
+  ],
+  "Drawings & Paintings": [
+    "drawing",
+    "painting",
+    "sketch",
+    "art",
+    "illustration"
+  ]
+}
