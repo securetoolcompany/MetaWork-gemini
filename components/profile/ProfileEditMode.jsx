@@ -116,7 +116,32 @@ export default function ProfileEditMode({ data, onUpdate }) {
   const [cropperType, setCropperType] = useState(null); // 'hero', 'profile', 'bio'
   const [cropperAspect, setCropperAspect] = useState(16/9);
   const [cropperShape, setCropperShape] = useState('rect');
-  
+  const [isUploading, setIsUploading] = useState(false);
+
+// HELPER: Convert base64 to File object
+  const base64ToFile = async (base64, filename) => {
+    const res = await fetch(base64);
+    const blob = await res.blob();
+    return new File([blob], filename, { type: blob.type });
+  };
+
+  // HELPER: Send file to Cloudinary API
+  const uploadMedia = async (file, type = 'image') => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('type', type);
+    formData.append('folderContext', 'profile-media'); // Organizes inside metawork/{user_id}/profile-media
+
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    });
+    
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Upload failed');
+    return data.url; // The secure Cloudinary URL
+  };
+
   // Setup drag sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -148,46 +173,56 @@ export default function ProfileEditMode({ data, onUpdate }) {
   };
 
   // Handle cropped image result
-  const handleCropComplete = (croppedImage) => {
-    switch (cropperType) {
-      case 'hero':
-        onUpdate({ heroMedia: { type: 'image', url: croppedImage } });
-        toast.success('Hero image updated!');
-        break;
-      case 'profile':
-        onUpdate({ profilePicture: { url: croppedImage } });
-        toast.success('Profile picture updated!');
-        break;
-      case 'bio':
-        onUpdate({ bioImage: { type: 'image', url: croppedImage } });
-        toast.success('Bio image updated!');
-        break;
+  const handleCropComplete = async (croppedImageBase64) => {
+    setIsUploading(true);
+    const loadingToast = toast.loading('Uploading image to Cloudinary...');
+    
+    try {
+      const file = await base64ToFile(croppedImageBase64, `${cropperType}-${Date.now()}.webp`);
+      const secureUrl = await uploadMedia(file, 'image');
+
+      switch (cropperType) {
+        case 'hero':
+          onUpdate({ heroMedia: { type: 'image', url: secureUrl } });
+          break;
+        case 'profile':
+          onUpdate({ profilePicture: { url: secureUrl } });
+          break;
+        case 'bio':
+          onUpdate({ bioImage: { type: 'image', url: secureUrl } });
+          break;
+      }
+      toast.success('Image updated successfully!', { id: loadingToast });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload image.', { id: loadingToast });
+    } finally {
+      setIsUploading(false);
+      setCropperOpen(false);
+      setCropperImage(null);
+      setCropperType(null);
     }
-    setCropperOpen(false);
-    setCropperImage(null);
-    setCropperType(null);
   };
 
-  const handleImageUpload = (file, callback) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      callback(reader.result);
-      toast.success('Image uploaded!');
-    };
-    reader.readAsDataURL(file);
-  };
+  // Handle Video Upload
+  const handleVideoUpload = async (file) => {
+    setIsUploading(true);
+    const loadingToast = toast.loading('Uploading video... this might take a minute.');
 
-  const handleVideoUpload = (file) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
+    try {
+      const secureUrl = await uploadMedia(file, 'video');
       onUpdate({ 
-        bioVideo: { type: 'video', url: reader.result },
+        bioVideo: { type: 'video', url: secureUrl },
         bioMode: 'video'
       });
       setBioMode('video');
-      toast.success('Video uploaded!');
-    };
-    reader.readAsDataURL(file);
+      toast.success('Video uploaded successfully!', { id: loadingToast });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload video.', { id: loadingToast });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleYouTubeUrl = () => {
@@ -428,7 +463,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
               
               {editingField === 'displayName' ? (
                 <Input
-                  value={data.displayName}
+                  value={data.displayName || ''}
                   onChange={(e) => onUpdate({ displayName: e.target.value })}
                   onBlur={() => setEditingField(null)}
                   className="text-4xl md:text-5xl font-bold text-white bg-white/10 border-white/30"
@@ -447,7 +482,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
 
             {editingField === 'tagline' ? (
               <Input
-                value={data.tagline}
+                value={data.tagline || ''}
                 onChange={(e) => onUpdate({ tagline: e.target.value })}
                 onBlur={() => setEditingField(null)}
                 className="text-xl text-white bg-white/10 border-white/30 mb-4"
@@ -832,7 +867,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <Input
-                      value={data.location}
+                      value={data.location || ''}
                       onChange={(e) => onUpdate({ location: e.target.value })}
                       placeholder="City, Country"
                       className="text-sm"
@@ -842,7 +877,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
                     <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                     <Input
                       type="email"
-                      value={data.email}
+                      value={data.email || ''}
                       onChange={(e) => onUpdate({ email: e.target.value })}
                       placeholder="your@email.com"
                       className="text-sm"
@@ -883,7 +918,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
                   </div>
                   <div className="space-y-3">
                     <Input
-                      value={data.tipJar.title}
+                      value={data.tipJar.title || ''}
                       onChange={(e) => onUpdate({
                         tipJar: { ...data.tipJar, title: e.target.value }
                       })}

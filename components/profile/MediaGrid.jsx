@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Trash2, Upload, Video, Music, Image as ImageIcon, Link as LinkIcon } from 'lucide-react';
+import { Plus, Trash2, Upload, Video, Music, Image as ImageIcon, Link as LinkIcon, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function MediaGrid({ 
@@ -22,17 +22,42 @@ export default function MediaGrid({
   const [addMediaDialog, setAddMediaDialog] = useState(false);
   const [selectedMediaType, setSelectedMediaType] = useState('image');
   const [videoUrl, setVideoUrl] = useState('');
+  const [uploadingItemId, setUploadingItemId] = useState(null);
 
-  const handleFileUpload = (file, itemId) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
+  // 🔥 NEW CLOUDINARY UPLOAD LOGIC
+  const handleFileUpload = async (file, itemId) => {
+    if (!file) return;
+
+    setUploadingItemId(itemId);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folderContext', 'profile-media'); // Store in same flat folder
+
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || 'Failed to upload media');
+      }
+
+      // Update the specific item in the gallery with the new Cloudinary URL
       const updatedGallery = currentGallery.map(item =>
-        item.id === itemId ? { ...item, url: reader.result, urlType: 'file' } : item
+        item.id === itemId ? { ...item, url: json.url, urlType: 'file' } : item
       );
+      
       onUpdate({ [galleryKey]: updatedGallery });
-      toast.success('Media uploaded!');
-    };
-    reader.readAsDataURL(file);
+      toast.success('Media uploaded successfully!');
+    } catch (error) {
+      console.error('Upload Error:', error);
+      toast.error(error.message || 'Error uploading file. Please try again.');
+    } finally {
+      setUploadingItemId(null);
+    }
   };
 
   const addMediaSlot = (type) => {
@@ -152,7 +177,15 @@ export default function MediaGrid({
                 )}
               </div>
 
-              <div className="aspect-square border-2 border-dashed rounded-lg overflow-hidden bg-muted">
+              <div className="aspect-square border-2 border-dashed rounded-lg overflow-hidden bg-muted relative">
+                {/* 🔥 Loading Overlay */}
+                {uploadingItemId === item.id && (
+                  <div className="absolute inset-0 z-20 bg-background/80 flex flex-col items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                    <span className="text-xs font-medium">Uploading...</span>
+                  </div>
+                )}
+                
                 {item.url ? (
                   <>
                     {item.type === 'image' && (
@@ -194,6 +227,7 @@ export default function MediaGrid({
                               const file = e.target.files[0];
                               if (file) handleFileUpload(file, item.id);
                             }}
+                            disabled={uploadingItemId === item.id}
                           />
                         </label>
                       </>
@@ -251,6 +285,7 @@ export default function MediaGrid({
                             const file = e.target.files[0];
                             if (file) handleFileUpload(file, item.id);
                           }}
+                          disabled={uploadingItemId === item.id}
                         />
                       </label>
                     )}

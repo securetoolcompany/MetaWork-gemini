@@ -18,29 +18,44 @@ export async function POST(request) {
     
     // Build update object with only provided fields
     const updateFields = {};
-    const allowedFields = ['name', 'bio', 'tagline', 'avatar', 'banner', 'socials'];
+    const allowedFields = [
+      'name', 'displayName', 'bio', 'bioMode', 'bioImage', 'bioVideo', 
+      'bioSectionTitle', 'tagline', 'avatar', 'profilePicture', 'banner', 
+      'heroMedia', 'socials', 'mission', 'missionSectionTitle', 
+      'storySections', 'chaptersSectionTitle', 'country', 'location', 
+      'email', 'phone', 'website', 'tipJar', 'accentColor'
+    ];
     
-    allowedFields.forEach(field => {
-      if (profileData[field] !== undefined) {
-        updateFields[field] = profileData[field];
+    // Allow static fields AND dynamic story section media
+    Object.keys(profileData).forEach(key => {
+      if (allowedFields.includes(key) || key.startsWith('storySection_')) {
+        updateFields[key] = profileData[key];
       }
     });
     
     updateFields.updatedAt = new Date();
     
     const { db } = await connectToDatabase();
-    
-    // Update user profile
+    const query = {
+      $or: [
+        { id: decoded.userId },
+        { _id: decoded.userId }
+      ]
+    };
+
     const result = await db.collection('users').updateOne(
-      { id: decoded.userId },
+      query,
       { $set: updateFields }
     );
-    
+
+    console.log('📝 DB Update Result:', {
+      userId: decoded.userId,
+      matched: result.matchedCount,
+      modified: result.modifiedCount
+    });
+
     if (result.matchedCount === 0) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'User not found' 
-      }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'User not found in DB' }, { status: 404 });
     }
     
     // Return updated user

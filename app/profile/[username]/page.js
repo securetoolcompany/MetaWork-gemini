@@ -43,10 +43,16 @@ useEffect(() => {
       const data = await response.json();
       
       if (data.success) {
-        // Use the profile data directly - API already returns correct format
         setProfileData(data.profile);
         setDraftData(data.profile);
         setIsLoading(false);
+
+        if (typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.get('edit') === 'true') {
+            setIsEditMode(true);
+          }
+        }
       } else {
         throw new Error(data.error || 'Failed to load profile');
       }
@@ -56,18 +62,22 @@ useEffect(() => {
       
       // Fallback to default data
       const defaultData = {
+        userId: user?.id,
         accentColor: '#3b82f6',
-        displayName: username,
+        displayName: user?.name || username || '',
         tagline: 'Your tagline here',
         bio: '',
         bioMode: 'text',
-        bioImage: null,
-        bioVideo: null,
+        bioImage: { type: 'image', url: '' },
+        bioVideo: { type: 'video', url: '' },
+        bioSectionTitle: 'Biography / My Story',
         mission: '',
+        missionSectionTitle: 'Mission / Goal',
+        chaptersSectionTitle: 'Story Chapters',
         storySections: [],
-        country: 'US',
+        country: '',
         location: '',
-        email: '',
+        email: user?.email || '',
         phone: '',
         website: '',
         socials: {
@@ -103,15 +113,27 @@ useEffect(() => {
 
   const handleSaveChanges = async () => {
     try {
-      // TODO: Implement API call to save profile changes
-      // For now, just update local state
-      setProfileData(draftData);
-      setIsEditMode(false);
-      setHasUnsavedChanges(false);
-      toast.success('Profile published successfully!');
+      const response = await fetch('/api/profile-settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(draftData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setProfileData(draftData);
+        setIsEditMode(false);
+        setHasUnsavedChanges(false);
+        toast.success('Profile published successfully!');
+      } else {
+        throw new Error(data.error || 'Failed to save profile');
+      }
     } catch (error) {
       console.error('Error saving profile:', error);
-      toast.error('Failed to save profile');
+      toast.error(error.message || 'Failed to save profile');
     }
   };
 

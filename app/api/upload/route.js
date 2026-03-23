@@ -2,69 +2,72 @@ import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { v2 as cloudinary } from 'cloudinary';
 
-// Init (in lib or top-level)
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
-
 export async function POST(request) {
   try {
-    // Auth check
+    // 🔥 1. Check if variables exist
+    console.log('\n🔍 [DEBUG] Cloudinary Env Check:', {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'MISSING',
+      api_key: process.env.CLOUDINARY_API_KEY || 'MISSING',
+      has_secret: !!process.env.CLOUDINARY_API_SECRET,
+    });
+
+    // 🔥 2. Configure Cloudinary INSIDE the route so it never caches undefined
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+
     const token = request.cookies.get('auth_token')?.value;
-    if (!token) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Unauthorized' 
-      }, { status: 401 });
-    }
+    if (!token) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     
     const decoded = verifyToken(token);
-    if (!decoded?.userId) {
-      return NextResponse.json({ success: false, error: 'Invalid token' }, { status: 401 });
-    }
+    if (!decoded?.userId) return NextResponse.json({ success: false, error: 'Invalid token' }, { status: 401 });
 
     const formData = await request.formData();
     const file = formData.get('file');
-    if (!file) {
-      return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
-    }
+    const resourceType = formData.get('type') || 'image';
+    const folderContext = formData.get('folderContext') || 'ip-assets/default';
     
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const timestamp = Date.now();
-    const ipId = `upload-${timestamp}-0`;
+    if (!file) return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
+    
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(new Uint8Array(arrayBuffer));
     
     const userFolder = `metawork/${decoded.userId}`;
-    const uploadFolder = `${userFolder}/ip-assets/default`;
+    const uploadFolder = `${userFolder}/${folderContext}`;
+
+    const uploadOptions = {
+      folder: uploadFolder,
+      resource_type: resourceType,
+    };
 
     const uploadResult = await new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_stream(
-        { 
-          folder: uploadFolder,
-          resource_type: 'image',
-          transformation: [{ quality: 'auto', fetch_format: 'png' }]  // Optimize for print
-        },
-        (error, result) => error ? reject(error) : resolve(result)
-      ).end(buffer);
+      const stream = cloudinary.uploader.upload_stream(
+        uploadOptions,
+        (error, result) => {
+          if (error) {
+            console.error("Cloudinary stream error:", error);
+            reject(error);
+          } else {
+            resolve(result);
+          }
+        }
+      );
+      stream.end(buffer);
     });
     
     return NextResponse.json({ 
       success: true,
-      id: ipId,
       url: uploadResult.secure_url,
       public_id: uploadResult.public_id,
-      name: file.name,
-      title: 'Uploaded Design',
-      category: 'Upload',
-      licensingFee: 0
+      name: file.name
     });
   } catch (error) {
-    console.error('Upload Error:', error);
+    console.error('\n❌ Upload Error Detailed:', error);
     return NextResponse.json({ 
       success: false, 
-      error: 'Failed to upload file' 
+      error: error.message || 'Server error during upload' 
     }, { status: 500 });
   }
 }
