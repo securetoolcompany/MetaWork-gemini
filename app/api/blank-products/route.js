@@ -1,17 +1,14 @@
 import { NextResponse } from 'next/server';
-import { MongoClient } from 'mongodb';
+import { getDatabase } from '@/lib/mongodb';
 import countries from '@/data/countries.json';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function GET() {
-  const uri = process.env.MONGODB_URI;
-  const client = new MongoClient(uri);
-
   try {
-    await client.connect();
-    const db = client.db('metawork_db');
+    // 2. Use the helper instead of manually creating a client
+    const db = await getDatabase();
     const collection = db.collection('blank_products');
 
     const rawProducts = await collection.find({ isActive: true }).toArray();
@@ -106,8 +103,7 @@ const processedVariants = variants.map(v => {
       }
     );
   } catch (error) {
+    console.error("Blank Products API Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
-  } finally {
-    await client.close();
   }
 }

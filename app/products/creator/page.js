@@ -113,7 +113,35 @@ function ProductCreatorInner() {
   }
 }, [externalProductId, accountAddress]);
 
-  // NEW: Image upload handler
+  const addIPToDesign = useCallback((ip) => {
+    console.log('addIPToDesign called with:', ip)
+    const instance = pfDesignMakerRef.current
+    console.log('EDM instance present?', !!instance)
+    const imageUrl = ip.imageUrl || ip.thumbnailUrl
+    console.log('imageUrl:', imageUrl)
+
+    if (!instance || !imageUrl) {
+      console.warn('Cannot send to EDM:', { hasInstance: !!instance, imageUrl })
+      return
+    }
+
+    // Add to selected IPs (replace if exists)
+    setSelectedIPs((prev) =>
+      prev.some((p) => p.id === ip.id)
+        ? prev.map((p) => (p.id === ip.id ? ip : p))
+        : [...prev, ip]
+    )
+
+    try {
+      console.log('sendMessage setUrlImageLayer:', imageUrl)
+      instance.sendMessage({ event: 'setUrlImageLayer', url: imageUrl })
+    } catch (err) {
+      console.error('sendMessage failed:', err)
+      toast.error('Failed to add image to designer')
+    }
+  }, [pfDesignMakerRef])
+
+// NEW: Image upload handler
   const handleImageUpload = useCallback(async (file) => {
     if (!file) return;
     
@@ -143,34 +171,6 @@ function ProductCreatorInner() {
       console.error(err);
     }
   }, [addIPToDesign]);
-
-  const addIPToDesign = useCallback((ip) => {
-    console.log('addIPToDesign called with:', ip)
-    const instance = pfDesignMakerRef.current
-    console.log('EDM instance present?', !!instance)
-    const imageUrl = ip.imageUrl || ip.thumbnailUrl
-    console.log('imageUrl:', imageUrl)
-
-    if (!instance || !imageUrl) {
-      console.warn('Cannot send to EDM:', { hasInstance: !!instance, imageUrl })
-      return
-    }
-
-    // Add to selected IPs (replace if exists)
-    setSelectedIPs((prev) =>
-      prev.some((p) => p.id === ip.id)
-        ? prev.map((p) => (p.id === ip.id ? ip : p))
-        : [...prev, ip]
-    )
-
-    try {
-      console.log('sendMessage setUrlImageLayer:', imageUrl)
-      instance.sendMessage({ event: 'setUrlImageLayer', url: imageUrl })
-    } catch (err) {
-      console.error('sendMessage failed:', err)
-      toast.error('Failed to add image to designer')
-    }
-  }, [pfDesignMakerRef])
 
   // Load initial showroom IP
   useEffect(() => {
