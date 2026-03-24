@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProductDialog } from '@/app/providers/ProductDialogProvider';
+import Link from 'next/link';
 
 const THEME_COLORS = {
   'dark-professional': { bg: '#0f172a', card: '#1e293b', text: '#ffffff', muted: '#64748b' },
@@ -112,10 +113,10 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
                 const displayTitle = featuredItem.name || featuredItem.title || 'Untitled Item';
                 
                 return (
-                  <div 
-                    className="mb-8 rounded-xl overflow-hidden border border-border shadow-lg flex flex-col cursor-pointer hover:shadow-xl transition-all hover:scale-[1.01]" 
+                  <Link 
+                    href={`/products/${featuredItem.id || featuredItem._id?.toString()}`}
+                    className="mb-8 rounded-xl overflow-hidden border border-border shadow-lg flex flex-col cursor-pointer hover:shadow-xl transition-all hover:scale-[1.01] block" 
                     style={{ backgroundColor: theme.card }}
-                    onClick={() => openProduct(featuredItem.id || featuredItem._id?.toString())}
                   >
                     <div className="w-full aspect-video md:aspect-[21/9] relative bg-black/5">
                       <img 
@@ -142,7 +143,7 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 );
               })()
             )}
@@ -319,10 +320,10 @@ function ProductCard({ product, theme, accentColor, cardStyle, showSalesCounter,
   const displayTitle = product.name || product.title || 'Untitled Item';
   
   return (
-    <div 
-      className="rounded-md overflow-hidden hover:shadow-lg transition-transform hover:-translate-y-1 h-full flex flex-col cursor-pointer" 
+    <Link 
+      href={`/products/${product.id || product._id?.toString()}`}
+      className="rounded-md overflow-hidden hover:shadow-lg transition-transform hover:-translate-y-1 h-full flex flex-col cursor-pointer block" 
       style={{ backgroundColor: theme.card }}
-      onClick={() => openProduct && openProduct(product.id || product._id?.toString())}
     >
       
       {/* 1. Image Area */}
@@ -374,6 +375,6 @@ function ProductCard({ product, theme, accentColor, cardStyle, showSalesCounter,
            </div>
         )}
       </div>
-    </div>
+    </Link>
   );
 }

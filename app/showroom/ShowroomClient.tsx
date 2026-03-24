@@ -332,7 +332,6 @@ export default function ShowroomClient() {
 
   return (
     <div className="min-h-screen bg-[#020617] text-white selection:bg-emerald-500/30">
-        <ShowroomNav />
         <ShowroomHero
     stats={stats}
     searchQuery={searchQuery}

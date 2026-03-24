@@ -195,7 +195,6 @@ export default function PublicAislePage() {
                         key={product._id} 
                         product={product} 
                         accentColor={settings.accentColor}
-                        onClick={() => handleSelectItem(product)} 
                       />
                     ))}
                   </div>
@@ -205,18 +204,6 @@ export default function PublicAislePage() {
           </div>
         </div>
       </div>
-
-      {/* Deep-Linked Modal */}
-      {selectedItem && (
-        <ProductDetailDialog
-          open={isDialogOpen}
-          onOpenChange={(open) => {
-            if (!open) handleCloseDialog();
-          }}
-          productId={selectedItem._id?.toString() || selectedItem.id}
-        />
-      )}
-
       <AisleFooter creator={creator} />
     </div>
   );

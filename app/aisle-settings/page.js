@@ -545,77 +545,77 @@ const addSection = () => {
 
                                   {/* Selection Logic */}
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <div className="space-y-2">
-    <Label>Content Type</Label>
-    <Select
-      value={section.displayType}
-      onValueChange={(val) => updateSection(section.id, { 
-        displayType: val, 
-        category: null, 
-        collectionId: null,
-        // Sync the internal type based on the selection
-        type: val.includes('ip-assets') ? 'ip-assets' : 'products'
-      })}
-    >
-      <SelectTrigger className="bg-background">
-        <SelectValue placeholder="Select source..." />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all-products">All My Products</SelectItem>
-        <SelectItem value="all-ip-assets">All My IP Assets</SelectItem>
-        <SelectItem value="category">Specific Category</SelectItem>
-        <SelectItem value="collection">Hand-Picked Collection</SelectItem>
-      </SelectContent>
-    </Select>
-  </div>
+                                    <div className="space-y-2">
+                                      <Label>Content Type</Label>
+                                      <Select
+                                        value={section.displayType}
+                                        onValueChange={(val) => updateSection(section.id, { 
+                                          displayType: val, 
+                                          category: null, 
+                                          collectionId: null,
+                                          // Sync the internal type based on the selection
+                                          type: val.includes('ip-assets') ? 'ip-assets' : 'products'
+                                        })}
+                                      >
+                                        <SelectTrigger className="bg-background">
+                                          <SelectValue placeholder="Select source..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="all-products">All My Products</SelectItem>
+                                          <SelectItem value="all-ip-assets">All My IP Assets</SelectItem>
+                                          <SelectItem value="category">Specific Category</SelectItem>
+                                          <SelectItem value="collection">Hand-Picked Collection</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
 
-  {/* DYNAMIC CATEGORY SELECTOR */}
-  {section.displayType === 'category' && (
-    <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-      <Label>Select Category</Label>
-      <Select
-        value={section.category || ''}
-        onValueChange={(val) => updateSection(section.id, { category: val, title: val })}
-      >
-        <SelectTrigger className="bg-background">
-          <SelectValue placeholder="Choose category..." />
-        </SelectTrigger>
-        <SelectContent>
-          {[...new Set(
-            (section.type === 'products' ? products : ipAssets)
-              .flatMap(item => Array.isArray(item.categories) ? item.categories : (item.category ? [item.category] : []))
-              .filter(Boolean)
-          )].sort().map(cat => (
-            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )}
+                                    {/* DYNAMIC CATEGORY SELECTOR */}
+                                    {section.displayType === 'category' && (
+                                      <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                                        <Label>Select Category</Label>
+                                        <Select
+                                          value={section.category || ''}
+                                          onValueChange={(val) => updateSection(section.id, { category: val, title: val })}
+                                        >
+                                          <SelectTrigger className="bg-background">
+                                            <SelectValue placeholder="Choose category..." />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {[...new Set(
+                                              (section.type === 'products' ? products : ipAssets)
+                                                .flatMap(item => Array.isArray(item.categories) ? item.categories : (item.category ? [item.category] : []))
+                                                .filter(Boolean)
+                                            )].sort().map(cat => (
+                                              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                    )}
 
-  {/* COLLECTION SELECTOR (Keep your existing one, but add the Plus button) */}
-  {section.displayType === 'collection' && (
-    <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
-      <Label>Select Collection</Label>
-      <div className="flex gap-2">
-        <Select
-          value={section.collectionId || ''}
-          onValueChange={(val) => updateSection(section.id, { collectionId: val })}
-        >
-          <SelectTrigger className="flex-1"><SelectValue placeholder="Choose group..." /></SelectTrigger>
-          <SelectContent>
-            {collections.map(col => (
-              <SelectItem key={col.id} value={col.id}>{col.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button variant="outline" size="icon" onClick={() => { createCollection(); setActiveTab('collections'); }}>
-          <Plus className="w-4 h-4" />
-        </Button>
-      </div>
-    </div>
-  )}
-</div>
+                                    {/* COLLECTION SELECTOR (Keep your existing one, but add the Plus button) */}
+                                    {section.displayType === 'collection' && (
+                                      <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                                        <Label>Select Collection</Label>
+                                        <div className="flex gap-2">
+                                          <Select
+                                            value={section.collectionId || ''}
+                                            onValueChange={(val) => updateSection(section.id, { collectionId: val })}
+                                          >
+                                            <SelectTrigger className="flex-1"><SelectValue placeholder="Choose group..." /></SelectTrigger>
+                                            <SelectContent>
+                                              {collections.map(col => (
+                                                <SelectItem key={col.id} value={col.id}>{col.name}</SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                          <Button variant="outline" size="icon" onClick={() => { createCollection(); setActiveTab('collections'); }}>
+                                            <Plus className="w-4 h-4" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
                                 </CardContent>
                               </Card>
                             </div>
