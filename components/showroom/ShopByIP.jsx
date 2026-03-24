@@ -265,7 +265,7 @@ export default function ShopByIP({
                 return (
                   <Link 
                     key={assetId}
-                    href={`/showroom/ip/${assetId}`}
+                    href={`/ip/${assetId}`}
                     className="bg-[#111] rounded-2xl overflow-hidden border border-white/5 flex flex-col h-full hover:border-emerald-500/30 transition-all cursor-pointer block"
                   >
                     {/* Image */}

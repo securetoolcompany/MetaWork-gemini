@@ -105,7 +105,7 @@ export default function TrendingProductsSection() {
             const salesCount = product.salesCount || 0;
             
             return (
-              <Link key={product.id} href={`/showroom/product/${product.id}`}>
+              <Link key={product.id} href={`/products/${product.id}`}>
                 <Card className="group overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
                   {/* Product Image */}
                   <div className="relative aspect-square overflow-hidden bg-muted">

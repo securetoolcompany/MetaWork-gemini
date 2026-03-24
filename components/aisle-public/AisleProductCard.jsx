@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link'; // <-- Added Link import
 import { ShoppingCart, Star, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,24 +11,17 @@ export default function AisleProductCard({
   cardStyle, 
   accentColor,
   showReviews,
-  showSalesCounter,
-  onClick // Received from PublicAislePage to sync URL
+  showSalesCounter
 }) {
-
-  // Centralized click handler that notifies the parent to update URL
-  const handleCardClick = () => {
-    if (onClick) {
-      onClick(product);
-    }
-  };
+  
+  // Notice we removed the custom onClick handler.
+  // The Link component handles the navigation and triggers the intercepting route.
+  const productUrl = `/products/${product.id}`;
 
   // Minimal Card Style
   if (cardStyle === 'minimal') {
     return (
-      <div 
-        className="group cursor-pointer"
-        onClick={handleCardClick}
-      >
+      <Link href={productUrl} className="group cursor-pointer block">
         <div className="relative aspect-square overflow-hidden rounded-lg mb-3">
           <Image
             src={product.imageUrl || product.thumbnailUrl}
@@ -44,17 +38,14 @@ export default function AisleProductCard({
             ${(product.price || 0).toFixed(2)}
           </p>
         </div>
-      </div>
+      </Link>
     );
   }
 
   // Detailed Card Style
   if (cardStyle === 'detailed') {
     return (
-      <div 
-        className="group cursor-pointer border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow bg-card"
-        onClick={handleCardClick}
-      >
+      <Link href={productUrl} className="group cursor-pointer block border border-border rounded-lg overflow-hidden hover:shadow-lg transition-shadow bg-card">
         <div className="relative aspect-square overflow-hidden">
           <Image
             src={product.imageUrl || product.thumbnailUrl}
@@ -101,26 +92,21 @@ export default function AisleProductCard({
               size="sm"
               style={{ backgroundColor: accentColor }}
               className="text-white border-none"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCardClick();
-              }}
+              // We can keep the button, but it just acts as a visual element now
+              // since the whole card is wrapped in a Link.
             >
               <ShoppingCart className="w-4 h-4 mr-1" />
               View
             </Button>
           </div>
         </div>
-      </div>
+      </Link>
     );
   }
 
   // Standard Card Style (default)
   return (
-    <div 
-      className="group cursor-pointer border border-border rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-card"
-      onClick={handleCardClick}
-    >
+    <Link href={productUrl} className="group cursor-pointer block border border-border rounded-lg overflow-hidden hover:shadow-md transition-shadow bg-card">
       <div className="relative aspect-square overflow-hidden">
         <Image
           src={product.imageUrl || product.thumbnailUrl}
@@ -154,15 +140,11 @@ export default function AisleProductCard({
           <Button 
             size="sm" 
             variant="outline"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCardClick();
-            }}
           >
             View
           </Button>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

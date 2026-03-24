@@ -1,156 +1,474 @@
 'use client';
 
-import { use, useState, useEffect } from 'react'; // Added 'use' here
-import { useRouter } from 'next/navigation';
-import { useWallet } from '@/lib/WalletContext';
-import { useAuth } from '@/lib/AuthContext';
-import ProductDetailPage from '@/components/showroom/ProductDetailDialog';
-import { Loader2, Save, ExternalLink, Settings2, BarChart3, Package } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ArrowLeft, ShoppingCart, Star, TrendingUp, Heart, Share2, Check, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import AisleAdPlacement from '@/components/aisle-public/AisleAdPlacement';
+import ShowroomNav from '@/components/showroom/ShowroomNav';
+import { useCart } from '@/contexts/CartContext';
 
-export default function SmartProductPage({ params }) {
-  const { id } = use(params);
-  const router = useRouter(); // Initialize router
-  const { accountAddress, isConnected } = useWallet();
-  const { user } = useAuth();
+const productSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+const productColors = [
+  { name: 'Black', hex: '#000000' },
+  { name: 'White', hex: '#FFFFFF' },
+  { name: 'Navy', hex: '#1e3a8a' },
+  { name: 'Red', hex: '#dc2626' },
+  { name: 'Green', hex: '#16a34a' },
+];
+
+// Reviews will come from API in future, keeping mock for now
+const mockReviews = [
+  { id: 1, author: 'Sarah M.', rating: 5, date: '2024-01-15', comment: 'Amazing quality! The design is even better in person. Highly recommend!', verified: true },
+  { id: 2, author: 'Mike R.', rating: 5, date: '2024-01-12', comment: 'Perfect fit and the print quality is outstanding. Will definitely buy more!', verified: true },
+  { id: 3, author: 'Emma L.', rating: 4, date: '2024-01-10', comment: 'Great product! Only wish it came in more colors.', verified: true },
+  { id: 4, author: 'Alex K.', rating: 5, date: '2024-01-08', comment: 'Fast shipping and excellent customer service. Love the design!', verified: false },
+];
+
+export default function ProductDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const productId = params.id;
+  const { addToCart } = useCart();
   
   const [product, setProduct] = useState(null);
+  const [creator, setCreator] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  const [selectedSize, setSelectedSize] = useState('M');
+  const [selectedColor, setSelectedColor] = useState(productColors[0]);
+  const [quantity, setQuantity] = useState(1);
+  const [isFavorited, setIsFavorited] = useState(false);
 
-  // 1. DATA FETCHING
+  // Fetch product from API
   useEffect(() => {
     async function fetchProduct() {
       try {
-        const res = await fetch(`/api/products/${id}`);
-        const data = await res.json();
-        if (data.success) setProduct(data.product);
+        setLoading(true);
+        const response = await fetch(`/api/products/${productId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          setProduct(data.product);
+          setCreator(data.creator);
+          setRelatedProducts(data.relatedProducts || []);
+        } else {
+          setError(data.error || 'Product not found');
+        }
       } catch (err) {
-        console.error("Failed to fetch product", err);
+        console.error('Error fetching product:', err);
+        setError('Failed to load product');
       } finally {
         setLoading(false);
       }
     }
-    fetchProduct();
-  }, [id]);
+    
+    if (productId) {
+      fetchProduct();
+    }
+  }, [productId]);
 
-  // 2. THE SAVE LOGIC
-  const handleUpdateProduct = async (updatedData) => {
-    try {
-      const res = await fetch(`/api/products/${product.id || product._id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedData),
+  const handleAddToCart = () => {
+    if (!product) return;
+    addToCart(product, {
+      size: selectedSize,
+      color: selectedColor,
+      quantity: quantity,
+    });
+  };
+
+  const handleShare = () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      navigator.share({
+        title: product?.title || product?.name || 'Product',
+        text: `Check out this product on MetaWork Showroom!`,
+        url: url
       });
-
-      const text = await res.text(); 
-      const data = text ? JSON.parse(text) : {}; 
-
-      if (!res.ok) throw new Error(data.error || 'Update failed');
-
-      setProduct(prev => ({ ...prev, ...updatedData }));
-      toast.success('Sync Successful');
-    } catch (err) {
-      console.error("Save Error:", err);
-      toast.error(err.message);
+    } else {
+      navigator.clipboard.writeText(url);
+      toast.success('Link copied to clipboard!');
     }
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-emerald-500" /></div>;
-  if (!product) return <div className="p-20 text-center font-mono">PRODUCT_NOT_FOUND_IN_VAULT</div>;
+    // Simple derived value instead of useMemo
+  const uniqueSizes = (product?.variants || [])
+    .map((v) => v.size)
+    .filter(Boolean)
+    .filter((value, index, self) => self.indexOf(value) === index);
 
-  // 3. THE GATEKEEPER
-  const isOwner = isConnected && (
-    accountAddress === product.creatorAddress || 
-    user?.id === (product.creatorId || product.userId) ||
-    user?.userId === product.userId
-  );
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <ShowroomNav />
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <span className="ml-2 text-muted-foreground">Loading product...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Error or not found state
+  if (error || !product) {
+    return (
+      <div className="min-h-screen bg-background">
+        <ShowroomNav />
+        <div className="flex items-center justify-center py-24">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold mb-4">Product Not Found</h1>
+            <p className="text-muted-foreground mb-6">{error || "This product doesn't exist or has been removed."}</p>
+            <Link href="/showroom">
+              <Button>Back to Showroom</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Get product display values
+  const productName = product.title || product.name || 'Product';
+  const productPrice = product.price || 0;
+  const productImage = product.imageUrl || '/placeholder.png';
+  const productDescription = product.description || 'This unique design combines style and comfort. Perfect for everyday wear or special occasions.';
+  const productBaseType = product.baseProduct || product.catalogProductName || 'Product';
+  const salesCount = product.salesCount || 0;
+  const creatorSlug = creator?.username || creator?.id || 'unknown';
+
+  // Calculate average rating from reviews
+  const averageRating = mockReviews.length > 0 
+  ? mockReviews.reduce((sum, r) => sum + r.rating, 0) / mockReviews.length 
+  : 4.8;
 
   return (
-    <>
-      {isOwner ? (
-        <div className="min-h-screen bg-[#020617] text-white p-8">
-          <div className="max-w-7xl mx-auto space-y-8">
-            
-            {/* TOP COMMAND BAR */}
-            <div className="flex justify-between items-center bg-emerald-500/5 border border-emerald-500/20 p-6 rounded-2xl backdrop-blur-md">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-lg bg-emerald-500/20 flex items-center justify-center border border-emerald-500/40">
-                  <Settings2 className="text-emerald-500" />
+    <div className="min-h-screen bg-background">
+      <ShowroomNav />
+
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+          <Link href="/showroom" className="hover:text-foreground">
+            Showroom
+          </Link>
+          <span>/</span>
+          <span className="text-foreground">{productName}</span>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-8">
+          <div className="flex-1">
+            <div className="grid md:grid-cols-2 gap-8 mb-12">
+              {/* Product Image Display */}
+              <div className="space-y-4">
+                <div className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                  {productImage ? (
+                    <Image
+                      src={productImage}
+                      alt={productName}
+                      fill
+                      className="object-cover"
+                      priority
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                      No Image
+                    </div>
+                  )}
+                  {salesCount > 20 && (
+                    <Badge className="absolute top-4 right-4 bg-red-500 text-white">
+                      🔥 Trending
+                    </Badge>
+                  )}
                 </div>
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight">Industrial Command Center</h1>
-                  <p className="text-emerald-500/60 font-mono text-xs uppercase tracking-widest">ID: {product.id || product._id}</p>
+                {/* Thumbnail Gallery */}
+                <div className="grid grid-cols-4 gap-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="relative aspect-square rounded-md overflow-hidden border-2 border-primary cursor-pointer bg-muted">
+                      {productImage && (
+                        <Image src={productImage} alt={`View ${i}`} fill className="object-cover" />
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="flex gap-3">
-                <Button 
-                  variant="outline" 
-                  className="bg-transparent border-white/10 hover:bg-white/5"
-                  onClick={() => window.open(`/showroom/${product.id}`, '_blank')}
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" /> View Public Page
-                </Button>
-                <Button 
-                  className="bg-emerald-600 hover:bg-emerald-700"
-                  onClick={() => handleUpdateProduct({ status: 'active' })}
-                >
-                  <Save className="w-4 h-4 mr-2" /> Sync Changes
-                </Button>
+
+              {/* Product Information and Controls */}
+              <div className="space-y-6">
+                <div>
+                  <h1 className="text-3xl font-bold mb-2">{productName}</h1>
+                  <p className="text-muted-foreground">{productBaseType}</p>
+                </div>
+
+                {/* Rating */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star
+                        key={star}
+                        className={`w-5 h-5 ${
+                          star <= Math.round(averageRating)
+                            ? 'fill-yellow-400 text-yellow-400'
+                            : 'text-gray-300'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="font-semibold">{averageRating.toFixed(1)}</span>
+                  <span className="text-muted-foreground">({mockReviews.length} reviews)</span>
+                  <span className="text-muted-foreground">•</span>
+                  <span className="text-muted-foreground">{salesCount} sold</span>
+                </div>
+
+                {/* Price: Derived from Creator's DB entry */}
+                <div className="flex items-baseline gap-3">
+                  <span className="text-4xl font-bold text-primary">${productPrice.toFixed(2)}</span>
+                  <span className="text-xl text-muted-foreground line-through">${(productPrice * 1.3).toFixed(2)}</span>
+                  <Badge variant="secondary">Save 30%</Badge>
+                </div>
+
+                <Separator />
+
+                {/* Size Selector: Populated from live Printful variants */}
+                {uniqueSizes.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-semibold mb-3">
+                      Available Sizes
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {uniqueSizes.map((size) => (
+                        <Button
+                          key={size}
+                          variant={
+                            selectedSize === size ? 'default' : 'outline'
+                          }
+                          onClick={() => setSelectedSize(size)}
+                          className="min-w-[64px]"
+                        >
+                          {size}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quantity Control */}
+                <div>
+                  <label className="block text-sm font-semibold mb-3">
+                    Quantity
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() =>
+                        setQuantity((q) => Math.max(1, q - 1))
+                      }
+                    >
+                      -
+                    </Button>
+                    <span className="w-12 text-center font-bold text-lg">
+                      {quantity}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setQuantity((q) => q + 1)}
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Main Actions */}
+                <div className="space-y-3">
+                  <Button
+                    className="w-full text-lg py-7 shadow-lg"
+                    onClick={handleAddToCart}
+                  >
+                    <ShoppingCart className="w-5 h-5 mr-2" />
+                    Add to Cart - ${(productPrice * quantity).toFixed(2)}
+                  </Button>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsFavorited(!isFavorited)}
+                      className="gap-2"
+                    >
+                      <Heart
+                        className={`w-5 h-5 ${
+                          isFavorited
+                            ? 'fill-red-500 text-red-500 border-none'
+                            : ''
+                        }`}
+                      />
+                      {isFavorited ? 'Saved' : 'Save'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.href);
+                        toast.success('Link copied!');
+                      }}
+                      className="gap-2"
+                    >
+                      <Share2 className="w-5 h-5" />
+                      Share
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Navigation Buttons */}
+                <div className="grid grid-cols-2 gap-3 pt-4">
+                  <Link href="/showroom">
+                    <Button variant="outline" className="w-full gap-2">
+                      <ArrowLeft className="w-4 h-4" />
+                      Back to Showroom
+                    </Button>
+                  </Link>
+                  {creator && (
+                    <Link href={`/aisle/${creatorSlug}`}>
+                      <Button variant="outline" className="w-full gap-2">
+                        Visit Creator's Aisle
+                        <TrendingUp className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* MANAGEMENT PANELS */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 space-y-6">
-                <div className="bg-slate-900/40 border border-white/5 p-8 rounded-2xl">
-                  <h3 className="text-lg font-semibold mb-6">Product Configuration</h3>
-                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/10">
+            {/* Information Tabs: Details and Shipping */}
+            <Tabs defaultValue="details">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="details">Product Specs</TabsTrigger>
+                <TabsTrigger value="shipping">Shipping & Returns</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="details" className="mt-6">
+                <Card className="p-6">
+                  <h3 className="text-lg font-semibold mb-4">Product Description</h3>
+                  <p className="text-muted-foreground mb-4">{productDescription}</p>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="font-medium">Listed on Aisle</p>
-                      <p className="text-sm text-slate-500">Ready for customers to purchase.</p>
+                      <span className="font-bold text-foreground block mb-1">
+                        Fulfillment
+                      </span>
+                      <span className="text-muted-foreground">
+                        Direct-to-Garment (DTG)
+                      </span>
                     </div>
-                    <button 
-                      onClick={() => handleUpdateProduct({ isPublic: !product.isPublic })}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${product.isPublic ? 'bg-emerald-600' : 'bg-slate-700'}`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${product.isPublic ? 'translate-x-6' : 'translate-x-1'}`} />
-                    </button>
+                    <div>
+                      <span className="font-bold text-foreground block mb-1">
+                        Production
+                      </span>
+                      <span className="text-muted-foreground">
+                        On-demand (approx. 2-5 days)
+                      </span>
+                    </div>
                   </div>
-                  <div className="mt-8 aspect-video bg-black/20 rounded-xl border border-dashed border-white/10 flex items-center justify-center overflow-hidden">
-                    <img src={product.imageUrl} alt="Preview" className="max-h-full object-contain" />
-                  </div>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="shipping" className="mt-6">
+                <Card className="p-6 text-muted-foreground">
+                  Orders are typically fulfilled within 2-5 business days.
+                  Shipping rates and delivery estimates are calculated at
+                  checkout based on your location.
+                </Card>
+              </TabsContent>
+            </Tabs>
+
+            {/* Related Products */}
+            {relatedProducts.length > 0 && (
+              <div>
+                <h3 className="text-2xl font-bold mb-6">You May Also Like</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {relatedProducts.map((relatedProduct) => (
+                    <Link key={relatedProduct.id} href={`/showroom/product/${relatedProduct.id}`}>
+                      <Card className="group overflow-hidden cursor-pointer transition-all hover:shadow-lg">
+                        <div className="relative aspect-square overflow-hidden bg-muted">
+                          {relatedProduct.imageUrl ? (
+                            <Image
+                              src={relatedProduct.imageUrl}
+                              alt={relatedProduct.name || relatedProduct.title || 'Product'}
+                              fill
+                              className="object-cover group-hover:scale-105 transition-transform"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                              No Image
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <h4 className="font-semibold text-sm mb-1 line-clamp-1">
+                            {relatedProduct.name || relatedProduct.title || 'Product'}
+                          </h4>
+                          <p className="text-lg font-bold text-primary">
+                            ${(relatedProduct.price || 0).toFixed(2)}
+                          </p>
+                        </div>
+                      </Card>
+                    </Link>
+                  ))}
                 </div>
               </div>
+            )}
+          </div>
 
-              <div className="space-y-6">
-                <div className="bg-slate-900/40 border border-white/5 p-6 rounded-2xl">
-                  <h4 className="font-bold mb-4 uppercase text-xs tracking-widest text-slate-500">Performance</h4>
-                  <div className="space-y-3 mb-6">
-                    <div className="flex justify-between text-sm"><span>Total Sales</span><span>{product.salesCount || 0} units</span></div>
-                    <div className="flex justify-between text-sm"><span>Net Profit</span><span className="text-emerald-500">${product.earnings?.toFixed(2) || '0.00'}</span></div>
-                  </div>
-                  <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => router.push('/dashboard/revenue')}>
-                    Claim Revenue Tokens
-                  </Button>
-                </div>
-
-                <div className="bg-slate-900/40 border border-white/5 p-6 rounded-2xl space-y-3">
-                  <h4 className="font-bold mb-2 uppercase text-xs tracking-widest text-slate-500">External Tools</h4>
-                  <Button variant="outline" className="w-full justify-start border-white/10" onClick={() => window.open(`/showroom/${product.id}`, '_blank')}>
-                    <ExternalLink className="w-4 h-4 mr-2" /> View in Showroom
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start border-white/10" onClick={() => router.push(`/tools/qr?productId=${product.id}`)}>
-                    <Package className="w-4 h-4 mr-2" /> Generate Product QR
-                  </Button>
-                </div>
-              </div>
+          {/* Sidebar */}
+          <div className="hidden lg:block w-64 flex-shrink-0">
+            <div className="sticky top-20 space-y-6">
+              <AisleAdPlacement type="sidebar" accentColor="#3b82f6" />
+              
+              {/* Creator Info Card */}
+              {creator && (
+                <Card className="p-4">
+                  <h4 className="font-semibold mb-3">About the Creator</h4>
+                  <Link href={`/aisle/${creatorSlug}`}>
+                    <div className="flex items-center gap-3 mb-3 cursor-pointer hover:opacity-80">
+                      <div className="relative w-12 h-12 rounded-full overflow-hidden bg-muted">
+                        {creator.avatar ? (
+                          <Image src={creator.avatar} alt={creator.name || 'Creator'} fill className="object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
+                            {(creator.name || 'C')[0]}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-semibold">{creator.name || creator.username || 'Creator'}</p>
+                        <p className="text-xs text-muted-foreground">@{creator.username || 'creator'}</p>
+                      </div>
+                    </div>
+                  </Link>
+                  {creator.bio && (
+                    <p className="text-sm text-muted-foreground mb-3">{creator.bio}</p>
+                  )}
+                  <Link href={`/aisle/${creatorSlug}`}>
+                    <Button variant="outline" size="sm" className="w-full">
+                      Visit Aisle
+                    </Button>
+                  </Link>
+                </Card>
+              )}
             </div>
           </div>
         </div>
-      ) : (
-        <ProductDetailPage product={product} />
-      )}
-    </>
+      </div>
+    </div>
   );
 }

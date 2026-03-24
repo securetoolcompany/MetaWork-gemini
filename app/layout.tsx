@@ -12,9 +12,10 @@ import { ProductDialogProvider } from '@/app/providers/ProductDialogProvider';
 
 type RootLayoutProps = {
   children: ReactNode;
+  modal: ReactNode; // <-- Added modal prop
 };
 
-export default function RootLayout({ children }: RootLayoutProps) {
+export default function RootLayout({ children, modal }: RootLayoutProps) { // <-- Added modal prop
   const pathname = usePathname();
   const isPublicAisle = pathname?.startsWith('/aisle/');
   const isShowroom = pathname?.startsWith('/showroom');
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
                   </div>
                 </div>
               )}
+              {modal} {/* <-- Added modal render slot here */}
               </ProductDialogProvider>
             </CartProvider>
           </WalletProvider>
