@@ -4,9 +4,9 @@ import { useState, useEffect, useRef, useCallback, Suspense, useMemo } from 'rea
 import { useWallet } from 'lib/WalletContext'
 import { Button } from 'components/ui/button'
 import { Input } from 'components/ui/input'
-import { Sheet, SheetContent, SheetTitle } from 'components/ui/sheet'
+import {  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from 'components/ui/dialog'
 import { Badge } from 'components/ui/badge'
-import { Loader2, ArrowLeft, Search, Database, ChevronRight, Info, Globe, Truck, Fingerprint } from 'lucide-react'
+import { Loader2, ArrowLeft, Search, Database, ChevronRight, Info, Globe, Truck, Fingerprint, Link } from 'lucide-react'
 import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
 import { BlankProductCard } from 'components/product-creator/BlankProductCard'
@@ -43,12 +43,20 @@ const TOP_LEVEL_GROUPS = {
   'School University': ['Backpacks', 'Study']
 }
 
+const generateSlug = (text) => {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with hyphens
+    .replace(/(^-|-$)/g, '');    // Trim leading/trailing hyphens
+};
+
 function ProductCreatorInner() {
   const { accountAddress } = useWallet()
   const pfDesignMakerRef = useRef(null)
   const edmSaveResolveRef = useRef(null)
   const currentNonceRef = useRef(null)
   const edmSaveTimeoutRef = useRef(null);
+  const justClosedRef = useRef(false);
 
   const searchParams = useSearchParams()
   const urlExternalProductId = searchParams.get('externalProductId')
@@ -83,6 +91,20 @@ function ProductCreatorInner() {
 });
   console.log('🔍 SAVE STATE:', { printfulTemplateId, externalProductId, selectedIPs: selectedIPs.length });
 
+  const inspectSlug = searchParams.get('inspect');
+    useEffect(() => {
+    // If we just closed it manually, don't let the URL re-open it
+    if (justClosedRef.current) return;
+
+    if (inspectSlug && catalogProducts.length > 0 && !inspectingProduct) {
+      const productToInspect = catalogProducts.find(
+        (p) => generateSlug(p.name) === inspectSlug
+      );
+      if (productToInspect) {
+        setInspectingProduct(productToInspect);
+      }
+    }
+  }, [inspectSlug, catalogProducts, inspectingProduct]);
   
   // Reset IPs when blank/product changes
   useEffect(() => {
@@ -795,7 +817,14 @@ useEffect(() => {
                         <BlankProductCard
                           key={p.id}
                           product={p}
-                          onInspect={() => setInspectingProduct(p)}
+                          onInspect={() => {
+                            // 1. Open the dialog locally
+                            setInspectingProduct(p);
+                            // 2. Update the URL for shareability
+                            const url = new URL(window.location);
+                            url.searchParams.set('inspect', generateSlug(p.name));
+                            window.history.pushState({}, '', url);
+                          }}
                           onSelect={(prod) => {
                             console.log('Selecting blank with current initialShowroomIP:', initialShowroomIP)
                             setSelectedBlank(prod)
@@ -862,236 +891,166 @@ useEffect(() => {
         )}
       </div>
 
-      {/* REARRANGED SPECS INSPECTOR */}
-      <Sheet open={!!inspectingProduct} onOpenChange={(open) => {
-        if (!open) {
-          setInspectingProduct(null)
-          setSelectedColor(null)
-        }
-      }}>
-        <SheetContent side="right" className="w-full sm:max-w-620px overflow-y-auto bg-zinc-950 p-0 border-zinc-800 shadow-2xl text-white no-scrollbar scrollbar-hide flex flex-col">
-          {/* 1. ACCESSIBILITY FIX: Visually Hidden Title */}
-          <div className="sr-only">
-            <SheetTitle>{inspectingProduct?.name} Details</SheetTitle>
-          </div>
+      {/* REARRANGED SPECS INSPECTOR AS DIALOG */}
+      <Dialog 
+        open={!!inspectingProduct} 
+        onOpenChange={(open) => {
+          if (!open) {
+            // 1. SET THE GUARD
+            justClosedRef.current = true;
 
-          {/* 2. HERO IMAGE - The Hook */}
-          <div className="aspect-[4/3] w-full bg-zinc-900 border-b border-zinc-800 relative shrink-0">
-            <img
-              src={inspectingProduct?.thumbnailUrl}
-              alt={inspectingProduct?.name}
-              className="object-contain w-full h-full mix-blend-lighten p-4"
-            />
-            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-zinc-950 to-transparent pointer-events-none" />
-            <div className="absolute bottom-4 left-12 -translate-y-1/2 flex flex-col items-center gap-1 opacity-50 animate-pulse">
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">
-                Specs Below
-              </span>
-              <ChevronRight className="h-4 w-4 text-zinc-400 rotate-90" />
-            </div>
-          </div>
+            // 2. CLEAR URL
+            const url = new URL(window.location.href);
+            url.searchParams.delete('inspect');
+            window.history.replaceState(null, '', url.pathname + url.search);
 
-          {/* 3. METADATA STACK - The Intelligence */}
-          <div className="p-10 pt-8 space-y-12 flex-1">
-            {/* PRIMARY HEADLINE: Print Method */}
-            <div className="flex items-center justify-between border-b border-zinc-900 pb-8">
-              <div className="space-y-1.5">
-                <p className="text-[10px] font-black uppercase text-indigo-500 tracking-[0.25em]">
-                  Production Strategy
-                </p>
-                <h2 className="text-3xl font-black uppercase tracking-tighter text-white">
-                  {inspectingProduct?.preferredTechnique}
-                </h2>
+            // 3. RESET STATE
+            setInspectingProduct(null);
+            setSelectedColor(null);
+
+            // 4. Release guard after a short timeout (tick)
+            setTimeout(() => { justClosedRef.current = false; }, 100);
+          }
+        }}
+      >
+        <DialogContent className="max-w-7xl h-[90vh] p-0 bg-zinc-950 border-zinc-800 text-white overflow-hidden flex flex-col">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{inspectingProduct?.name} Details</DialogTitle>
+            <DialogDescription>Technical specifications and production details.</DialogDescription>
+          </DialogHeader>
+
+          {/* --- START NEW WIDER SCROLLABLE CONTENT --- */}
+          <div className="flex-1 overflow-y-auto no-scrollbar">
+            
+            {/* 🌟 1. NEW 21:9 SPLIT HERO SECTION 🌟 */}
+            <div className="aspect-[21/9] w-full bg-zinc-900 border-b border-zinc-800 relative shrink-0 grid grid-cols-2">
+              
+              {/* 📸 LEFT SIDE: Product Image (As before, contained and blend-mode) */}
+              <div className="h-full w-full border-r border-zinc-800/50 p-12 flex items-center justify-center relative">
+                <img
+                  src={inspectingProduct?.thumbnailUrl}
+                  alt={inspectingProduct?.name}
+                  className="object-contain w-full h-full mix-blend-lighten"
+                />
+                {/* Subtle Gradient Shadow at bottom of Image area */}
+                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-zinc-950/50 to-transparent pointer-events-none" />
               </div>
-              <Badge className="bg-indigo-600/10 text-indigo-400 border border-indigo-500/30 px-4 py-2 rounded-xl text-[10px] font-black uppercase">
-                Verified Base
-              </Badge>
-            </div>
 
-            {/* LOGISTICS SECTION: Dynamic Ships To Data */}
-            <div className="grid grid-cols-2 gap-6">
-              <div className="p-5 rounded-2rem bg-zinc-900/50 border border-zinc-800 flex items-start gap-4">
-                <Globe className="h-5 w-5 text-indigo-500 shrink-0 mt-0.5" />
-                <div className="overflow-hidden">
-                  <p className="text-[10px] font-black uppercase text-zinc-500 tracking-wider">
-                    Produced In
+              {/* 🎨 RIGHT SIDE: High-Level Info (Strategy, Share, Colors, and Logistics) */}
+              <div className="h-full w-full p-12 space-y-8 flex flex-col justify-center">
+                
+                {/* Production Strategy & Share Block */}
+                <div className="space-y-4">
+                  <p className="text-[10px] font-black uppercase text-indigo-500 tracking-[0.25em]">
+                    Primary Technique
                   </p>
-                  <div className="flex flex-wrap items-center gap-x-2 mt-1.5">
-                    {inspectingProduct?.producedIn?.split(' and ').map((name, index) => {
-                      const cleanName = name.trim()
-                      const flagCode = inspectingProduct?.originFlags?.[index]
+                  <div className="flex items-center gap-6">
+                    <h2 className="text-4xl font-black uppercase tracking-tighter text-white">
+                      {inspectingProduct?.preferredTechnique}
+                    </h2>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 gap-2 rounded-full bg-zinc-800 text-[10px] font-bold uppercase text-zinc-400 hover:bg-indigo-600 hover:text-white transition-all shrink-0"
+                      onClick={() => {
+                        const slug = generateSlug(inspectingProduct.name);
+                        const shareUrl = `${window.location.origin}${window.location.pathname}?inspect=${slug}`;
+                        navigator.clipboard.writeText(shareUrl);
+                        toast.success("Link Copied!");
+                      }}
+                    >
+                      <Link className="h-3 w-3" />
+                      Share Base
+                    </Button>
+                  </div>
+                </div>
+
+                {/* 🚀 NEW: TOP-LEVEL LOGISTICS GRID 🚀 */}
+                <div className="grid grid-cols-2 gap-4 border-y border-zinc-800/50 py-6">
+                  <div className="flex items-start gap-3">
+                    <Globe className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-zinc-500 tracking-wider">Produced In</p>
+                      <p className="text-xs font-bold mt-1 text-zinc-200">{inspectingProduct?.producedIn || 'Global Centers'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Truck className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[10px] font-black uppercase text-zinc-500 tracking-wider">Logistics</p>
+                      <p className="text-xs font-bold mt-1 uppercase text-zinc-200">Ships to {inspectingProduct?.shipsTo || 'Global'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Available Colors Block */}
+                <div className="space-y-4">
+                  <h3 className="font-black text-xs uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                    <Fingerprint className="h-4 w-4 text-indigo-500" />
+                    Available Swatches
+                    <span className="ml-2 text-indigo-400 font-bold uppercase tracking-tight">
+                      {selectedColor || inspectingProduct?.availableColors?.[0]}
+                    </span>
+                  </h3>
+                  <div className="flex flex-wrap gap-3">
+                    {inspectingProduct?.availableColors?.map((c) => {
+                      const variant = inspectingProduct.variants?.find(v => v.color === c);
                       return (
-                        <div key={index} className="flex items-center gap-1.5 whitespace-nowrap">
-                          <span className="text-sm font-bold">{cleanName}</span>
-                          {flagCode && (
-                            <img
-                              src={`https://flagcdn.com/w20/${flagCode.toLowerCase()}.png`}
-                              className="w-4 h-auto rounded-sm border border-white/10"
-                              alt={flagCode}
-                            />
+                        <button
+                          key={c}
+                          onClick={() => setSelectedColor(c)}
+                          className={cn(
+                            "w-8 h-8 rounded-full border-2 p-1 transition-all",
+                            (selectedColor === c || (!selectedColor && c === inspectingProduct?.availableColors?.[0]))
+                              ? "border-indigo-600 scale-110 shadow-[0_0_15px_rgba(79,70,229,0.4)]"
+                              : "border-transparent hover:scale-105"
                           )}
-                        </div>
+                        >
+                          <div className="w-full h-full rounded-full border border-white/5" style={{ backgroundColor: variant?.colorCode || c }} />
+                        </button>
                       )
                     })}
-                    {inspectingProduct?.producedIn?.split(' and ').length - 1 > 0 && (
-                      <span className="text-zinc-700">,</span>
-                    )}
                   </div>
                 </div>
               </div>
-
-              <div className="p-5 rounded-2rem bg-zinc-900/50 border border-zinc-800 flex items-start gap-4">
-                <Truck className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[10px] font-black uppercase text-zinc-500 tracking-wider">
-                    Logistics
-                  </p>
-                  <p className="text-sm font-bold mt-1.5 tracking-tight uppercase">
-                    Ships to {inspectingProduct?.shipsTo || 'Global'}
-                  </p>
-                  <p className="text-[10px] text-zinc-600 font-bold mt-1 uppercase">
-                    ID: {inspectingProduct?.catalogProductId}
-                  </p>
-                </div>
-              </div>
             </div>
 
-            {/* VARIANTS: COLORS */}
-            <div className="space-y-6">
-              <h3 className="font-black text-xs uppercase tracking-widest text-zinc-500 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Fingerprint className="h-4 w-4 text-indigo-500" />
-                  Available Colors
-                </div>
-                <span className="text-indigo-400 font-bold uppercase tracking-tight">
-                  {selectedColor || inspectingProduct?.availableColors?.[0]}
-                </span>
-              </h3>
-              <div className="flex flex-wrap gap-4">
-                {inspectingProduct?.availableColors?.map((c) => {
-                  const variant = inspectingProduct.variants?.find(
-                    (v) => v.colorKey === c.trim().toLowerCase() || v.color === c
-                  )
-                  const isActive = selectedColor === inspectingProduct.availableColors[0] || selectedColor === c
-                  return (
-                    <button
-                      key={c}
-                      onClick={() => setSelectedColor(c)}
-                      className={cn(
-                        "w-14 h-14 rounded-full border-2 p-1.5 transition-all duration-300",
-                        isActive
-                          ? "border-indigo-600 scale-110 shadow-[0_0_20px_rgba(79,70,229,0.4)] border-transparent"
-                          : "hover:scale-105"
-                      )}
-                    >
-                      <div
-                        className="w-full h-full rounded-full border border-white/5 shadow-inner"
-                        style={{
-                          backgroundColor: variant?.colorCode || c || '#333',
-                        }}
-                      />
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className="rounded-2.5rem border border-zinc-800 bg-zinc-900/30 overflow-hidden shadow-2xl">
-                <table className="w-full text-xs">
-                  <thead className="bg-zinc-800/50 text-zinc-500 font-black uppercase">
-                    <tr>
-                      <th className="p-4 text-left">Size</th>
-                      <th className="p-4 text-right">Production Cost</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800">
-                    {sortSizes(
-                      inspectingProduct?.variants?.filter((v) =>
-                        v.color.toLowerCase().includes(
-                          (selectedColor || inspectingProduct?.availableColors?.[0] || '').toLowerCase()
-                        )
-                      )?.map((v) => v.size) || []
-                    ).map((sizeName) => {
-                      const v = inspectingProduct.variants.find(
-                        (variant) =>
-                          variant.size === sizeName &&
-                          variant.color.toLowerCase().includes(
-                            (selectedColor || inspectingProduct?.availableColors?.[0] || '').toLowerCase()
-                          )
-                      )
-                      return (
-                        <tr
-                          key={v?.variantId}
-                          className="hover:bg-zinc-800/30 transition-colors"
-                        >
-                          <td className="p-4 font-bold text-white uppercase">
-                            {v?.size}
-                          </td>
-                          <td className="p-4 text-right font-black text-emerald-400 tracking-tighter text-sm">
-                            {v?.price?.toFixed(2)}
-                          </td>
+            {/* 🌟 2. UPDATED REMAINING METADATA STACK (Cost Table) 🌟 */}
+            <div className="p-12 space-y-12">
+              {/* COST MATRIX TABLE (Preserved logic, removed color selection block) */}
+              <div className="space-y-6">
+                <h3 className="font-black text-xs uppercase tracking-widest text-zinc-500">
+                  Price Breakdown
+                </h3>
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 overflow-hidden shadow-inner shadow-black/10">
+                  <table className="w-full text-xs">
+                    <thead className="bg-zinc-800/50 text-zinc-500 font-black uppercase">
+                      <tr>
+                        <th className="p-5 text-left tracking-wide">Size</th>
+                        <th className="p-5 text-right tracking-wide">Base Cost</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/80">
+                      {inspectingProduct?.variants?.filter(v => v.color === (selectedColor || inspectingProduct.availableColors?.[0])).map((v) => (
+                        <tr key={v.variantId} className="hover:bg-zinc-800/30 transition-colors">
+                          <td className="p-5 font-bold text-white uppercase">{v.size}</td>
+                          <td className="p-5 text-right font-black text-emerald-400 text-sm">${v.price?.toFixed(2)}</td>
                         </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* INTELLIGENCE: Restored clean disclaimer logic */}
-            <div className="space-y-4 pb-12">
-              <h3 className="font-black text-xs uppercase tracking-widest text-zinc-500 flex items-center gap-2">
-                Description
-              </h3>
-              <div className="text-sm font-medium text-zinc-400 leading-relaxed bg-zinc-900/50 p-8 rounded-2.5rem border border-zinc-800 whitespace-pre-line italic">
-                {(() => {
-                  const lines = inspectingProduct?.description
-                    ?.split('\n')
-                    .filter((line) => line.trim())
-                  return lines?.map((line, i) => {
-                    const trimmedLine = line.trim()
-                    // 1. Remove any leading bullets from the database string
-                    const cleanText = trimmedLine.replace(/^[•\-*]\s*/i, '')
-                    // 2. Identify headers (first line OR lines ending in : specifically "Disclaimers" or "Disclaimer")
-                    const isHeader =
-                      i === 0 ||
-                      cleanText.endsWith(':') ||
-                      cleanText.toLowerCase().includes('disclaimer')
-                    if (isHeader) {
-                      return (
-                        <p
-                          key={i}
-                          className={cn(
-                            'font-bold text-zinc-200 not-italic',
-                            i > 0 ? 'mb-6 mt-8 mb-4 border-t border-zinc-800 pt-6' : ''
-                          )}
-                        >
-                          {cleanText}
-                        </p>
-                      )
-                    }
-                    // 3. Standard list items get the styled indigo bullet
-                    return (
-                      <div key={i} className="mb-3 last:mb-0 flex gap-3 ml-1">
-                        <span className="text-indigo-500 shrink-0 select-none">•</span>
-                        <span>{cleanText}</span>
-                      </div>
-                    )
-                  })
-                })()}
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
-
-          {/* 4. STICKY ACTION BUTTON */}
-          <div className="p-8 sticky bottom-0 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800 z-30">
+          {/* STICKY FOOTER */}
+          <div className="p-8 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800 shrink-0">
             <Button
-              size="xl"
-              className="w-full h-20 text-xl font-black bg-indigo-600 hover:bg-indigo-500 rounded-2rem uppercase tracking-tighter shadow-2xl shadow-indigo-600/30"
+              className="w-full h-16 text-lg font-black bg-indigo-600 hover:bg-indigo-500 rounded-xl uppercase tracking-tighter shadow-2xl shadow-indigo-600/30"
               onClick={() => {
                 setSelectedBlank(inspectingProduct)
                 setExternalProductId(uuidv4())
                 hasInitializedRef.current = false
-                hasAppliedShowroomIPRef.current = false
                 setStep('design')
                 setInspectingProduct(null)
               }}
@@ -1099,8 +1058,8 @@ useEffect(() => {
               Enter Design Studio
             </Button>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

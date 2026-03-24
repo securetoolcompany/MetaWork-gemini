@@ -1,4 +1,3 @@
-// app/api/metawork/products/list/route.js
 import { connectToDatabase } from '@/lib/mongodb';
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
@@ -7,7 +6,12 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    // 1. Authenticate the user
+    // 1. Extract Search Params from URL
+    const { searchParams } = new URL(request.url);
+    const ipOwnerId = searchParams.get('ipOwnerId');
+    const requestedUserId = searchParams.get('userId');
+
+    // 2. Authenticate the user
     const authHeader = request.headers.get('Authorization');
     const token = authHeader?.substring(7) || request.cookies.get('auth_token')?.value;
     
@@ -16,25 +20,53 @@ export async function GET(request) {
     }
     
     const decoded = verifyToken(token);
-    
     if (!decoded || !decoded.userId) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
-    
-    // 2. Connect to database
+
+    // 3. Connect to database
     const { db } = await connectToDatabase();
-    
-    // 3. Fetch ONLY the authenticated user's products
+
+    // 4. Build the dynamic Query Object
+    const query = {};
+
+    // Logic: Decide what to fetch based on params
+    if (ipOwnerId) {
+      // Fetch Community Products (Used in the Community Curation Tab)
+      query.ipOwnerId = ipOwnerId;
+      query.userId = { $ne: decoded.userId }; // Don't show the user's own products here
+    } else if (requestedUserId) {
+      // Fetch specific User's Products (Used in Settings / My Products)
+      query.userId = requestedUserId;
+    } else {
+      // Fallback: Default to the authenticated user
+      query.userId = decoded.userId;
+    }
+
+    // Always exclude deleted items
+    query.status = { $ne: 'deleted' };
+
+    // 5. Execute search
     const products = await db
       .collection('products')
-      .find({ 
-        userId: decoded.userId,  // ← FILTER BY AUTHENTICATED USER
-        status: { $ne: 'deleted' }
-      })
+      .find(query)
       .sort({ createdAt: -1 })
       .toArray();
 
-    return NextResponse.json({ products });
+    // 6. Map results to ensure consistent field names (id and _id)
+    const processedProducts = products.map(p => ({
+      ...p,
+      id: p._id.toString(),      // Forces an 'id' string for the frontend dropdowns
+      _id: p._id.toString(),     // Keeps the original _id as a string
+      imageUrl: p.thumbnailUrl || (p.mockupImages && p.mockupImages[0]) || p.imageUrl || 'https://placehold.co/600x600?text=No+Image'
+    }));
+
+    // Make sure you are returning 'processedProducts', not the raw 'products'
+    return NextResponse.json({ 
+      success: true, 
+      products: processedProducts 
+    });
+
   } catch (error) {
     console.error('[API] Failed to fetch products:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -53,11 +85,10 @@ export async function PATCH(request) {
 
     // Update the product in MongoDB
     const result = await db.collection('products').updateOne(
-      { _id: typeof id === 'string' ? id : id }, // Adjust if using ObjectId
+      { _id: id }, 
       { $set: { ...dataToUpdate, updatedAt: new Date() } }
     );
 
-    // CRITICAL: Returning JSON prevents the "Unexpected end of JSON" error
     return NextResponse.json({ 
       success: true, 
       message: 'Product updated successfully' 

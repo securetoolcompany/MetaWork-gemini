@@ -64,29 +64,19 @@ export async function GET(request) {
   }
 }
 
-// POST - Save user's aisle settings
-export async function POST(request) {
+// PUT - Save user's aisle settings
+export async function PUT(request) {
   try {
     const token = request.cookies.get('auth_token')?.value;
     if (!token) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Unauthorized' 
-      }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    
+
     const decoded = verifyToken(token);
-    
-    // DEBUG LOGS - RIGHT HERE!
-    console.log('🔍 Decoded token:', decoded);
-    console.log('🔍 User ID:', decoded?.userId);
-    
     const { aisleSettings, collections } = await request.json();
-    console.log('🔍 Received data:', { aisleSettings, collections });
-    
     const { db } = await connectToDatabase();
-    
-    // FIX: Use _id instead of id
+
+    // Pattern: Use the decoded userId to ensure the user only edits their own aisle
     const result = await db.collection('users').updateOne(
       { _id: decoded.userId },
       { 
@@ -97,30 +87,14 @@ export async function POST(request) {
         }
       }
     );
-    
-    console.log('🔍 Update result:', result);
-    
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'User not found' 
-      }, { status: 404 });
-    }
-    
-    return NextResponse.json({ 
-      success: true, 
-      aisleSettings: aisleSettings,
-      collections: collections 
-    });
-  } catch (error) {
-    console.error('❌ Aisle Settings POST Error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Server Error' 
-    }, { status: 500 });
-  }
-}
 
-export async function PUT(request) {
-  return POST(request);
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true, message: 'Settings updated successfully' });
+  } catch (error) {
+    console.error('[API] Aisle Settings PUT Error:', error);
+    return NextResponse.json({ success: false, error: 'Server Error' }, { status: 500 });
+  }
 }

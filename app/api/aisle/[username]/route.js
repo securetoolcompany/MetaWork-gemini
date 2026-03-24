@@ -5,144 +5,106 @@ import { verifyToken } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request, { params }) {
-  // ⬅ params is a Promise in Next 15
-  const { username } = await params;   // ⬅ await here
-
   try {
-    console.log('🔍 Aisle API param username:', username);
-
+    const { username } = await params;
     const { db } = await connectToDatabase();
 
+    // 1. FIND THE CREATOR (Check slug first, then username)
     let creator = await db.collection('users').findOne(
       { 'aisleSettings.slug': username },
       { projection: { password: 0 } }
     );
-    console.log('🔍 Creator by slug:', creator?.username, creator?.aisleSettings?.slug);
 
     if (!creator) {
       creator = await db.collection('users').findOne(
         { username },
         { projection: { password: 0 } }
       );
-      console.log('🔍 Creator by username:', creator?.username);
     }
 
     if (!creator) {
-      return NextResponse.json(
-        { success: false, error: 'Creator not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Creator not found' }, { status: 404 });
     }
 
-    // 🔐 OWNER CHECK (here, in /api/aisle/[username])
-const token = request.cookies.get('auth_token')?.value;
-let isOwner = false;
-
-if (token) {
-  try {
-    const decoded = verifyToken(token);         // same helper as aisle-settings
-    const sessionUserId = decoded.userId;       // e.g. "user_1769104841665_7btkj7"
     const creatorId = creator.id || creator._id?.toString();
 
-    console.log('🔐 Owner check:', { sessionUserId, creatorId });
-
-    if (sessionUserId && creatorId && sessionUserId === creatorId) {
-      isOwner = true;
+    // 2. OWNER CHECK (For "Edit Mode" buttons on the Aisle)
+    const token = request.cookies.get('auth_token')?.value;
+    let isOwner = false;
+    if (token) {
+      try {
+        const decoded = verifyToken(token);
+        if (decoded?.userId === creatorId) isOwner = true;
+      } catch (e) {
+        console.error('Auth check failed:', e);
+      }
     }
-  } catch (e) {
-    console.error('Failed to verify auth_token in aisle route:', e);
-  }
-} else {
-  console.log('🔐 No auth_token cookie on aisle request');
-}
 
-    const creatorObjectId = creator._id.toString();
-    console.log('🔍 Looking for products with userId:', creatorObjectId);
+    // 3. GET OWNED PRODUCTS
+    const ownedProducts = await db.collection('products').find({
+      creatorId: creatorId,
+      status: { $in: ['active', 'live'] }
+    }).toArray();
 
-    const { db: db2 } = await connectToDatabase(); // or reuse db
-    const products = await db2
-      .collection('products')
-      .find({
-        userId: creatorObjectId,
-        status: { $in: ['active', 'live'] },
-      })
-      .toArray();
+    // 4. GET COMMUNITY PRODUCTS (Curation Logic)
+    const approvedList = creator.aisleSettings?.approvedCommunityProducts || [];
+    const approvedIds = approvedList.map(p => p.productId);
 
-    console.log(`📦 Found ${products.length} products for ${creator.username}`);
+    const communityProducts = await db.collection('products').find({
+      _id: { $in: approvedIds },
+      userId: { $ne: creatorId } // Don't duplicate if they accidentally curated their own item
+    }).toArray();
 
-    const ipAssets = await db2
-      .collection('ip_assets')
-      .find({
-        ownerUsername: creator.username,
-        status: { $in: ['unminted', 'active'] },
-      })
-      .sort({ createdAt: -1 })
-      .toArray();
+    // 5. APPLY LOCAL OVERLAYS (Primary Mockup Selection)
+    const finalCommunityProducts = communityProducts.map(prod => {
+      const curationEntry = approvedList.find(a => a.productId === prod._id.toString());
+      const p = {
+        ...prod,
+        id: prod._id.toString(),
+        isCommunity: true // Flag for the UI
+      };
+      
+      // Override thumbnail if owner selected a specific mockup for their aisle
+      if (curationEntry && prod.mockupImages?.[curationEntry.primaryMockupIndex]) {
+        p.thumbnailUrl = prod.mockupImages[curationEntry.primaryMockupIndex];
+      }
+      return p;
+    });
 
-    console.log('🎨 Found IP assets:', ipAssets.length);
+    // 6. GET IP ASSETS
+    const ipAssets = await db.collection('ip_assets').find({
+      ownerId: creatorId,
+      status: { $in: ['unminted', 'active'] },
+    }).sort({ createdAt: -1 }).toArray();
 
+    // 7. CONSTRUCT FINAL RESPONSE
     return NextResponse.json({
       success: true,
+      isOwner,
       creator: {
-        id: creator.id,
-        name:
-          creator.aisleSettings?.title ||
-          creator.profile?.displayName ||
-          creator.name,
+        id: creatorId,
         username: creator.username,
-        email: creator.email,
+        name: creator.aisleSettings?.title || creator.profile?.displayName || creator.name,
         bio: creator.aisleSettings?.description || creator.bio,
         avatar: creator.aisleSettings?.logo || creator.avatar,
         banner: creator.aisleSettings?.heroImage || creator.banner,
-        aisleSettings:
-          creator.aisleSettings || {
-            theme: 'dark-professional',
-            accentColor: '#3b82f6',
-            productsPerRow: 4,
-            cardStyle: 'modern',
-            adSettings: { sidebar: true },
-            defaultSort: 'newest',
-            allowReviews: true,
-            showSalesCounter: false,
-          },
+        aisleSettings: creator.aisleSettings || {
+          theme: 'dark-professional',
+          accentColor: '#3b82f6',
+          productsPerRow: 4
+        },
         collections: creator.collections || [],
-        verified: creator.membershipTier === 'pro',
-        stats: { followers: 0 },
-        tagline:
-          (
-            creator.aisleSettings?.description ||
-            creator.bio ||
-            ''
-          ).substring(0, 100),
       },
-      products: products.map((p) => ({
-        id: p._id.toString(),
-        _id: p._id.toString(),
-        title: p.title,
-        description: p.description,
-        price: p.price,
-        imageUrl:
-          p.imageUrl ||
-          p.thumbnailUrl ||
-          'https://placehold.co/600x600/1a1a2e/e94560?text=Product',
-        thumbnailUrl:
-          p.thumbnailUrl ||
-          p.imageUrl ||
-          'https://placehold.co/600x600/1a1a2e/e94560?text=Product',
-        status: p.status,
-        isPublic: p.isPublic,
-        salesCount: p.sales || p.salesCount || 0,
-        categories: p.categories || [],
-        createdAt: p.createdAt,
-      })),
+      // Merge owned and approved community products
+      products: [
+        ...ownedProducts.map(p => ({ ...p, id: p._id.toString(), isCommunity: false })),
+        ...finalCommunityProducts
+      ],
       ipAssets,
-      isOwner,
     });
+
   } catch (error) {
     console.error('Aisle API Error:', error);
-    return NextResponse.json(
-      { success: false, error: 'Server Error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Server Error' }, { status: 500 });
   }
 }

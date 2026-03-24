@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Loader2, Upload, Eye, Save, Plus, Trash2, GripVertical, X } from 'lucide-react';
 import Image from 'next/image';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import CommunityCurationTab from '@/components/aisle/CommunityCurationTab';
 
 const StrictModeDroppable = ({ 
   children, 
@@ -51,141 +52,92 @@ export default function AisleSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
-  
+  const [user, setUser] = useState(null);
+  const [enabled, setEnabled] = useState(false);
+
   const [settings, setSettings] = useState({
-    // Basic Info
-    title: '',
-    slug: '',
-    description: '',
-    heroImage: '',
-    logo: '',
-    
-    // Social Links
-    socialLinks: {
-      twitter: '',
-      instagram: '',
-      tiktok: '',
-      youtube: '',
-      website: ''
-    },
-    
-    // Layout Sections
-    sections: [
-      {
-        id: 'products',
-        type: 'products',
-        title: 'Products',
-        description: '',
-        enabled: true,
-        items: [], // Array of product IDs or collection IDs
-        displayType: 'collection', // 'all', 'collection', 'selected'
-        collectionId: null
-      },
-      {
-        id: 'ip-assets',
-        type: 'ip-assets',
-        title: 'IP Assets',
-        description: '',
-        enabled: true,
-        items: [],
-        displayType: 'all',
-        collectionId: null
-      }
-    ],
-    
-    // Collections
-    collections: [], // { id, name, description, type: 'products'|'ip-assets', itemIds: [], publishDate: '' }
-    
-    // Featured Spotlight
-    featuredSpotlight: {
-      enabled: false,
-      type: 'product', // 'product' or 'ip-asset'
-      itemId: null
-    },
-    
-    // Appearance
-    theme: 'dark-professional',
-    bgColor: '#0f172a',
-    accentColor: '#3b82f6',
-    headerStyle: 'full-banner',
-    productsPerRow: 4,
-    itemsPerSection: 12, // Items shown before pagination
-    
-    // Features
-    showReviews: true,
-    showSalesCount: true,
-    tipJarEnabled: true,
-    
-    // Ad Placement
-    ads: {
-      topBanner: false,
-      sidebar: true,
-      inGrid: false
-    }
+    // ... your initial settings state
   });
 
   const [collections, setCollections] = useState([]);
   const [products, setProducts] = useState([]);
   const [ipAssets, setIpAssets] = useState([]);
-  const [previewMode, setPreviewMode] = useState(false);
 
-const [enabled, setEnabled] = useState(false);
+  // FIXED: Logic moved to component level and made sequential
+  // Inside AisleSettingsPage component
 
   useEffect(() => {
-    fetchSettings();
-    fetchUserData();
-    
-    // This solves the Invariant failed error by delaying 
-    // dnd initialization until the component is mounted.
-    const animation = requestAnimationFrame(() => setEnabled(true));
-    return () => cancelAnimationFrame(animation);
+    const initialize = async () => {
+      // 1. Get settings and wait for the user object
+      const userData = await fetchSettings();
+      
+      // 2. IMPORTANT: Use the ID from the response immediately
+      // Your logs show the ID is under "id", but check for both to be safe
+      const targetId = userData?.id || userData?._id;
+
+      if (targetId) {
+        console.log("🎯 Initializing data for ID:", targetId);
+        fetchUserData(targetId);
+      }
+      
+      const animation = requestAnimationFrame(() => setEnabled(true));
+      return () => cancelAnimationFrame(animation);
+    };
+
+    initialize();
   }, []);
 
-const fetchSettings = async () => {
-  try {
-    const res = await fetch('/api/aisle-settings');
-    const data = await res.json();
-    if (data.success) {
-      setSettings(prev => ({ 
-        ...prev, 
-        ...data.aisleSettings,
-        slug: data.aisleSettings.slug || data.user?.username // Add this
-      }));
-      setCollections(data.collections || []);
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch('/api/aisle-settings');
+      const data = await res.json();
+      if (data.success) {
+        setUser(data.user); // Sets state for UI
+        setSettings(prev => ({ 
+          ...prev, 
+          ...data.aisleSettings,
+          slug: data.aisleSettings.slug || data.user?.username
+        }));
+        setCollections(data.collections || []);
+        
+        // Return data.user so 'initialize' can use it without waiting for re-render
+        return data.user; 
+      }
+    } catch (error) {
+      toast.error('Failed to load settings');
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    toast.error('Failed to load settings');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
+  const fetchUserData = async (userId) => {
+    const targetId = userId || settings.userId || user?.id || user?._id;
+    if (!targetId) return;
 
-const fetchUserData = async () => {
-  try {
-    // We pass the creator ID to the list route
-    // Replace 'my-user-id' with your actual state or session variable
-    const creatorId = settings.userId || "cherechydraws"; 
-    
-    const [productsRes, ipAssetsRes] = await Promise.all([
-      fetch(`/api/products?creator=${creatorId}&limit=100`), 
-      fetch(`/api/ip-assets?creator=${creatorId}&limit=100`)
-    ]);
+    try {
+      const [productsRes, ipAssetsRes] = await Promise.all([
+        // 👉 REVERTED back to your original working endpoint
+        fetch(`/api/products?creator=${targetId}&limit=100`), 
+        fetch(`/api/ip-assets?creator=${targetId}&limit=100`)
+      ]);
 
-    const productsData = await productsRes.json();
-    const ipAssetsData = await ipAssetsRes.json();
-    
-    setProducts(productsData.products || []);
-    setIpAssets(ipAssetsData.ipAssets || []);
-  } catch (error) {
-    console.error('Failed to load owned data:', error);
-  }
-};
+      const productsData = await productsRes.json();
+      const ipAssetsData = await ipAssetsRes.json();
+      
+      if (productsData.success) setProducts(productsData.products || []);
+      if (ipAssetsData.success) setIpAssets(ipAssetsData.ipAssets || []);
+    } catch (error) {
+      console.error('Failed to load owned data:', error);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
+    console.log("💾 Save initiated..."); // Add this for debugging
+    
     try {
-const res = await fetch('/api/aisle-settings', {        method: 'PUT',
+      const res = await fetch('/api/aisle-settings', {
+        method: 'PUT', // Ensure this matches your API route (PUT vs POST)
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           aisleSettings: settings,
@@ -193,13 +145,17 @@ const res = await fetch('/api/aisle-settings', {        method: 'PUT',
         })
       });
       
-      if (res.ok) {
-        toast.success('Settings saved!');
+      const data = await res.json();
+      console.log("📡 Server response:", data);
+
+      if (data.success) {
+        toast.success('Settings saved successfully!');
       } else {
-        throw new Error('Failed to save');
+        throw new Error(data.error || 'Failed to save');
       }
     } catch (error) {
-      toast.error('Failed to save settings');
+      console.error("❌ Save Error:", error);
+      toast.error(error.message);
     } finally {
       setSaving(false);
     }
@@ -223,6 +179,8 @@ const res = await fetch('/api/aisle-settings', {        method: 'PUT',
   const handleImageUpload = async (file, field) => {
     const formData = new FormData();
     formData.append('file', file);
+    // Pattern: ALWAYS use folderContext for organization
+    formData.append('folderContext', 'aisle-assets'); 
     
     try {
       const res = await fetch('/api/upload', {
@@ -232,8 +190,9 @@ const res = await fetch('/api/aisle-settings', {        method: 'PUT',
       const data = await res.json();
       
       if (data.success) {
+        // data.url is the Cloudinary URL returned by the pipeline
         setSettings(prev => ({ ...prev, [field]: data.url }));
-        toast.success('Image uploaded!');
+        toast.success(`${field === 'logo' ? 'Logo' : 'Banner'} uploaded!`);
       }
     } catch (error) {
       toast.error('Failed to upload image');
@@ -296,7 +255,7 @@ const addSection = () => {
   };
 
   const handlePreview = () => {
-window.open(`/aisle/${settings.slug || 'preview'}`, '_blank');  };
+  window.open(`/aisle/${settings.slug || 'preview'}`, '_blank');  };
 
   if (loading) {
     return (
@@ -327,13 +286,14 @@ window.open(`/aisle/${settings.slug || 'preview'}`, '_blank');  };
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="basic">Basic Info</TabsTrigger>
-          <TabsTrigger value="layout">Layout</TabsTrigger>
-          <TabsTrigger value="collections">Collections</TabsTrigger>
-          <TabsTrigger value="appearance">Appearance</TabsTrigger>
-          <TabsTrigger value="features">Features</TabsTrigger>
-        </TabsList>
+        <TabsList className="grid w-full grid-cols-6">
+        <TabsTrigger value="basic">Basic Info</TabsTrigger>
+        <TabsTrigger value="layout">Layout</TabsTrigger>
+        <TabsTrigger value="collections">Collections</TabsTrigger>
+        <TabsTrigger value="community">Community</TabsTrigger> {/* Add this */}
+        <TabsTrigger value="appearance">Appearance</TabsTrigger>
+        <TabsTrigger value="features">Features</TabsTrigger>
+      </TabsList>
 
         {/* BASIC INFO TAB */}
         <TabsContent value="basic" className="space-y-6">
@@ -527,11 +487,15 @@ window.open(`/aisle/${settings.slug || 'preview'}`, '_blank');  };
                     >
                       <SelectTrigger><SelectValue placeholder="Choose an item" /></SelectTrigger>
                       <SelectContent>
-                        {(settings.featuredSpotlight.type === 'product' ? products : ipAssets).map(item => (
-                          <SelectItem key={item.id || item._id} value={item.id || item._id}>
-                            {item.name || item.title}
-                          </SelectItem>
-                        ))}
+                        {(settings.featuredSpotlight.type === 'product' ? products : ipAssets).map(item => {
+                          // Standardize the ID here
+                          const itemId = item.id || item._id?.toString();
+                          return (
+                            <SelectItem key={itemId} value={itemId}>
+                              {item.title || item.name}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -818,6 +782,12 @@ window.open(`/aisle/${settings.slug || 'preview'}`, '_blank');  };
   </Card>
 </TabsContent>
 
+        <TabsContent value="community">
+          <CommunityCurationTab 
+            creatorId={user?._id || settings.userId} 
+            accentColor={settings.accentColor} 
+          />
+        </TabsContent>
 
         {/* APPEARANCE TAB */}
         <TabsContent value="appearance" className="space-y-6">
