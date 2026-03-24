@@ -14,6 +14,7 @@ import { Loader2, Upload, Eye, Save, Plus, Trash2, GripVertical, X } from 'lucid
 import Image from 'next/image';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import CommunityCurationTab from '@/components/aisle/CommunityCurationTab';
+import AislePreview from '@/components/aisle/AislePreview';
 
 const StrictModeDroppable = ({ 
   children, 
@@ -54,6 +55,7 @@ export default function AisleSettingsPage() {
   const [activeTab, setActiveTab] = useState('basic');
   const [user, setUser] = useState(null);
   const [enabled, setEnabled] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
 
   const [settings, setSettings] = useState({
     // ... your initial settings state
@@ -66,33 +68,23 @@ export default function AisleSettingsPage() {
   // FIXED: Logic moved to component level and made sequential
   // Inside AisleSettingsPage component
 
+  // 1. THIS IS YOUR NEW, SUPER SIMPLE USE EFFECT
   useEffect(() => {
-    const initialize = async () => {
-      // 1. Get settings and wait for the user object
-      const userData = await fetchSettings();
-      
-      // 2. IMPORTANT: Use the ID from the response immediately
-      // Your logs show the ID is under "id", but check for both to be safe
-      const targetId = userData?.id || userData?._id;
-
-      if (targetId) {
-        console.log("🎯 Initializing data for ID:", targetId);
-        fetchUserData(targetId);
-      }
-      
-      const animation = requestAnimationFrame(() => setEnabled(true));
-      return () => cancelAnimationFrame(animation);
-    };
-
-    initialize();
+    // Just call this one function, it does all the work now!
+    fetchSettings();
+    
+    // This solves the Invariant failed error
+    const animation = requestAnimationFrame(() => setEnabled(true));
+    return () => cancelAnimationFrame(animation);
   }, []);
 
+  // 2. THIS IS YOUR FETCH SETTINGS (It looks perfect in your message)
   const fetchSettings = async () => {
     try {
       const res = await fetch('/api/aisle-settings');
       const data = await res.json();
+      
       if (data.success) {
-        setUser(data.user); // Sets state for UI
         setSettings(prev => ({ 
           ...prev, 
           ...data.aisleSettings,
@@ -100,34 +92,14 @@ export default function AisleSettingsPage() {
         }));
         setCollections(data.collections || []);
         
-        // Return data.user so 'initialize' can use it without waiting for re-render
-        return data.user; 
+        // This is the magic! It saves the 167 products right to your page
+        setProducts(data.products || []);
+        setIpAssets(data.ipAssets || []);
       }
     } catch (error) {
       toast.error('Failed to load settings');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchUserData = async (userId) => {
-    const targetId = userId || settings.userId || user?.id || user?._id;
-    if (!targetId) return;
-
-    try {
-      const [productsRes, ipAssetsRes] = await Promise.all([
-        // 👉 REVERTED back to your original working endpoint
-        fetch(`/api/products?creator=${targetId}&limit=100`), 
-        fetch(`/api/ip-assets?creator=${targetId}&limit=100`)
-      ]);
-
-      const productsData = await productsRes.json();
-      const ipAssetsData = await ipAssetsRes.json();
-      
-      if (productsData.success) setProducts(productsData.products || []);
-      if (ipAssetsData.success) setIpAssets(ipAssetsData.ipAssets || []);
-    } catch (error) {
-      console.error('Failed to load owned data:', error);
     }
   };
 
@@ -146,6 +118,14 @@ export default function AisleSettingsPage() {
       });
       
       const data = await res.json();
+
+      // 🛑 DEBUGGING BLOCK 🛑
+      console.log("=== FRONTEND DEBUG ===");
+      console.log("Payload from API:", data);
+      console.log("Products Array:", data.products);
+      console.log("IP Assets Array:", data.ipAssets);
+      console.log("======================");
+
       console.log("📡 Server response:", data);
 
       if (data.success) {
@@ -255,7 +235,8 @@ const addSection = () => {
   };
 
   const handlePreview = () => {
-  window.open(`/aisle/${settings.slug || 'preview'}`, '_blank');  };
+    setShowPreviewModal(true);
+  };
 
   if (loading) {
     return (
@@ -1006,6 +987,23 @@ const addSection = () => {
           </Card>
         </TabsContent>
       </Tabs>
+      {/* Put this right before the final closing </div> */}
+      {showPreviewModal && (
+        <AislePreview
+          settings={{
+            aisleSettings: settings, 
+            collections: collections, 
+            username: settings.title || "Your Store",
+            bio: settings.description,
+            avatarUrl: settings.logo,
+            bannerUrl: settings.heroImage
+          }}
+          // 👇 CHANGE THIS ONE LINE 👇
+          products={[...products, ...ipAssets]} 
+          fullscreen={true}
+          onCloseFullscreen={() => setShowPreviewModal(false)}
+        />
+      )}
     </div>
   );
 }

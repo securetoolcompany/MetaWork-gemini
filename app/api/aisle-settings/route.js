@@ -16,7 +16,6 @@ export async function GET(request) {
     const decoded = verifyToken(token);
     const { db } = await connectToDatabase();
     
-    // FIX: Use _id instead of id
     const user = await db.collection('users').findOne(
       { _id: decoded.userId },
       { 
@@ -30,20 +29,40 @@ export async function GET(request) {
     );
     
     if (!user) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'User not found' 
-      }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
-    const products = await db.collection('products')
-      .find({ creatorId: decoded.userId })
-      .toArray();
-    
-    const ipAssets = await db.collection('ipAssets')
-      .find({ creatorId: decoded.userId })
-      .toArray();
-    
+    // --- NEW ROBUST FETCH LOGIC ---
+    // Gather all possible ways this user might be identified in the database
+    const possibleIds = [
+      decoded.userId, 
+      user._id?.toString(), 
+      user.id, 
+      user.username
+    ].filter(Boolean); // Removes empty values
+
+    // Create the query BEFORE using it
+    const query = {
+      $or: [
+        { creatorId: { $in: possibleIds } },
+        { userId: { $in: possibleIds } },
+        { ownerUsername: { $in: possibleIds } }
+      ]
+    };
+
+    // Fetch products and IP Assets using the correct collection names and robust query
+    const products = await db.collection('products').find(query).toArray();
+    const ipAssets = await db.collection('ip_assets').find(query).toArray();
+
+    // 🛑 SAFE DEBUGGING BLOCK 🛑
+    console.log("=== API DEBUG: /api/aisle-settings ===");
+    console.log("1. Who is asking? Token User ID:", decoded.userId);
+    console.log("2. Who did we find in DB?", user.username, "| DB _id:", user._id?.toString());
+    console.log("3. What IDs are we searching for?", JSON.stringify(query.$or));
+    console.log("4. Products found count:", products.length);
+    console.log("5. IP Assets found count:", ipAssets.length);
+    console.log("=======================================");
+
     return NextResponse.json({ 
       success: true, 
       aisleSettings: user.aisleSettings || {},
