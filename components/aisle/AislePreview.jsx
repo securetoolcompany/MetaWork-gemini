@@ -15,7 +15,7 @@ const THEME_COLORS = {
   'monochrome': { bg: '#000000', card: '#1a1a1a', text: '#ffffff', muted: '#737373' }
 };
 
-export default function AislePreview({ settings, products = [], zoom = 75, fullscreen, onCloseFullscreen }) {
+export default function AislePreview({ settings, products = [], ipAssets =  [], zoom = 75, fullscreen, onCloseFullscreen }) {
   const { openProduct } = useProductDialog();
   const aisleSettings = settings?.aisleSettings || {};
   const theme = THEME_COLORS[aisleSettings.theme] || THEME_COLORS['dark-professional'];
@@ -151,18 +151,26 @@ export default function AislePreview({ settings, products = [], zoom = 75, fulls
             {useDynamicSections ? (
               sections.filter(s => s.enabled).map((section) => {
                 // Filter products based on section type
+                // Filter products based on section type
                 let sectionProducts = [];
-                if (section.displayType === 'all-products' || section.displayType === 'all-ip-assets') {
-                  sectionProducts = allProducts;
+                
+                if (section.displayType === 'all-products') {
+                  sectionProducts = allProducts; // Uses products
+                } else if (section.displayType === 'all-ip-assets') {
+                  sectionProducts = ipAssets; // Uses IP Assets!
                 } else if (section.displayType === 'category') {
-                  sectionProducts = allProducts.filter(p => {
+                  // Determine which array to search based on the section's internal type
+                  const sourceArray = section.type === 'ip-assets' ? ipAssets : allProducts;
+                  sectionProducts = sourceArray.filter(p => {
                     const cats = Array.isArray(p.categories) ? p.categories : (p.category ? [p.category] : []);
                     return cats.includes(section.category);
                   });
                 } else if (section.displayType === 'collection') {
                   const col = collections.find(c => c.id === section.collectionId);
                   if (col) {
-                    sectionProducts = allProducts.filter(p => col.itemIds?.includes(p.id || p._id?.toString()));
+                    // Determine which array to search based on the collection's type
+                    const sourceArray = col.type === 'ip-assets' ? ipAssets : allProducts;
+                    sectionProducts = sourceArray.filter(p => col.itemIds?.includes(p.id || p._id?.toString()));
                   }
                 }
 
@@ -205,8 +213,10 @@ export default function AislePreview({ settings, products = [], zoom = 75, fulls
             ) : showAsCollections ? (
               /* LEGACY COLLECTIONS LAYOUT */
               collections.map((collection) => {
-                // FIX 1 & 2: Use itemIds instead of productIds, and check both _id and id
-                const collectionProducts = allProducts.filter(p => {
+                // FIX 1 & 2: Use the correct array based on collection type!
+                const sourceArray = collection.type === 'ip-assets' ? ipAssets : allProducts;
+                
+                const collectionProducts = sourceArray.filter(p => {
                     const pId = p.id || p._id?.toString();
                     return collection.itemIds?.includes(pId);
                 });

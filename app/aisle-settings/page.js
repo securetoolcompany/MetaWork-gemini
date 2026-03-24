@@ -998,8 +998,8 @@ const addSection = () => {
             avatarUrl: settings.logo,
             bannerUrl: settings.heroImage
           }}
-          // 👇 CHANGE THIS ONE LINE 👇
-          products={[...products, ...ipAssets]} 
+          products={products}
+          ipAssets={ipAssets} 
           fullscreen={true}
           onCloseFullscreen={() => setShowPreviewModal(false)}
         />

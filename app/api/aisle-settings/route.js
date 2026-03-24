@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
+import { ObjectId } from 'mongodb'; // <-- STRICT PATTERN: Top-level import to prevent Vercel build breaks
 
 // GET - Load user's aisle settings
 export async function GET(request) {
@@ -33,32 +34,51 @@ export async function GET(request) {
     }
 
     // --- NEW ROBUST FETCH LOGIC ---
-    // Gather all possible ways this user might be identified in the database
+    // Gather all possible STRING ways this user might be identified
     const possibleIds = [
       decoded.userId, 
       user._id?.toString(), 
       user.id, 
       user.username
-    ].filter(Boolean); // Removes empty values
+    ].filter(Boolean);
 
-    // Create the query BEFORE using it
-    const query = {
-      $or: [
-        { creatorId: { $in: possibleIds } },
-        { userId: { $in: possibleIds } },
-        { ownerUsername: { $in: possibleIds } }
-      ]
-    };
+    // Safely generate an ObjectId to catch legacy relational data
+    let objectIdObj = null;
+    try {
+      const idToTest = user._id?.toString() || decoded.userId;
+      if (ObjectId.isValid(idToTest)) {
+        objectIdObj = new ObjectId(idToTest);
+      }
+    } catch (e) {
+      // Ignore if it's not a valid 24-character hex string (e.g., 'user_123')
+    }
 
-    // Fetch products and IP Assets using the correct collection names and robust query
+    // Build the query array dynamically
+    const queryParts = [
+      { creatorId: { $in: possibleIds } },
+      { userId: { $in: possibleIds } },
+      { ownerUsername: { $in: possibleIds } },
+      { ownerId: { $in: possibleIds } } // <--- THE MISSING LINK!
+    ];
+
+    // If we successfully made an ObjectId, add it to the search parameters
+    if (objectIdObj) {
+      queryParts.push({ creatorId: objectIdObj });
+      queryParts.push({ userId: objectIdObj });
+      queryParts.push({ ownerId: objectIdObj }); // <--- Just in case legacy IPs used ObjectIds
+    }
+
+    const query = { $or: queryParts };
+
+    // Fetch products and IP Assets
     const products = await db.collection('products').find(query).toArray();
     const ipAssets = await db.collection('ip_assets').find(query).toArray();
 
     // 🛑 SAFE DEBUGGING BLOCK 🛑
     console.log("=== API DEBUG: /api/aisle-settings ===");
     console.log("1. Who is asking? Token User ID:", decoded.userId);
-    console.log("2. Who did we find in DB?", user.username, "| DB _id:", user._id?.toString());
-    console.log("3. What IDs are we searching for?", JSON.stringify(query.$or));
+    console.log("2. DB _id:", user._id?.toString());
+    console.log("3. Are we searching for an ObjectId too?", !!objectIdObj);
     console.log("4. Products found count:", products.length);
     console.log("5. IP Assets found count:", ipAssets.length);
     console.log("=======================================");
