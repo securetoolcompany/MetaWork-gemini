@@ -945,8 +945,13 @@ const addSection = () => {
                   <p className="text-xs text-muted-foreground">Allow visitors to leave tips</p>
                 </div>
                 <Switch
-                  checked={settings.tipJarEnabled}
-                  onCheckedChange={(checked) => setSettings({...settings, tipJarEnabled: checked})}
+                  checked={!!settings?.tipJarEnabled}
+                  onCheckedChange={(checked) =>
+                    setSettings((prev) => ({
+                      ...(prev || {}),
+                      tipJarEnabled: checked,
+                    }))
+                  }
                 />
               </div>
             </CardContent>
