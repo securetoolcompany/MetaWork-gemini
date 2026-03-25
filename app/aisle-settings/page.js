@@ -454,22 +454,30 @@ const addSection = () => {
                   <div>
                     <Label>Spotlight Type</Label>
                     <Select
-                      value={settings?.featuredSpotlight?.type ?? ''}
+                      value={settings?.featuredSpotlight?.itemId || ''}
                       onValueChange={(value) =>
                         setSettings((prev) => ({
                           ...(prev || {}),
                           featuredSpotlight: {
                             ...(prev?.featuredSpotlight || {}),
-                            type: value,
-                            itemId: null,
+                            itemId: value,
                           },
                         }))
                       }
                     >
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose an item" />
+                      </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="product">Product</SelectItem>
-                        <SelectItem value="ip-asset">IP Asset</SelectItem>
+                        {((settings?.featuredSpotlight?.type === 'product' ? products : ipAssets) || []).map((item, index) => {
+                          const rawId = item?.id ?? item?._id;
+                          const itemId = rawId != null ? String(rawId) : `item-${index}`;
+                          return (
+                            <SelectItem key={itemId} value={itemId}>
+                              {item?.title || item?.name || 'Untitled'}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -516,11 +524,11 @@ const addSection = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               {enabled && (
-              <DragDropContext onDragEnd={onDragEnd}>
-                <StrictModeDroppable droppableId="sections">
-                  {(provided) => (
-                    <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
-                      {settings.sections.map((section, index) => (
+                <DragDropContext onDragEnd={onDragEnd}>
+                  <StrictModeDroppable droppableId="sections">
+                    {(provided) => (
+                      <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-4">
+                        {(settings.sections || []).map((section, index) => (
                         <Draggable key={section.id} draggableId={section.id} index={index}>
                           {(provided) => (
                             <div ref={provided.innerRef} {...provided.draggableProps} className="mb-4">
@@ -722,17 +730,18 @@ const addSection = () => {
                         No {collection.type === 'products' ? 'products' : 'IP assets'} available. Create some first!
                       </p>
                     ) : (
-                      (collection.type === 'products' ? products : ipAssets).map(item => {
-                        const itemId = item.id || item._id?.toString();
+                      ((collection.type === 'products' ? products : ipAssets) || []).map((item, index) => {
+                        const rawId = item?.id ?? item?._id;
+                        const itemId = rawId != null ? String(rawId) : `item-${index}`;
                         const isSelected = collection.itemIds.includes(itemId);
-                        
+
                         return (
-                          <div 
+                          <div
                             key={itemId}
                             className="flex items-center gap-2 p-2 hover:bg-accent rounded-md cursor-pointer"
                             onClick={() => {
                               const newItemIds = isSelected
-                                ? collection.itemIds.filter(id => id !== itemId)
+                                ? collection.itemIds.filter((id) => id !== itemId)
                                 : [...collection.itemIds, itemId];
                               updateCollection(collection.id, { itemIds: newItemIds });
                             }}
@@ -876,8 +885,10 @@ const addSection = () => {
               <div>
                 <Label>Products Per Row</Label>
                 <Select
-                  value={settings.productsPerRow.toString()}
-                  onValueChange={(value) => setSettings({...settings, productsPerRow: parseInt(value)})}
+                  value={String(settings.productsPerRow ?? 3)}
+                  onValueChange={(value) =>
+                    setSettings({ ...settings, productsPerRow: parseInt(value, 10) })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -969,11 +980,16 @@ const addSection = () => {
                   <p className="text-xs text-muted-foreground">Horizontal banner at the top</p>
                 </div>
                 <Switch
-                  checked={settings.ads.topBanner}
-                  onCheckedChange={(checked) => setSettings({
-                    ...settings,
-                    ads: { ...settings.ads, topBanner: checked }
-                  })}
+                  checked={!!settings?.ads?.topBanner}
+                  onCheckedChange={(checked) =>
+                    setSettings((prev) => ({
+                      ...(prev || {}),
+                      ads: {
+                        ...(prev?.ads || {}),
+                        topBanner: checked,
+                      },
+                    }))
+                  }
                 />
               </div>
 
@@ -983,11 +999,16 @@ const addSection = () => {
                   <p className="text-xs text-muted-foreground">Vertical banner in sidebar</p>
                 </div>
                 <Switch
-                  checked={settings.ads.sidebar}
-                  onCheckedChange={(checked) => setSettings({
-                    ...settings,
-                    ads: { ...settings.ads, sidebar: checked }
-                  })}
+                  checked={!!settings?.ads?.sidebar}
+                  onCheckedChange={(checked) =>
+                    setSettings((prev) => ({
+                      ...(prev || {}),
+                      ads: {
+                        ...(prev?.ads || {}),
+                        sidebar: checked,
+                      },
+                    }))
+                  }
                 />
               </div>
 
@@ -997,18 +1018,22 @@ const addSection = () => {
                   <p className="text-xs text-muted-foreground">Ads between products in grid</p>
                 </div>
                 <Switch
-                  checked={settings.ads.inGrid}
-                  onCheckedChange={(checked) => setSettings({
-                    ...settings,
-                    ads: { ...settings.ads, inGrid: checked }
-                  })}
+                  checked={!!settings?.ads?.inGrid}
+                  onCheckedChange={(checked) =>
+                    setSettings((prev) => ({
+                      ...(prev || {}),
+                      ads: {
+                        ...(prev?.ads || {}),
+                        inGrid: checked,
+                      },
+                    }))
+                  }
                 />
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
-      {/* Put this right before the final closing </div> */}
       {showPreviewModal && (
         <AislePreview
           settings={{
