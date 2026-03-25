@@ -27,15 +27,17 @@ export async function POST(request) {
     const formData = await request.formData();
     const file = formData.get('file');
     const resourceType = formData.get('type') || 'image';
-    const folderContext = formData.get('folderContext') || 'ip-assets/default';
+    
+    // Default to 'general' if no context is provided
+    const folderContext = formData.get('folderContext') || 'general'; 
     
     if (!file) return NextResponse.json({ success: false, error: 'No file provided' }, { status: 400 });
     
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(new Uint8Array(arrayBuffer));
     
-    const userFolder = `metawork/${decoded.userId}`;
-    const uploadFolder = `${userFolder}/${folderContext}`;
+    // 🔥 FIX: Set 'MetaWork' as the root and append the context (e.g., users/123/mockups)
+    const uploadFolder = `MetaWork/${folderContext}`;
 
     const uploadOptions = {
       folder: uploadFolder,

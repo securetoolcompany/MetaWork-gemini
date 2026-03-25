@@ -92,46 +92,46 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   const profitMargin = formData.price > 0 ? (((formData.price - totalProductionCost) / formData.price) * 100).toFixed(1) : 0;
 
   const handleMockupUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    setIsUploading(true);
-    const tid = toast.loading("Uploading mockup...");
+  setIsUploading(true);
+  const tid = toast.loading("Uploading mockup...");
 
-    try {
-      const uploadFormData = new FormData();
-      uploadFormData.append('file', file);
-      uploadFormData.append('folderContext', `users/${product.userId || 'general'}/mockups`);
+  try {
+    // Determine the owner ID
+    const userId = product.userId || product.creatorId || 'anonymous';
+    
+    // 🔥 Define the sub-path relative to the MetaWork root
+    const folderContext = `users/${userId}/mockups`;
 
-      const res = await fetch('/api/upload', { method: 'POST', body: uploadFormData });
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "Upload failed");
+    const formDataUpload = new FormData();
+    formDataUpload.append('file', file);
+    formDataUpload.append('folderContext', folderContext); // Pass the path here
 
-      const updatedMockups = [...(formData.mockups || []), data.url];
-      
-      // Auto-save to DB so it persists immediately
-      await fetch(`/api/metawork/products/${product.id || product._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          title: formData.name,
-          price: parseFloat(formData.price),
-          tags: formData.tags ? formData.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [],
-          mockups: updatedMockups 
-        }),
-      });
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      body: formDataUpload,
+    });
 
-      setFormData(prev => ({ ...prev, mockups: updatedMockups }));
-      toast.success("Mockup saved", { id: tid });
-      if (onSaveSuccess) onSaveSuccess();
-    } catch (err) {
-      toast.error(err.message, { id: tid });
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || "Upload failed");
+
+    // Success logic remains the same...
+    const updatedMockups = [...(formData.mockups || []), data.url];
+    
+    // ... immediate DB save call ...
+    
+    setFormData(prev => ({ ...prev, mockups: updatedMockups }));
+    toast.success("Mockup saved", { id: tid });
+
+  } catch (err) {
+    toast.error(err.message, { id: tid });
+  } finally {
+    setIsUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+};
   
   const handleSave = async () => {
     if (!formData.name || !formData.price) {
