@@ -39,6 +39,9 @@ export async function POST(request) {
     // 🔥 FIX: Set 'MetaWork' as the root and append the context (e.g., users/123/mockups)
     const uploadFolder = `MetaWork/users/${decoded.userId}/${folderContext}`;
 
+    console.log("🔥 [DEBUG] Uploading to folder:", uploadFolder);
+    console.log("🔥 [DEBUG] Decoded Token:", decoded);
+
     const uploadOptions = {
       folder: uploadFolder,
       resource_type: resourceType,

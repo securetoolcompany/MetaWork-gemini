@@ -2,13 +2,42 @@
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, Store, Mail, MapPin, Phone, Globe, Music } from 'lucide-react';
+import { Heart, Store, Mail, MapPin, Phone, Globe, Music, Share2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { ShareButton } from '@/components/ui/share-button';
 import React from 'react';
 
 export default function ProfileViewMode({ data }) {
   const countryFlags = {
     US: '🇺🇸', GB: '🇬🇧', CA: '🇨🇦', AU: '🇦🇺',
     KR: '🇰🇷', JP: '🇯🇵', DE: '🇩🇪', FR: '🇫🇷',
+  };
+
+  const handleShare = async () => {
+    const shareUrl = window.location.href;
+    const shareData = {
+      title: `${data.displayName || 'Creator'}'s MetaWork Profile`,
+      text: data.tagline || 'Check out my profile on MetaWork!',
+      url: shareUrl,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          copyToClipboard(shareUrl);
+        }
+      }
+    } else {
+      copyToClipboard(shareUrl);
+    }
+  };
+
+  const copyToClipboard = (url) => {
+    navigator.clipboard.writeText(url)
+      .then(() => toast.success('Profile link copied to clipboard!'))
+      .catch(() => toast.error('Failed to copy link.'));
   };
 
   if (!data) return null;
@@ -49,29 +78,44 @@ export default function ProfileViewMode({ data }) {
             </div>
             <p className="text-xl text-white/90 mb-4">{data.tagline}</p>
             <div className="flex flex-wrap gap-3">
+              
+              {/* PRIMARY CTA: Solid Fill */}
               <Button 
-                style={{ backgroundColor: data.accentColor || '#3b82f6' }}
+                style={{ backgroundColor: data.accentColor || '#3b82f6', color: '#ffffff' }}
+                className="border-2 border-transparent"
                 onClick={() => {
-                  const aisleSlug = data.username; // Always use username for aisle URL
+                  const aisleSlug = data.username;
                   window.location.href = `/aisle/${aisleSlug}`;
                 }}
               >
                 <Store className="w-4 h-4 mr-2" />
                 Visit My Aisle
               </Button>
+              
+              {/* SECONDARY CTA: Tip Jar (Outlined) */}
               {data.tipJar?.enabled && (
                 <Button 
                   variant="outline" 
-                  className="bg-background/80 backdrop-blur"
+                  className="bg-background/80 backdrop-blur border-2 hover:bg-background/90"
+                  style={{ borderColor: data.accentColor || '#3b82f6' }}
                   onClick={() => {
-                    // Open tip jar dialog or navigate to payment
                     alert(`Support ${data.displayName}!\n\n${data.tipJar.description || 'Show your support with a tip.'}\n\n(Tip jar integration coming soon)`);
                   }}
                 >
-                  <Heart className="w-4 h-4 mr-2" />
+                  {/* Tinting the icon to match the border */}
+                  <Heart className="w-4 h-4 mr-2" style={{ color: data.accentColor || '#3b82f6' }} />
                   {data.tipJar.title}
                 </Button>
               )}
+
+              {/* SECONDARY CTA: Share (Outlined) */}
+              <ShareButton 
+                title={`${data.displayName || 'Creator'}'s MetaWork Profile`}
+                text={data.tagline || 'Check out my profile on MetaWork!'}
+                className="bg-background/80 backdrop-blur border-2 hover:bg-background/90"
+                style={{ borderColor: data.accentColor || '#3b82f6' }}
+                iconStyle={{ color: data.accentColor || '#3b82f6' }}
+              />
             </div>
           </div>
         </div>
@@ -226,7 +270,7 @@ export default function ProfileViewMode({ data }) {
               </Card>
             )}
 
-            {/* Tip Jar */}
+            {/* Tip Jar Sidebar Card */}
             {data.tipJar?.enabled && (
               <Card>
                 <div className="p-6">
@@ -239,7 +283,7 @@ export default function ProfileViewMode({ data }) {
                   )}
                   <Button 
                     className="w-full" 
-                    style={{ backgroundColor: data.accentColor || '#3b82f6' }}
+                    style={{ backgroundColor: data.accentColor || '#3b82f6', color: '#ffffff' }}
                     onClick={() => {
                       alert(`Support ${data.displayName}!\n\n${data.tipJar.description || 'Show your support with a tip.'}\n\n(Tip jar integration coming soon)`);
                     }}

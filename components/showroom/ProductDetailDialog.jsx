@@ -32,6 +32,7 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { Share2, Check } from 'lucide-react';
+import { ShareButton } from '@/components/ui/share-button';
 
 export default function ProductDetailDialog({ open, onOpenChange, productId }) {
   const router = useRouter();
@@ -446,27 +447,12 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
                   </div>
                 )}
 
-                <Button 
-                  variant="outline" 
-                  onClick={handleShare}
-                  className={`transition-all duration-300 flex items-center gap-2 ${
-                    isCopied 
-                      ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/50' 
-                      : 'hover:bg-white/5'
-                  }`}
-                >
-                  {isCopied ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>Link Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Share2 className="w-4 h-4" />
-                      <span>Share this Product</span>
-                    </>
-                  )}
-                </Button>
+                <ShareButton 
+                  url={`${window.location.origin}/products/${product.id}`} // Force specific URL
+                  title={`Buy ${product.name} on MetaWork`}
+                  text={product.description}
+                  variant="secondary"
+                />
 
                 {productDescription && (
                   <div>

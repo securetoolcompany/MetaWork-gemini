@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { ShareButton } from '@/components/ui/share-button'; // Added Import
 import { 
   User, 
   MapPin, 
@@ -153,11 +154,10 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
 
                 <Separator />
 
-                {/* Author Card - NOW WITH LINK */}
+                {/* Author Card */}
                 <div className="bg-muted/40 rounded-lg p-4 border border-muted flex items-center justify-between">
                    <div className="flex items-center gap-3">
                       <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg overflow-hidden">
-                         {/* If we have avatar, use it, else fallback */}
                          {ip.ownerAvatar ? (
                              <img src={ip.ownerAvatar} alt={ip.ownerName} className="w-full h-full object-cover" />
                          ) : (
@@ -170,7 +170,6 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
                       </div>
                    </div>
                    
-                   {/* Profile Link Button */}
                    {ip.ownerUsername && (
                        <Button 
                          variant="outline" 
@@ -219,7 +218,14 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
                         Valid for commercial use
                      </p>
                   </div>
-                  <div className="flex gap-3">
+                  <div className="flex gap-2">
+                     <ShareButton 
+                       url={typeof window !== 'undefined' ? `${window.location.origin}/ip/${ip.id || ip._id}` : ''}
+                       title={`Check out this IP: ${ip.name}`}
+                       text="License this IP to create your own products!"
+                       buttonText="Share"
+                       variant="outline"
+                     />
                      <Button variant="outline" onClick={onBack}>
                         Keep Searching
                      </Button>

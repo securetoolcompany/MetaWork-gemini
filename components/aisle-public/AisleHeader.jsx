@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Twitter, Instagram, Globe, Music, User, Share2, QrCode, Copy, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ShareButton } from '@/components/ui/share-button'; // Universal Share Button Added
 import {
   Dialog,
   DialogContent,
@@ -22,7 +23,6 @@ const socialIcons = {
   twitch: Music,
 };
 
-// Destructured collections from props
 export default function AisleHeader({ creator, settings, products = [], collections = [] }) {
   const [selectedCollection, setSelectedCollection] = useState('');
   const [showShareDialog, setShowShareDialog] = useState(false);
@@ -45,7 +45,6 @@ export default function AisleHeader({ creator, settings, products = [], collecti
     if (qrType === 'aisle') {
       url = aisleUrl;
     } else if (qrType === 'collection' && selectedCollection) {
-      // Directs to the specific collection ID anchor
       url = `${aisleUrl}#${selectedCollection}`;
     } else if (qrType === 'product' && selectedProduct) {
       url = `${window.location.origin}/showroom/product/${selectedProduct}`;
@@ -102,16 +101,29 @@ export default function AisleHeader({ creator, settings, products = [], collecti
   const avatar = creator.aisleSettings?.logo || creator.avatar || creator.avatarUrl;
   const socialLinks = creator.aisleSettings?.socialLinks || creator.socialLinks || {};
 
-  const ShareButton = (
+  // RENAME to QrCodeButton to fix naming collision
+  const QrCodeButton = (
     <Button
       onClick={handleShare}
       size="sm"
       className="bg-white/10 border-white/20 text-white hover:bg-white/20 gap-2"
       variant="outline"
     >
-      <Share2 className="w-4 h-4" />
-      Share
+      <QrCode className="w-4 h-4" />
+      QR Code
     </Button>
+  );
+
+  // Setup the universal share button explicitly for the Aisle
+  const UniversalShareButton = (
+    <ShareButton
+      title={`Welcome to ${title}'s Aisle`}
+      text="Shop my curated collection on MetaWork!"
+      className="bg-white/10 border-white/20 text-white hover:bg-white/20"
+      variant="outline"
+      size="sm"
+      buttonText="Share"
+    />
   );
 
   let headerLayout;
@@ -134,7 +146,8 @@ export default function AisleHeader({ creator, settings, products = [], collecti
             <div className="flex-1 pb-2">
               <h1 className="text-3xl font-bold text-white mb-2">{title}</h1>
               <div className="flex gap-3 items-center">
-                {ShareButton}
+                {QrCodeButton}
+                {UniversalShareButton}
                 <Button variant="outline" size="sm" asChild className="bg-white/10 border-white/20 text-white hover:bg-white/20">
                   <Link href={`/profile/${creator.username}`}><User className="w-4 h-4 mr-2" />Profile</Link>
                 </Button>
@@ -157,7 +170,10 @@ export default function AisleHeader({ creator, settings, products = [], collecti
               <p className="text-sm text-muted-foreground">{description}</p>
             </div>
           </div>
-          {ShareButton}
+          <div className="flex gap-2">
+            {QrCodeButton}
+            {UniversalShareButton}
+          </div>
         </div>
       </div>
     );
@@ -166,7 +182,10 @@ export default function AisleHeader({ creator, settings, products = [], collecti
       <div className="border-b border-border py-4 bg-background">
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           <h1 className="text-lg font-bold uppercase tracking-tight">{title}</h1>
-          {ShareButton}
+          <div className="flex gap-2">
+            {QrCodeButton}
+            {UniversalShareButton}
+          </div>
         </div>
       </div>
     );
@@ -201,7 +220,6 @@ export default function AisleHeader({ creator, settings, products = [], collecti
                     <div className="flex-1"><div className="font-bold text-slate-100">Entire Aisle</div><div className="text-sm text-slate-400">Link to all products</div></div>
                   </label>
                   
-                  {/* Specific Collection option appears if collections exist */}
                   {collections?.length > 0 && (
                     <label className={`flex items-start space-x-3 p-4 border-2 rounded-xl cursor-pointer transition-all ${qrType === "collection" ? "border-blue-500 bg-blue-500/10" : "border-slate-800 bg-slate-900/40 hover:border-slate-700"}`}>
                       <input type="radio" checked={qrType === "collection"} onChange={() => setQrType("collection")} className="mt-1 accent-blue-500" />
@@ -212,7 +230,6 @@ export default function AisleHeader({ creator, settings, products = [], collecti
                     </label>
                   )}
 
-                  {/* Specific Product option appears if products exist */}
                   {products?.length > 0 && (
                     <label className={`flex items-start space-x-3 p-4 border-2 rounded-xl cursor-pointer transition-all ${qrType === "product" ? "border-blue-500 bg-blue-500/10" : "border-slate-800 bg-slate-900/40 hover:border-slate-700"}`}>
                       <input type="radio" checked={qrType === "product"} onChange={() => setQrType("product")} className="mt-1 accent-blue-500" />
@@ -222,7 +239,6 @@ export default function AisleHeader({ creator, settings, products = [], collecti
                 </div>
               </div>
 
-              {/* Dynamic Selector for Collections */}
               {qrType === "collection" && collections?.length > 0 && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-200">
                   <label className="text-sm font-medium mb-2 block text-slate-300">Select Collection</label>
