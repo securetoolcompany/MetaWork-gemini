@@ -15,8 +15,9 @@ type RootLayoutProps = {
   modal: ReactNode; // <-- Added modal prop
 };
 
-export default function RootLayout({ children, modal }: RootLayoutProps) { // <-- Added modal prop
+export default function RootLayout({ children, modal }: RootLayoutProps) {
   const pathname = usePathname();
+  const isManageRoute = pathname?.includes('/manage');
   const isPublicAisle = pathname?.startsWith('/aisle/');
   const isShowroom = pathname?.startsWith('/showroom');
   const isLogin = pathname?.startsWith('/login');
@@ -33,24 +34,29 @@ export default function RootLayout({ children, modal }: RootLayoutProps) { // <-
         <AuthProvider>
           <WalletProvider>
             <CartProvider>
+              {/* If we are managing, skip the DialogProvider/Modal overlap if possible, 
+                  or at least ensure the modal slot doesn't render blocking divs */}
               <ProductDialogProvider>
-              {isPublicAisle || isShowroom || isLogin || isPublicProfile ? (
-                <>
-                  <Header />
-                  {children}
-                </>
-              ) : (
-                <div className="flex h-screen bg-background text-foreground">
-                  <Sidebar />
-                  <div className="flex-1 flex flex-col overflow-hidden">
+                {isPublicAisle || isShowroom || isLogin || isPublicProfile ? (
+                  <>
                     <Header />
-                    <main className="flex-1 overflow-auto bg-slate-900/50">
-                      {children}
-                    </main>
+                    {children}
+                  </>
+                ) : (
+                  <div className="flex h-screen bg-background text-foreground">
+                    <Sidebar />
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                      <Header />
+                      <main className="flex-1 overflow-auto bg-slate-900/50 relative">
+                        {children}
+                      </main>
+                    </div>
                   </div>
-                </div>
-              )}
-              {modal} {/* <-- Added modal render slot here */}
+                )}
+                
+                {/* CRITICAL FIX: Only render the modal slot if we aren't in /manage 
+                    This prevents the intercepting route from blocking clicks */}
+                {!isManageRoute && modal} 
               </ProductDialogProvider>
             </CartProvider>
           </WalletProvider>

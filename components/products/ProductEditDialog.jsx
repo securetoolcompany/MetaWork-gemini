@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -40,8 +40,9 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
     isPublic: true
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
-  // Reset form when product changes
   useEffect(() => {
     if (product) {
       setFormData({
@@ -49,7 +50,8 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
         description: product.description || 'A custom designed product featuring unique artwork',
         price: product.price || 0,
         tags: Array.isArray(product.tags) ? product.tags.join(', ') : (product.tags || ''),
-        isPublic: product.isPublic !== undefined ? product.isPublic : true
+        isPublic: product.isPublic !== undefined ? product.isPublic : true,
+        mockups: product.mockups || [] // Keep track of these
       });
     }
   }, [product]);
@@ -89,6 +91,48 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   const profit = (formData.price - totalProductionCost).toFixed(2);
   const profitMargin = formData.price > 0 ? (((formData.price - totalProductionCost) / formData.price) * 100).toFixed(1) : 0;
 
+  const handleMockupUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const tid = toast.loading("Uploading mockup...");
+
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+      uploadFormData.append('folderContext', `users/${product.userId || 'general'}/mockups`);
+
+      const res = await fetch('/api/upload', { method: 'POST', body: uploadFormData });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Upload failed");
+
+      const updatedMockups = [...(formData.mockups || []), data.url];
+      
+      // Auto-save to DB so it persists immediately
+      await fetch(`/api/metawork/products/${product.id || product._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          title: formData.name,
+          price: parseFloat(formData.price),
+          tags: formData.tags ? formData.tags.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [],
+          mockups: updatedMockups 
+        }),
+      });
+
+      setFormData(prev => ({ ...prev, mockups: updatedMockups }));
+      toast.success("Mockup saved", { id: tid });
+      if (onSaveSuccess) onSaveSuccess();
+    } catch (err) {
+      toast.error(err.message, { id: tid });
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+  
   const handleSave = async () => {
     if (!formData.name || !formData.price) {
       toast.error('Missing required fields', {
@@ -202,13 +246,37 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
               <CardContent className="p-4">
                 <div className="aspect-square relative rounded-lg overflow-hidden bg-muted mb-3">
                   <img
-                    src={product.imageUrl || product.thumbnailUrl || '/placeholder.png'}
-                    alt={product.name || product.title}
+                    src={formData.mockups?.length > 0 
+                      ? formData.mockups[formData.mockups.length - 1] 
+                      : (product.imageUrl || product.thumbnailUrl || '/placeholder.png')}
+                    alt={formData.name}
                     className="object-cover w-full h-full"
                   />
+                  {isUploading && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-white" />
+                    </div>
+                  )}
                 </div>
-                <Button variant="outline" className="w-full" size="sm" disabled>
-                  <Upload className="mr-2 h-4 w-4" />
+
+                {/* THE HIDDEN INPUT */}
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/*" 
+                  onChange={handleMockupUpload} 
+                />
+
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  className="w-full" 
+                  size="sm" 
+                  disabled={isUploading} 
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                   Upload New Mockup
                 </Button>
               </CardContent>
