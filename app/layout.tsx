@@ -31,8 +31,8 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
   return (
     <html lang="en" className="dark" dir="ltr">
       <body className="font-sans">
-        <AuthProvider>
-          <WalletProvider>
+         <WalletProvider>
+          <AuthProvider>
             <CartProvider>
               {/* If we are managing, skip the DialogProvider/Modal overlap if possible, 
                   or at least ensure the modal slot doesn't render blocking divs */}
@@ -59,8 +59,8 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
                 {!isManageRoute && modal} 
               </ProductDialogProvider>
             </CartProvider>
-          </WalletProvider>
-        </AuthProvider>
+           </AuthProvider>
+        </WalletProvider>
       </body>
     </html>
   );

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { verifyToken, getUserFromToken } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
 
+export const dynamic = 'force-dynamic';
+
 // Get current user info
 export async function GET(request) {
   try {
