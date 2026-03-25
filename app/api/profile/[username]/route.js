@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 
-export const dynamic = 'force-dynamic'; // Tells Next.js NEVER to cache this API route!
+export const dynamic = 'force-dynamic'; 
 
 export async function GET(request, { params }) {
   const { username } = await params;
@@ -21,13 +21,7 @@ export async function GET(request, { params }) {
     
     const profileSettings = creator.profileSettings || {};
 
-    if (profileData) {
-      Object.keys(profileData).forEach((key) => {
-        if (allowedFields.includes(key) || key.startsWith('storySection_')) {
-          updateFields[key] = profileData[key];
-        }
-      });
-    }
+    // ❌ REMOVED THE CRASHING 'profileData' BLOCK THAT WAS HERE ❌
     
     return NextResponse.json({
       success: true,
@@ -37,7 +31,6 @@ export async function GET(request, { params }) {
         displayName: creator.displayName || profileSettings.displayName || creator.name || creator.username,
         email: creator.email,
         
-        // 🔥 THESE ARE THE CRITICAL LINES
         profilePicture: creator.profilePicture || { url: creator.profileImage || creator.avatar || '' },
         heroMedia: creator.heroMedia || profileSettings.heroMedia || { type: 'image', url: creator.profileBanner || creator.banner || '' },
         
@@ -63,7 +56,8 @@ export async function GET(request, { params }) {
         createdAt: creator.createdAt,
         aisleUrl: `/aisle/${username}`,
         hasAisle: true,
-        ...dynamicSections
+        // Make sure dynamicSections exists in your actual code, or remove this spread
+        // ...dynamicSections 
       }
     });
   } catch (error) {

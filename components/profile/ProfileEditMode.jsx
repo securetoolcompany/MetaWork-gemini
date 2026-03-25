@@ -130,7 +130,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('type', type);
-    formData.append('folderContext', 'profile-media'); // Organizes inside metawork/{user_id}/profile-media
+    formData.append('folderContext', 'profile-media');
 
     const res = await fetch('/api/upload', {
       method: 'POST',

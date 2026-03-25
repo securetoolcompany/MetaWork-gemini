@@ -7,10 +7,7 @@ export async function POST(request) {
     // Auth check
     const token = request.cookies.get('auth_token')?.value;
     if (!token) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Unauthorized' 
-      }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
     
     const decoded = verifyToken(token);
@@ -37,12 +34,9 @@ export async function POST(request) {
     updateFields.updatedAt = new Date();
     
     const { db } = await connectToDatabase();
-    const query = {
-      $or: [
-        { id: decoded.userId },
-        { _id: decoded.userId }
-      ]
-    };
+    
+    // Use the string ID to match your DB architecture
+    const query = { id: decoded.userId };
 
     const result = await db.collection('users').updateOne(
       query,
@@ -65,15 +59,9 @@ export async function POST(request) {
       { projection: { password: 0 } }
     );
     
-    return NextResponse.json({ 
-      success: true, 
-      user: updatedUser 
-    });
+    return NextResponse.json({ success: true, user: updatedUser });
   } catch (error) {
     console.error('Profile Settings API Error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Server Error' 
-    }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Server Error' }, { status: 500 });
   }
 }

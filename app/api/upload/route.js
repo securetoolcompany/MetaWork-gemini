@@ -37,7 +37,7 @@ export async function POST(request) {
     const buffer = Buffer.from(new Uint8Array(arrayBuffer));
     
     // 🔥 FIX: Set 'MetaWork' as the root and append the context (e.g., users/123/mockups)
-    const uploadFolder = `MetaWork/${folderContext}`;
+    const uploadFolder = `MetaWork/users/${decoded.userId}/${folderContext}`;
 
     const uploadOptions = {
       folder: uploadFolder,
