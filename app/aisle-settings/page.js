@@ -402,15 +402,20 @@ const addSection = () => {
               <CardDescription>Display your social profiles on your aisle</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {Object.keys(settings.socialLinks).map(platform => (
+              {Object.keys(settings?.socialLinks ?? {}).map((platform) => (
                 <div key={platform}>
                   <Label className="capitalize">{platform}</Label>
                   <Input
-                    value={settings.socialLinks[platform] || ''}
-                    onChange={(e) => setSettings({
-                      ...settings,
-                      socialLinks: { ...settings.socialLinks, [platform]: e.target.value }
-                    })}
+                    value={settings?.socialLinks?.[platform] ?? ''}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        socialLinks: {
+                          ...(settings?.socialLinks ?? {}),
+                          [platform]: e.target.value,
+                        },
+                      })
+                    }
                     placeholder={`https://${platform}.com/yourprofile`}
                   />
                 </div>
@@ -430,25 +435,36 @@ const addSection = () => {
                   <CardDescription>Highlight one top-tier item at the very top of your aisle</CardDescription>
                 </div>
                 <Switch
-                  checked={settings.featuredSpotlight.enabled}
-                  onCheckedChange={(checked) => setSettings({
-                    ...settings,
-                    featuredSpotlight: { ...settings.featuredSpotlight, enabled: checked }
-                  })}
+                  checked={!!settings?.featuredSpotlight?.enabled}
+                  onCheckedChange={(checked) =>
+                    setSettings({
+                      ...settings,
+                      featuredSpotlight: {
+                        ...(settings?.featuredSpotlight ?? {}),
+                        enabled: checked,
+                      },
+                    })
+                  }
                 />
               </div>
             </CardHeader>
-            {settings.featuredSpotlight.enabled && (
+            {settings?.featuredSpotlight?.enabled && (
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Spotlight Type</Label>
                     <Select
-                      value={settings.featuredSpotlight.type}
-                      onValueChange={(value) => setSettings({
-                        ...settings,
-                        featuredSpotlight: { ...settings.featuredSpotlight, type: value, itemId: null }
-                      })}
+                      value={settings?.featuredSpotlight?.type ?? ''}
+                      onValueChange={(value) =>
+                        setSettings((prev) => ({
+                          ...(prev || {}),
+                          featuredSpotlight: {
+                            ...(prev?.featuredSpotlight || {}),
+                            type: value,
+                            itemId: null,
+                          },
+                        }))
+                      }
                     >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>

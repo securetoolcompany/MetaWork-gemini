@@ -105,7 +105,7 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
           <div className={cn("flex-1 p-4 space-y-6")}>
             
             {/* --- NEW: FEATURED SPOTLIGHT --- */}
-            {aisleSettings.featuredSpotlight?.enabled && aisleSettings.featuredSpotlight?.itemId && (
+            {aisleSettings.featuredSpotlight?.enabled && !!aisleSettings?.featuredSpotlight?.itemId && (
               (() => {
                 const featuredItem = allProducts.find(p => (p.id || p._id?.toString()) === aisleSettings.featuredSpotlight.itemId);
                 if (!featuredItem) return null;

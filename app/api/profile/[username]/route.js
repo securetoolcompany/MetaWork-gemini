@@ -21,13 +21,13 @@ export async function GET(request, { params }) {
     
     const profileSettings = creator.profileSettings || {};
 
-    // Grab all dynamic story section media arrays
-    const dynamicSections = {};
-    Object.keys(creator).forEach(key => {
-      if (key.startsWith('storySection_')) {
-        dynamicSections[key] = creator[key];
-      }
-    });
+    if (profileData) {
+      Object.keys(profileData).forEach((key) => {
+        if (allowedFields.includes(key) || key.startsWith('storySection_')) {
+          updateFields[key] = profileData[key];
+        }
+      });
+    }
     
     return NextResponse.json({
       success: true,

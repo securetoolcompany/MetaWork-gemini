@@ -26,12 +26,13 @@ export async function POST(request) {
       'email', 'phone', 'website', 'tipJar', 'accentColor'
     ];
     
-    // Allow static fields AND dynamic story section media
-    Object.keys(profileData).forEach(key => {
-      if (allowedFields.includes(key) || key.startsWith('storySection_')) {
-        updateFields[key] = profileData[key];
-      }
-    });
+    if (profileData) {
+      Object.keys(profileData).forEach((key) => {
+        if (allowedFields.includes(key) || key.startsWith('storySection_')) {
+          updateFields[key] = profileData[key];
+        }
+      });
+    }
     
     updateFields.updatedAt = new Date();
     
