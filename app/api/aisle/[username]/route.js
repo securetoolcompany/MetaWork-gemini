@@ -9,7 +9,6 @@ export async function GET(request, { params }) {
     const { username } = await params;
     const { db } = await connectToDatabase();
 
-    // 1. Case-insensitive lookup for the Creator
     const searchRegex = new RegExp(`^${username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
     const creator = await db.collection('users').findOne({
       $or: [{ 'aisleSettings.slug': searchRegex }, { username: searchRegex }]
@@ -19,11 +18,9 @@ export async function GET(request, { params }) {
 
     const creatorId = creator._id.toString();
     const altId = creator.id || creatorId;
-
     const idList = [creatorId, altId];
     if (ObjectId.isValid(creatorId)) idList.push(new ObjectId(creatorId));
 
-    // 2. Fetch only Products and IP Assets (Collections are already in the 'creator' object)
     const [products, ipAssets] = await Promise.all([
       db.collection('products').find({
         $and: [
@@ -36,7 +33,6 @@ export async function GET(request, { params }) {
       }).toArray()
     ]);
 
-    // 3. Return the response using the collections stored in the user document
     return NextResponse.json({
       success: true,
       creator: {
@@ -50,9 +46,9 @@ export async function GET(request, { params }) {
       products: products.map(p => ({ ...p, id: p._id.toString() })),
       ipAssets: ipAssets.map(ip => ({ ...ip, id: ip._id.toString() })),
       
-      // Pull directly from the creator document to match your aisle-settings PUT route
+      // FIX: Pull directly from the creator document!
       collections: (creator.collections || [])
-        .filter(c => c.active !== false) // Only show active ones
+        .filter(c => c.active !== false)
         .map(c => ({
           ...c,
           id: c.id || c._id?.toString()

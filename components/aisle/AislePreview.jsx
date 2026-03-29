@@ -26,9 +26,10 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
   
   const allProducts = products;
   const collections = settings?.collections || [];
+  
   const sections = aisleSettings.sections?.length > 0 
-  ? aisleSettings.sections 
-  : (aisleSettings.collections || []);
+    ? aisleSettings.sections 
+    : collections;
 
   const PreviewContent = () => {
     const useDynamicSections = sections.length > 0;
@@ -119,30 +120,43 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
           <div className="flex-1 p-4 space-y-8">
             {/* DYNAMIC SECTIONS */}
             {useDynamicSections ? (
-              sections.filter(s => s.enabled).map((section) => {
+              // FIXED: Ensure active sections render
+              sections.filter(s => s.enabled !== false && s.active !== false).map((section) => {
                 let items = [];
-                if (section.displayType === 'all-products') items = allProducts;
-                else if (section.displayType === 'all-ip-assets') items = ipAssets;
-                // ... other section logic mapping ...
+                
+                // FIXED: Map the products inside the collection!
+                if (section.displayType === 'all-products') {
+                  items = allProducts;
+                } else if (section.displayType === 'all-ip-assets') {
+                  items = ipAssets;
+                } else if (section.productIds && section.productIds.length > 0) {
+                  items = allProducts.filter(p => section.productIds.includes(p._id || p.id));
+                }
+
+                // If collection has no products, don't show an empty title
+                if (items.length === 0) return null;
                 
                 return (
-                  <div key={section.id}>
-                    <h3 className="text-base font-bold mb-4" style={{ color: theme.text }}>{section.title}</h3>
+                  <div key={section.id || section._id}>
+                    {/* FIXED: Collections use 'name', Sections use 'title' */}
+                    <h3 className="text-base font-bold mb-4" style={{ color: theme.text }}>
+                      {section.title || section.name}
+                    </h3>
                     <div className={cn("grid gap-4", responsiveGridClass)}>
                       {items.map(item => (
                         item.licensingFee !== undefined ? (
                           <AisleIPAssetCard 
-                            key={item._id} 
+                            key={item._id || item.id} 
                             asset={item} 
-                            accentColor={accentColor} // Pass accent color
-                            cardStyle={cardStyle}     // Pass card style
+                            accentColor={accentColor}
+                            cardStyle={cardStyle}
                           />
                         ) : (
                           <AisleProductCard 
-                            key={item._id} 
+                            key={item._id || item.id} 
                             product={item} 
-                            accentColor={accentColor} // Pass accent color
-                            cardStyle={cardStyle}     // Pass card style
+                            accentColor={accentColor}
+                            cardStyle={cardStyle}
                             showReviews={aisleSettings.showReviews}
                             showSalesCounter={aisleSettings.showSalesCounter}
                           />
@@ -157,8 +171,8 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
               <div>
                 <h3 className="text-base font-bold mb-6" style={{ color: theme.text }}>All Items</h3>
                 <div className={cn("grid gap-4", responsiveGridClass)}>
-                  {allProducts.map(p => <AisleProductCard key={p._id} product={p} />)}
-                  {ipAssets.map(a => <AisleIPAssetCard key={a._id} asset={a} />)}
+                  {allProducts.map(p => <AisleProductCard key={p._id || p.id} product={p} />)}
+                  {ipAssets.map(a => <AisleIPAssetCard key={a._id || a.id} asset={a} />)}
                 </div>
               </div>
             )}

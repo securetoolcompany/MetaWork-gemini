@@ -59,7 +59,8 @@ export default function PublicAislePage() {
             username: data.creator.username,
             bio: data.creator.bio,
             avatarUrl: data.creator.avatar,
-            bannerUrl: data.creator.banner
+            bannerUrl: data.creator.banner,
+            collections: data.collections
           }}
           products={data.products}
           ipAssets={data.ipAssets}
