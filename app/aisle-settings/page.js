@@ -146,9 +146,9 @@ export default function AisleSettingsPage() {
 
         <TabsContent value="collections">
           <CollectionsTab 
-            collections={collections} 
-            setCollections={setCollections} 
-            products={products} 
+            settings={{ collections }} 
+            updateSettings={(key, value) => setCollections(value)} 
+            products={products} // <-- Ensure this is passed here
             ipAssets={ipAssets} 
           />
         </TabsContent>

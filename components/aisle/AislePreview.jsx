@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { X, MapPin, Mail, Phone, Globe, Share2, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ProductDetailDialog } from '@/components/showroom/ProductDetailDialog';
-import { IPConsumerDialog } from '@/components/ip/IPConsumerDialog';
+import AisleIPAssetCard from '@/components/aisle-public/AisleIPAssetCard';
+import AisleProductCard from '@/components/aisle-public/AisleProductCard';
 
 const THEME_COLORS = {
   'dark-professional': { bg: '#0f172a', card: '#1e293b', text: '#ffffff', muted: '#64748b' },
@@ -128,9 +128,23 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
                     <h3 className="text-base font-bold mb-4" style={{ color: theme.text }}>{section.title}</h3>
                     <div className={cn("grid gap-4", responsiveGridClass)}>
                       {items.map(item => (
-                        item.licensingFee !== undefined ? 
-                        <IPConsumerCard key={item._id} asset={item} /> : 
-                        <ShowroomCard key={item._id} product={item} />
+                        item.licensingFee !== undefined ? (
+                          <AisleIPAssetCard 
+                            key={item._id} 
+                            asset={item} 
+                            accentColor={accentColor} // Pass accent color
+                            cardStyle={cardStyle}     // Pass card style
+                          />
+                        ) : (
+                          <AisleProductCard 
+                            key={item._id} 
+                            product={item} 
+                            accentColor={accentColor} // Pass accent color
+                            cardStyle={cardStyle}     // Pass card style
+                            showReviews={aisleSettings.showReviews}
+                            showSalesCounter={aisleSettings.showSalesCounter}
+                          />
+                        )
                       ))}
                     </div>
                   </div>
@@ -141,8 +155,8 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
               <div>
                 <h3 className="text-base font-bold mb-6" style={{ color: theme.text }}>All Items</h3>
                 <div className={cn("grid gap-4", responsiveGridClass)}>
-                  {allProducts.map(p => <ShowroomCard key={p._id} product={p} />)}
-                  {ipAssets.map(a => <IPConsumerCard key={a._id} asset={a} />)}
+                  {allProducts.map(p => <AisleProductCard key={p._id} product={p} />)}
+                  {ipAssets.map(a => <AisleIPAssetCard key={a._id} asset={a} />)}
                 </div>
               </div>
             )}

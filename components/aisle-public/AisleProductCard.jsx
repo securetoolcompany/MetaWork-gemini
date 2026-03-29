@@ -139,7 +139,7 @@ export default function AisleProductCard({
           </span>
           <Button 
             size="sm" 
-            variant="outline"
+            style={{ backgroundColor: accentColor, color: '#ffffff', border: 'none' }} // Add this
           >
             View
           </Button>

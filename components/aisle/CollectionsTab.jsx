@@ -275,7 +275,8 @@ function SortableCollectionCard({ collection, index, isExpanded, toggleExpanded,
 
 export default function CollectionsTab({ 
   settings, 
-  updateSettings, 
+  updateSettings,
+  products = [],
   tutorialActive = false, 
   tutorialStep = 0, 
   onTutorialAdvance = null,
@@ -302,7 +303,7 @@ export default function CollectionsTab({
 
   // LOGIC FIX: If sync is enabled, use ONLY mongo data.
   const collections = enableMongoSync ? mongoCollections : (settings?.collections || []);
-  const allProducts = enableMongoSync ? mongoProducts : []; 
+  const allProducts = enableMongoSync ? mongoProducts : products;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -594,16 +595,18 @@ export default function CollectionsTab({
                </div>
             ) : (
               allProducts.map(product => {
-                const isSelected = selectedProducts.includes(product.id);
+                const productId = product.id || product._id; // Handle both ID formats
+                const isSelected = selectedProducts.includes(productId);
                 const collection = collections.find(c => c.id === addProductsDialog);
-                const alreadyInCollection = collection?.productIds?.includes(product.id);
+                const alreadyInCollection = collection?.productIds?.includes(productId);
+                
                 return (
                   <button
-                    key={product.id}
+                    key={productId}
                     disabled={alreadyInCollection}
                     onClick={() => {
-                      if (isSelected) setSelectedProducts(selectedProducts.filter(id => id !== product.id));
-                      else setSelectedProducts([...selectedProducts, product.id]);
+                      if (isSelected) setSelectedProducts(selectedProducts.filter(id => id !== productId));
+                      else setSelectedProducts([...selectedProducts, productId]);
                     }}
                     className={`relative rounded-lg border-2 transition-all ${
                       alreadyInCollection ? 'border-muted opacity-50 cursor-not-allowed' :
