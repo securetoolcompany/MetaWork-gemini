@@ -303,8 +303,7 @@ export default function CollectionsTab({
 
   // LOGIC FIX: If sync is enabled, use ONLY mongo data.
   const collections = enableMongoSync ? mongoCollections : (settings?.collections || []);
-  const allProducts = enableMongoSync ? mongoProducts : products;
-
+  const allProducts = products || [];
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -595,7 +594,7 @@ export default function CollectionsTab({
                </div>
             ) : (
               allProducts.map(product => {
-                const productId = product.id || product._id; // Handle both ID formats
+                const productId = product.id || product._id;
                 const isSelected = selectedProducts.includes(productId);
                 const collection = collections.find(c => c.id === addProductsDialog);
                 const alreadyInCollection = collection?.productIds?.includes(productId);
