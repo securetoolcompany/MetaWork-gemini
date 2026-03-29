@@ -26,7 +26,9 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
   
   const allProducts = products;
   const collections = settings?.collections || [];
-  const sections = aisleSettings.sections || [];
+  const sections = aisleSettings.sections?.length > 0 
+  ? aisleSettings.sections 
+  : (aisleSettings.collections || []);
 
   const PreviewContent = () => {
     const useDynamicSections = sections.length > 0;

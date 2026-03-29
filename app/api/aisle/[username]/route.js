@@ -18,13 +18,12 @@ export async function GET(request, { params }) {
     if (!creator) return NextResponse.json({ success: false, error: 'Creator not found' }, { status: 404 });
 
     const creatorId = creator._id.toString();
-    const altId = creator.id || creatorId; // Handle both id formats
+    const altId = creator.id || creatorId;
 
-    // 2. Normalize IDs for the query (find strings OR ObjectIds)
     const idList = [creatorId, altId];
     if (ObjectId.isValid(creatorId)) idList.push(new ObjectId(creatorId));
 
-    // 3. Robust query for Products & IP Assets
+    // 2. Fetch only Products and IP Assets (Collections are already in the 'creator' object)
     const [products, ipAssets] = await Promise.all([
       db.collection('products').find({
         $and: [
@@ -37,19 +36,27 @@ export async function GET(request, { params }) {
       }).toArray()
     ]);
 
+    // 3. Return the response using the collections stored in the user document
     return NextResponse.json({
       success: true,
       creator: {
         username: creator.username,
         aisleSettings: creator.aisleSettings || {},
-        // Pass essential info for the header
         title: creator.aisleSettings?.title || creator.username,
         description: creator.aisleSettings?.description || creator.bio,
         logo: creator.aisleSettings?.logo || creator.avatar,
         heroImage: creator.aisleSettings?.heroImage || creator.banner
       },
       products: products.map(p => ({ ...p, id: p._id.toString() })),
-      ipAssets: ipAssets.map(ip => ({ ...ip, id: ip._id.toString() }))
+      ipAssets: ipAssets.map(ip => ({ ...ip, id: ip._id.toString() })),
+      
+      // Pull directly from the creator document to match your aisle-settings PUT route
+      collections: (creator.collections || [])
+        .filter(c => c.active !== false) // Only show active ones
+        .map(c => ({
+          ...c,
+          id: c.id || c._id?.toString()
+        }))
     });
   } catch (error) {
     console.error('Aisle API Error:', error);

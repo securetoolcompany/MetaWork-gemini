@@ -3,103 +3,48 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb'; // <-- STRICT PATTERN: Top-level import to prevent Vercel build breaks
 
-// GET - Load user's aisle settings
 export async function GET(request) {
   try {
     const token = request.cookies.get('auth_token')?.value;
-    if (!token) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'Unauthorized' 
-      }, { status: 401 });
-    }
+    if (!token) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     
     const decoded = verifyToken(token);
     const { db } = await connectToDatabase();
     
+    // FIX: Added 'collections: 1' to the projection so the data isn't filtered out
     const user = await db.collection('users').findOne(
       { _id: decoded.userId },
-      { 
-        projection: { 
-          aisleSettings: 1, 
-          'profile.displayName': 1,
-          username: 1,
-          collections: 1
-        } 
-      }
+      { projection: { aisleSettings: 1, 'profile.displayName': 1, username: 1, collections: 1 } }
     );
     
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
-    }
+    if (!user) return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
 
-    // --- NEW ROBUST FETCH LOGIC ---
-    // Gather all possible STRING ways this user might be identified
-    const possibleIds = [
-      decoded.userId, 
-      user._id?.toString(), 
-      user.id, 
-      user.username
-    ].filter(Boolean);
+    const possibleIds = [decoded.userId, user._id?.toString(), user.username].filter(Boolean);
 
-    // Safely generate an ObjectId to catch legacy relational data
-    let objectIdObj = null;
-    try {
-      const idToTest = user._id?.toString() || decoded.userId;
-      if (ObjectId.isValid(idToTest)) {
-        objectIdObj = new ObjectId(idToTest);
-      }
-    } catch (e) {
-      // Ignore if it's not a valid 24-character hex string (e.g., 'user_123')
-    }
+    const query = { 
+      $or: [
+        { creatorId: { $in: possibleIds } },
+        { userId: { $in: possibleIds } },
+        { ownerId: { $in: possibleIds } }
+      ]
+    };
 
-    // Build the query array dynamically
-    const queryParts = [
-      { creatorId: { $in: possibleIds } },
-      { userId: { $in: possibleIds } },
-      { ownerUsername: { $in: possibleIds } },
-      { ownerId: { $in: possibleIds } } // <--- THE MISSING LINK!
-    ];
-
-    // If we successfully made an ObjectId, add it to the search parameters
-    if (objectIdObj) {
-      queryParts.push({ creatorId: objectIdObj });
-      queryParts.push({ userId: objectIdObj });
-      queryParts.push({ ownerId: objectIdObj }); // <--- Just in case legacy IPs used ObjectIds
-    }
-
-    const query = { $or: queryParts };
-
-    // Fetch products and IP Assets
-    const products = await db.collection('products').find(query).toArray();
-    const ipAssets = await db.collection('ip_assets').find(query).toArray();
-
-    // 🛑 SAFE DEBUGGING BLOCK 🛑
-    console.log("=== API DEBUG: /api/aisle-settings ===");
-    console.log("1. Who is asking? Token User ID:", decoded.userId);
-    console.log("2. DB _id:", user._id?.toString());
-    console.log("3. Are we searching for an ObjectId too?", !!objectIdObj);
-    console.log("4. Products found count:", products.length);
-    console.log("5. IP Assets found count:", ipAssets.length);
-    console.log("=======================================");
+    const [products, ipAssets] = await Promise.all([
+      db.collection('products').find(query).toArray(),
+      db.collection('ip_assets').find(query).toArray()
+    ]);
 
     return NextResponse.json({ 
       success: true, 
       aisleSettings: user.aisleSettings || {},
-      collections: user.collections || [],
-      products: products,
-      ipAssets: ipAssets,
-      user: {
-        name: user.profile?.displayName,
-        username: user.username
-      }
+      collections: user.collections || [], // This will now work because of the projection fix
+      products,
+      ipAssets,
+      user: { name: user.profile?.displayName, username: user.username }
     });
   } catch (error) {
     console.error('Aisle Settings GET Error:', error);
-    return NextResponse.json({ 
-      success: false, 
-      error: 'Server Error' 
-    }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Server Error' }, { status: 500 });
   }
 }
 

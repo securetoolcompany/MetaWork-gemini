@@ -331,12 +331,15 @@ export default function CollectionsTab({
           name: newCollection.name,
           description: newCollection.description,
           columns: newCollection.columns,
-          productIds: []
+          productIds: [],
+          active: true,
+        layout: 'grid'
         });
         if (created) {
           // Update parent state so Preview updates immediately
           updateSettings('collections', [...collections, created]);
           toast.success('Collection created!');
+          setNewCollection({ name: '', description: '', columns: 3 });
         }
       } else {
         const newCol = {
