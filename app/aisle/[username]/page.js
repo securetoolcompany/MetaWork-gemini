@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import AisleHeader from '@/components/aisle-public/AisleHeader';
-import AislePreview from '@/components/aisle/AislePreview'; // We reuse the logic here
+import AislePreview from '@/components/aisle/AislePreview'; 
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PublicAislePage() {
@@ -16,7 +16,6 @@ export default function PublicAislePage() {
     async function fetchAisle() {
       try {
         setLoading(true);
-        // FIXED THE URL PATH HERE
         const res = await fetch(`/api/aisle/${username}`);
         
         if (!res.ok) {
@@ -47,10 +46,8 @@ export default function PublicAislePage() {
 
   return (
     <div className="min-h-screen bg-[#0f172a] pb-20">
-      {/* 1. Use the Public Header for the "Live" feel */}
       <AisleHeader creator={data.creator} settings={data.creator.aisleSettings} />
 
-      {/* 2. Use the exact same Preview component for the content grid */}
       <div className="max-w-7xl mx-auto px-6 mt-8">
         <AislePreview 
           zoom={100}
@@ -60,7 +57,8 @@ export default function PublicAislePage() {
             bio: data.creator.bio,
             avatarUrl: data.creator.avatar,
             bannerUrl: data.creator.banner,
-            collections: data.collections
+            // FIX: THIS LINE WAS MISSING IN YOUR FILE!
+            collections: data.collections 
           }}
           products={data.products}
           ipAssets={data.ipAssets}

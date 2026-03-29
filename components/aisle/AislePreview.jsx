@@ -27,16 +27,15 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
   const allProducts = products;
   const collections = settings?.collections || [];
   
+  // FIX: Using the actual collections array correctly
   const sections = aisleSettings.sections?.length > 0 
     ? aisleSettings.sections 
     : collections;
 
   const PreviewContent = () => {
     const useDynamicSections = sections.length > 0;
-    const showAsCollections = !useDynamicSections && collections.length > 0;
     const locationStr = [aisleSettings.location, aisleSettings.country].filter(Boolean).join(', ');
 
-    // 1. Reusable contact badges
     const ContactBadges = ({ justify = 'start' }) => {
       if (!locationStr && !aisleSettings.email && !aisleSettings.phone && !aisleSettings.website) return null;
       return (
@@ -49,7 +48,6 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
       );
     };
 
-    // 2. Action Buttons - Show only in Preview Modal
     const MockActionButtons = ({ justify = 'start' }) => {
       if (zoom === 100 && !fullscreen) return null;
       return (
@@ -66,7 +64,6 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
       );
     };
 
-    // 3. Grid Logic (Responsive for Live vs Preview)
     const responsiveGridClass = aisleSettings.productsPerRow === 2 
       ? 'grid-cols-2' 
       : aisleSettings.productsPerRow === 4 
@@ -90,7 +87,6 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
           overflowY: (fullscreen || zoom === 100) ? 'visible' : 'auto'
         }}
       >
-        {/* Header - Hides on the Live Page */}
         {(fullscreen || zoom !== 100) && (
           <div className="relative mb-4">
             {headerStyle === 'full-banner' && (
@@ -112,33 +108,51 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
                 </div>
               </>
             )}
-            {/* ... other header style support would go here ... */}
           </div>
         )}
 
         <div className="flex">
           <div className="flex-1 p-4 space-y-8">
-            {/* DYNAMIC SECTIONS */}
             {useDynamicSections ? (
-              // FIXED: Ensure active sections render
+              // FIX: Replaced the missing logic block so collections actually find their products!
               sections.filter(s => s.enabled !== false && s.active !== false).map((section) => {
                 let items = [];
                 
-                // FIXED: Map the products inside the collection!
+                // 1. Handle "All Products"
                 if (section.displayType === 'all-products') {
                   items = allProducts;
-                } else if (section.displayType === 'all-ip-assets') {
+                } 
+                // 2. Handle "All IP Assets"
+                else if (section.displayType === 'all-ip-assets') {
                   items = ipAssets;
-                } else if (section.productIds && section.productIds.length > 0) {
-                  items = allProducts.filter(p => section.productIds.includes(p._id || p.id));
+                } 
+                // 3. Handle specific "Category" chosen in Layout Tab
+                else if (section.displayType === 'category' && section.category) {
+                  const source = section.type === 'ip-assets' ? ipAssets : allProducts;
+                  items = source.filter(item => {
+                    const cats = Array.isArray(item.categories) ? item.categories : (item.category ? [item.category] : []);
+                    return cats.includes(section.category);
+                  });
+                } 
+                // 4. Handle "Collection" chosen in Layout Tab
+                else if (section.displayType === 'collection' && section.collectionId) {
+                  // Find the matching collection and its itemIds
+                  const col = collections.find(c => c.id === section.collectionId || c._id === section.collectionId);
+                  if (col && col.itemIds) {
+                    items = allProducts.filter(p => col.itemIds.includes(p._id || p.id));
+                  }
+                } 
+                // 5. Fallback: If no layout sections are used, render the raw collections directly
+                else if (section.itemIds || section.productIds) {
+                  const ids = section.itemIds || section.productIds || [];
+                  items = allProducts.filter(p => ids.includes(p._id || p.id));
                 }
 
-                // If collection has no products, don't show an empty title
+                // If this section/collection has no products, skip rendering it
                 if (items.length === 0) return null;
                 
                 return (
-                  <div key={section.id || section._id}>
-                    {/* FIXED: Collections use 'name', Sections use 'title' */}
+                  <div key={section.id || section._id || Math.random()}>
                     <h3 className="text-base font-bold mb-4" style={{ color: theme.text }}>
                       {section.title || section.name}
                     </h3>
@@ -167,12 +181,11 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
                 );
               })
             ) : (
-              /* DEFAULT FALLBACK: ALL ITEMS */
               <div>
                 <h3 className="text-base font-bold mb-6" style={{ color: theme.text }}>All Items</h3>
                 <div className={cn("grid gap-4", responsiveGridClass)}>
-                  {allProducts.map(p => <AisleProductCard key={p._id || p.id} product={p} />)}
-                  {ipAssets.map(a => <AisleIPAssetCard key={a._id || a.id} asset={a} />)}
+                  {allProducts.map(p => <AisleProductCard key={p._id} product={p} />)}
+                  {ipAssets.map(a => <AisleIPAssetCard key={a._id} asset={a} />)}
                 </div>
               </div>
             )}
