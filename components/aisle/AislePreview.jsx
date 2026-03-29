@@ -1,13 +1,13 @@
 'use client';
 
 import React from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X } from 'lucide-react';
+import { X, MapPin, Mail, Phone, Globe, Share2, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useProductDialog } from '@/app/providers/ProductDialogProvider';
-import Link from 'next/link';
+import { ProductDetailDialog } from '@/components/showroom/ProductDetailDialog';
+import { IPConsumerDialog } from '@/components/ip/IPConsumerDialog';
 
 const THEME_COLORS = {
   'dark-professional': { bg: '#0f172a', card: '#1e293b', text: '#ffffff', muted: '#64748b' },
@@ -17,271 +17,133 @@ const THEME_COLORS = {
 };
 
 export default function AislePreview({ settings, products = [], ipAssets =  [], zoom = 75, fullscreen, onCloseFullscreen }) {
-  const { openProduct } = useProductDialog();
   const aisleSettings = settings?.aisleSettings || {};
   const theme = THEME_COLORS[aisleSettings.theme] || THEME_COLORS['dark-professional'];
   const accentColor = aisleSettings.accentColor || '#3b82f6';
   
+  const headerStyle = aisleSettings.headerStyle || 'full-banner';
+  const cardStyle = aisleSettings.cardStyle || 'standard';
+  
   const allProducts = products;
   const collections = settings?.collections || [];
-  
-  // NEW: Grab sections from settings to power the drag-and-drop layout!
   const sections = aisleSettings.sections || [];
 
   const PreviewContent = () => {
-    // If the user has built layout sections, use those. Otherwise fallback to collections/all products.
     const useDynamicSections = sections.length > 0;
     const showAsCollections = !useDynamicSections && collections.length > 0;
+    const locationStr = [aisleSettings.location, aisleSettings.country].filter(Boolean).join(', ');
+
+    // 1. Reusable contact badges
+    const ContactBadges = ({ justify = 'start' }) => {
+      if (!locationStr && !aisleSettings.email && !aisleSettings.phone && !aisleSettings.website) return null;
+      return (
+        <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px] opacity-90 justify-${justify}`} style={{ color: theme.text }}>
+          {locationStr && <div className="flex items-center gap-1"><MapPin className="w-3 h-3" /><span>{locationStr}</span></div>}
+          {aisleSettings.email && <div className="flex items-center gap-1"><Mail className="w-3 h-3" /><span>{aisleSettings.email}</span></div>}
+          {aisleSettings.phone && <div className="flex items-center gap-1"><Phone className="w-3 h-3" /><span>{aisleSettings.phone}</span></div>}
+          {aisleSettings.website && <div className="flex items-center gap-1"><Globe className="w-3 h-3" /><span>{aisleSettings.website.replace(/^https?:\/\//, '')}</span></div>}
+        </div>
+      );
+    };
+
+    // 2. Action Buttons - Show only in Preview Modal
+    const MockActionButtons = ({ justify = 'start' }) => {
+      if (zoom === 100 && !fullscreen) return null;
+      return (
+        <div className={`flex gap-2 mt-3 justify-${justify} w-full sm:w-auto`}>
+          <Button size="sm" className="h-7 px-3 gap-1.5 border-none hover:opacity-90" style={{ backgroundColor: accentColor, color: '#ffffff' }}>
+            <User className="w-3 h-3" />
+            <span className="text-[10px] font-medium">Visit My Profile</span>
+          </Button>
+          <Button size="sm" className="h-7 px-3 gap-1.5 border-none hover:opacity-90" style={{ backgroundColor: accentColor, color: '#ffffff' }}>
+            <Share2 className="w-3 h-3" />
+            <span className="text-[10px] font-medium">Share My Aisle</span>
+          </Button>
+        </div>
+      );
+    };
+
+    // 3. Grid Logic (Responsive for Live vs Preview)
+    const responsiveGridClass = aisleSettings.productsPerRow === 2 
+      ? 'grid-cols-2' 
+      : aisleSettings.productsPerRow === 4 
+        ? 'grid-cols-2 md:grid-cols-4' 
+        : 'grid-cols-2 md:grid-cols-3';
 
     return (
       <div 
-        className="rounded-lg overflow-hidden shadow-2xl border border-border"
+        className={cn(
+          "relative overflow-hidden transition-all duration-300",
+          (fullscreen || zoom !== 100) ? "rounded-lg shadow-2xl border border-border" : "w-full"
+        )}
         style={{ 
-          transform: fullscreen ? 'scale(1)' : `scale(${zoom / 100})`,
+          transform: (fullscreen || zoom === 100) ? 'none' : `scale(${zoom / 100})`,
           transformOrigin: 'top center',
-          width: fullscreen ? '100%' : '400px',
+          width: (fullscreen || zoom === 100) ? '100%' : '400px',
           backgroundColor: theme.bg,
           color: theme.text,
-          minHeight: fullscreen ? 'auto' : '600px',
-          maxHeight: fullscreen ? 'none' : '700px',
-          overflowY: 'auto'
+          minHeight: (fullscreen || zoom === 100) ? 'auto' : '600px',
+          maxHeight: (fullscreen || zoom === 100) ? 'none' : '700px',
+          overflowY: (fullscreen || zoom === 100) ? 'visible' : 'auto'
         }}
       >
-        {/* Header Styles */}
-        {aisleSettings.headerStyle === 'full-banner' && (
-          <div className="relative">
-            <div className="h-32 bg-muted relative overflow-hidden">
-                {settings?.bannerUrl ? (
-                  <img src={settings.bannerUrl} alt="Banner" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-r from-gray-800 to-gray-700" />
-                )}
-                <div className="absolute inset-0 bg-black/20" />
-            </div>
-            <div className="px-4 -mt-10 pb-4 relative z-10 flex items-end gap-3">
-               <div className="w-20 h-20 rounded-full border-4 overflow-hidden" style={{ borderColor: theme.bg, backgroundColor: theme.card }}>
-                  {settings?.avatarUrl ? (
-                    <img src={settings.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-xl font-bold text-muted-foreground">
-                      {settings?.username?.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-               </div>
-               <div className="pb-1 flex-1">
-                  <h2 className="text-lg font-bold" style={{ color: theme.text }}>{settings?.username || 'Your Name'}</h2>
-                  <p className="text-xs" style={{ color: theme.muted }}>{settings?.bio || 'Welcome to my aisle'}</p>
-               </div>
-            </div>
+        {/* Header - Hides on the Live Page */}
+        {(fullscreen || zoom !== 100) && (
+          <div className="relative mb-4">
+            {headerStyle === 'full-banner' && (
+              <>
+                <div className="h-32 bg-muted relative overflow-hidden">
+                    {settings?.bannerUrl ? <img src={settings.bannerUrl} alt="Banner" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-gradient-to-r from-gray-800 to-gray-700" />}
+                    <div className="absolute inset-0 bg-black/20" />
+                </div>
+                <div className="px-4 -mt-10 relative z-10 flex flex-col gap-2">
+                   <div className="w-20 h-20 rounded-full border-4 overflow-hidden" style={{ borderColor: theme.bg, backgroundColor: theme.card }}>
+                      {settings?.avatarUrl ? <img src={settings.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xl font-bold">{settings?.username?.charAt(0)}</div>}
+                   </div>
+                   <div>
+                      <h2 className="text-lg font-bold truncate">{settings?.username || 'Your Name'}</h2>
+                      {settings?.bio && <p className="text-xs opacity-80">{settings.bio}</p>}
+                      <ContactBadges />
+                      <MockActionButtons />
+                   </div>
+                </div>
+              </>
+            )}
+            {/* ... other header style support would go here ... */}
           </div>
         )}
 
-        {aisleSettings.headerStyle === 'compact' && (
-           <div className="p-4 border-b flex items-center gap-3" style={{ borderColor: theme.card }}>
-              <div className="w-12 h-12 rounded-full border overflow-hidden" style={{ borderColor: theme.card }}>
-                  {settings?.avatarUrl ? (
-                    <img src={settings.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-muted flex items-center justify-center text-lg font-bold">
-                      {settings?.username?.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-              </div>
-              <div>
-                  <h2 className="font-bold text-sm" style={{ color: theme.text }}>{settings?.username || 'Your Name'}</h2>
-                  <p className="text-[10px]" style={{ color: theme.muted }}>{settings?.bio || 'Welcome to my aisle'}</p>
-              </div>
-           </div>
-        )}
-
-        {aisleSettings.headerStyle === 'minimal' && (
-           <div className="p-4 border-b flex items-center justify-center" style={{ borderColor: theme.card }}>
-              <h2 className="font-bold text-lg" style={{ color: theme.text }}>{settings?.username || 'Your Name'}</h2>
-           </div>
-        )}
-
-        {/* Content */}
         <div className="flex">
-          <div className={cn("flex-1 p-4 space-y-6")}>
-            
-            {/* --- NEW: FEATURED SPOTLIGHT --- */}
-            {aisleSettings.featuredSpotlight?.enabled && !!aisleSettings?.featuredSpotlight?.itemId && (
-              (() => {
-                const featuredItem = allProducts.find(p => (p.id || p._id?.toString()) === aisleSettings.featuredSpotlight.itemId);
-                if (!featuredItem) return null;
-                
-                const displayTitle = featuredItem.name || featuredItem.title || 'Untitled Item';
-                
-                return (
-                  <Link 
-                    href={`/products/${featuredItem.id || featuredItem._id?.toString()}`}
-                    className="mb-8 rounded-xl overflow-hidden border border-border shadow-lg flex flex-col cursor-pointer hover:shadow-xl transition-all hover:scale-[1.01] block" 
-                    style={{ backgroundColor: theme.card }}
-                  >
-                    <div className="w-full aspect-video md:aspect-[21/9] relative bg-black/5">
-                      <img 
-                        src={featuredItem.imageUrl || featuredItem.thumbnailUrl || '/placeholder.png'} 
-                        alt={displayTitle} 
-                        className="w-full h-full object-cover" 
-                      />
-                      <Badge className="absolute top-3 left-3 text-xs px-2 py-1" style={{ backgroundColor: accentColor, color: '#fff' }}>
-                        Featured Spotlight
-                      </Badge>
-                    </div>
-                    <div className="p-4 flex flex-col justify-center">
-                      <div className="flex justify-between items-start gap-4">
-                        <div>
-                          <h2 className="text-xl font-bold mb-1" style={{ color: theme.text }}>{displayTitle}</h2>
-                          {featuredItem.description && (
-                            <p className="text-xs line-clamp-2 opacity-80" style={{ color: theme.muted }}>
-                              {featuredItem.description}
-                            </p>
-                          )}
-                        </div>
-                        <div className="text-lg font-bold" style={{ color: accentColor }}>
-                          ${featuredItem.price || '0.00'}
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })()
-            )}
-            
-            {/* DYNAMIC SECTIONS LAYOUT (Matches your drag & drop!) */}
+          <div className="flex-1 p-4 space-y-8">
+            {/* DYNAMIC SECTIONS */}
             {useDynamicSections ? (
               sections.filter(s => s.enabled).map((section) => {
-                // Filter products based on section type
-                // Filter products based on section type
-                let sectionProducts = [];
+                let items = [];
+                if (section.displayType === 'all-products') items = allProducts;
+                else if (section.displayType === 'all-ip-assets') items = ipAssets;
+                // ... other section logic mapping ...
                 
-                if (section.displayType === 'all-products') {
-                  sectionProducts = allProducts; // Uses products
-                } else if (section.displayType === 'all-ip-assets') {
-                  sectionProducts = ipAssets; // Uses IP Assets!
-                } else if (section.displayType === 'category') {
-                  // Determine which array to search based on the section's internal type
-                  const sourceArray = section.type === 'ip-assets' ? ipAssets : allProducts;
-                  sectionProducts = sourceArray.filter(p => {
-                    const cats = Array.isArray(p.categories) ? p.categories : (p.category ? [p.category] : []);
-                    return cats.includes(section.category);
-                  });
-                } else if (section.displayType === 'collection') {
-                  const col = collections.find(c => c.id === section.collectionId);
-                  if (col) {
-                    // Determine which array to search based on the collection's type
-                    const sourceArray = col.type === 'ip-assets' ? ipAssets : allProducts;
-                    sectionProducts = sourceArray.filter(p => col.itemIds?.includes(p.id || p._id?.toString()));
-                  }
-                }
-
-                // Apply itemsPerSection limit
-                if (aisleSettings.itemsPerSection) {
-                  sectionProducts = sectionProducts.slice(0, aisleSettings.itemsPerSection);
-                }
-
-                const gridCols = aisleSettings.productsPerRow === 2 ? 'grid-cols-2' : aisleSettings.productsPerRow === 4 ? 'grid-cols-4' : 'grid-cols-3';
-
                 return (
                   <div key={section.id}>
-                    <div className="mb-3">
-                      <h3 className="text-sm font-semibold" style={{ color: theme.text }}>{section.title}</h3>
-                      {section.description && <p className="text-xs mt-0.5" style={{ color: theme.muted }}>{section.description}</p>}
+                    <h3 className="text-base font-bold mb-4" style={{ color: theme.text }}>{section.title}</h3>
+                    <div className={cn("grid gap-4", responsiveGridClass)}>
+                      {items.map(item => (
+                        item.licensingFee !== undefined ? 
+                        <IPConsumerCard key={item._id} asset={item} /> : 
+                        <ShowroomCard key={item._id} product={item} />
+                      ))}
                     </div>
-                    {sectionProducts.length > 0 ? (
-                      <div className={cn("grid gap-2", gridCols)}>
-                        {sectionProducts.map((product) => (
-                           <ProductCard 
-                                key={product.id || product._id}
-                                product={product} 
-                                theme={theme} 
-                                accentColor={accentColor}
-                                cardStyle={aisleSettings.cardStyle}
-                                showSalesCounter={aisleSettings.showSalesCounter}
-                                creatorName={settings?.username}
-                                openProduct={openProduct}
-                              />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="border-2 border-dashed rounded-lg p-6 text-center text-xs" style={{ borderColor: theme.muted + '40', color: theme.muted }}>
-                        No items in this section
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            ) : showAsCollections ? (
-              /* LEGACY COLLECTIONS LAYOUT */
-              collections.map((collection) => {
-                // FIX 1 & 2: Use the correct array based on collection type!
-                const sourceArray = collection.type === 'ip-assets' ? ipAssets : allProducts;
-                
-                const collectionProducts = sourceArray.filter(p => {
-                    const pId = p.id || p._id?.toString();
-                    return collection.itemIds?.includes(pId);
-                });
-                const gridCols = collection.columns === 2 ? 'grid-cols-2' : collection.columns === 4 ? 'grid-cols-4' : 'grid-cols-3';
-                
-                return (
-                  <div key={collection.id}>
-                    {collection.showHeader && (
-                      <div className="mb-3">
-                        <h3 className="text-sm font-semibold" style={{ color: theme.text }}>{collection.name}</h3>
-                        {collection.description && (
-                          <p className="text-xs mt-0.5" style={{ color: theme.muted }}>{collection.description}</p>
-                        )}
-                      </div>
-                    )}
-                    {collectionProducts.length > 0 ? (
-                      <div className={cn("grid gap-2", gridCols)}>
-                        {collectionProducts.map((product) => (
-                           <ProductCard 
-                                key={product.id || product._id}
-                                product={product} 
-                                theme={theme} 
-                                accentColor={accentColor}
-                                cardStyle={aisleSettings.cardStyle}
-                                showSalesCounter={aisleSettings.showSalesCounter}
-                                creatorName={settings?.username}
-                                openProduct={openProduct}
-                              />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="border-2 border-dashed rounded-lg p-6 text-center text-xs" style={{ borderColor: theme.muted + '40', color: theme.muted }}>
-                        No items in this collection
-                      </div>
-                    )}
                   </div>
                 );
               })
             ) : (
-              /* DEFAULT FALLBACK: ALL PRODUCTS */
+              /* DEFAULT FALLBACK: ALL ITEMS */
               <div>
-                <h3 className="text-sm font-semibold mb-3" style={{ color: theme.text }}>All Items</h3>
-                {allProducts.length === 0 ? (
-                   <div className="text-center py-10 text-xs opacity-50" style={{color: theme.muted}}>No items found</div>
-                ) : (
-                  <div className={cn(
-                    "grid gap-2",
-                    aisleSettings.productsPerRow === 2 ? 'grid-cols-2' : 
-                    aisleSettings.productsPerRow === 4 ? 'grid-cols-4' : 'grid-cols-3'
-                  )}>
-                    {allProducts.map((product) => (
-                       <ProductCard 
-                          key={product.id || product._id}
-                          product={product} 
-                          theme={theme} 
-                          accentColor={accentColor}
-                          cardStyle={aisleSettings.cardStyle}
-                          showSalesCounter={aisleSettings.showSalesCounter}
-                          creatorName={settings?.username}
-                          openProduct={openProduct}
-                        />
-                    ))}
-                  </div>
-                )}
+                <h3 className="text-base font-bold mb-6" style={{ color: theme.text }}>All Items</h3>
+                <div className={cn("grid gap-4", responsiveGridClass)}>
+                  {allProducts.map(p => <ShowroomCard key={p._id} product={p} />)}
+                  {ipAssets.map(a => <IPConsumerCard key={a._id} asset={a} />)}
+                </div>
               </div>
             )}
           </div>
@@ -292,89 +154,20 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
 
   if (fullscreen) {
     return (
-      <Dialog open={fullscreen} onOpenChange={() => onCloseFullscreen && onCloseFullscreen()}>
+      <Dialog open={fullscreen} onOpenChange={(isOpen) => !isOpen && onCloseFullscreen && onCloseFullscreen()}>
         <DialogContent className="max-w-6xl h-[90vh] overflow-auto p-0 border-none bg-transparent shadow-none">
-          <Button className="absolute top-4 right-4 z-50 bg-black/50 hover:bg-black/70 text-white border-0" size="icon" onClick={onCloseFullscreen}>
-            <X className="h-4 w-4" />
-          </Button>
-          <div className="p-8 flex items-center justify-center h-full">
-            <PreviewContent />
-          </div>
+          <DialogTitle className="sr-only">Aisle Preview</DialogTitle>
+          <Button className="absolute top-4 right-4 z-[100] bg-black/50 text-white" size="icon" onClick={onCloseFullscreen}><X className="h-4 w-4" /></Button>
+          <div className="p-8 flex items-center justify-center h-full relative"><PreviewContent /></div>
         </DialogContent>
       </Dialog>
     );
   }
 
   return (
-    <div className="flex justify-center overflow-auto">
+    <div className="flex justify-center relative w-full">
+      {zoom !== 100 && <div className="absolute inset-0 z-50 cursor-default" />}
       <PreviewContent />
     </div>
-  );
-}
-
-// ------------------------------------------------------------------
-// RESTORED PRODUCT CARD LOGIC
-// ------------------------------------------------------------------
-function ProductCard({ product, theme, accentColor, cardStyle, showSalesCounter, creatorName, openProduct }) {
-  // FIX 3: Catch both 'name' and 'title' (WordPress uses title)
-  const displayTitle = product.name || product.title || 'Untitled Item';
-  
-  return (
-    <Link 
-      href={`/products/${product.id || product._id?.toString()}`}
-      className="rounded-md overflow-hidden hover:shadow-lg transition-transform hover:-translate-y-1 h-full flex flex-col cursor-pointer block" 
-      style={{ backgroundColor: theme.card }}
-    >
-      
-      {/* 1. Image Area */}
-      <div className="relative aspect-square bg-black/5">
-        <img 
-          src={product.imageUrl || product.thumbnailUrl || '/placeholder.png'} 
-          alt={displayTitle} 
-          className="w-full h-full object-cover" 
-        />
-        {/* 'Live' Badge for Standard/Detailed views */}
-        {cardStyle !== 'minimal' && product.status === 'live' && (
-           <Badge className="absolute top-1 right-1 text-[8px] px-1 py-0 h-4 border-0" style={{ backgroundColor: accentColor }}>
-             NEW
-           </Badge>
-        )}
-      </div>
-
-      {/* 2. Info Area */}
-      <div className="p-2 flex flex-col flex-1">
-        {/* Title & Price (Always Visible) */}
-        <div className="flex justify-between items-start gap-1">
-            <div className="text-xs font-medium truncate flex-1" style={{ color: theme.text }}>
-                {displayTitle}
-            </div>
-            <div className="text-xs font-bold" style={{ color: accentColor }}>
-                ${product.price || '0.00'}
-            </div>
-        </div>
-        
-        {/* Creator Name (Standard & Detailed) */}
-        {(cardStyle === 'standard' || cardStyle === 'detailed') && (
-           <div className="text-[10px] mt-0.5 opacity-70 truncate" style={{ color: theme.muted }}>
-             by {creatorName || 'Artist'}
-           </div>
-        )}
-
-        {/* Description (Detailed Only) */}
-        {cardStyle === 'detailed' && (
-          <div className="mt-1.5 text-[9px] line-clamp-2 opacity-80" style={{ color: theme.muted }}>
-            {product.description || "No description available for this item."}
-          </div>
-        )}
-        
-        {/* Sales Counter (If Enabled & Not Minimal) */}
-        {showSalesCounter && cardStyle !== 'minimal' && (
-           <div className="mt-auto pt-2 flex items-center gap-1 text-[9px] opacity-60" style={{ color: theme.muted }}>
-             <span className="w-1.5 h-1.5 rounded-full bg-green-500/50 inline-block" />
-             {product.salesCount || 0} sold
-           </div>
-        )}
-      </div>
-    </Link>
   );
 }

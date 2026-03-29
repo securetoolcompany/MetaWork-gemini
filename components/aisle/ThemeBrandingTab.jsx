@@ -1,278 +1,320 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Upload, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-const THEME_PRESETS = [
-  {
-    id: 'dark-professional',
-    name: 'Dark Professional',
-    preview: { bg: '#0f172a', card: '#1e293b', accent: '#3b82f6', text: '#ffffff' },
-    fonts: 'inter-system'
-  },
-  {
-    id: 'light-clean',
-    name: 'Light & Clean',
-    preview: { bg: '#ffffff', card: '#f8fafc', accent: '#0ea5e9', text: '#1e293b' },
-    fonts: 'poppins-inter'
-  },
-  {
-    id: 'bold-vibrant',
-    name: 'Bold & Vibrant',
-    preview: { bg: '#1a1a2e', card: '#16213e', accent: '#e94560', text: '#ffffff' },
-    fonts: 'montserrat-roboto'
-  },
-  {
-    id: 'monochrome',
-    name: 'Monochrome',
-    preview: { bg: '#000000', card: '#1a1a1a', accent: '#ffffff', text: '#ffffff' },
-    fonts: 'space-inter'
-  }
-];
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Upload, X, Crop, MapPin, Mail, Phone, Globe } from 'lucide-react';
+import { toast } from 'sonner';
+import ImageCropper from '@/components/profile/ImageCropper';
+import Image from 'next/image';
 
 export default function ThemeBrandingTab({ settings, updateSettings }) {
-  const currentTheme = settings?.aisleSettings?.theme || 'dark-professional';
-  const accentColor = settings?.aisleSettings?.accentColor || '#3b82f6';
+  // --- Cropper State Isolated to this Tab ---
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [cropperImage, setCropperImage] = useState(null);
+  const [cropperType, setCropperType] = useState(null); // 'heroImage' or 'logo'
+  const [cropperAspect, setCropperAspect] = useState(16/9);
+  const [cropperShape, setCropperShape] = useState('rect');
+  const [isUploading, setIsUploading] = useState(false);
 
-  const handleThemeSelect = (themeId) => {
-    updateSettings('aisleSettings.theme', themeId);
-    const theme = THEME_PRESETS.find(t => t.id === themeId);
-    if (theme) {
-      updateSettings('aisleSettings.accentColor', theme.preview.accent);
-      updateSettings('aisleSettings.fontPairing', theme.fonts);
-    }
+  // HELPER: Convert base64 to File object
+  const base64ToFile = async (base64, filename) => {
+    const res = await fetch(base64);
+    const blob = await res.blob();
+    return new File([blob], filename, { type: blob.type });
   };
 
-  const handleFileUpload = (type, event) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      if (type === 'banner') {
-        updateSettings('bannerUrl', url);
-      } else if (type === 'avatar') {
-        updateSettings('avatarUrl', url);
+  const openCropper = (file, type, aspect, shape) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setCropperImage(reader.result);
+      setCropperType(type);
+      setCropperAspect(aspect);
+      setCropperShape(shape);
+      setCropperOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropComplete = async (croppedImageBase64) => {
+    setIsUploading(true);
+    const loadingToast = toast.loading('Uploading image...');
+    
+    try {
+      const file = await base64ToFile(croppedImageBase64, `${cropperType}-${Date.now()}.webp`);
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folderContext', 'aisle-assets');
+      
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        updateSettings(cropperType, data.url);
+        toast.success(`${cropperType === 'logo' ? 'Logo' : 'Banner'} uploaded successfully!`, { id: loadingToast });
+      } else {
+        throw new Error('Upload failed');
       }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload image.', { id: loadingToast });
+    } finally {
+      setIsUploading(false);
+      setCropperOpen(false);
+      setCropperImage(null);
+      setCropperType(null);
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Theme Presets */}
-      <Card data-tutorial="theme-presets">
+      
+      <ImageCropper
+        open={cropperOpen}
+        onClose={() => {
+          setCropperOpen(false);
+          setCropperImage(null);
+          setCropperType(null);
+        }}
+        imageSrc={cropperImage}
+        onCropComplete={handleCropComplete}
+        aspectRatio={cropperAspect}
+        cropShape={cropperShape}
+        title={cropperType === 'heroImage' ? 'Crop Hero Banner' : 'Crop Logo'}
+      />
+
+      <Card>
         <CardHeader>
-          <CardTitle>Theme Presets</CardTitle>
-          <CardDescription>Choose a starting point for your Aisle</CardDescription>
+          <CardTitle>Aisle Identity</CardTitle>
+          <CardDescription>Your aisle's name, URL, and description</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4">
-            {THEME_PRESETS.map((theme) => (
-              <button
-                key={theme.id}
-                onClick={() => handleThemeSelect(theme.id)}
-                className={cn(
-                  "relative rounded-lg border-2 p-4 transition-all hover:shadow-lg",
-                  currentTheme === theme.id
-                    ? "border-primary ring-2 ring-primary ring-offset-2"
-                    : "border-border hover:border-primary/50"
-                )}
-              >
-                <div className="space-y-3">
-                  {/* Preview */}
-                  <div className="h-20 rounded-md overflow-hidden" style={{ backgroundColor: theme.preview.bg }}>
-                    <div className="p-2 space-y-1">
-                      <div className="h-3 rounded" style={{ backgroundColor: theme.preview.card, width: '80%' }} />
-                      <div className="h-2 rounded" style={{ backgroundColor: theme.preview.accent, width: '60%' }} />
-                    </div>
-                  </div>
-                  {/* Name */}
-                  <div className="text-sm font-medium text-foreground">{theme.name}</div>
-                  {/* Radio */}
-                  <div className="absolute top-2 right-2">
-                    <div className={cn(
-                      "h-4 w-4 rounded-full border-2",
-                      currentTheme === theme.id
-                        ? "border-primary bg-primary"
-                        : "border-muted-foreground"
-                    )}>
-                      {currentTheme === theme.id && (
-                        <div className="h-full w-full rounded-full bg-white scale-50" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            ))}
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Aisle Name</Label>
+            <Input
+              value={settings?.title || ''}
+              onChange={(e) => updateSettings('title', e.target.value)}
+              placeholder="e.g., Blake's MMA Gear"
+            />
+          </div>
+          <div>
+            <Label>Custom URL Slug</Label>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">metawork.com/aisle/</span>
+              <Input
+                value={settings?.slug || ''}
+                onChange={(e) => updateSettings('slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                placeholder="your-aisle-name"
+              />
+            </div>
+          </div>
+          <div>
+            <Label>Description / Bio</Label>
+            <Textarea
+              value={settings?.description || ''}
+              onChange={(e) => updateSettings('description', e.target.value)}
+              placeholder="Describe your aisle and what you offer..."
+              rows={4}
+            />
           </div>
         </CardContent>
       </Card>
 
-      {/* Accent Color */}
-      <Card data-tutorial="accent-color">
+      <Card>
         <CardHeader>
-          <CardTitle>Accent Color</CardTitle>
-          <CardDescription>Customize your primary brand color</CardDescription>
+          <CardTitle>Contact Information</CardTitle>
+          <CardDescription>How customers can reach you</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="space-y-2 flex-1">
-              <Label>Color</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  value={accentColor}
-                  onChange={(e) => updateSettings('aisleSettings.accentColor', e.target.value)}
-                  className="w-20 h-10"
-                />
-                <Input
-                  type="text"
-                  value={accentColor}
-                  onChange={(e) => updateSettings('aisleSettings.accentColor', e.target.value)}
-                  className="flex-1"
-                  placeholder="#3b82f6"
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Country</Label>
+              <Select 
+                value={settings?.country || 'US'} 
+                onValueChange={(val) => updateSettings('country', val)}
+              >
+                <SelectTrigger><SelectValue placeholder="Select Country" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="US">🇺🇸 United States</SelectItem>
+                  <SelectItem value="GB">🇬🇧 United Kingdom</SelectItem>
+                  <SelectItem value="CA">🇨🇦 Canada</SelectItem>
+                  <SelectItem value="AU">🇦🇺 Australia</SelectItem>
+                  <SelectItem value="KR">🇰🇷 South Korea</SelectItem>
+                  <SelectItem value="JP">🇯🇵 Japan</SelectItem>
+                  <SelectItem value="DE">🇩🇪 Germany</SelectItem>
+                  <SelectItem value="FR">🇫🇷 France</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Location</Label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  className="pl-9"
+                  value={settings?.location || ''} 
+                  onChange={(e) => updateSettings('location', e.target.value)} 
+                  placeholder="e.g., Tucson, AZ" 
                 />
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                const theme = THEME_PRESETS.find(t => t.id === currentTheme);
-                if (theme) updateSettings('aisleSettings.accentColor', theme.preview.accent);
-              }}
-            >
-              Reset to Default
-            </Button>
+
+            <div className="space-y-2">
+              <Label>Public Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  className="pl-9"
+                  type="email"
+                  value={settings?.email || ''} 
+                  onChange={(e) => updateSettings('email', e.target.value)} 
+                  placeholder="contact@example.com" 
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Public Phone</Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  className="pl-9"
+                  value={settings?.phone || ''} 
+                  onChange={(e) => updateSettings('phone', e.target.value)} 
+                  placeholder="+1 (555) 123-4567" 
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <Label>Website</Label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  className="pl-9"
+                  type="url"
+                  value={settings?.website || ''} 
+                  onChange={(e) => updateSettings('website', e.target.value)} 
+                  placeholder="https://yourwebsite.com" 
+                />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Branding Assets */}
       <Card>
         <CardHeader>
           <CardTitle>Branding Assets</CardTitle>
           <CardDescription>Upload your logo and banner images</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Banner */}
-          <div className="space-y-2" data-tutorial="banner-upload">
-            <Label>Banner Image</Label>
-            <p className="text-xs text-muted-foreground">Recommended: 1200x300px</p>
-            {settings?.bannerUrl ? (
-              <div className="relative rounded-lg overflow-hidden border border-border">
-                <img src={settings.bannerUrl} alt="Banner" className="w-full h-32 object-cover" />
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="absolute top-2 right-2"
-                  onClick={() => updateSettings('bannerUrl', null)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary transition-colors">
-                <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                <span className="text-sm text-muted-foreground">Click to upload banner</span>
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload('banner', e)} />
-              </label>
-            )}
+          {/* Banner Upload */}
+          <div>
+            <Label>Hero Banner</Label>
+            <p className="text-xs text-muted-foreground mb-2">Recommended: 1200x300px</p>
+            <div className="border-2 border-dashed rounded-lg p-4 text-center">
+              {settings?.heroImage ? (
+                <div className="relative group">
+                  <Image src={settings.heroImage} alt="Hero" width={800} height={200} className="rounded-lg mx-auto object-cover max-h-[200px]" />
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                    <Button variant="secondary" size="sm" onClick={() => {
+                      setCropperImage(settings.heroImage);
+                      setCropperType('heroImage');
+                      setCropperAspect(1200/300); 
+                      setCropperShape('rect');
+                      setCropperOpen(true);
+                    }}>
+                      <Crop className="w-4 h-4 mr-2" /> Adjust
+                    </Button>
+                    <label className="cursor-pointer">
+                      <Button variant="secondary" size="sm" asChild>
+                        <span><Upload className="w-4 h-4 mr-2" /> Replace</span>
+                      </Button>
+                      <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                        if (e.target.files[0]) openCropper(e.target.files[0], 'heroImage', 1200/300, 'rect');
+                      }}/>
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <label className="cursor-pointer block py-8 hover:bg-muted/50 transition-colors rounded-md">
+                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm font-medium">Click to upload banner</p>
+                  <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                    if (e.target.files[0]) openCropper(e.target.files[0], 'heroImage', 1200/300, 'rect');
+                  }}/>
+                </label>
+              )}
+            </div>
           </div>
 
-          {/* Avatar/Logo */}
-          <div className="space-y-2" data-tutorial="logo-upload">
-            <Label>Profile Picture / Logo</Label>
-            <p className="text-xs text-muted-foreground">Recommended: 128x128px, circular crop</p>
-            {settings?.avatarUrl ? (
-              <div className="relative inline-block">
-                <img src={settings.avatarUrl} alt="Avatar" className="w-24 h-24 rounded-full object-cover border-2 border-border" />
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  className="absolute -top-2 -right-2 rounded-full h-6 w-6 p-0"
-                  onClick={() => updateSettings('avatarUrl', null)}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed border-border rounded-full cursor-pointer hover:border-primary transition-colors">
-                <Upload className="h-6 w-6 text-muted-foreground" />
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileUpload('avatar', e)} />
-              </label>
-            )}
+          {/* Logo Upload */}
+          <div>
+            <Label>Logo / Profile Picture</Label>
+            <p className="text-xs text-muted-foreground mb-2">Recommended: Circular crop</p>
+            <div className="border-2 border-dashed rounded-lg p-4 text-center">
+              {settings?.logo ? (
+                <div className="relative inline-block group">
+                  <Image src={settings.logo} alt="Logo" width={150} height={150} className="rounded-full mx-auto object-cover aspect-square" />
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex flex-col items-center justify-center gap-2">
+                    <Button variant="ghost" size="sm" className="text-white hover:bg-white/20 h-8" onClick={() => {
+                      setCropperImage(settings.logo);
+                      setCropperType('logo');
+                      setCropperAspect(1);
+                      setCropperShape('round');
+                      setCropperOpen(true);
+                    }}>
+                      <Crop className="w-4 h-4 mr-2" /> Adjust
+                    </Button>
+                    <label className="cursor-pointer text-sm text-white hover:underline flex items-center">
+                      <Upload className="w-3 h-3 mr-1" /> Replace
+                      <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                        if (e.target.files[0]) openCropper(e.target.files[0], 'logo', 1, 'round');
+                      }}/>
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <label className="cursor-pointer block py-6 hover:bg-muted/50 transition-colors rounded-md">
+                  <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm font-medium">Click to upload logo</p>
+                  <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                    if (e.target.files[0]) openCropper(e.target.files[0], 'logo', 1, 'round');
+                  }}/>
+                </label>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Bio */}
-      <Card data-tutorial="bio-text">
-        <CardHeader>
-          <CardTitle>Bio</CardTitle>
-          <CardDescription>Tell your audience about your brand</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={settings?.bio || ''}
-            onChange={(e) => updateSettings('bio', e.target.value)}
-            placeholder="Tell your audience about your brand..."
-            maxLength={300}
-            rows={4}
-            className="resize-none"
-          />
-          <p className="text-xs text-muted-foreground mt-2 text-right">
-            {(settings?.bio || '').length}/300
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Social Links */}
-      <Card data-tutorial="social-links">
+      <Card>
         <CardHeader>
           <CardTitle>Social Links</CardTitle>
           <CardDescription>Connect your social media profiles</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>Twitter / X</Label>
-            <Input
-              type="url"
-              value={settings?.socials?.twitter || ''}
-              onChange={(e) => updateSettings('socials.twitter', e.target.value)}
-              placeholder="https://twitter.com/yourusername"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Instagram</Label>
-            <Input
-              type="url"
-              value={settings?.socials?.instagram || ''}
-              onChange={(e) => updateSettings('socials.instagram', e.target.value)}
-              placeholder="https://instagram.com/yourusername"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>TikTok</Label>
-            <Input
-              type="url"
-              value={settings?.socials?.tiktok || ''}
-              onChange={(e) => updateSettings('socials.tiktok', e.target.value)}
-              placeholder="https://tiktok.com/@yourusername"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Website</Label>
-            <Input
-              type="url"
-              value={settings?.socials?.website || ''}
-              onChange={(e) => updateSettings('socials.website', e.target.value)}
-              placeholder="https://yourwebsite.com"
-            />
-          </div>
+          {['twitter', 'instagram', 'tiktok', 'website'].map(platform => (
+            <div className="space-y-2" key={platform}>
+              <Label className="capitalize">{platform}</Label>
+              <Input
+                type="url"
+                value={settings?.socialLinks?.[platform] || ''}
+                onChange={(e) => updateSettings(`socialLinks.${platform}`, e.target.value)}
+                placeholder={`https://${platform}.com/`}
+              />
+            </div>
+          ))}
         </CardContent>
       </Card>
     </div>

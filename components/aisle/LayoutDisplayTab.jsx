@@ -3,9 +3,33 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+
+const THEME_PRESETS = [
+  {
+    id: 'dark-professional',
+    name: 'Dark Professional',
+    preview: { bg: '#0f172a', card: '#1e293b', accent: '#3b82f6', text: '#ffffff' },
+  },
+  {
+    id: 'light-clean',
+    name: 'Light & Clean',
+    preview: { bg: '#ffffff', card: '#f8fafc', accent: '#0ea5e9', text: '#1e293b' },
+  },
+  {
+    id: 'bold-vibrant',
+    name: 'Bold & Vibrant',
+    preview: { bg: '#1a1a2e', card: '#16213e', accent: '#e94560', text: '#ffffff' },
+  },
+  {
+    id: 'monochrome',
+    name: 'Monochrome',
+    preview: { bg: '#000000', card: '#1a1a1a', accent: '#ffffff', text: '#ffffff' },
+  }
+];
 
 const CARD_STYLES = [
   {
@@ -51,9 +75,63 @@ const HEADER_STYLES = [
 
 export default function LayoutDisplayTab({ settings, updateSettings }) {
   const aisleSettings = settings?.aisleSettings || {};
+  const currentTheme = settings?.theme || 'dark-professional';
+  const accentColor = settings?.accentColor || '#3b82f6';
+
+  const handleThemeSelect = (themeId) => {
+    updateSettings('theme', themeId);
+    const theme = THEME_PRESETS.find(t => t.id === themeId);
+    if (theme) {
+      updateSettings('accentColor', theme.preview.accent);
+    }
+  };
 
   return (
     <div className="space-y-6">
+      
+      {/* Theme Colors */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Theme Colors</CardTitle>
+          <CardDescription>Customize your primary brand color</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            {THEME_PRESETS.map((theme) => (
+              <button
+                key={theme.id}
+                onClick={() => handleThemeSelect(theme.id)}
+                className={cn(
+                  "relative rounded-lg border-2 p-4 transition-all hover:shadow-lg text-left",
+                  currentTheme === theme.id ? "border-primary ring-2 ring-primary" : "border-border"
+                )}
+              >
+                <div className="text-sm font-medium">{theme.name}</div>
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="space-y-2 flex-1">
+              <Label>Accent Color</Label>
+              <div className="flex gap-2">
+                <Input 
+                  type="color" 
+                  value={accentColor} 
+                  onChange={(e) => updateSettings('accentColor', e.target.value)} 
+                  className="w-20 h-10" 
+                />
+                <Input 
+                  type="text" 
+                  value={accentColor} 
+                  onChange={(e) => updateSettings('accentColor', e.target.value)} 
+                  className="flex-1" 
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Global Layout Settings */}
       <Card data-tutorial="global-products-row">
         <CardHeader>

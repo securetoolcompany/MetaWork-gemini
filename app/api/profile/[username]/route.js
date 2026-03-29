@@ -20,9 +20,14 @@ export async function GET(request, { params }) {
     }
     
     const profileSettings = creator.profileSettings || {};
-
-    // ❌ REMOVED THE CRASHING 'profileData' BLOCK THAT WAS HERE ❌
     
+    const dynamicSections = {};
+    Object.keys(creator).forEach(key => {
+      if (key.startsWith('storySection_')) {
+        dynamicSections[key] = creator[key];
+      }
+    });
+
     return NextResponse.json({
       success: true,
       profile: {
@@ -56,8 +61,7 @@ export async function GET(request, { params }) {
         createdAt: creator.createdAt,
         aisleUrl: `/aisle/${username}`,
         hasAisle: true,
-        // Make sure dynamicSections exists in your actual code, or remove this spread
-        // ...dynamicSections 
+        ...dynamicSections 
       }
     });
   } catch (error) {
