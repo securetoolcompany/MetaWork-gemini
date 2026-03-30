@@ -8,6 +8,16 @@ import { Package, ShieldCheck, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
+const getDisplayImage = (item) => {
+    if (!item) return '/placeholder.png';
+    if (item.mockupUrl && item.mockupUrl !== '') return item.mockupUrl;
+    if (item.mockups && item.mockups.length > 0) return item.mockups[item.mockups.length - 1];
+    if (item.imageUrl && item.imageUrl !== '') return item.imageUrl;
+    if (item.thumbnailUrl && item.thumbnailUrl !== '') return item.thumbnailUrl;
+    if (item.images && item.images.length > 0) return item.images[0];
+    return '/placeholder.png';
+  };
+
 export default function AislePublicContent({ products = [], ipAssets = [], settings = {}, creator = {} }) {
   const accentColor = settings.accentColor || '#3b82f6';
   const productsPerRow = settings.productsPerRow || 3;
@@ -194,7 +204,7 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
 
 function PublicItemCard({ item, type, accentColor }) {
   const title = item.title || item.name || 'Untitled';
-  const image = item.thumbnailUrl || item.imageUrl || '/placeholder.png';
+  const image = getDisplayImage(item);
   const price = item.price || item.licensingFee || '0.00';
 
   return (

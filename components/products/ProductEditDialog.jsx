@@ -99,15 +99,12 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   const tid = toast.loading("Uploading mockup...");
 
   try {
-    // Determine the owner ID
     const userId = product.userId || product.creatorId || 'anonymous';
-    
-    // 🔥 Define the sub-path relative to the MetaWork root
-    const folderContext = `users/${userId}/mockups`;
+    const folderContext = `mockups`;
 
     const formDataUpload = new FormData();
     formDataUpload.append('file', file);
-    formDataUpload.append('folderContext', folderContext); // Pass the path here
+    formDataUpload.append('folderContext', folderContext);
 
     const res = await fetch('/api/upload', {
       method: 'POST',
@@ -171,7 +168,9 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
           tags: tagsArray,
           isPublic: formData.isPublic,
           showroomListed: formData.isPublic,
-          status: formData.isPublic ? 'live' : 'draft'
+          status: formData.isPublic ? 'live' : 'draft',
+          mockups: formData.mockups || [],
+          mockupUrl: formData.mockups?.length > 0 ? formData.mockups[formData.mockups.length - 1] : undefined
         })
       });
 
