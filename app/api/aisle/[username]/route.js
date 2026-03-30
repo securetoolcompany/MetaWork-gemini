@@ -1,3 +1,5 @@
+// app/api/aisle/[username]/route.js
+
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
@@ -17,9 +19,16 @@ export async function GET(request, { params }) {
     if (!creator) return NextResponse.json({ success: false, error: 'Creator not found' }, { status: 404 });
 
     const creatorId = creator._id.toString();
-    const altId = creator.id || creatorId;
-    const idList = [creatorId, altId];
-    if (ObjectId.isValid(creatorId)) idList.push(new ObjectId(creatorId));
+    
+    // FIX: Create a robust list of possible ID formats (String and ObjectId) 
+    // to match against creatorId, userId, or ownerId in other collections.
+    const idList = [creatorId];
+    if (ObjectId.isValid(creatorId)) {
+      idList.push(new ObjectId(creatorId));
+    }
+    if (creator.id) {
+      idList.push(creator.id);
+    }
 
     const [products, ipAssets] = await Promise.all([
       db.collection('products').find({
@@ -29,9 +38,21 @@ export async function GET(request, { params }) {
         ]
       }).toArray(),
       db.collection('ip_assets').find({
-        $or: [{ ownerId: { $in: idList } }, { userId: { $in: idList } }]
+        $or: [
+          { ownerId: { $in: idList } }, 
+          { userId: { $in: idList } },
+          { creatorId: { $in: idList } }
+        ]
       }).toArray()
     ]);
+
+    // FIX: Map collections to ensure they have a string 'id' and filter by active status
+    const formattedCollections = (creator.collections || [])
+      .filter(c => c.active !== false)
+      .map(c => ({
+        ...c,
+        id: c.id || c._id?.toString() || Math.random().toString(36).substr(2, 9)
+      }));
 
     return NextResponse.json({
       success: true,
@@ -45,14 +66,7 @@ export async function GET(request, { params }) {
       },
       products: products.map(p => ({ ...p, id: p._id.toString() })),
       ipAssets: ipAssets.map(ip => ({ ...ip, id: ip._id.toString() })),
-      
-      // FIX: Pull directly from the creator document!
-      collections: (creator.collections || [])
-        .filter(c => c.active !== false)
-        .map(c => ({
-          ...c,
-          id: c.id || c._id?.toString()
-        }))
+      collections: formattedCollections
     });
   } catch (error) {
     console.error('Aisle API Error:', error);

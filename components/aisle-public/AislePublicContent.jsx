@@ -2,6 +2,8 @@
 
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+// FIX: Add Button to the imports
+import { Button } from '@/components/ui/button'; 
 import { Package, ShieldCheck, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -53,14 +55,46 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
 
         {/* --- ALL ITEMS TAB --- */}
         <TabsContent value="all" className="mt-0 outline-none">
-          <div className={cn("grid gap-6", gridCols)}>
-            {products.map((item) => (
-              <PublicItemCard key={item.id || item._id} item={item} type="product" accentColor={accentColor} />
-            ))}
-            {ipAssets.map((item) => (
-              <PublicItemCard key={item.id || item._id} item={item} type="ip" accentColor={accentColor} />
-            ))}
+          {/* Render Collections First */}
+          {creator.collections?.length > 0 && (
+            <div className="space-y-12 mb-12">
+              {creator.collections.map((col) => {
+                const collectionProducts = products.filter(p => 
+                  col.productIds?.map(id => id.toString()).includes(p.id?.toString())
+                );
+                
+                if (collectionProducts.length === 0) return null;
+
+                return (
+                  <div key={col.id || col._id} className="space-y-6">
+                    <div className="border-l-4 border-primary pl-4" style={{ borderColor: accentColor }}>
+                      <h2 className="text-2xl font-bold text-white">{col.name}</h2>
+                      {col.description && <p className="text-slate-400 text-sm">{col.description}</p>}
+                    </div>
+                    <div className={cn("grid gap-6", gridCols)}>
+                      {collectionProducts.map((item) => (
+                        <PublicItemCard key={item.id} item={item} type="product" accentColor={accentColor} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Standard "All Items" Grid */}
+          <div className="border-t border-slate-800 pt-8 mt-8">
+            <h3 className="text-lg font-semibold text-slate-400 mb-6 px-2">All Assets</h3>
+            <div className={cn("grid gap-6", gridCols)}>
+              {products.map((item) => (
+                <PublicItemCard key={item.id || item._id} item={item} type="product" accentColor={accentColor} />
+              ))}
+              {ipAssets.map((item) => (
+                <PublicItemCard key={item.id || item._id} item={item} type="ip" accentColor={accentColor} />
+              ))}
+            </div>
           </div>
+          
           {products.length === 0 && ipAssets.length === 0 && <EmptyState />}
         </TabsContent>
 
@@ -85,10 +119,6 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
     </div>
   );
 }
-
-// ------------------------------------------------------------------
-// INTERNAL SUB-COMPONENTS
-// ------------------------------------------------------------------
 
 function PublicItemCard({ item, type, accentColor }) {
   const title = item.title || item.name || 'Untitled';

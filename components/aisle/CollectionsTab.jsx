@@ -145,7 +145,17 @@ function useCollectionsSync(enableSync = false) {
   };
 }
 
-function SortableCollectionCard({ collection, index, isExpanded, toggleExpanded, updateCollectionField, handleDuplicateCollection, handleDeleteCollection, setAddProductsDialog, products }) {
+function SortableCollectionCard({ 
+  collection, 
+  index, 
+  isExpanded, 
+  toggleExpanded, 
+  updateCollectionField, 
+  handleDuplicateCollection, 
+  handleDeleteCollection, 
+  setAddProductsDialog, 
+  products 
+}) {
   const {
     attributes,
     listeners,
@@ -161,7 +171,10 @@ function SortableCollectionCard({ collection, index, isExpanded, toggleExpanded,
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const collectionProducts = products.filter(p => collection.productIds?.includes(p.id));
+  const collectionProducts = products.filter(p => {
+    const pId = (p.id || p._id)?.toString();
+    return (collection.productIds || []).map(id => id.toString()).includes(pId);
+  });
 
   return (
     <div ref={setNodeRef} style={style}>
@@ -235,27 +248,30 @@ function SortableCollectionCard({ collection, index, isExpanded, toggleExpanded,
               <Label>Products ({collectionProducts.length})</Label>
               {collectionProducts.length > 0 ? (
                 <div className="grid grid-cols-4 gap-2">
-                  {collectionProducts.map(product => (
-                    <div key={product.id} className="relative group">
-                      <img
-                        src={product.imageUrl || product.thumbnailUrl || '/placeholder.png'}
-                        alt={product.name}
-                        className="w-full aspect-square object-cover rounded-lg border border-border"
-                      />
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => {
-                          const updatedProductIds = collection.productIds.filter(id => id !== product.id);
-                          updateCollectionField(collection.id, 'productIds', updatedProductIds);
-                        }}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                      <div className="text-xs mt-1 truncate">{product.name}</div>
-                    </div>
-                  ))}
+                  {collectionProducts.map(product => {
+                    const productId = (product.id || product._id)?.toString();
+                    return (
+                      <div key={productId} className="relative group">
+                        <img
+                          src={product.imageUrl || product.thumbnailUrl || '/placeholder.png'}
+                          alt={product.name}
+                          className="w-full aspect-square object-cover rounded-lg border border-border"
+                        />
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => {
+                            const updatedProductIds = collection.productIds.filter(id => id.toString() !== productId);
+                            updateCollectionField(collection.id, 'productIds', updatedProductIds);
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                        <div className="text-xs mt-1 truncate">{product.name}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
@@ -394,15 +410,26 @@ export default function CollectionsTab({
     }
   };
 
+  // components/aisle/CollectionsTab.jsx -> handleAddProducts function
+
   const handleAddProducts = async () => {
     if (addProductsDialog && selectedProducts.length > 0) {
       const collection = collections.find(c => c.id === addProductsDialog);
       if (!collection) return;
       
-      const updatedProductIds = [...new Set([...(collection.productIds || []), ...selectedProducts])];
+      // FIX: Standardize all selected IDs and existing IDs to strings to prevent duplicates
+      const newIds = selectedProducts.map(id => id.toString());
+      const existingIds = (collection.productIds || []).map(id => id.toString());
+      
+      // Use Set to ensure every ID is unique
+      const updatedProductIds = [...new Set([...existingIds, ...newIds])];
       
       if (enableMongoSync) {
-        const updated = await updateMongoCollection({ id: addProductsDialog, productIds: updatedProductIds });
+        const updated = await updateMongoCollection({ 
+          id: addProductsDialog, 
+          productIds: updatedProductIds 
+        });
+        
         if (updated) {
           // Update parent state for immediate preview refresh
           const updatedCollections = collections.map(c => 
@@ -416,6 +443,7 @@ export default function CollectionsTab({
           c.id === addProductsDialog ? { ...c, productIds: updatedProductIds } : c
         );
         updateSettings('collections', updatedCollections);
+        toast.success(`${selectedProducts.length} product(s) added`);
       }
       
       setAddProductsDialog(null);
@@ -597,10 +625,11 @@ export default function CollectionsTab({
                </div>
             ) : (
               allProducts.map(product => {
-                const productId = product.id || product._id;
+                const productId = (product.id || product._id)?.toString(); 
                 const isSelected = selectedProducts.includes(productId);
                 const collection = collections.find(c => c.id === addProductsDialog);
-                const alreadyInCollection = collection?.productIds?.includes(productId);
+                
+                const alreadyInCollection = collection?.productIds?.map(id => id.toString()).includes(productId);
                 
                 return (
                   <button

@@ -1,3 +1,5 @@
+// app/api/aisle-settings/route.js
+
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
@@ -32,11 +34,18 @@ export async function GET(request) {
       db.collection('ip_assets').find(query).toArray()
     ]);
 
+    const standardizedCollections = (user.collections || []).map(col => ({
+      ...col,
+      // MongoDB might use _id, or it might be a legacy object with id. 
+      // This ensures 'id' is always a string.
+      id: col.id?.toString() || col._id?.toString() || Math.random().toString(36).substr(2, 9),
+      active: col.active !== false 
+    }));
+
     return NextResponse.json({ 
       success: true, 
       aisleSettings: user.aisleSettings || {},
-      collections: user.collections || [],
-      // FIX: Force MongoDB ObjectIds into clean strings so the IDs match perfectly!
+      collections: standardizedCollections, // Use the standardized version
       products: products.map(p => ({ ...p, id: p._id.toString() })),
       ipAssets: ipAssets.map(ip => ({ ...ip, id: ip._id.toString() })),
       user: { name: user.profile?.displayName, username: user.username }
@@ -47,24 +56,29 @@ export async function GET(request) {
   }
 }
 
-// PUT - Save user's aisle settings
 export async function PUT(request) {
   try {
     const token = request.cookies.get('auth_token')?.value;
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
+    if (!token) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
 
     const decoded = verifyToken(token);
     const { aisleSettings, collections } = await request.json();
     const { db } = await connectToDatabase();
+
+    // FIX: Ensure every collection being saved has an 'active' status 
+    // and that productIds are stored as strings to prevent matching issues.
+    const collectionsToSave = (collections || []).map(col => ({
+      ...col,
+      active: col.active !== undefined ? col.active : true,
+      productIds: (col.productIds || []).map(id => id.toString())
+    }));
 
     const result = await db.collection('users').updateOne(
       { _id: decoded.userId },
       { 
         $set: { 
           aisleSettings: aisleSettings,
-          collections: collections || [],
+          collections: collectionsToSave,
           updatedAt: new Date()
         }
       }
