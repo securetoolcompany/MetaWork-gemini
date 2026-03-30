@@ -131,7 +131,8 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
                     const rawIds = col.productIds || col.itemIds || [];
                     rawIdsCount = rawIds.length;
                     const stringIds = rawIds.map(id => String(id));
-                    items = allProducts.filter(p => stringIds.includes(safeId(p)));
+                    const allAvailableItems = [...allProducts, ...ipAssets];
+                    items = allAvailableItems.filter(p => stringIds.includes(safeId(p)));
                   }
                 }
 
@@ -169,7 +170,8 @@ export default function AislePreview({ settings, products = [], ipAssets =  [], 
               collectionsList.map(col => {
                 const rawIds = col.productIds || col.itemIds || [];
                 const stringIds = rawIds.map(id => String(id));
-                const items = allProducts.filter(p => stringIds.includes(safeId(p)));
+                const allAvailableItems = [...allProducts, ...ipAssets];
+                const items = allAvailableItems.filter(p => stringIds.includes(safeId(p)));
 
                 return (
                   <div key={col.id || col._id || Math.random()}>
