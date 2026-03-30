@@ -325,7 +325,7 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
                     </>
                   ) : product.imageUrl ? (
                     <Image
-                      src={product.imageUrl}
+                      src={product.mockupUrl || product.imageUrl || product.thumbnailUrl}
                       alt={productName}
                       fill
                       className="object-cover"

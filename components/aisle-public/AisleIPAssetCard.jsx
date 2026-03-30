@@ -1,184 +1,64 @@
 'use client';
 
-import Image from 'next/image';
-import { Zap, Eye, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import React from 'react';
+import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { ShieldCheck } from 'lucide-react';
 
-export default function AisleIPAssetCard({ asset, cardStyle, accentColor, onClick }) {
+export default function AisleIPAssetCard({ item, accentColor = '#3b82f6' }) {
+  const title = item.title || item.name || 'Untitled Asset';
   
-  // Pattern: Notify parent to update URL state
-  const handleCardClick = () => {
-    if (onClick) {
-      onClick(asset);
-    }
-  };
+  // IP Specific image logic
+  const imageSrc = item.imageUrl || item.thumbnailUrl || item.image || '/placeholder.png';
+  
+  // IP Specific price logic (Licensing Fee)
+  const rawFee = item.licensingFee || item.price || 0;
+  const displayFee = typeof rawFee === 'object' 
+    ? (rawFee.$numberDecimal || rawFee.toString()) 
+    : rawFee;
 
-  // Minimal Card Style
-  if (cardStyle === 'minimal') {
-    return (
-      <div 
-        className="group relative bg-gray-900/50 rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition-all cursor-pointer"
-        onClick={handleCardClick}
-      >
-        {/* Image */}
-        <div className="relative aspect-square bg-gray-800/50">
-          <Image
-            src={asset.imageUrl || asset.ipfsUrl}
-            alt={asset.title}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 50vw, 25vw"
+  return (
+    <Link href={`/ip/${item.id || item._id}`} className="group block">
+      <div className="bg-[#0f172a] border border-white/5 rounded-2xl overflow-hidden hover:border-blue-500/50 transition-all flex flex-col h-full shadow-xl">
+        {/* Visual Container */}
+        <div className="aspect-square relative overflow-hidden bg-slate-900">
+          <img 
+            src={imageSrc} 
+            alt={title} 
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
           />
+          <div className="absolute top-3 left-3">
+             <Badge className="bg-blue-600/90 text-white border-none flex gap-1 items-center py-1">
+                <ShieldCheck className="w-3 h-3" /> IP ASSET
+             </Badge>
+          </div>
         </div>
         
-        {/* Info */}
-        <div className="p-3">
-          <h3 className="font-semibold text-white truncate text-sm">
-            {asset.title || 'Untitled'}
+        {/* Detail Container */}
+        <div className="p-5 flex flex-col flex-1">
+          <h3 className="font-bold text-white text-lg truncate mb-1 group-hover:text-blue-400 transition-colors">
+            {title}
           </h3>
-          <p className="text-xs text-gray-400 mt-1">IP Asset</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // Detailed Card Style
-  if (cardStyle === 'detailed') {
-    return (
-      <div 
-        className="group relative bg-gray-900/50 rounded-xl overflow-hidden border border-gray-800 hover:border-gray-600 transition-all shadow-lg hover:shadow-2xl cursor-pointer"
-        onClick={handleCardClick}
-      >
-        {/* Image */}
-        <div className="relative aspect-square bg-gray-800/50">
-          <Image
-            src={asset.imageUrl || asset.ipfsUrl}
-            alt={asset.title}
-            fill
-            className="object-cover transition-transform group-hover:scale-105"
-            sizes="(max-width: 768px) 50vw, 25vw"
-          />
-          
-          {/* Badges */}
-          <div className="absolute top-2 right-2 flex gap-2">
-            {asset.collection && asset.collection !== 'default' && (
-              <Badge className="bg-black/80 text-white text-xs border-none">
-                {asset.collection}
-              </Badge>
-            )}
-            <Badge 
-              className="text-white text-xs font-semibold border-none"
+          <p className="text-slate-400 text-xs line-clamp-2 mb-4 flex-1">
+            {item.description || 'Digital IP Asset available for licensing.'}
+          </p>
+
+          <div className="flex justify-between items-center mt-auto pt-4 border-t border-white/5">
+            <div className="flex flex-col">
+              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Licensing Fee</span>
+              <span className="text-xl font-black text-white">
+                ${Number(displayFee).toFixed(2)}
+              </span>
+            </div>
+            <div 
+              className="px-4 py-2 rounded-lg text-xs font-bold text-white transition-all"
               style={{ backgroundColor: accentColor }}
             >
-              Available
-            </Badge>
-          </div>
-        </div>
-        
-        {/* Content */}
-        <div className="p-4">
-          <h3 className="font-bold text-white text-lg mb-2 line-clamp-1">
-            {asset.title || 'Untitled'}
-          </h3>
-          
-          {asset.description && (
-            <p className="text-sm text-gray-400 line-clamp-2 mb-3">
-              {asset.description}
-            </p>
-          )}
-          
-          {/* Tags */}
-          {asset.tags && asset.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mb-3">
-              {asset.tags.slice(0, 3).map((tag, idx) => (
-                <span 
-                  key={idx}
-                  className="text-xs px-2 py-0.5 bg-gray-800 rounded-full text-gray-300"
-                >
-                  {tag}
-                </span>
-              ))}
+              View License
             </div>
-          )}
-          
-          {/* Action Button */}
-          <Button
-            className="w-full gap-2 border-none"
-            style={{ backgroundColor: accentColor }}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCardClick();
-            }}
-          >
-            <Zap className="w-4 h-4" />
-            View Details
-          </Button>
-        </div>
-      </div>
-    );
-  }
-  
-  // Standard Card Style (default)
-  return (
-    <div 
-      className="group relative bg-gray-900/50 rounded-lg overflow-hidden border border-gray-800 hover:border-gray-600 transition-all hover:shadow-xl cursor-pointer"
-      onClick={handleCardClick}
-    >
-      {/* Image */}
-      <div className="relative aspect-square bg-gray-800/50">
-        <Image
-          src={asset.imageUrl || asset.ipfsUrl}
-          alt={asset.title}
-          fill
-          className="object-cover group-hover:scale-105 transition-transform"
-          sizes="(max-width: 768px) 50vw, 25vw"
-        />
-        
-        {/* Status Badge */}
-        <div 
-          className="absolute top-2 right-2 px-2 py-1 rounded text-xs font-semibold text-white"
-          style={{ backgroundColor: accentColor }}
-        >
-          <Sparkles className="w-3 h-3 inline mr-1" />
-          Available
-        </div>
-      </div>
-      
-      {/* Content */}
-      <div className="p-4">
-        <h3 className="font-semibold text-white line-clamp-1 mb-2">
-          {asset.title || 'Untitled'}
-        </h3>
-        
-        {/* Tags */}
-        {asset.tags && asset.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-3">
-            {asset.tags.slice(0, 2).map((tag, idx) => (
-              <span 
-                key={idx}
-                className="text-xs px-2 py-0.5 bg-gray-800 rounded text-gray-400"
-              >
-                {tag}
-              </span>
-            ))}
           </div>
-        )}
-        
-        {/* Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full gap-2"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleCardClick();
-          }}
-        >
-          <Eye className="w-4 h-4" />
-          View
-        </Button>
+        </div>
       </div>
-    </div>
+    </Link>
   );
 }

@@ -104,41 +104,70 @@ export default function LayoutTab({
             />
           </div>
         </CardHeader>
+        
         {settings?.featuredSpotlight?.enabled && (
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Spotlight Type</Label>
-                <Select
-                  value={settings?.featuredSpotlight?.type || 'product'}
-                  onValueChange={(value) => updateSettings('featuredSpotlight.type', value)}
+              {/* ... Existing Type and Item Selectors ... */}
+            </div>
+
+            {/* NEW: Media Type Selection */}
+            <div className="space-y-3">
+              <Label className="text-xs uppercase tracking-wider text-slate-500">Feature Media Type</Label>
+              <div className="flex gap-2">
+                <Button 
+                  variant={settings?.featuredSpotlight?.mediaType === 'video' ? 'default' : 'outline'}
+                  className="flex-1"
+                  onClick={() => updateSettings('featuredSpotlight.mediaType', 'video')}
                 >
-                  <SelectTrigger><SelectValue placeholder="Choose type" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="product">Product</SelectItem>
-                    <SelectItem value="ip-asset">IP Asset</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Select Item</Label>
-                <Select
-                  value={settings?.featuredSpotlight?.itemId || ''}
-                  onValueChange={(value) => updateSettings('featuredSpotlight.itemId', value)}
+                  YouTube Video
+                </Button>
+                <Button 
+                  variant={settings?.featuredSpotlight?.mediaType === 'image' ? 'default' : 'outline'}
+                  className="flex-1"
+                  onClick={() => updateSettings('featuredSpotlight.mediaType', 'image')}
                 >
-                  <SelectTrigger><SelectValue placeholder="Choose an item" /></SelectTrigger>
-                  <SelectContent>
-                    {((settings?.featuredSpotlight?.type === 'product' ? products : ipAssets) || []).map(item => {
-                      const itemId = item.id || item._id?.toString();
-                      return (
-                        <SelectItem key={itemId} value={itemId}>
-                          {item.title || item.name}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
+                  Product Image
+                </Button>
               </div>
+            </div>
+
+            {settings?.featuredSpotlight?.mediaType === 'video' && (
+              <div className="space-y-2 animate-in fade-in slide-in-from-top-1">
+                <Label htmlFor="videoUrl">YouTube URL</Label>
+                <Input
+                  id="videoUrl"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={settings?.featuredSpotlight?.videoUrl || ''}
+                  onChange={(e) => updateSettings('featuredSpotlight.videoUrl', e.target.value)}
+                  className="bg-slate-900 border-slate-700"
+                />
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="customDescription">Marketing Pitch (Right Column Text)</Label>
+              <Textarea
+                id="customDescription"
+                placeholder="Write a high-converting pitch for this item..."
+                value={settings?.featuredSpotlight?.customDescription || ''}
+                onChange={(e) => updateSettings('featuredSpotlight.customDescription', e.target.value)}
+                className="bg-slate-900 border-slate-700 min-h-[80px]"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="punchline">Product Punchline (The One-Liner)</Label>
+              <Input
+                id="punchline"
+                placeholder="e.g. 'The future of digital ownership, today.'"
+                value={settings?.featuredSpotlight?.punchline || ''}
+                onChange={(e) => updateSettings('featuredSpotlight.punchline', e.target.value)}
+                className="bg-slate-900 border-slate-700"
+              />
+              <p className="text-[10px] text-slate-500 italic">
+                This appears right under your item title in a sleek, high-contrast font.
+              </p>
             </div>
           </CardContent>
         )}
