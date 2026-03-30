@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-// FIX: Add Button to the imports
 import { Button } from '@/components/ui/button'; 
 import { Package, ShieldCheck, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,8 +19,71 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
     4: 'grid-cols-2 md:grid-cols-4'
   }[productsPerRow] || 'grid-cols-2 md:grid-cols-3';
 
+  // --- DATA LOOKUP FOR SPOTLIGHT ---
+  const spotlight = settings?.featuredSpotlight || settings?.aisleSettings?.featuredSpotlight;
+  
+  // Make sure we are strictly comparing strings
+  const featuredItem = spotlight?.enabled ? (
+    spotlight.type === 'product' 
+      ? products.find(p => (p.id?.toString() || p._id?.toString()) === spotlight.itemId?.toString())
+      : ipAssets.find(a => (a.id?.toString() || a._id?.toString()) === spotlight.itemId?.toString())
+  ) : null;
+
+  // Add this temporary console log so we can see what's happening
+  console.log("SPOTLIGHT DATA:", spotlight);
+  console.log("FOUND FEATURED ITEM:", featuredItem);
+
   return (
     <div className="mt-8">
+      {/* --- FEATURED SPOTLIGHT SECTION --- */}
+      {featuredItem && (
+        <div className="mb-16">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="h-px flex-1 bg-slate-800"></div>
+            <span className="text-xs font-bold tracking-widest text-slate-500 uppercase">Featured Spotlight</span>
+            <div className="h-px flex-1 bg-slate-800"></div>
+          </div>
+          
+          <div className="relative rounded-3xl overflow-hidden bg-slate-900 border border-slate-800 group">
+            <div className="grid md:grid-cols-2 gap-0">
+              <div className="aspect-square md:aspect-video relative overflow-hidden">
+                <img 
+                  src={featuredItem.imageUrl || featuredItem.thumbnailUrl} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                  alt="Featured"
+                />
+              </div>
+              <div className="p-8 md:p-12 flex flex-col justify-center">
+                <Badge className="w-fit mb-4" style={{ backgroundColor: accentColor }}>
+                  {spotlight.type === 'product' ? 'FEATURED PRODUCT' : 'FEATURED IP'}
+                </Badge>
+                <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+                  {featuredItem.title || featuredItem.name}
+                </h2>
+                <p className="text-slate-400 mb-8 line-clamp-3 text-lg">
+                  {featuredItem.description}
+                </p>
+                {/* Find the existing button and replace it with this: */}
+                <Button 
+                  asChild
+                  size="lg" 
+                  className="w-full md:w-fit font-bold px-8 py-6 text-lg text-white hover:opacity-90 transition-opacity"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  <Link 
+                    href={spotlight.type === 'product' 
+                      ? `/products/${featuredItem.id || featuredItem._id}` 
+                      : `/ip/${featuredItem.id || featuredItem._id}`
+                    }
+                  >
+                    View Featured Item
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <Tabs defaultValue="all" className="w-full">
         <div className="flex items-center justify-between mb-8 border-b border-slate-800 pb-4">
           <TabsList className="bg-transparent gap-8 h-auto p-0">
@@ -55,13 +118,17 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
 
         {/* --- ALL ITEMS TAB --- */}
         <TabsContent value="all" className="mt-0 outline-none">
-          {/* Render Collections First */}
-          {creator.collections?.length > 0 && (
+          
+          {/* FIX: Look for collections in settings.collections instead of creator.collections */}
+          {(settings.collections || []).length > 0 && (
             <div className="space-y-12 mb-12">
-              {creator.collections.map((col) => {
-                const collectionProducts = products.filter(p => 
-                  col.productIds?.map(id => id.toString()).includes(p.id?.toString())
-                );
+              {settings.collections.map((col) => {
+                
+                // FIX: Match col.itemIds with the actual product IDs
+                const collectionProducts = products.filter(p => {
+                  const pId = (p.id || p._id)?.toString();
+                  return col.itemIds?.some(id => id.toString() === pId);
+                });
                 
                 if (collectionProducts.length === 0) return null;
 
@@ -73,7 +140,12 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
                     </div>
                     <div className={cn("grid gap-6", gridCols)}>
                       {collectionProducts.map((item) => (
-                        <PublicItemCard key={item.id} item={item} type="product" accentColor={accentColor} />
+                        <PublicItemCard 
+                          key={(item.id || item._id).toString()} 
+                          item={item} 
+                          type="product" 
+                          accentColor={accentColor} 
+                        />
                       ))}
                     </div>
                   </div>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import AisleHeader from '@/components/aisle-public/AisleHeader';
-import AislePreview from '@/components/aisle/AislePreview'; 
+import AislePublicContent from '@/components/aisle-public/AislePublicContent';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PublicAislePage() {
@@ -51,20 +51,15 @@ export default function PublicAislePage() {
       <div className="max-w-7xl mx-auto px-6 mt-8">
         {/* Add a quick debug console log to prove the data is here! */}
         {console.log("Public Page Data Pass:", { products: data.products?.length, collections: data.collections?.length })}
-        <AislePreview 
-          zoom={100}
-          settings={{
-            // Merge everything cleanly so AislePreview doesn't get confused
-            ...data.creator.aisleSettings,
-            aisleSettings: data.creator.aisleSettings,
-            username: data.creator.username,
-            bio: data.creator.bio,
-            avatarUrl: data.creator.avatar,
-            bannerUrl: data.creator.banner,
-            collections: data.collections || [] 
-          }}
+        <AislePublicContent 
           products={data.products || []}
           ipAssets={data.ipAssets || []}
+          settings={{
+            ...data.creator.aisleSettings,
+            collections: data.collections || [],
+            featuredSpotlight: data.creator.aisleSettings?.featuredSpotlight
+          }}
+          creator={data.creator}
         />
       </div>
     </div>
