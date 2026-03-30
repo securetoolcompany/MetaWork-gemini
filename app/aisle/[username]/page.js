@@ -49,19 +49,22 @@ export default function PublicAislePage() {
       <AisleHeader creator={data.creator} settings={data.creator.aisleSettings} />
 
       <div className="max-w-7xl mx-auto px-6 mt-8">
+        {/* Add a quick debug console log to prove the data is here! */}
+        {console.log("Public Page Data Pass:", { products: data.products?.length, collections: data.collections?.length })}
         <AislePreview 
           zoom={100}
           settings={{
+            // Merge everything cleanly so AislePreview doesn't get confused
+            ...data.creator.aisleSettings,
             aisleSettings: data.creator.aisleSettings,
             username: data.creator.username,
             bio: data.creator.bio,
             avatarUrl: data.creator.avatar,
             bannerUrl: data.creator.banner,
-            // FIX: THIS LINE WAS MISSING IN YOUR FILE!
-            collections: data.collections 
+            collections: data.collections || [] 
           }}
-          products={data.products}
-          ipAssets={data.ipAssets}
+          products={data.products || []}
+          ipAssets={data.ipAssets || []}
         />
       </div>
     </div>

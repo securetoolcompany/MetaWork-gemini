@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
-import { ObjectId } from 'mongodb';
 
 export async function GET(request) {
   try {
@@ -11,7 +10,6 @@ export async function GET(request) {
     const decoded = verifyToken(token);
     const { db } = await connectToDatabase();
     
-    // FIX: Add 'collections: 1' to the projection so the DB actually returns it!
     const user = await db.collection('users').findOne(
       { _id: decoded.userId },
       { projection: { aisleSettings: 1, 'profile.displayName': 1, username: 1, collections: 1 } }
@@ -37,10 +35,10 @@ export async function GET(request) {
     return NextResponse.json({ 
       success: true, 
       aisleSettings: user.aisleSettings || {},
-      // FIX: Pull directly from the user document to match your PUT route
       collections: user.collections || [],
-      products,
-      ipAssets,
+      // FIX: Force MongoDB ObjectIds into clean strings so the IDs match perfectly!
+      products: products.map(p => ({ ...p, id: p._id.toString() })),
+      ipAssets: ipAssets.map(ip => ({ ...ip, id: ip._id.toString() })),
       user: { name: user.profile?.displayName, username: user.username }
     });
   } catch (error) {
@@ -61,7 +59,6 @@ export async function PUT(request) {
     const { aisleSettings, collections } = await request.json();
     const { db } = await connectToDatabase();
 
-    // Pattern: Use the decoded userId to ensure the user only edits their own aisle
     const result = await db.collection('users').updateOne(
       { _id: decoded.userId },
       { 
