@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import CreatorCard from './CreatorCard';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -260,32 +261,12 @@ export default function ShopByAisle({
           </div>
         ) : (
           <div className="pb-24">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {pageItems.map((aisle) => (
-                <Link
-                  key={aisle.id || aisle._id}
-                  href={`/showroom/aisle/${aisle.slug || aisle.id}`}
-                  className="bg-[#111] rounded-2xl overflow-hidden border border-white/5 flex flex-col h-full hover:border-emerald-500/30 transition-all cursor-pointer block"
-                >
-                  <div className="relative w-full pt-[56.25%] overflow-hidden">
-                    <img
-                      src={aisle.imageUrl}
-                      alt={aisle.name}
-                      className="absolute inset-0 w-full h-full object-cover"
-                      onError={(e) => {
-                        e.target.style.opacity = '0';
-                      }}
-                    />
-                  </div>
-                  <div className="p-4 flex flex-col gap-2 flex-1">
-                    <h3 className="text-sm font-semibold line-clamp-2">
-                      {aisle.name}
-                    </h3>
-                    <p className="text-xs text-gray-400 line-clamp-2">
-                      {aisle.description || 'Curated artwork collection'}
-                    </p>
-                  </div>
-                </Link>
+                <CreatorCard 
+                  key={aisle.id || aisle._id} 
+                  creator={aisle} 
+                />
               ))}
             </div>
           </div>
