@@ -5,7 +5,19 @@ import AisleIPAssetCard from '@/components/aisle-public/AisleIPAssetCard';
 
 const ITEMS_PER_PAGE = 12;
 
-export default function ShopByIP({ items = [] }) {
+export default function ShopByIP({ 
+  items = [], 
+  categories = [], 
+  availableCategories = [], 
+  availableTags = [], 
+  activeCategories = [], 
+  activeTags = [], 
+  onCategoryToggle, 
+  onClearCategories, 
+  onTagToggle, 
+  onClearTags 
+}) {
+  
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
 

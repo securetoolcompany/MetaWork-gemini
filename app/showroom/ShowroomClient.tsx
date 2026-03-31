@@ -384,6 +384,7 @@ export default function ShowroomClient() {
 
 
                 {activeTab === 'ip' && (
+          /* @ts-ignore - ShopByIP is a JS component with dynamic props */
           <ShopByIP 
             items={ipData.filteredAssets}
             categories={IP_CATEGORIES}
