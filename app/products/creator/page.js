@@ -15,6 +15,7 @@ import IPLibraryPanel from 'components/product-creator/IPLibraryPanel' // Adjust
 import DesignPropertiesPanel from 'components/product-creator/DesignPropertiesPanel' // Your provided component
 import { Toaster } from 'sonner'
 import { useSearchParams } from 'next/navigation'
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const CATEGORY_ID_MAP = {
   Activewear: ['leggings', 'sports bra', 'athletic', 'joggers', 'active'],
@@ -62,7 +63,9 @@ function ProductCreatorInner() {
   const urlExternalProductId = searchParams.get('externalProductId')
   const urlInitialIpId  = searchParams.get('ipId')
 
-  // State declarations
+  const isMobile = useIsMobile();
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const [step, setStep] = useState('catalog')
   const [catalogProducts, setCatalogProducts] = useState([])
   const [loadingCatalog, setLoadingCatalog] = useState(true)
@@ -90,7 +93,7 @@ function ProductCreatorInner() {
   container: typeof document !== 'undefined' ? !!document.getElementById('printful-designer-container') : false
 });
   console.log('🔍 SAVE STATE:', { printfulTemplateId, externalProductId, selectedIPs: selectedIPs.length });
-
+  
   const inspectSlug = searchParams.get('inspect');
     useEffect(() => {
     // If we just closed it manually, don't let the URL re-open it
@@ -157,6 +160,8 @@ function ProductCreatorInner() {
     try {
       console.log('sendMessage setUrlImageLayer:', imageUrl)
       instance.sendMessage({ event: 'setUrlImageLayer', url: imageUrl })
+      const edm = document.getElementById('printful-designer-container');
+      if (edm) edm.focus();
     } catch (err) {
       console.error('sendMessage failed:', err)
       toast.error('Failed to add image to designer')
@@ -668,214 +673,167 @@ useEffect(() => {
   return () => window.removeEventListener('message', handleDesignStatus);
 }, []);
 
+useEffect(() => {
+  if (step === 'design') {
+    const container = document.getElementById('printful-designer-container');
+    if (container) {
+      // Force a reflow and ensure pointer events are active
+      container.style.pointerEvents = 'auto';
+      // Ensure no focus trap is active
+      window.focus();
+    }
+  }
+}, [step, isMobile]);
+
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden font-sans">
-      {/* TOP HEADER */}
-      <header className="h-16 border-b flex items-center justify-between px-6 bg-card z-50 shadow-sm relative">
-        <div className="flex items-center gap-6">
+  <div className="h-screen flex flex-col bg-background overflow-hidden font-sans relative">
+    {/* 1. TOP HEADER */}
+    <header className="h-16 border-b flex items-center justify-between px-6 bg-card z-[60] shadow-sm relative shrink-0">
+      <div className="flex items-center gap-6">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setStep('catalog')
+            hasInitializedRef.current = false
+            hasAppliedShowroomIPRef.current = false
+          }}
+          className="gap-2 border-zinc-800 hover:bg-zinc-800"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Exit
+        </Button>
+      </div>
+      <h1 className="text-sm font-bold uppercase tracking-tight">Metawork</h1>
+      <Badge className="bg-indigo-900/10 text-indigo-400 border-none uppercase text-[10px]">Sync Active</Badge>
+    </header>
+
+    {/* 2. SUB-NAV (Restored for Catalog) */}
+    {step === 'catalog' && (
+      <nav className="bg-background border-b px-6 py-4 flex flex-col md:flex-row items-center gap-4 md:gap-10 z-40 shrink-0">
+        <div className="flex items-center gap-4">
           <Button
-            variant="outline"
+            variant={selectedCategory === 'All Products' ? 'default' : 'outline'}
             size="sm"
             onClick={() => {
-              setStep('catalog')
-              hasInitializedRef.current = false
-              hasAppliedShowroomIPRef.current = false
+              setSelectedCategory('All Products')
+              setSearchQuery('')
             }}
-            className="gap-2 border-zinc-800 hover:bg-zinc-800"
+            className={cn(
+              "font-bold h-10 px-6 rounded-full border-zinc-800 transition-all",
+              selectedCategory === 'All Products' ? "bg-indigo-600 text-white" : "text-zinc-300"
+            )}
           >
-            <ArrowLeft className="h-4 w-4" />
-            Exit
+            <Database className="mr-2 h-4 w-4" />
+            All Blanks
           </Button>
         </div>
-        <div className="h-8 w-px bg-zinc-800 hidden md:block" />
-        <h1 className="text-sm font-bold uppercase tracking-tight">Metawork</h1>
-        <div />
-
-        <div className="hidden lg:flex items-center gap-8 text-white">
-          <div className={cn(
-            "flex items-center gap-2 text-xs font-semibold",
-            step === 'catalog' ? 'opacity-100' : 'opacity-40'
-          )}>
-            <span className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] shadow-0015px-rgba(79,70,229,0.2)">
-              1
-            </span>
-            <span>Select Base</span>
-          </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground opacity-30" />
-          <div className={cn(
-            "flex items-center            gap-2 text-xs font-semibold",
-            step === 'design' ? 'opacity-100' : 'opacity-40'
-          )}>
-            <span className="w-6 h-6 rounded-full bg-zinc-800 text-zinc-400 flex items-center justify-center text-[10px]">
-              2
-            </span>
-            <span>Design Studio</span>
-          </div>
-        </div>
-        <Badge className="bg-indigo-900/10 text-indigo-400 border-none uppercase text-[10px]">Sync Active</Badge>
-      </header>
-
-      {/* REFINED SUB-NAV */}
-      {step === 'catalog' && (
-        <nav className="bg-background border-b px-6 py-4 flex flex-col md:flex-row items-center gap-4 md:gap-10 z-40 overflow-visible no-scrollbar scrollbar-hide">
-          <div className="flex items-center gap-4 overflow-visible no-scrollbar scrollbar-hide">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          {Object.keys(TOP_LEVEL_GROUPS).map((group) => (
             <Button
-              variant={selectedCategory === 'All Products' ? 'default' : 'outline'}
+              key={group}
+              variant="ghost"
               size="sm"
-              onClick={() => {
-                setSelectedCategory('All Products')
-                setSearchQuery('')
-              }}
+              onClick={() => setSelectedCategory(group)}
               className={cn(
-                "font-bold h-10 px-6 rounded-full border-zinc-800 transition-all",
-                selectedCategory === 'All Products'
-                  ? "bg-indigo-600 text-white border-none shadow-[0_0_15px_rgba(79,70,229,0.2)]"
-                  : "text-zinc-300 hover:bg-zinc-800"
+                "text-xs font-bold h-10 px-4 rounded-full transition-colors whitespace-nowrap",
+                selectedCategory === group ? "bg-indigo-900/40 text-indigo-400" : "text-zinc-300 hover:bg-zinc-800"
               )}
             >
-              <Database className="mr-2 h-4 w-4" />
-              All Blanks
+              {group}
             </Button>
-          </div>
+          ))}
+        </div>
+        <div className="flex-1 w-full relative max-w-lg ml-auto">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+          <Input
+            placeholder="Search catalog..."
+            className="pl-11 h-10 bg-zinc-900 border-zinc-800 rounded-full"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </nav>
+    )}
 
-          <div className="flex items-center overflow-visible gap-1 no-scrollbar scrollbar-hide">
-            {Object.keys(TOP_LEVEL_GROUPS).map((group)              => (
-                <div key={group} className="relative group overflow-visible">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedCategory(group)}
-                    className={cn(
-                      "text-xs font-bold h-10 px-4 rounded-full transition-colors",
-                      selectedCategory === group
-                        ? "bg-indigo-900/40 text-indigo-400"
-                        : "text-zinc-300 hover:bg-zinc-800"
-                    )}
-                  >
-                    {group}
-                  </Button>
-                  <div className="absolute top-full left-0 mt-0 pt-2 hidden group-hover:block z-[100] min-w-[220px]">
-                    <div className="bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl p-2 no-scrollbar scrollbar-hide">
-                      {TOP_LEVEL_GROUPS[group].map((sub) => (
-                        <button
-                          key={sub}
-                          onClick={() => setSelectedCategory(sub)}
-                          className={cn(
-                            "w-full text-left px-4 py-2.5 text-xs rounded-xl flex items-center justify-between transition-colors",
-                            selectedCategory === sub
-                              ? "bg-indigo-900/40 text-indigo-400 font-bold"
-                              : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                          )}
-                        >
-                          {sub}
-                          {selectedCategory === sub && (
-                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+    {/* 3. MAIN CONTENT AREA */}
+    <div className="flex-1 overflow-hidden relative">
+      {/* RESTORED CATALOG VIEW */}
+      {step === 'catalog' && (
+        <main className="h-full overflow-y-auto bg-black no-scrollbar scroll-smooth p-6 md:p-12">
+          <div className="max-w-[1920px] mx-auto text-white">
+            {loadingCatalog ? (
+              <div className="flex flex-col items-center justify-center p-40">
+                <Loader2 className="animate-spin h-10 w-10 text-indigo-500" />
+              </div>
+            ) : (
+              <div className="space-y-12">
+                <h2 className="text-2xl md:text-4xl font-black uppercase tracking-tighter">
+                  {selectedCategory}
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-6">
+                  {filteredProducts.map((p) => (
+                    <BlankProductCard
+                      key={p.id}
+                      product={p}
+                      onInspect={() => setInspectingProduct(p)}
+                      onSelect={(prod) => {
+                        setSelectedBlank(prod)
+                        setExternalProductId(uuidv4())
+                        setStep('design')
+                      }}
+                    />
+                  ))}
                 </div>
-              ))}
+              </div>
+            )}
           </div>
-
-          <div className="flex-1 w-full relative max-w-lg ml-auto">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
-            <Input
-              placeholder="Search catalog intelligence..."
-              className="pl-11 h-10 bg-zinc-900 border-zinc-800 rounded-full text-zinc-300 focus-visible:ring-indigo-500"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </nav>
+        </main>
       )}
 
-           {/* MAIN GRID */}
-      <div className="flex-1 overflow-hidden">
-        {step === 'catalog' && (
-          <main className="h-full overflow-y-auto bg-black no-scrollbar scrollbar-hide scroll-smooth">
-            <div className="max-w-[1920px] mx-auto p-12 pt-8 text-white">
-              {loadingCatalog ? (
-                <div className="flex flex-col items-center justify-center p-40 gap-4">
-                  <Loader2 className="animate-spin h-10 w-10 text-indigo-500" />
-                  <div />
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-12">
-                    <div className="flex items-baseline gap-4">
-                      <h2 className="text-4xl font-black tracking-tighter uppercase">
-                        {selectedCategory}
-                      </h2>
-                      <span className="text-zinc-600 font-bold text-sm">
-                        {filteredProducts.length} curated bases
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-x-6 gap-y-10">
-                      {filteredProducts.map((p) => (
-                        <BlankProductCard
-                          key={p.id}
-                          product={p}
-                          onInspect={() => {
-                            // 1. Open the dialog locally
-                            setInspectingProduct(p);
-                            // 2. Update the URL for shareability
-                            const url = new URL(window.location);
-                            url.searchParams.set('inspect', generateSlug(p.name));
-                            window.history.pushState({}, '', url);
-                          }}
-                          onSelect={(prod) => {
-                            console.log('Selecting blank with current initialShowroomIP:', initialShowroomIP)
-                            setSelectedBlank(prod)
-                            setExternalProductId(uuidv4())
-                            setStep('design')
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+      {/* DESIGN STUDIO VIEW */}
+      {step === 'design' && (
+        <div className="h-full flex flex-col md:flex-row bg-black overflow-hidden relative">
+          {/* IP Library Strip */}
+          <div className={cn(
+            "shrink-0 bg-zinc-950 border-zinc-800 relative z-30",
+            isMobile ? "w-full h-32 border-b" : "w-80 border-r h-full"
+          )}>
+            <IPLibraryPanel
+              selectedIPs={selectedIPs}
+              onIPClick={addIPToDesign}
+              onRemoveIP={removeIP}
+              product={selectedBlank}
+              isConnected={true}
+            />
+          </div>
+
+          {/* THE DESIGNER STAGE */}
+          <main 
+            className={cn(
+              "flex-1 relative bg-slate-950 z-10",
+              isMobile ? "mb-16" : "mb-0" // mb-16 reserves space for the drawer height
+            )}
+          >
+            {edmLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-40">
+                <Loader2 className="animate-spin h-10 w-10 text-indigo-500" />
+              </div>
+            )}
+
+            <div
+              id="printful-designer-container"
+              className="w-full h-full pointer-events-auto"
+              style={{ 
+                visibility: edmLoading ? 'hidden' : 'visible',
+                zIndex: 20
+              }}
+            />
           </main>
-        )}
 
-        {step === 'design' && (
-          <div className="h-full flex bg-black">
-            {/* Left: IP Library */}
-            <div className="w-80 border-r border-zinc-800 shrink-0 hidden lg:block">
-              <IPLibraryPanel
-                selectedIPs={selectedIPs}
-                onIPClick={addIPToDesign}
-                onRemoveIP={removeIP}
-                product={selectedBlank}
-                isConnected={true}
-              />
-            </div>
-
-            {/* Center: Printful EDM */}
-            <div className="flex-1 min-h-0 relative">
-              {/* Loading overlay */}
-              {edmLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black text-white z-10">
-                  <div className="text-center space-y-4">
-                    <Loader2 className="animate-spin h-12 w-12 text-indigo-500 mx-auto" />
-                    <p className="text-lg font-semibold">Loading Design Studio...</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Container always exists, just hidden during loading */}
-              <div
-                id="printful-designer-container"
-                className="w-full h-full"
-                style={{ visibility: edmLoading ? 'hidden' : 'visible' }}
-              />
-            </div>
-
-            {/* Right: Properties */}
-            <div className="w-80 border-l border-zinc-800 shrink-0">
+          {/* DESKTOP SIDEBAR: Explicitly only rendered if NOT mobile to prevent click-blocking */}
+          {!isMobile && (
+            <div className="w-80 border-l border-zinc-800 shrink-0 h-full z-30">
               <DesignPropertiesPanel
                 selectedIPs={selectedIPs}
                 onRemoveIP={removeIP}
@@ -887,181 +845,43 @@ useEffect(() => {
                 refreshNonce={refreshNonce}
               />
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* REARRANGED SPECS INSPECTOR AS DIALOG */}
-      <Dialog 
-        open={!!inspectingProduct} 
-        onOpenChange={(open) => {
-          if (!open) {
-            // 1. SET THE GUARD
-            justClosedRef.current = true;
-
-            // 2. CLEAR URL
-            const url = new URL(window.location.href);
-            url.searchParams.delete('inspect');
-            window.history.replaceState(null, '', url.pathname + url.search);
-
-            // 3. RESET STATE
-            setInspectingProduct(null);
-            setSelectedColor(null);
-
-            // 4. Release guard after a short timeout (tick)
-            setTimeout(() => { justClosedRef.current = false; }, 100);
-          }
-        }}
-      >
-        <DialogContent className="max-w-7xl h-[90vh] p-0 bg-zinc-950 border-zinc-800 text-white overflow-hidden flex flex-col">
-          <DialogHeader className="sr-only">
-            <DialogTitle>{inspectingProduct?.name} Details</DialogTitle>
-            <DialogDescription>Technical specifications and production details.</DialogDescription>
-          </DialogHeader>
-
-          {/* --- START NEW WIDER SCROLLABLE CONTENT --- */}
-          <div className="flex-1 overflow-y-auto no-scrollbar">
-            
-            {/* 🌟 1. NEW 21:9 SPLIT HERO SECTION 🌟 */}
-            <div className="aspect-[21/9] w-full bg-zinc-900 border-b border-zinc-800 relative shrink-0 grid grid-cols-2">
-              
-              {/* 📸 LEFT SIDE: Product Image (As before, contained and blend-mode) */}
-              <div className="h-full w-full border-r border-zinc-800/50 p-12 flex items-center justify-center relative">
-                <img
-                  src={inspectingProduct?.thumbnailUrl}
-                  alt={inspectingProduct?.name}
-                  className="object-contain w-full h-full mix-blend-lighten"
-                />
-                {/* Subtle Gradient Shadow at bottom of Image area */}
-                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-zinc-950/50 to-transparent pointer-events-none" />
-              </div>
-
-              {/* 🎨 RIGHT SIDE: High-Level Info (Strategy, Share, Colors, and Logistics) */}
-              <div className="h-full w-full p-12 space-y-8 flex flex-col justify-center">
-                
-                {/* Production Strategy & Share Block */}
-                <div className="space-y-4">
-                  <p className="text-[10px] font-black uppercase text-indigo-500 tracking-[0.25em]">
-                    Primary Technique
-                  </p>
-                  <div className="flex items-center gap-6">
-                    <h2 className="text-4xl font-black uppercase tracking-tighter text-white">
-                      {inspectingProduct?.preferredTechnique}
-                    </h2>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 gap-2 rounded-full bg-zinc-800 text-[10px] font-bold uppercase text-zinc-400 hover:bg-indigo-600 hover:text-white transition-all shrink-0"
-                      onClick={() => {
-                        const slug = generateSlug(inspectingProduct.name);
-                        const shareUrl = `${window.location.origin}${window.location.pathname}?inspect=${slug}`;
-                        navigator.clipboard.writeText(shareUrl);
-                        toast.success("Link Copied!");
-                      }}
-                    >
-                      <Link className="h-3 w-3" />
-                      Share Base
-                    </Button>
-                  </div>
-                </div>
-
-                {/* 🚀 NEW: TOP-LEVEL LOGISTICS GRID 🚀 */}
-                <div className="grid grid-cols-2 gap-4 border-y border-zinc-800/50 py-6">
-                  <div className="flex items-start gap-3">
-                    <Globe className="h-4 w-4 text-indigo-500 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-zinc-500 tracking-wider">Produced In</p>
-                      <p className="text-xs font-bold mt-1 text-zinc-200">{inspectingProduct?.producedIn || 'Global Centers'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Truck className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-[10px] font-black uppercase text-zinc-500 tracking-wider">Logistics</p>
-                      <p className="text-xs font-bold mt-1 uppercase text-zinc-200">Ships to {inspectingProduct?.shipsTo || 'Global'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Available Colors Block */}
-                <div className="space-y-4">
-                  <h3 className="font-black text-xs uppercase tracking-widest text-zinc-500 flex items-center gap-2">
-                    <Fingerprint className="h-4 w-4 text-indigo-500" />
-                    Available Swatches
-                    <span className="ml-2 text-indigo-400 font-bold uppercase tracking-tight">
-                      {selectedColor || inspectingProduct?.availableColors?.[0]}
-                    </span>
-                  </h3>
-                  <div className="flex flex-wrap gap-3">
-                    {inspectingProduct?.availableColors?.map((c) => {
-                      const variant = inspectingProduct.variants?.find(v => v.color === c);
-                      return (
-                        <button
-                          key={c}
-                          onClick={() => setSelectedColor(c)}
-                          className={cn(
-                            "w-8 h-8 rounded-full border-2 p-1 transition-all",
-                            (selectedColor === c || (!selectedColor && c === inspectingProduct?.availableColors?.[0]))
-                              ? "border-indigo-600 scale-110 shadow-[0_0_15px_rgba(79,70,229,0.4)]"
-                              : "border-transparent hover:scale-105"
-                          )}
-                        >
-                          <div className="w-full h-full rounded-full border border-white/5" style={{ backgroundColor: variant?.colorCode || c }} />
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 🌟 2. UPDATED REMAINING METADATA STACK (Cost Table) 🌟 */}
-            <div className="p-12 space-y-12">
-              {/* COST MATRIX TABLE (Preserved logic, removed color selection block) */}
-              <div className="space-y-6">
-                <h3 className="font-black text-xs uppercase tracking-widest text-zinc-500">
-                  Price Breakdown
-                </h3>
-                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/30 overflow-hidden shadow-inner shadow-black/10">
-                  <table className="w-full text-xs">
-                    <thead className="bg-zinc-800/50 text-zinc-500 font-black uppercase">
-                      <tr>
-                        <th className="p-5 text-left tracking-wide">Size</th>
-                        <th className="p-5 text-right tracking-wide">Base Cost</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-800/80">
-                      {inspectingProduct?.variants?.filter(v => v.color === (selectedColor || inspectingProduct.availableColors?.[0])).map((v) => (
-                        <tr key={v.variantId} className="hover:bg-zinc-800/30 transition-colors">
-                          <td className="p-5 font-bold text-white uppercase">{v.size}</td>
-                          <td className="p-5 text-right font-black text-emerald-400 text-sm">${v.price?.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-          {/* STICKY FOOTER */}
-          <div className="p-8 bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-800 shrink-0">
-            <Button
-              className="w-full h-16 text-lg font-black bg-indigo-600 hover:bg-indigo-500 rounded-xl uppercase tracking-tighter shadow-2xl shadow-indigo-600/30"
-              onClick={() => {
-                setSelectedBlank(inspectingProduct)
-                setExternalProductId(uuidv4())
-                hasInitializedRef.current = false
-                setStep('design')
-                setInspectingProduct(null)
-              }}
-            >
-              Enter Design Studio
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+          )}
+        </div>
+      )}
     </div>
-  )
+
+    {/* 4. MOBILE DRAWER: Hardened Interaction Logic */}
+    {isMobile && step === 'design' && (
+      <div 
+        className={cn(
+          "fixed inset-0 z-[100] transition-colors duration-300",
+          // When expanded: acts like a modal backdrop
+          // When collapsed: pointer-events-none makes the area transparent to clicks
+          isExpanded ? "bg-black/40 pointer-events-auto" : "pointer-events-none"
+        )}
+        onClick={() => isExpanded && setIsExpanded(false)}
+      >
+        <div 
+          className="absolute bottom-0 left-0 right-0 pointer-events-auto" 
+          onClick={(e) => e.stopPropagation()}
+        >
+          <DesignPropertiesPanel
+            selectedIPs={selectedIPs}
+            onRemoveIP={removeIP}
+            product={selectedBlank}
+            baseProductPrice={selectedBlank?.variants?.[0]?.price || 0}
+            externalProductId={externalProductId}
+            printfulTemplateId={printfulTemplateId}
+            onTriggerEdmSave={triggerEdmSave}
+            refreshNonce={refreshNonce}
+            isExpanded={isExpanded}
+            setIsExpanded={setIsExpanded}
+          />
+        </div>
+      </div>
+    )}
+  </div>
+);
 }
 
 export default function ProductCreatorPage() {
