@@ -331,7 +331,7 @@ export default function ShowroomClient() {
 
       <div className="container mx-auto px-6 pb-32">
                 {activeTab === 'products' && (
-          <ShopByProduct 
+          <ShopByProductAny
             items={data.products}
             activeCategories={productFilters.activeCategories}
             onCategoryToggle={(category) => 
@@ -350,7 +350,7 @@ export default function ShowroomClient() {
 
 
           {activeTab === 'ip' && (
-          <ShopByIP 
+          <ShopByIPAny 
             items={ipData.filteredAssets}
             filters={ipFilters} 
             onToggleFilter={(groupId: string, value: string) => {
@@ -375,7 +375,7 @@ export default function ShowroomClient() {
         )}
 
         {activeTab === 'aisles' && (
-  <ShopByAisle
+  <ShopByAisleAny
     items={filteredAisles}
     filters={aisleFilters}
     onToggleFilter={(groupId, value) =>
