@@ -107,22 +107,29 @@ export default function ProfileSettingsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      {/* Dashboard Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
+    <div className="container mx-auto px-4 py-6 md:py-8 max-w-6xl">
+      {/* Dashboard Header: Stacks on mobile, Rows on desktop */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
+        <div className="text-center md:text-left">
           <h1 className="text-3xl font-bold">Profile Settings</h1>
-          <p className="text-muted-foreground">Customize your public creator profile</p>
+          <p className="text-muted-foreground text-sm">Customize your public creator profile</p>
         </div>
-        <div className="flex gap-3">
+
+        {/* Buttons: Full width and side-by-side on mobile */}
+        <div className="flex gap-3 w-full md:w-auto">
           <Button 
             variant="outline" 
             onClick={() => window.open(`/profile/${user?.username}`, '_blank')}
+            className="flex-1 md:flex-none h-11 md:h-10"
           >
             <ExternalLink className="w-4 h-4 mr-2" />
             View Public Profile
           </Button>
-          <Button onClick={handleSaveChanges} disabled={isSaving}>
+          <Button 
+            onClick={handleSaveChanges} 
+            disabled={isSaving}
+            className="flex-1 md:flex-none h-11 md:h-10"
+          >
             {isSaving ? (
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
             ) : (

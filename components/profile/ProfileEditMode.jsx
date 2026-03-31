@@ -21,7 +21,9 @@ import {
   Trash2,
   GripVertical,
   Crop,
-  Sparkles
+  Sparkles,
+  Eye,
+  Save
 } from 'lucide-react';
 import { toast } from 'sonner';
 import MediaGrid from '@/components/profile/MediaGrid';
@@ -61,22 +63,36 @@ function SortableStorySection({ section, updateStorySection, deleteStorySection,
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
-      <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 hover:border-primary/50 transition-colors">
+    <div ref={setNodeRef} style={style} className="mb-6 last:mb-0">
+      <div className="group border-2 border-dashed border-muted-foreground/30 rounded-lg p-4 md:p-6 hover:border-primary/50 transition-all bg-card/50">
+        
+        {/* Header: Drag Handle, Title, and Delete */}
         <div className="flex items-center gap-3 mb-4">
-          <div {...attributes} {...listeners} className="cursor-move touch-none">
-            <GripVertical className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
+          {/* Drag Handle - touch-none is critical for mobile DND */}
+          <div 
+            {...attributes} 
+            {...listeners} 
+            className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded transition-colors touch-none"
+          >
+            <GripVertical className="w-5 h-5 text-muted-foreground" />
           </div>
+
           <Input
-            value={section.title}
+            value={section.title || ''}
             onChange={(e) => updateStorySection(section.id, 'title', e.target.value)}
-            className="text-xl font-bold flex-1"
+            className="text-lg md:text-xl font-bold flex-1 bg-transparent border-none focus-visible:ring-1 p-0 h-auto"
             placeholder="Chapter title..."
           />
+
           <Button
-            size="icon"
+            size="sm"
             variant="ghost"
-            onClick={() => deleteStorySection(section.id)}
+            className="opacity-0 group-hover:opacity-100 transition-opacity"
+            onClick={() => {
+              if (window.confirm('Delete this chapter?')) {
+                deleteStorySection(section.id);
+              }
+            }}
           >
             <Trash2 className="w-4 h-4 text-destructive" />
           </Button>
@@ -86,20 +102,23 @@ function SortableStorySection({ section, updateStorySection, deleteStorySection,
         <Textarea
           value={section.description || ''}
           onChange={(e) => updateStorySection(section.id, 'description', e.target.value)}
-          className="mb-4"
+          className="mb-6 text-base bg-background/50"
           placeholder="Describe this chapter of your story..."
-          rows={2}
+          rows={3}
         />
 
-        <MediaGrid
-          title=""
-          description="Add photos, videos, or audio to this chapter"
-          galleryKey={`storySection_${section.id}`}
-          data={data}
-          onUpdate={onUpdate}
-          accentColor={accentColor}
-          allowTypes={['image', 'video', 'audio']}
-        />
+        {/* Media Grid Integration */}
+        <div className="rounded-lg bg-background/30 p-2 md:p-4">
+          <MediaGrid
+            title=""
+            description="Add photos, videos, or audio"
+            galleryKey={`storySection_${section.id}`}
+            data={data}
+            onUpdate={onUpdate}
+            accentColor={accentColor}
+            allowTypes={['image', 'video', 'audio']}
+          />
+        </div>
       </div>
     </div>
   );
@@ -295,7 +314,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
 
   return (
     <div className="min-h-screen pb-24 bg-background">
-      {/* Image Cropper Modal */}
+      {/* 1. Image Cropper Modal */}
       <ImageCropper
         open={cropperOpen}
         onClose={() => {
@@ -314,7 +333,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
         }
       />
 
-      {/* Hero Section - Responsive Height */}
+      {/* 2. Hero Media Section */}
       <div className="relative w-full h-[300px] md:h-[400px] group">
         {data.heroMedia?.type === 'image' && data.heroMedia.url ? (
           <img src={data.heroMedia.url} alt="Hero" className="w-full h-full object-cover" />
@@ -329,7 +348,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
 
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent pointer-events-none" />
 
-        {/* Hero Edit Overlay - Visible on Mobile, Hover on Desktop */}
+        {/* Hero Edit Overlay */}
         <div className="absolute inset-0 z-[5] flex items-center justify-center p-4">
           <div className="flex flex-col sm:flex-row gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
             <Button
@@ -366,11 +385,19 @@ export default function ProfileEditMode({ data, onUpdate }) {
         </div>
       </div>
 
-      {/* Profile Info Overlay - REFLOWED FOR MOBILE */}
-      <div className="relative -mt-16 md:-mt-24 px-4 md:px-8 z-10">
+      {/* 3. Main Settings Header (Matches Aisle Settings) */}
+      <div className="max-w-7xl mx-auto px-4 md:px-8 mt-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+          <div className="flex gap-3 w-full md:w-auto">
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Profile Identity Section (Avatar/Name/Tagline) */}
+      <div className="relative -mt-32 md:-mt-40 px-4 md:px-8 z-10">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
-            {/* Profile Picture */}
+            {/* Profile Picture Upload */}
             <div className="relative group">
               <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-background bg-muted overflow-hidden shadow-2xl">
                 {data.profilePicture?.url ? (
@@ -395,7 +422,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
               </label>
             </div>
 
-            {/* Name and Tagline */}
+            {/* Identity Info */}
             <div className="flex-1 space-y-2 pb-2">
               <div className="flex items-center justify-center md:justify-start gap-2">
                 <span className="text-3xl md:text-4xl">{countryFlags[data.country]}</span>
@@ -404,12 +431,12 @@ export default function ProfileEditMode({ data, onUpdate }) {
                     value={data.displayName || ''}
                     onChange={(e) => onUpdate({ displayName: e.target.value })}
                     onBlur={() => setEditingField(null)}
-                    className="text-2xl md:text-4xl font-bold bg-background/50"
+                    className="text-2xl md:text-4xl font-bold bg-background/50 h-auto"
                     autoFocus
                   />
                 ) : (
                   <h1 
-                    className="text-3xl md:text-5xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors"
+                    className="text-3xl md:text-5xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors border-b-2 border-dashed border-transparent hover:border-primary/30"
                     onClick={() => setEditingField('displayName')}
                   >
                     {data.displayName}
@@ -433,32 +460,19 @@ export default function ProfileEditMode({ data, onUpdate }) {
                   {data.tagline}
                 </p>
               )}
-
-              <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-4">
-                <Button style={{ backgroundColor: data.accentColor }} className="h-11 px-6">
-                  <Store className="w-4 h-4 mr-2" />
-                  Visit My Aisle
-                </Button>
-                {data.tipJar?.enabled && (
-                  <Button variant="outline" className="h-11 px-6 bg-background/80 backdrop-blur">
-                    <Heart className="w-4 h-4 mr-2" style={{ color: data.accentColor }} />
-                    {data.tipJar.title}
-                  </Button>
-                )}
-              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content Grid */}
+      {/* 5. Content Grid */}
       <div className="max-w-7xl mx-auto p-4 md:p-8 mt-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Main Column */}
+          {/* Main Content Column */}
           <div className="lg:col-span-2 space-y-12">
             
-            {/* Biography Section */}
+            {/* Biography / Story Section */}
             <div className="border-2 border-dashed border-muted-foreground/30 rounded-xl p-4 md:p-8 hover:border-primary/50 transition-colors bg-card/30">
               <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
                 <h2 
@@ -553,7 +567,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
               )}
             </div>
 
-            {/* Mission Section */}
+            {/* Mission Statement */}
             <div className="border-2 border-dashed border-muted-foreground/30 rounded-xl p-4 md:p-8 bg-card/30">
               <h3 className="text-xl font-bold mb-4" style={{ color: data.accentColor }}>Mission Statement</h3>
               <Textarea
@@ -564,11 +578,11 @@ export default function ProfileEditMode({ data, onUpdate }) {
               />
             </div>
 
-            {/* Story Chapters */}
+            {/* Draggable Chapters */}
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold" style={{ color: data.accentColor }}>Story Chapters</h2>
-                <Button onClick={addStorySection} size="sm"><Plus className="w-4 h-4 mr-2" /> Add</Button>
+                <Button onClick={addStorySection} size="sm"><Plus className="w-4 h-4 mr-2" /> Add Chapter</Button>
               </div>
 
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -591,9 +605,9 @@ export default function ProfileEditMode({ data, onUpdate }) {
             </div>
           </div>
 
-          {/* Sidebar Section - Stacks at bottom on Mobile */}
+          {/* Sidebar Section */}
           <div className="space-y-8">
-            {/* Theme Picker */}
+            {/* Accent Color Picker */}
             <Card className="p-6 border-2 border-dashed border-muted-foreground/30">
               <h3 className="font-bold mb-4">Aisle Accent Color</h3>
               <div className="flex flex-wrap gap-3">
@@ -608,7 +622,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
               </div>
             </Card>
 
-            {/* Contact Card */}
+            {/* Contact Information */}
             <Card className="p-6 border-2 border-dashed border-muted-foreground/30">
               <h3 className="font-bold mb-4">Contact Info</h3>
               <div className="space-y-4">
@@ -627,7 +641,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
               </div>
             </Card>
 
-            {/* Tip Jar Settings */}
+            {/* Tip Jar Widget (If Enabled) */}
             {data.tipJar?.enabled && (
               <Card className="p-6 border-2 border-dashed border-muted-foreground/30">
                 <h3 className="font-bold mb-4 flex items-center gap-2">
@@ -649,11 +663,11 @@ export default function ProfileEditMode({ data, onUpdate }) {
         </div>
       </div>
 
-      {/* Mobile Floating Action Indicator */}
+      {/* Floating Status Indicator */}
       <div className="fixed bottom-6 right-6 md:right-10 z-[100] sm:block hidden">
-        <div className="bg-primary text-primary-foreground px-4 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-bounce">
+        <div className="bg-primary text-primary-foreground px-4 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-pulse">
           <Sparkles className="w-4 h-4" />
-          <span className="text-xs font-bold uppercase tracking-wider">Editing Live</span>
+          <span className="text-xs font-bold uppercase tracking-wider italic">Live Edit Mode</span>
         </div>
       </div>
     </div>
