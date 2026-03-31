@@ -109,7 +109,6 @@ export default function ShopByProduct({
     return filteredItems.slice(start, end);
   }, [filteredItems, currentPage]);
 
-  // Reset page when filters change
   useEffect(() => {
     setPage(1);
   }, [activeCategories]);
@@ -121,44 +120,74 @@ export default function ShopByProduct({
     }));
   };
 
+  const filters = {
+    categories: activeCategories
+  };
+
   const hasActiveFilters = activeCategories.length > 0;
+
+  const onToggleFilter = (groupId, value) => {
+    if (groupId === 'categories') onCategoryToggle(value);
+  };
+
+  const onClearAll = onClearCategories;
+  
 
   return (
     <div className="flex gap-6 relative" ref={gridRef}>
       {/* SIDEBAR - Hierarchical Categories */}
-      <aside className="w-64 flex-shrink-0 sticky top-24 self-start max-h-[calc(100vh-12rem)] overflow-y-auto pb-20">
+      <aside className="w-64 flex-shrink-0 sticky top-24 self-start max-h-[calc(100vh-12rem)] overflow-y-auto pb-20 scrollbar-hide">
         <div className="space-y-6 pr-2">
-          {/* Active Filters Summary */}
-          <div className="bg-[#1e293b] rounded-lg p-4 border border-white/10">
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-              Active Filters
+          
+          {/* Unified Active Filters Widget */}
+          <div className="bg-slate-900/50 rounded-lg p-4 border border-white/10">
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">
+              Filter Status
             </div>
+
             {!hasActiveFilters ? (
-              <p className="text-xs text-gray-500">No filters applied</p>
+              <p className="text-xs text-slate-500 italic">No filters applied</p>
             ) : (
-              <div className="space-y-2">
-                <div className="text-[10px] text-gray-500 mb-1">
-                  Categories ({activeCategories.length})
+              <div className="space-y-3">
+                {/* Grouped Filter Chips - Functionality like ShopByProduct */}
+                {Object.keys(filters).map((groupId) => {
+                  const activeValues = filters[groupId];
+                  if (!activeValues?.length) return null;
+
+                  return (
+                    <div key={groupId} className="space-y-1">
+                      <div className="text-[9px] font-medium text-slate-500 uppercase">
+                        {groupId.replace(/([A-Z])/g, ' $1')} ({activeValues.length})
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {activeValues.map((val) => (
+                          <span 
+                            key={`${groupId}-${val}`} 
+                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/10 rounded text-[10px] text-slate-200 border border-white/5 group hover:bg-white/20 transition-colors"
+                          >
+                            {val}
+                            <button
+                              onClick={() => onToggleFilter(groupId, val)}
+                              className="text-slate-500 hover:text-white transition-colors"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Action Buttons */}
+                <div className="pt-2 border-t border-white/5 mt-2">
+                  <button
+                    onClick={onClearAll}
+                    className="w-full px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded text-[11px] font-bold uppercase tracking-tight transition-all"
+                  >
+                    Reset All Filters
+                  </button>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {activeCategories.map(cat => (
-                    <span key={cat} className="px-2 py-0.5 bg-white/10 rounded text-[10px] flex items-center gap-1">
-                      {cat}
-                      <button
-                        onClick={() => onCategoryToggle(cat)}
-                        className="text-gray-400 hover:text-white ml-1"
-                      >
-                        ✕
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                <button
-                  onClick={onClearCategories}
-                  className="w-full mt-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded text-xs font-medium transition-colors"
-                >
-                  Clear All
-                </button>
               </div>
             )}
           </div>

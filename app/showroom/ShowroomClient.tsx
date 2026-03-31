@@ -120,18 +120,17 @@ export default function ShowroomClient() {
   const searchParams = useSearchParams();
   const activeCategory = searchParams.get('category') || '';
 
-  // IP Asset filters
   const [ipFilters, setIpFilters] = useState({
-    activeCategories: [], // Changed to array
-    activeTag: [],
+    type: [] as string[],
+    style: [] as string[],
+    usage: [] as string[],
+    theme: [] as string[]
   });
 
-    // Product filters
   const [productFilters, setProductFilters] = useState({
-    activeCategories: [],
+    activeCategories: [] as string[],
   });
 
-    // Aisle filters
   const [aisleFilters, setAisleFilters] = useState({
     audience: [] as string[],
     style: [] as string[],
@@ -198,66 +197,33 @@ export default function ShowroomClient() {
     // Compute available IP filters and filtered IP assets
   const ipData = useMemo(() => {
     const filters = extractIPFilters(data.ipAssets);
-
-        // DEBUG: Log what we found
-    console.log('🔍 IP Assets Debug:', {
-      totalAssets: data.ipAssets.length,
-      sampleAsset: data.ipAssets[0],
-      extractedCategories: filters.categories,
-      extractedTags: filters.tags
-    });
     
-    // Filter IP assets based on active filters
     const filteredAssets = data.ipAssets.filter(asset => {
-      // Category filter - check if asset matches ANY selected category
-      if (ipFilters.activeCategories.length > 0) {
+      // 1. Asset Type Filter (matches state.type)
+      if (ipFilters.type.length > 0) {
         const assetCategories = typeof asset.category === 'string'
-          ? asset.category.split(',').map(c => c.trim())
-          : Array.isArray(asset.category)
-            ? asset.category
-            : [];
+          ? asset.category.split(',').map((c: string) => c.trim())
+          : Array.isArray(asset.category) ? asset.category : [];
         
-        // Asset must have at least one of the selected categories
-        const hasMatch = ipFilters.activeCategories.some(selectedCat => 
-          assetCategories.includes(selectedCat)
-        );
-        
-        if (!hasMatch) {
+        if (!ipFilters.type.some(selected => assetCategories.includes(selected))) {
           return false;
         }
       }
 
-      
-            // Tag filter - check if asset matches ANY selected tag
-      if (ipFilters.activeTag.length > 0) {
+      // 2. Theme Filter (matches state.theme)
+      if (ipFilters.theme.length > 0) {
         const assetTags = Array.isArray(asset.tags)
           ? asset.tags
-          : typeof asset.tags === 'string'
-            ? asset.tags.split(',').map(t => t.trim())
-            : [];
+          : typeof asset.tags === 'string' ? asset.tags.split(',').map((t: string) => t.trim()) : [];
         
-        const normalizedTags = assetTags.map(t => 
-          typeof t === 'string' ? t.toLowerCase().trim() : ''
-        ).filter(Boolean);
+        const normalizedTags = assetTags.map((t: string) => t.toLowerCase().trim());
         
-        // Asset must have at least one of the selected tags
-        const hasMatch = ipFilters.activeTag.some(selectedTag => 
-          normalizedTags.includes(selectedTag.toLowerCase().trim())
-        );
-        
-        if (!hasMatch) {
+        if (!ipFilters.theme.some(selected => normalizedTags.includes(selected.toLowerCase().trim()))) {
           return false;
         }
       }
       
       return true;
-    });
-    
-    console.log('🔍 Filtering Result:', {
-      activeCategories: ipFilters.activeCategories,
-      activeTag: ipFilters.activeTag,
-      totalAssets: data.ipAssets.length,
-      filteredCount: filteredAssets.length
     });
 
     return {
@@ -383,37 +349,28 @@ export default function ShowroomClient() {
         )}
 
 
-                {activeTab === 'ip' && (
-          /* @ts-ignore - ShopByIP is a JS component with dynamic props */
+          {activeTab === 'ip' && (
           <ShopByIP 
             items={ipData.filteredAssets}
-            categories={IP_CATEGORIES}
-            availableCategories={ipData.availableCategories}
-            availableTags={ipData.availableTags}
-            activeCategories={ipFilters.activeCategories}
-            activeTags={ipFilters.activeTag}
-            onCategoryToggle={(category) => 
-              setIpFilters(prev => ({
-                ...prev,
-                activeCategories: prev.activeCategories.includes(category)
-                  ? prev.activeCategories.filter(c => c !== category)
-                  : [...prev.activeCategories, category]
-              }))
-            }
-            onClearCategories={() =>
-              setIpFilters(prev => ({ ...prev, activeCategories: [] }))
-            }
-            onTagToggle={(tag) => 
-              setIpFilters(prev => ({
-                ...prev,
-                activeTag: prev.activeTag.includes(tag)
-                  ? prev.activeTag.filter(t => t !== tag)
-                  : [...prev.activeTag, tag]
-              }))
-            }
-            onClearTags={() =>
-              setIpFilters(prev => ({ ...prev, activeTag: [] }))
-            }
+            filters={ipFilters} 
+            onToggleFilter={(groupId: string, value: string) => {
+              setIpFilters(prev => {
+                const currentGroup = (prev as any)[groupId] || [];
+                const nextGroup = currentGroup.includes(value)
+                  ? currentGroup.filter((v: string) => v !== value)
+                  : [...currentGroup, value];
+                
+                return { ...prev, [groupId]: nextGroup };
+              });
+            }}
+            onClearAll={() => {
+              setIpFilters({
+                type: [],
+                style: [],
+                usage: [],
+                theme: []
+              });
+            }}
           />
         )}
 
