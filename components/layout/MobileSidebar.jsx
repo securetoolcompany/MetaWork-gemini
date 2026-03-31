@@ -20,10 +20,14 @@ import { Button } from '@/components/ui/button';
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'My IP', href: '/my-ip', icon: Images },
-  { name: 'Product Designer', href: '/product-designer', icon: Palette },
+  { name: 'Claim Revenue', href: '/claim', icon: Coins },
+  { name: 'Product Creator', href: '/products/creator', icon: Wand2 },
   { name: 'My Products', href: '/my-products', icon: Package },
+  { name: 'Promotions', href: '/promotions', icon: Tag },
+  { name: 'Profile Settings', href: '/profile-settings', icon: User },
+  { name: 'Aisle Settings', href: '/aisle-settings', icon: Store },
   { name: 'Earnings', href: '/earnings', icon: DollarSign },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Account Management', href: '/account-management', icon: Settings },
 ];
 
 export default function MobileSidebar() {

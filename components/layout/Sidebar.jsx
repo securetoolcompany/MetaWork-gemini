@@ -42,7 +42,7 @@ const navigation = [
   { name: 'Profile Settings', href: '/profile-settings', icon: User },
   { name: 'Aisle Settings', href: '/aisle-settings', icon: Store },
   { name: 'Earnings', href: '/earnings', icon: DollarSign },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Account Management', href: '/account-management', icon: Settings },
 ];
 
 const adminNavigation = [
