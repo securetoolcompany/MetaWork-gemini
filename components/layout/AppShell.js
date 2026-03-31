@@ -7,29 +7,25 @@ import Header from '@/components/layout/Header';
 export default function AppShell({ children }) {
   const pathname = usePathname();
   
-  // Define routes that should not show the sidebar
-  const isPublicAisle = pathname?.startsWith('/aisle/');
+  // 1. Define your public route criteria
+  const isHomePage = pathname === '/';
+  const isPublicAisle = pathname?.startsWith('/aisle');
   const isShowroom = pathname?.startsWith('/showroom');
-  const isLogin = pathname?.startsWith('/login');
-  const isPublicProfile = pathname?.startsWith('/profile/') && !pathname?.includes('/edit');
+  const isPublicProfile = pathname?.startsWith('/profile');
+  const isLogin = pathname === '/login';
 
-  const isPublic = isPublicAisle || isShowroom || isLogin || isPublicProfile;
-
-  if (isPublic) {
-    return (
-      <>
-        <Header />
-        {children}
-      </>
-    );
-  }
+  // 2. Combine them into a single boolean
+  const hideSidebar = isHomePage || isPublicAisle || isShowroom || isLogin;
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
-      <Sidebar />
+    <div className="flex h-screen overflow-hidden bg-background">
+      {/* 3. Conditional Rendering: Only show sidebar if NOT a public page */}
+      {!hideSidebar && <Sidebar />}
+      
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-auto bg-slate-900/50">
+        
+        <main className="flex-1 overflow-y-auto bg-background">
           {children}
         </main>
       </div>
