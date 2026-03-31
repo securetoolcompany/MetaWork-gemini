@@ -31,23 +31,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'My IP', href: '/my-ip', icon: Images },
-  { name: 'Claim Revenue', href: '/claim', icon: Coins },
-  { name: 'Product Creator', href: '/products/creator', icon: Wand2 },
-  { name: 'My Products', href: '/my-products', icon: Package },
-  { name: 'Promotions', href: '/promotions', icon: Tag },
-  { name: 'Profile Settings', href: '/profile-settings', icon: User },
-  { name: 'Aisle Settings', href: '/aisle-settings', icon: Store },
-  { name: 'Earnings', href: '/earnings', icon: DollarSign },
-  { name: 'Account Management', href: '/account-management', icon: Settings },
-];
-
-const adminNavigation = [
-  { name: 'Admin: Pricing', href: '/admin/pricing', icon: Shield },
-];
+import { NAVIGATION_ITEMS, ADMIN_NAVIGATION_ITEMS } from '@/lib/navigation-config';
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -77,7 +61,7 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {navigation.map((item) => {
+        {NAVIGATION_ITEMS.map((item) => {
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           return (
             <Link
@@ -100,7 +84,7 @@ export default function Sidebar() {
         {user?.isAdmin && (
           <>
             <div className="my-4 border-t border-border" />
-            {adminNavigation.map((item) => {
+            {ADMIN_NAVIGATION_ITEMS.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href);
               return (
                 <Link
