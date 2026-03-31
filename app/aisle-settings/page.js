@@ -101,25 +101,40 @@ export default function AisleSettingsPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <div className="flex items-center justify-between mb-8">
-        <div>
+    <div className="container mx-auto px-4 py-6 md:py-8 max-w-6xl">
+      {/* Header Section: Stacks on mobile, Rows on desktop */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
+        <div className="text-center md:text-left">
           <h1 className="text-3xl font-bold">Aisle Settings</h1>
-          <p className="text-muted-foreground">Customize your creator storefront</p>
+          <p className="text-muted-foreground text-sm">Customize your creator storefront</p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" onClick={() => setShowPreviewModal(true)}>
+        
+        {/* Buttons: Full width and side-by-side on mobile */}
+        <div className="flex gap-3 w-full md:w-auto">
+          <Button 
+            variant="outline" 
+            onClick={() => setShowPreviewModal(true)}
+            className="flex-1 md:flex-none h-11 md:h-10"
+          >
             <Eye className="w-4 h-4 mr-2" /> Preview
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+          <Button 
+            onClick={handleSave} 
+            disabled={saving}
+            className="flex-1 md:flex-none h-11 md:h-10"
+          >
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
             Save Changes
           </Button>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="bg-slate-900 border border-white/5">
           <TabsTrigger value="basic">Basic Info</TabsTrigger>
           <TabsTrigger value="layout">Layout</TabsTrigger>
           <TabsTrigger value="collections">Collections</TabsTrigger>

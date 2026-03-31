@@ -20,7 +20,8 @@ import {
   Plus,
   Trash2,
   GripVertical,
-  Crop
+  Crop,
+  Sparkles
 } from 'lucide-react';
 import { toast } from 'sonner';
 import MediaGrid from '@/components/profile/MediaGrid';
@@ -293,7 +294,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
   const activeSection = (data.storySections || []).find(s => s.id === activeId);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-24 bg-background">
       {/* Image Cropper Modal */}
       <ImageCropper
         open={cropperOpen}
@@ -313,8 +314,8 @@ export default function ProfileEditMode({ data, onUpdate }) {
         }
       />
 
-      {/* Hero Section - Editable */}
-      <div className="relative w-full h-[400px]">
+      {/* Hero Section - Responsive Height */}
+      <div className="relative w-full h-[300px] md:h-[400px] group">
         {data.heroMedia?.type === 'image' && data.heroMedia.url ? (
           <img src={data.heroMedia.url} alt="Hero" className="w-full h-full object-cover" />
         ) : (
@@ -326,625 +327,334 @@ export default function ProfileEditMode({ data, onUpdate }) {
           />
         )}
 
-        {/* Gradient overlay - placed BEFORE interactive elements */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent pointer-events-none" />
 
-        {/* Hero image edit overlay - covers top portion only, leaving bottom for name/tagline */}
-        <div className="absolute top-0 left-0 right-0 h-[250px] z-[5] group">
-          <div className="absolute inset-0 bg-black/0 hover:bg-black/60 transition-colors cursor-pointer flex items-center justify-center">
-            <div className="text-center opacity-0 group-hover:opacity-100 transition-opacity">
-              {data.heroMedia?.url ? (
-                <>
-                  <div className="flex gap-3 justify-center mb-2">
-                    <button
-                      onClick={() => {
-                        setCropperImage(data.heroMedia.url);
-                        setCropperType('hero');
-                        setCropperAspect(16/9);
-                        setCropperShape('rect');
-                        setCropperOpen(true);
-                      }}
-                      className="bg-white text-black px-6 py-3 rounded-lg font-semibold flex items-center gap-2"
-                    >
-                      <Crop className="w-5 h-5" />
-                      Adjust Position
-                    </button>
-                    <label className="bg-white/90 text-black px-6 py-3 rounded-lg font-semibold flex items-center gap-2 cursor-pointer hover:bg-white transition-colors">
-                      <Upload className="w-5 h-5" />
-                      Replace Image
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-                          if (file) {
-                            openCropper(file, 'hero', 16/9, 'rect');
-                          }
-                        }}
-                      />
-                    </label>
-                  </div>
-                  <p className="text-white text-sm">Click to adjust or replace hero image</p>
-                </>
-              ) : (
-                <label className="cursor-pointer">
-                  <div className="bg-white text-black px-6 py-3 rounded-lg font-semibold flex items-center gap-2 mx-auto w-fit mb-2">
-                    <Upload className="w-5 h-5" />
-                    Upload Hero Image
-                  </div>
-                  <p className="text-white text-sm">Click to upload and crop</p>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        openCropper(file, 'hero', 16/9, 'rect');
-                      }
-                    }}
-                  />
-                </label>
-              )}
-            </div>
+        {/* Hero Edit Overlay - Visible on Mobile, Hover on Desktop */}
+        <div className="absolute inset-0 z-[5] flex items-center justify-center p-4">
+          <div className="flex flex-col sm:flex-row gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setCropperImage(data.heroMedia.url);
+                setCropperType('hero');
+                setCropperAspect(16/9);
+                setCropperShape('rect');
+                setCropperOpen(true);
+              }}
+              className="bg-white/90 text-black backdrop-blur h-11"
+            >
+              <Crop className="w-4 h-4 mr-2" />
+              Adjust Hero
+            </Button>
+            <label className="cursor-pointer">
+              <div className="bg-white/90 text-black h-11 px-4 rounded-md flex items-center justify-center text-sm font-medium backdrop-blur">
+                <Upload className="w-4 h-4 mr-2" />
+                Replace Hero
+              </div>
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) openCropper(file, 'hero', 16/9, 'rect');
+                }} 
+              />
+            </label>
           </div>
         </div>
-        
-        {/* Profile Picture - Circular overlay on hero */}
-        <div className="absolute bottom-8 left-8 pointer-events-auto z-10">
-          <div className="relative group">
-            {data.profilePicture?.url ? (
-              <>
-                <img 
-                  src={data.profilePicture.url} 
-                  alt="Profile" 
-                  className="w-32 h-32 rounded-full border-4 border-background object-cover shadow-xl" 
-                />
-                <div className="absolute inset-0 bg-black/0 hover:bg-black/60 transition-colors rounded-full flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100">
-                  <div className="flex flex-col items-center gap-1">
-                    <button
-                      onClick={() => {
-                        setCropperImage(data.profilePicture.url);
-                        setCropperType('profile');
-                        setCropperAspect(1);
-                        setCropperShape('round');
-                        setCropperOpen(true);
-                      }}
-                      className="text-white text-xs font-medium hover:underline"
-                    >
-                      <Crop className="w-5 h-5 mx-auto mb-1" />
-                      Adjust
-                    </button>
-                    <label className="text-white/80 text-xs cursor-pointer hover:text-white">
-                      Replace
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-                          if (file) {
-                            openCropper(file, 'profile', 1, 'round');
-                          }
-                        }}
-                      />
-                    </label>
+      </div>
+
+      {/* Profile Info Overlay - REFLOWED FOR MOBILE */}
+      <div className="relative -mt-16 md:-mt-24 px-4 md:px-8 z-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex flex-col md:flex-row items-center md:items-end gap-6 text-center md:text-left">
+            {/* Profile Picture */}
+            <div className="relative group">
+              <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-background bg-muted overflow-hidden shadow-2xl">
+                {data.profilePicture?.url ? (
+                  <img src={data.profilePicture.url} className="w-full h-full object-cover" alt="Profile" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Upload className="w-8 h-8 text-muted-foreground" />
                   </div>
-                </div>
-              </>
-            ) : (
-              <label className="w-32 h-32 rounded-full border-4 border-background bg-muted flex items-center justify-center cursor-pointer hover:bg-muted-foreground/20 transition-colors shadow-xl">
-                <div className="text-center">
-                  <Upload className="w-8 h-8 mx-auto mb-1 text-muted-foreground" />
-                  <p className="text-xs text-muted-foreground">Add Photo</p>
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
+                )}
+              </div>
+              <label className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full cursor-pointer opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                <Pencil className="w-6 h-6 text-white" />
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
                   onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      openCropper(file, 'profile', 1, 'round');
-                    }
-                  }}
+                    const file = e.target.files?.[0];
+                    if (file) openCropper(file, 'profile', 1, 'round');
+                  }} 
                 />
               </label>
-            )}
-          </div>
-        </div>
-        
-        {/* Name, Tagline and Buttons - Higher z-index to stay clickable */}
-        <div className="absolute bottom-0 left-0 right-0 p-8 z-[6]">
-          <div className="max-w-7xl mx-auto pl-44">
-            <div className="flex items-end gap-2 mb-2">
-              <span className="text-4xl">{countryFlags[data.country]}</span>
+            </div>
+
+            {/* Name and Tagline */}
+            <div className="flex-1 space-y-2 pb-2">
+              <div className="flex items-center justify-center md:justify-start gap-2">
+                <span className="text-3xl md:text-4xl">{countryFlags[data.country]}</span>
+                {editingField === 'displayName' ? (
+                  <Input
+                    value={data.displayName || ''}
+                    onChange={(e) => onUpdate({ displayName: e.target.value })}
+                    onBlur={() => setEditingField(null)}
+                    className="text-2xl md:text-4xl font-bold bg-background/50"
+                    autoFocus
+                  />
+                ) : (
+                  <h1 
+                    className="text-3xl md:text-5xl font-bold text-foreground cursor-pointer hover:text-primary transition-colors"
+                    onClick={() => setEditingField('displayName')}
+                  >
+                    {data.displayName}
+                  </h1>
+                )}
+              </div>
               
-              {editingField === 'displayName' ? (
+              {editingField === 'tagline' ? (
                 <Input
-                  value={data.displayName || ''}
-                  onChange={(e) => onUpdate({ displayName: e.target.value })}
+                  value={data.tagline || ''}
+                  onChange={(e) => onUpdate({ tagline: e.target.value })}
                   onBlur={() => setEditingField(null)}
-                  className="text-4xl md:text-5xl font-bold text-white bg-white/10 border-white/30"
+                  className="text-lg bg-background/50"
                   autoFocus
                 />
               ) : (
-                <h1 
-                  className="text-4xl md:text-5xl font-bold text-white cursor-pointer hover:text-white/80 transition-colors border-2 border-dashed border-transparent hover:border-white/50 px-2 rounded"
-                  onClick={() => setEditingField('displayName')}
-                  title="Click to edit"
+                <p 
+                  className="text-lg md:text-xl text-muted-foreground cursor-pointer hover:text-foreground"
+                  onClick={() => setEditingField('tagline')}
                 >
-                  {data.displayName}
-                </h1>
+                  {data.tagline}
+                </p>
               )}
-            </div>
 
-            {editingField === 'tagline' ? (
-              <Input
-                value={data.tagline || ''}
-                onChange={(e) => onUpdate({ tagline: e.target.value })}
-                onBlur={() => setEditingField(null)}
-                className="text-xl text-white bg-white/10 border-white/30 mb-4"
-                autoFocus
-              />
-            ) : (
-              <p 
-                className="text-xl text-white/90 mb-4 cursor-pointer hover:text-white transition-colors border-2 border-dashed border-transparent hover:border-white/50 px-2 py-1 rounded inline-block"
-                onClick={() => setEditingField('tagline')}
-                title="Click to edit"
-              >
-                {data.tagline}
-              </p>
-            )}
-
-            <div className="flex flex-wrap gap-3">
-              <Button style={{ backgroundColor: data.accentColor }}>
-                <Store className="w-4 h-4 mr-2" />
-                Visit My Aisle
-              </Button>
-              {data.tipJar?.enabled && (
-                <Button variant="outline" className="bg-background/80 backdrop-blur">
-                  <Heart className="w-4 h-4 mr-2" />
-                  {data.tipJar.title}
+              <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-4">
+                <Button style={{ backgroundColor: data.accentColor }} className="h-11 px-6">
+                  <Store className="w-4 h-4 mr-2" />
+                  Visit My Aisle
                 </Button>
-              )}
+                {data.tipJar?.enabled && (
+                  <Button variant="outline" className="h-11 px-6 bg-background/80 backdrop-blur">
+                    <Heart className="w-4 h-4 mr-2" style={{ color: data.accentColor }} />
+                    {data.tipJar.title}
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-6 md:p-8">
+      {/* Main Content Grid */}
+      <div className="max-w-7xl mx-auto p-4 md:p-8 mt-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
+          
+          {/* Main Column */}
+          <div className="lg:col-span-2 space-y-12">
             
-            {/* Biography / My Story Section */}
-            <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 hover:border-primary/50 transition-colors">
-              <div className="flex items-center justify-between mb-4">
-                {editingField === 'bioSectionTitle' ? (
-                  <Input
-                    value={data.bioSectionTitle || 'Biography / My Story'}
-                    onChange={(e) => onUpdate({ bioSectionTitle: e.target.value })}
-                    onBlur={() => setEditingField(null)}
-                    className="text-2xl font-bold"
-                    style={{ color: data.accentColor }}
-                    autoFocus
-                  />
-                ) : (
-                  <h2 
-                    className="text-2xl font-bold cursor-pointer hover:opacity-80 transition-opacity border-2 border-dashed border-transparent hover:border-primary/50 px-2 py-1 rounded"
-                    style={{ color: data.accentColor }}
-                    onClick={() => setEditingField('bioSectionTitle')}
-                    title="Click to edit section title"
-                  >
-                    {data.bioSectionTitle || 'Biography / My Story'}
-                  </h2>
-                )}
-                <div className="flex gap-2">
+            {/* Biography Section */}
+            <div className="border-2 border-dashed border-muted-foreground/30 rounded-xl p-4 md:p-8 hover:border-primary/50 transition-colors bg-card/30">
+              <div className="flex flex-col sm:flex-row items-center justify-between mb-6 gap-4">
+                <h2 
+                  className="text-2xl font-bold cursor-pointer px-2 py-1 rounded"
+                  style={{ color: data.accentColor }}
+                  onClick={() => setEditingField('bioSectionTitle')}
+                >
+                  {editingField === 'bioSectionTitle' ? (
+                    <Input 
+                      value={data.bioSectionTitle || 'Biography'} 
+                      autoFocus 
+                      onBlur={() => setEditingField(null)}
+                      onChange={(e) => onUpdate({ bioSectionTitle: e.target.value })}
+                    />
+                  ) : (data.bioSectionTitle || 'Biography')}
+                </h2>
+                <div className="flex bg-muted p-1 rounded-lg w-full sm:w-auto">
                   <Button
                     size="sm"
-                    variant={bioMode === 'image' ? 'default' : 'outline'}
-                    onClick={() => {
-                      setBioMode('image');
-                      onUpdate({ bioMode: 'image' });
-                    }}
+                    className="flex-1 sm:flex-none"
+                    variant={bioMode === 'image' ? 'secondary' : 'ghost'}
+                    onClick={() => { setBioMode('image'); onUpdate({ bioMode: 'image' }); }}
                   >
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    Image + Text
+                    <ImageIcon className="w-4 h-4 mr-2" /> Image
                   </Button>
                   <Button
                     size="sm"
-                    variant={bioMode === 'video' ? 'default' : 'outline'}
-                    onClick={() => {
-                      setBioMode('video');
-                      onUpdate({ bioMode: 'video' });
-                    }}
+                    className="flex-1 sm:flex-none"
+                    variant={bioMode === 'video' ? 'secondary' : 'ghost'}
+                    onClick={() => { setBioMode('video'); onUpdate({ bioMode: 'video' }); }}
                   >
-                    <Video className="w-4 h-4 mr-2" />
-                    Video + Text
+                    <Video className="w-4 h-4 mr-2" /> Video
                   </Button>
                 </div>
               </div>
 
               {bioMode === 'image' ? (
-                <div className="space-y-4">
-                  {/* Image Upload */}
-                  <div>
-                    <Label>Profile Image</Label>
+                <div className="space-y-6">
+                  <div className="relative group max-w-md mx-auto md:mx-0">
                     {data.bioImage?.url ? (
-                      <div className="relative group mt-2">
-                        <img src={data.bioImage.url} alt="Bio" className="w-full max-w-md rounded-lg" />
-                        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => {
-                              setCropperImage(data.bioImage.url);
-                              setCropperType('bio');
-                              setCropperAspect(4/3);
-                              setCropperShape('rect');
-                              setCropperOpen(true);
-                            }}
-                          >
-                            <Crop className="w-4 h-4 mr-1" />
-                            Adjust
-                          </Button>
-                          <label className="cursor-pointer">
-                            <Button size="sm" variant="secondary" asChild>
-                              <span>
-                                <Upload className="w-4 h-4 mr-1" />
-                                Replace
-                              </span>
-                            </Button>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) => {
-                                const file = e.target.files[0];
-                                if (file) {
-                                  openCropper(file, 'bio', 4/3, 'rect');
-                                }
-                              }}
-                            />
-                          </label>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => onUpdate({ bioImage: null })}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
+                      <img src={data.bioImage.url} alt="Bio" className="w-full rounded-lg shadow-lg" />
                     ) : (
-                      <label className="mt-2 block border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors">
-                        <Crop className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                        <p className="text-sm font-medium">Upload & Crop Profile Picture</p>
-                        <p className="text-xs text-muted-foreground mt-1">JPG, PNG up to 10MB</p>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              openCropper(file, 'bio', 4/3, 'rect');
-                            }
-                          }}
-                        />
-                      </label>
+                      <div className="aspect-[4/3] bg-muted rounded-lg flex items-center justify-center border-2 border-dashed">
+                        <ImageIcon className="w-12 h-12 text-muted-foreground" />
+                      </div>
                     )}
+                    <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg cursor-pointer">
+                      <Upload className="text-white w-8 h-8" />
+                      <input type="file" className="hidden" onChange={(e) => openCropper(e.target.files[0], 'bio', 4/3)} />
+                    </label>
                   </div>
-
-                  {/* Bio Text */}
-                  <div>
-                    <Label>Your Story</Label>
-                    <Textarea
-                      value={data.bio || ''}
-                      onChange={(e) => onUpdate({ bio: e.target.value })}
-                      className="min-h-[150px] mt-2"
-                      placeholder="Tell your story... Who are you? What's your journey?"
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {(data.bio || '').length} characters
-                    </p>
-                  </div>
+                  <Textarea
+                    value={data.bio || ''}
+                    onChange={(e) => onUpdate({ bio: e.target.value })}
+                    className="min-h-[200px] text-base"
+                    placeholder="Tell your story..."
+                  />
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {/* Video Link Only - No Upload */}
-                  <div>
-                    <Label>Video Link</Label>
-                    {data.bioVideo?.url ? (
-                      <div className="relative group mt-2">
-                        {data.bioVideo.type === 'youtube' ? (
-                          <iframe
-                            src={data.bioVideo.url}
-                            className="w-full aspect-video rounded-lg"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                          />
-                        ) : (
-                          <video src={data.bioVideo.url} controls className="w-full rounded-lg" />
-                        )}
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100"
-                          onClick={() => onUpdate({ bioVideo: null })}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="border-2 border-dashed rounded-lg p-8 mt-2">
-                        <Video className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
-                        <p className="text-sm font-medium text-center mb-2">Add Video from YouTube</p>
-                        <p className="text-xs text-muted-foreground text-center mb-4">
-                          Upload to <a href="https://youtube.com" target="_blank" className="text-primary hover:underline">YouTube</a> for free, 
-                          or <span className="font-medium">mint with MetaWork</span>, then paste the link below
-                        </p>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Paste YouTube URL or video link"
-                            value={youtubeUrl}
-                            onChange={(e) => setYoutubeUrl(e.target.value)}
-                          />
-                          <Button onClick={handleYouTubeUrl}>Add</Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Bio Text - ALSO in video mode */}
-                  <div>
-                    <Label>Your Story (Text)</Label>
-                    <Textarea
-                      value={data.bio || ''}
-                      onChange={(e) => onUpdate({ bio: e.target.value })}
-                      className="min-h-[150px] mt-2"
-                      placeholder="Tell your story... Who are you? What's your journey?"
-                    />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {(data.bio || '').length} characters
-                    </p>
-                  </div>
+                <div className="space-y-6">
+                  {data.bioVideo?.url ? (
+                    <div className="aspect-video relative rounded-lg overflow-hidden shadow-lg group">
+                      {data.bioVideo.type === 'youtube' ? (
+                        <iframe src={data.bioVideo.url} className="w-full h-full" allowFullScreen />
+                      ) : (
+                        <video src={data.bioVideo.url} controls className="w-full h-full" />
+                      )}
+                      <Button 
+                        variant="destructive" size="icon" className="absolute top-2 right-2 opacity-0 group-hover:opacity-100"
+                        onClick={() => onUpdate({ bioVideo: null })}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="p-8 border-2 border-dashed rounded-lg bg-muted/30">
+                      <Input 
+                        placeholder="Paste YouTube Link..." 
+                        value={youtubeUrl} 
+                        onChange={(e) => setYoutubeUrl(e.target.value)}
+                        className="mb-2"
+                      />
+                      <Button onClick={handleYouTubeUrl} className="w-full">Add Video</Button>
+                    </div>
+                  )}
+                  <Textarea
+                    value={data.bio || ''}
+                    onChange={(e) => onUpdate({ bio: e.target.value })}
+                    className="min-h-[150px] text-base"
+                  />
                 </div>
               )}
             </div>
 
-            {/* Mission / Goal Statement */}
-            <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-6 hover:border-primary/50 transition-colors">
-              <div className="flex items-center justify-between mb-4">
-                {editingField === 'missionSectionTitle' ? (
-                  <Input
-                    value={data.missionSectionTitle || 'Mission / Goal'}
-                    onChange={(e) => onUpdate({ missionSectionTitle: e.target.value })}
-                    onBlur={() => setEditingField(null)}
-                    className="text-2xl font-bold"
-                    style={{ color: data.accentColor }}
-                    autoFocus
-                  />
-                ) : (
-                  <h2 
-                    className="text-2xl font-bold cursor-pointer hover:opacity-80 transition-opacity border-2 border-dashed border-transparent hover:border-primary/50 px-2 py-1 rounded"
-                    style={{ color: data.accentColor }}
-                    onClick={() => setEditingField('missionSectionTitle')}
-                    title="Click to edit section title"
-                  >
-                    {data.missionSectionTitle || 'Mission / Goal'}
-                  </h2>
-                )}
-                <Pencil className="w-4 h-4 text-muted-foreground" />
-              </div>
-              <Label className="text-sm text-muted-foreground mb-2 block">
-                What gets you up in the morning? Why are you on MetaWork?
-              </Label>
+            {/* Mission Section */}
+            <div className="border-2 border-dashed border-muted-foreground/30 rounded-xl p-4 md:p-8 bg-card/30">
+              <h3 className="text-xl font-bold mb-4" style={{ color: data.accentColor }}>Mission Statement</h3>
               <Textarea
                 value={data.mission || ''}
                 onChange={(e) => onUpdate({ mission: e.target.value })}
-                className="min-h-[120px]"
-                placeholder="Share your mission, goals, and what drives you..."
+                className="min-h-[120px] text-base"
+                placeholder="What drives you?"
               />
-              <p className="text-xs text-muted-foreground mt-2">
-                {(data.mission || '').length} characters
-              </p>
             </div>
 
-            {/* Story Sections / Chapters */}
+            {/* Story Chapters */}
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                {editingField === 'chaptersSectionTitle' ? (
-                  <Input
-                    value={data.chaptersSectionTitle || 'Story Chapters'}
-                    onChange={(e) => onUpdate({ chaptersSectionTitle: e.target.value })}
-                    onBlur={() => setEditingField(null)}
-                    className="text-2xl font-bold"
-                    style={{ color: data.accentColor }}
-                    autoFocus
-                  />
-                ) : (
-                  <h2 
-                    className="text-2xl font-bold cursor-pointer hover:opacity-80 transition-opacity border-2 border-dashed border-transparent hover:border-primary/50 px-2 py-1 rounded"
-                    style={{ color: data.accentColor }}
-                    onClick={() => setEditingField('chaptersSectionTitle')}
-                    title="Click to edit section title"
-                  >
-                    {data.chaptersSectionTitle || 'Story Chapters'}
-                  </h2>
-                )}
-                <Button onClick={addStorySection} size="sm">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Chapter
-                </Button>
+                <h2 className="text-2xl font-bold" style={{ color: data.accentColor }}>Story Chapters</h2>
+                <Button onClick={addStorySection} size="sm"><Plus className="w-4 h-4 mr-2" /> Add</Button>
               </div>
 
-              {(data.storySections || []).length === 0 ? (
-                <Card className="p-8 text-center border-2 border-dashed">
-                  <p className="text-muted-foreground mb-4">
-                    Add chapters to tell your story through media
-                  </p>
-                  <Button onClick={addStorySection}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Your First Chapter
-                  </Button>
-                </Card>
-              ) : (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  onDragCancel={handleDragCancel}
-                >
-                  <SortableContext 
-                    items={(data.storySections || []).map(s => s.id)} 
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-4">
-                      {(data.storySections || []).map((section) => (
-                        <SortableStorySection
-                          key={section.id}
-                          section={section}
-                          updateStorySection={updateStorySection}
-                          deleteStorySection={deleteStorySection}
-                          data={data}
-                          onUpdate={onUpdate}
-                          accentColor={data.accentColor}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                  <DragOverlay>
-                    {activeSection ? (
-                      <div className="border-2 border-primary rounded-lg p-6 bg-background opacity-80 cursor-grabbing">
-                        <div className="flex items-center gap-3">
-                          <GripVertical className="w-5 h-5 text-muted-foreground" />
-                          <div className="text-xl font-bold">{activeSection.title}</div>
-                        </div>
-                      </div>
-                    ) : null}
-                  </DragOverlay>
-                </DndContext>
-              )}
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={(data.storySections || []).map(s => s.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-6">
+                    {(data.storySections || []).map((section) => (
+                      <SortableStorySection
+                        key={section.id}
+                        section={section}
+                        updateStorySection={updateStorySection}
+                        deleteStorySection={deleteStorySection}
+                        data={data}
+                        onUpdate={onUpdate}
+                        accentColor={data.accentColor}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
-
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Color Picker */}
-            <Card className="border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors">
-              <div className="p-6">
-                <h3 className="font-semibold mb-4">Theme Color</h3>
-                <div className="flex flex-wrap gap-2">
-                  {['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4'].map(color => (
-                    <button
-                      key={color}
-                      className="w-10 h-10 rounded-full border-2 border-background shadow-md hover:scale-110 transition-transform"
-                      style={{ backgroundColor: color }}
-                      onClick={() => onUpdate({ accentColor: color })}
-                    >
-                      {data.accentColor === color && (
-                        <div className="w-full h-full rounded-full border-2 border-white flex items-center justify-center text-white text-xs">✓</div>
-                      )}
-                    </button>
-                  ))}
-                </div>
+          {/* Sidebar Section - Stacks at bottom on Mobile */}
+          <div className="space-y-8">
+            {/* Theme Picker */}
+            <Card className="p-6 border-2 border-dashed border-muted-foreground/30">
+              <h3 className="font-bold mb-4">Aisle Accent Color</h3>
+              <div className="flex flex-wrap gap-3">
+                {['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4'].map(color => (
+                  <button
+                    key={color}
+                    className={`w-10 h-10 rounded-full border-2 transition-transform hover:scale-110 ${data.accentColor === color ? 'border-white ring-2 ring-primary' : 'border-transparent'}`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => onUpdate({ accentColor: color })}
+                  />
+                ))}
               </div>
             </Card>
 
-            {/* Contact Information */}
-            <Card className="border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold">Contact</h3>
-                  <Pencil className="w-4 h-4 text-muted-foreground" />
+            {/* Contact Card */}
+            <Card className="p-6 border-2 border-dashed border-muted-foreground/30">
+              <h3 className="font-bold mb-4">Contact Info</h3>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <MapPin className="w-5 h-5 text-muted-foreground" />
+                  <Input value={data.location || ''} onChange={(e) => onUpdate({ location: e.target.value })} placeholder="Location" />
                 </div>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <Input
-                      value={data.location || ''}
-                      onChange={(e) => onUpdate({ location: e.target.value })}
-                      placeholder="City, Country"
-                      className="text-sm"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <Input
-                      type="email"
-                      value={data.email || ''}
-                      onChange={(e) => onUpdate({ email: e.target.value })}
-                      placeholder="your@email.com"
-                      className="text-sm"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <Input
-                      value={data.phone || ''}
-                      onChange={(e) => onUpdate({ phone: e.target.value })}
-                      placeholder="+1 (555) 123-4567"
-                      className="text-sm"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <Input
-                      value={data.website || ''}
-                      onChange={(e) => onUpdate({ website: e.target.value })}
-                      placeholder="https://yoursite.com"
-                      className="text-sm"
-                    />
-                  </div>
+                <div className="flex items-center gap-3">
+                  <Mail className="w-5 h-5 text-muted-foreground" />
+                  <Input value={data.email || ''} onChange={(e) => onUpdate({ email: e.target.value })} placeholder="Email" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Globe className="w-5 h-5 text-muted-foreground" />
+                  <Input value={data.website || ''} onChange={(e) => onUpdate({ website: e.target.value })} placeholder="Website" />
                 </div>
               </div>
             </Card>
 
             {/* Tip Jar Settings */}
             {data.tipJar?.enabled && (
-              <Card className="border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 transition-colors">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold flex items-center gap-2">
-                      <Heart className="w-4 h-4" style={{ color: data.accentColor }} />
-                      Tip Jar
-                    </h3>
-                    <Pencil className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                  <div className="space-y-3">
-                    <Input
-                      value={data.tipJar.title || ''}
-                      onChange={(e) => onUpdate({
-                        tipJar: { ...data.tipJar, title: e.target.value }
-                      })}
-                      placeholder="Tip Jar Title"
-                      className="text-sm"
-                    />
-                    <Textarea
-                      value={data.tipJar.description}
-                      onChange={(e) => onUpdate({
-                        tipJar: { ...data.tipJar, description: e.target.value }
-                      })}
-                      placeholder="Short description..."
-                      rows={2}
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
+              <Card className="p-6 border-2 border-dashed border-muted-foreground/30">
+                <h3 className="font-bold mb-4 flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-primary" /> Tip Jar
+                </h3>
+                <Input
+                  value={data.tipJar.title || ''}
+                  onChange={(e) => onUpdate({ tipJar: { ...data.tipJar, title: e.target.value } })}
+                  className="mb-2"
+                />
+                <Textarea
+                  value={data.tipJar.description || ''}
+                  onChange={(e) => onUpdate({ tipJar: { ...data.tipJar, description: e.target.value } })}
+                  rows={2}
+                />
               </Card>
             )}
           </div>
         </div>
       </div>
 
-      {/* Helper Text */}
-      <div className="fixed bottom-4 right-4 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg z-50">
-        <p className="text-sm font-medium">💡 Click fields to edit • Drag to reorder chapters</p>
+      {/* Mobile Floating Action Indicator */}
+      <div className="fixed bottom-6 right-6 md:right-10 z-[100] sm:block hidden">
+        <div className="bg-primary text-primary-foreground px-4 py-3 rounded-full shadow-2xl flex items-center gap-2 animate-bounce">
+          <Sparkles className="w-4 h-4" />
+          <span className="text-xs font-bold uppercase tracking-wider">Editing Live</span>
+        </div>
       </div>
     </div>
   );

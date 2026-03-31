@@ -8,9 +8,9 @@ import ShopByIP from '@/components/showroom/ShopByIP';
 import ShowroomHero from '@/components/showroom/ShowroomHero';
 import ShowroomNav from '@/components/showroom/ShowroomNav';
 
-// === helpers and config (copied from old page.js) ===
-
-
+const ShopByProductAny = ShopByProduct as any;
+const ShopByAisleAny = ShopByAisle as any;
+const ShopByIPAny = ShopByIP as any;
 
 const isIgnoredCategory = (cat) => {
   if (!cat) return true;
