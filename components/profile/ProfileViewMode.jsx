@@ -2,7 +2,7 @@
 
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Heart, Store, Mail, MapPin, Phone, Globe, Music, Share2 } from 'lucide-react';
+import { Heart, Store, Mail, MapPin, Phone, Globe, Music } from 'lucide-react';
 import { toast } from 'sonner';
 import { ShareButton } from '@/components/ui/share-button';
 import React from 'react';
@@ -13,212 +13,153 @@ export default function ProfileViewMode({ data }) {
     KR: '🇰🇷', JP: '🇯🇵', DE: '🇩🇪', FR: '🇫🇷',
   };
 
-  const handleShare = async () => {
-    const shareUrl = window.location.href;
-    const shareData = {
-      title: `${data.displayName || 'Creator'}'s MetaWork Profile`,
-      text: data.tagline || 'Check out my profile on MetaWork!',
-      url: shareUrl,
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          copyToClipboard(shareUrl);
-        }
-      }
-    } else {
-      copyToClipboard(shareUrl);
-    }
-  };
-
-  const copyToClipboard = (url) => {
-    navigator.clipboard.writeText(url)
-      .then(() => toast.success('Profile link copied to clipboard!'))
-      .catch(() => toast.error('Failed to copy link.'));
-  };
-
   if (!data) return null;
 
   return (
     <div className="min-h-screen">
-      {/* Hero Section */}
-      <div className="relative w-full h-[400px]">
+      {/* Hero Section: Height is dynamic on mobile, fixed on desktop */}
+      <div className="relative w-full min-h-[350px] md:h-[450px] flex flex-col justify-end">
         {data.heroMedia?.url ? (
-          <img src={data.heroMedia.url} alt="Hero" className="w-full h-full object-cover" />
+          <img src={data.heroMedia.url} alt="Hero" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
           <div 
-            className="w-full h-full bg-gradient-to-br" 
+            className="absolute inset-0 w-full h-full bg-gradient-to-br" 
             style={{
               backgroundImage: `linear-gradient(135deg, ${data.accentColor || '#3b82f6'}40 0%, ${data.accentColor || '#3b82f6'}10 100%)`
             }} 
           />
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
         
-        {/* Profile Picture */}
-        {data.profilePicture?.url && (
-          <div className="absolute bottom-8 left-8 z-10">
-            <img 
-              src={data.profilePicture.url} 
-              alt="Profile" 
-              className="w-32 h-32 rounded-full border-4 border-background object-cover shadow-xl" 
-            />
-          </div>
-        )}
-        
-        <div className="absolute bottom-0 left-0 right-0 p-8">
-          <div className="max-w-7xl mx-auto pl-44">
-            <div className="flex items-end gap-2 mb-2">
-              <span className="text-4xl">{countryFlags[data.country] || '🌍'}</span>
-              <h1 className="text-4xl md:text-5xl font-bold text-white">{data.displayName}</h1>
-            </div>
-            <p className="text-xl text-white/90 mb-4">{data.tagline}</p>
-            <div className="flex flex-wrap gap-3">
-              
-              {/* PRIMARY CTA: Solid Fill */}
-              <Button 
-                style={{ backgroundColor: data.accentColor || '#3b82f6', color: '#ffffff' }}
-                className="border-2 border-transparent"
-                onClick={() => {
-                  const aisleSlug = data.username;
-                  window.location.href = `/aisle/${aisleSlug}`;
-                }}
-              >
-                <Store className="w-4 h-4 mr-2" />
-                Visit My Aisle
-              </Button>
-              
-              {/* SECONDARY CTA: Tip Jar (Outlined) */}
-              {data.tipJar?.enabled && (
-                <Button 
-                  variant="outline" 
-                  className="bg-background/80 backdrop-blur border-2 hover:bg-background/90"
-                  style={{ borderColor: data.accentColor || '#3b82f6' }}
-                  onClick={() => {
-                    alert(`Support ${data.displayName}!\n\n${data.tipJar.description || 'Show your support with a tip.'}\n\n(Tip jar integration coming soon)`);
-                  }}
-                >
-                  {/* Tinting the icon to match the border */}
-                  <Heart className="w-4 h-4 mr-2" style={{ color: data.accentColor || '#3b82f6' }} />
-                  {data.tipJar.title}
-                </Button>
-              )}
+        {/* Profile Content Container */}
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-6 pb-8 md:pb-12">
+          <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
+            
+            {/* Profile Picture: Centered on mobile */}
+            {data.profilePicture?.url && (
+              <div className="shrink-0">
+                <img 
+                  src={data.profilePicture.url} 
+                  alt="Profile" 
+                  className="w-32 h-32 md:w-40 md:h-40 rounded-full border-4 border-background object-cover shadow-xl" 
+                />
+              </div>
+            )}
+            
+            {/* Text & Actions: Centered on mobile */}
+            <div className="flex-1 text-center md:text-left space-y-4">
+              <div>
+                <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+                  <span className="text-3xl md:text-4xl">{countryFlags[data.country] || '🌍'}</span>
+                  <h1 className="text-3xl md:text-5xl font-bold text-white leading-tight">
+                    {data.displayName}
+                  </h1>
+                </div>
+                <p className="text-lg md:text-xl text-white/90 font-medium max-w-2xl">
+                  {data.tagline}
+                </p>
+              </div>
 
-              {/* SECONDARY CTA: Share (Outlined) */}
-              <ShareButton 
-                title={`${data.displayName || 'Creator'}'s MetaWork Profile`}
-                text={data.tagline || 'Check out my profile on MetaWork!'}
-                className="bg-background/80 backdrop-blur border-2 hover:bg-background/90"
-                style={{ borderColor: data.accentColor || '#3b82f6' }}
-                iconStyle={{ color: data.accentColor || '#3b82f6' }}
-              />
+              <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                <Button 
+                  style={{ backgroundColor: data.accentColor || '#3b82f6', color: '#ffffff' }}
+                  className="w-full sm:w-auto border-2 border-transparent shadow-lg"
+                  onClick={() => window.location.href = `/aisle/${data.username}`}
+                >
+                  <Store className="w-4 h-4 mr-2" />
+                  Visit My Aisle
+                </Button>
+                
+                {data.tipJar?.enabled && (
+                  <Button 
+                    variant="outline" 
+                    className="w-full sm:w-auto bg-background/60 backdrop-blur-md border-2"
+                    style={{ borderColor: data.accentColor || '#3b82f6' }}
+                    onClick={() => alert(`Support ${data.displayName}!`)}
+                  >
+                    <Heart className="w-4 h-4 mr-2" style={{ color: data.accentColor || '#3b82f6' }} />
+                    {data.tipJar.title}
+                  </Button>
+                )}
+
+                <ShareButton 
+                  title={`${data.displayName}'s Profile`}
+                  className="w-full sm:w-auto bg-background/60 backdrop-blur-md border-2"
+                  style={{ borderColor: data.accentColor || '#3b82f6' }}
+                  iconStyle={{ color: data.accentColor || '#3b82f6' }}
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-6 md:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-8">
+      <div className="max-w-7xl mx-auto p-6 md:p-12">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          
+          {/* Main Content: Bio and Story */}
+          <div className="lg:col-span-2 space-y-12">
             
-            {/* Biography / My Story Section */}
+            {/* Bio Section */}
             {(data.bio || data.bioImage?.url || data.bioVideo?.url) && (
-              <div>
-                <h2 className="text-2xl font-bold mb-4" style={{ color: data.accentColor || '#3b82f6' }}>
+              <section>
+                <h2 className="text-2xl md:text-3xl font-bold mb-6" style={{ color: data.accentColor || '#3b82f6' }}>
                   {data.bioSectionTitle || 'Biography / My Story'}
                 </h2>
                 
-                {data.bioMode === 'video' && data.bioVideo?.url ? (
-                  <div className="space-y-4">
-                    {data.bioVideo.type === 'youtube' ? (
-                      <iframe
-                        src={data.bioVideo.url}
-                        className="w-full aspect-video rounded-lg"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    ) : (
-                      <video src={data.bioVideo.url} controls className="w-full rounded-lg" />
-                    )}
-                    {data.bio && (
-                      <p className="text-foreground/90 whitespace-pre-wrap">{data.bio}</p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {data.bioImage?.url && (
-                      <img src={data.bioImage.url} alt="Biography" className="w-full max-w-md rounded-lg" />
-                    )}
-                    {data.bio && (
-                      <p className="text-foreground/90 whitespace-pre-wrap">{data.bio}</p>
-                    )}
-                  </div>
-                )}
-              </div>
+                <div className="space-y-6">
+                  {data.bioMode === 'video' && data.bioVideo?.url ? (
+                    <div className="aspect-video w-full overflow-hidden rounded-2xl shadow-lg">
+                      {data.bioVideo.type === 'youtube' ? (
+                        <iframe src={data.bioVideo.url} className="w-full h-full" allowFullScreen />
+                      ) : (
+                        <video src={data.bioVideo.url} controls className="w-full h-full" />
+                      )}
+                    </div>
+                  ) : (
+                    data.bioImage?.url && (
+                      <img src={data.bioImage.url} alt="Bio" className="w-full max-w-2xl rounded-2xl shadow-md" />
+                    )
+                  )}
+                  {data.bio && (
+                    <p className="text-lg text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                      {data.bio}
+                    </p>
+                  )}
+                </div>
+              </section>
             )}
 
-            {/* Mission / Goal Statement */}
-            {data.mission && (
-              <div>
-                <h2 className="text-2xl font-bold mb-4" style={{ color: data.accentColor || '#3b82f6' }}>
-                  {data.missionSectionTitle || 'Mission / Goal'}
-                </h2>
-                <p className="text-foreground/90 whitespace-pre-wrap">{data.mission}</p>
-              </div>
-            )}
-
-            {/* Story Chapters */}
-            {data.storySections && data.storySections.length > 0 && (
-              <div className="space-y-8">
-                <h2 className="text-2xl font-bold" style={{ color: data.accentColor || '#3b82f6' }}>
+            {/* Story Chapters: Using 1 column on mobile, 2/3 on desktop */}
+            {data.storySections?.length > 0 && (
+              <section className="space-y-10">
+                <h2 className="text-2xl md:text-3xl font-bold" style={{ color: data.accentColor || '#3b82f6' }}>
                   {data.chaptersSectionTitle || 'Story Chapters'}
                 </h2>
                 
                 {data.storySections.map((section) => {
                   const sectionMedia = data[`storySection_${section.id}`] || [];
-                  
                   return (
-                    <div key={section.id} className="border-l-4 pl-6 py-2" style={{ borderColor: data.accentColor || '#3b82f6' }}>
-                      <h3 className="text-xl font-semibold mb-2">{section.title}</h3>
-                      {section.description && (
-                        <p className="text-muted-foreground mb-4 whitespace-pre-wrap">{section.description}</p>
-                      )}
+                    <div key={section.id} className="border-l-4 pl-6 md:pl-8 space-y-4" style={{ borderColor: data.accentColor || '#3b82f6' }}>
+                      <h3 className="text-xl md:text-2xl font-bold">{section.title}</h3>
+                      <p className="text-muted-foreground text-lg whitespace-pre-wrap">{section.description}</p>
                       
                       {sectionMedia.length > 0 && (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-6">
                           {sectionMedia.map((media) => (
-                            <div key={media.id} className="space-y-2">
-                              {media.type === 'image' && media.url && (
-                                <img src={media.url} alt={media.caption} className="w-full aspect-square object-cover rounded-lg" />
-                              )}
-                              {media.type === 'video' && media.url && (
-                                <>
-                                  {media.urlType === 'youtube' ? (
-                                    <iframe
-                                      src={media.url}
-                                      className="w-full aspect-square rounded-lg"
-                                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                      allowFullScreen
-                                    />
-                                  ) : (
-                                    <video src={media.url} controls className="w-full aspect-square object-cover rounded-lg" />
-                                  )}
-                                </>
-                              )}
-                              {media.type === 'audio' && media.url && (
-                                <div className="w-full aspect-square bg-muted rounded-lg flex flex-col items-center justify-center p-4">
-                                  <Music className="w-12 h-12 text-muted-foreground mb-3" />
-                                  <audio src={media.url} controls className="w-full" />
-                                </div>
-                              )}
-                              {media.caption && (
-                                <p className="text-sm text-muted-foreground">{media.caption}</p>
-                              )}
+                            <div key={media.id} className="group relative">
+                              <div className="aspect-square rounded-xl overflow-hidden bg-muted">
+                                {media.type === 'image' && <img src={media.url} className="w-full h-full object-cover" />}
+                                {media.type === 'video' && <video src={media.url} className="w-full h-full object-cover" />}
+                                {media.type === 'audio' && (
+                                  <div className="flex flex-col items-center justify-center h-full p-4">
+                                    <Music className="w-8 h-8 mb-2" />
+                                    <audio src={media.url} controls className="w-full scale-75" />
+                                  </div>
+                                )}
+                              </div>
+                              {media.caption && <p className="mt-2 text-xs text-muted-foreground italic">{media.caption}</p>}
                             </div>
                           ))}
                         </div>
@@ -226,69 +167,46 @@ export default function ProfileViewMode({ data }) {
                     </div>
                   );
                 })}
-              </div>
+              </section>
             )}
-
           </div>
 
-          {/* Sidebar */}
+          {/* Sidebar: Appears at the bottom on mobile */}
           <div className="space-y-6">
-            {/* Contact Information */}
-            {(data.location || data.email || data.phone || data.website) && (
-              <Card>
-                <div className="p-6">
-                  <h3 className="font-semibold mb-4">Contact</h3>
-                  <div className="space-y-3">
-                    {data.location && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <span>{data.location}</span>
-                      </div>
-                    )}
-                    {data.email && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <a href={`mailto:${data.email}`} className="hover:underline">{data.email}</a>
-                      </div>
-                    )}
-                    {data.phone && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <a href={`tel:${data.phone}`} className="hover:underline">{data.phone}</a>
-                      </div>
-                    )}
-                    {data.website && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                        <a href={data.website} target="_blank" rel="noopener noreferrer" className="hover:underline truncate">
-                          {data.website.replace(/^https?:\/\//, '')}
-                        </a>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            {/* Tip Jar Sidebar Card */}
-            {data.tipJar?.enabled && (
-              <Card>
-                <div className="p-6">
-                  <h3 className="font-semibold flex items-center gap-2 mb-4">
-                    <Heart className="w-4 h-4" style={{ color: data.accentColor || '#3b82f6' }} />
-                    {data.tipJar.title}
-                  </h3>
-                  {data.tipJar.description && (
-                    <p className="text-sm text-muted-foreground mb-4">{data.tipJar.description}</p>
+            <Card className="border-none bg-muted/30">
+              <div className="p-6">
+                <h3 className="font-bold text-lg mb-4">Connect</h3>
+                <div className="space-y-4">
+                  {data.location && (
+                    <div className="flex items-start gap-3 text-sm">
+                      <MapPin className="w-5 h-5 text-muted-foreground shrink-0" />
+                      <span>{data.location}</span>
+                    </div>
                   )}
-                  <Button 
-                    className="w-full" 
-                    style={{ backgroundColor: data.accentColor || '#3b82f6', color: '#ffffff' }}
-                    onClick={() => {
-                      alert(`Support ${data.displayName}!\n\n${data.tipJar.description || 'Show your support with a tip.'}\n\n(Tip jar integration coming soon)`);
-                    }}
-                  >
-                    Support
+                  {data.email && (
+                    <div className="flex items-start gap-3 text-sm">
+                      <Mail className="w-5 h-5 text-muted-foreground shrink-0" />
+                      <a href={`mailto:${data.email}`} className="hover:underline break-all">{data.email}</a>
+                    </div>
+                  )}
+                  {data.website && (
+                    <div className="flex items-start gap-3 text-sm">
+                      <Globe className="w-5 h-5 text-muted-foreground shrink-0" />
+                      <a href={data.website} target="_blank" className="hover:underline truncate">{data.website}</a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+
+            {data.tipJar?.enabled && (
+              <Card className="border-2 shadow-xl" style={{ borderColor: data.accentColor }}>
+                <div className="p-6 text-center">
+                  <Heart className="w-8 h-8 mx-auto mb-3" style={{ color: data.accentColor }} />
+                  <h3 className="font-bold text-lg mb-2">{data.tipJar.title}</h3>
+                  <p className="text-sm text-muted-foreground mb-6">{data.tipJar.description}</p>
+                  <Button className="w-full font-bold" style={{ backgroundColor: data.accentColor }}>
+                    Send Support
                   </Button>
                 </div>
               </Card>

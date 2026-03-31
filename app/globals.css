@@ -149,3 +149,22 @@ code {
   border: 0;
   min-height: 600px;
 }
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    overflow-x: hidden;
+    position: relative;
+    width: 100%;
+    @apply bg-background text-foreground; /* Keep your @apply here */
+  }
+  
+  img, video, iframe, canvas {
+    max-width: 100%;
+    height: auto;
+  }
+}
