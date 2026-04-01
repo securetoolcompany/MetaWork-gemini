@@ -149,7 +149,7 @@ const total = subtotal + shipping + tax;
               <Link href="/showroom">
                 <Button className="w-full" size="lg">Continue Shopping</Button>
               </Link>
-              <Link href="/">
+              <Link href="/dashboard">
                 <Button variant="outline" className="w-full">View Order in Dashboard</Button>
               </Link>
             </div>

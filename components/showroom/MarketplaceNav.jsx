@@ -25,7 +25,7 @@ export default function MarketplaceNav() {
                 Marketplace
               </Button>
             </Link>
-            <Link href="/">
+            <Link href="/dashboard">
               <Button variant="outline" size="sm" className="gap-2">
                 <User className="w-4 h-4" />
                 Creator Dashboard

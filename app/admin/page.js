@@ -82,7 +82,7 @@ export default function AdminDashboard() {
               Export Data
             </Button>
             <Button asChild>
-              <Link href="/">Back to Creator View</Link>
+              <Link href="/dashboard">Back to Creator View</Link>
             </Button>
           </div>
         </div>

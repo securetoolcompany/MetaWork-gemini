@@ -72,7 +72,7 @@ export default function Header({ title }: HeaderProps) {
           {!loading && (
             isShowroom ? (
               isAuthenticated ? (
-                <Link href="/">
+                <Link href="/dashboard">
                   <Button variant="ghost" size="sm" className="h-9 w-9 md:w-auto md:px-3 gap-2">
                     <LayoutDashboard className="h-4 w-4" />
                     <span className="hidden md:inline">Dashboard</span>
