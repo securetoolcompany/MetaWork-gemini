@@ -63,6 +63,7 @@
         "date-fns": "^4.1.0",
         "dotenv": "^17.2.3",
         "embla-carousel-react": "^8.6.0",
+        "framer-motion": "^12.38.0",
         "gray-matter": "^4.0.3",
         "he": "^1.2.0",
         "i18n-iso-countries": "^7.14.0",

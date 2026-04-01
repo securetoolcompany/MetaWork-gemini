@@ -83,10 +83,23 @@ const config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        // --- SNAZZY MESH KEYFRAMES ---
+        mesh: {
+          '0%, 100%': { transform: 'translate(0, 0) scale(1)' },
+          '33%': { transform: 'translate(10%, -10%) scale(1.1)' },
+          '66%': { transform: 'translate(-5%, 15%) scale(0.9)' },
+        },
+        scanline: {
+          '0%': { transform: 'translateY(-100%)' },
+          '100%': { transform: 'translateY(100%)' },
+        }
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        // --- SNAZZY ANIMATIONS ---
+        'mesh': 'mesh 20s ease infinite',
+        'scanline': 'scanline 6s linear infinite',
       },
     },
   },
