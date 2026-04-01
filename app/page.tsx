@@ -8,6 +8,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+// Import the existing Trending Products component
+import TrendingProductsSection from '@/components/showroom/TrendingProductsSection';
+
 export default function WelcomePage() {
   return (
     <div className="flex flex-col min-h-screen bg-black text-white selection:bg-green-500/30">
@@ -137,7 +140,44 @@ export default function WelcomePage() {
         </div>
       </section>
 
-      {/* 4. THE 5-STEP JOURNEY */}
+      {/* 4. MINIATURE SHOWROOM (NEW) */}
+      <section className="px-8 py-32 bg-[#020617] border-y border-white/5 relative overflow-hidden">
+        {/* Glow effect for the section */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[600px] bg-green-900/10 blur-[150px] pointer-events-none rounded-full" />
+        
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="flex flex-col md:flex-row justify-between items-end mb-12">
+            <div className="max-w-2xl">
+              <h2 className="text-4xl md:text-6xl font-bold mb-6">Live from the <span className="text-green-500">Showroom</span></h2>
+              <p className="text-xl text-slate-400 font-light">
+                Real products. Real IP. Real revenue. See what our community is building, tokenizing, and selling right now.
+              </p>
+            </div>
+            <Link href="/showroom" className="hidden md:block shrink-0 mb-2">
+              <Button variant="outline" className="border-white/20 bg-white/5 hover:bg-white/10 rounded-xl h-12 px-6">
+                Explore Full Market <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+          </div>
+
+          <div className="p-8 rounded-3xl border border-white/5 bg-black/40 backdrop-blur-xl shadow-2xl">
+            {/* This integrates your existing TrendingProductsSection component directly!
+              Because your component fetches from '/api/showroom', it works out of the box here.
+            */}
+            <TrendingProductsSection />
+          </div>
+
+          <div className="mt-10 text-center md:hidden">
+            <Link href="/showroom">
+              <Button variant="outline" className="w-full border-white/20 bg-white/5 hover:bg-white/10 rounded-xl h-14 text-lg">
+                Explore Full Market <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 5. THE 5-STEP JOURNEY */}
       <section className="px-8 py-32 bg-slate-950 relative overflow-hidden">
         <div className="max-w-4xl mx-auto relative z-10">
           <h2 className="text-4xl md:text-6xl font-bold text-center mb-24">The Path to <span className="text-green-500">MetaWealth</span></h2>
@@ -167,7 +207,7 @@ export default function WelcomePage() {
         </div>
       </section>
 
-      {/* 5. THE FINAL CALL */}
+      {/* 6. THE FINAL CALL */}
       <section className="px-8 py-40 text-center relative overflow-hidden">
         <div className="absolute inset-0 bg-green-600/10 blur-[150px] rounded-full" />
         <div className="max-w-4xl mx-auto relative z-10">

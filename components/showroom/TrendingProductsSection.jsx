@@ -22,11 +22,20 @@ export default function TrendingProductsSection() {
         const response = await fetch('/api/showroom');
         const data = await response.json();
         
-        if (data.success && data.products) {
+        // ✅ Check if it's an array (which your API currently returns)
+        if (Array.isArray(data)) {
+          // Filter out only the products from the mixed array
+          const productsOnly = data.filter(item => 
+             item.type === 'product' || 
+             item.id?.startsWith('prod_') || 
+             item.externalProductId
+          );
+
           // Sort by sales count and take top 8
-          const sorted = [...data.products]
+          const sorted = [...productsOnly]
             .sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0))
             .slice(0, 8);
+            
           setProducts(sorted);
         }
       } catch (err) {
