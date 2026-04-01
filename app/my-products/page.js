@@ -67,31 +67,24 @@ function MyProductsInner() {
             throw new Error(data.error || 'Failed to fetch products');
         }
 
-        // --- Data Adapter: Map DB fields to UI expectations ---
-// --- Data Adapter: Map DB fields to UI expectations ---
-const mappedProducts = (data.products || []).map(p => {
-  // 1. First, establish the ID
-  const internalId = p.id || p._id?.toString(); 
-  
-  // 2. Then return the full object
-  return {
-    ...p,
-    id: internalId, // Now 'id' is guaranteed for the UI
-    // Prefer saved name, fall back to title or placeholder
-    name: p.name || p.title || 'Untitled Product',
-    // UI expects 'imageUrl'
-    mockupUrl: p.mockupUrl || 'https://placehold.co/400x400?text=No+Preview',
-    imageUrl: p.mockupUrl || p.image || 'https://placehold.co/400x400?text=No+Preview', 
-    // UI expects 'baseProduct'
-    baseProduct: p.catalogProductName || p.baseProduct?.name || 'Custom Product',
-    // Ensure numbers
-    price: parseFloat(p.price) || 0,
-    salesCount: p.salesCount || 0,
-    earnings: p.earnings || 0, 
-    status: p.status || 'draft',
-    isPublic: p.isPublic || false
-  };
-});
+        const mappedProducts = (data.products || []).map(p => {
+          const internalId = p.id || p._id?.toString(); 
+          
+          return {
+            ...p,
+            id: internalId,
+            name: p.name || p.title || 'Untitled Product',
+            // ✅ FIX: Point to p.imageUrl which is provided by our API
+            mockupUrl: p.imageUrl || p.mockupUrl || 'https://placehold.co/400x400?text=No+Preview',
+            imageUrl: p.imageUrl || p.mockupUrl || p.image || 'https://placehold.co/400x400?text=No+Preview', 
+            baseProduct: p.catalogProductName || p.baseProduct?.name || 'Custom Product',
+            price: parseFloat(p.price) || 0,
+            salesCount: p.salesCount || 0,
+            earnings: p.earnings || 0, 
+            status: p.status || 'draft',
+            isPublic: p.isPublic || false
+          };
+        });
 
 
         setProducts(mappedProducts);

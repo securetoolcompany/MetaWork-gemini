@@ -1,17 +1,16 @@
 import { connectToDatabase } from '@/lib/mongodb';
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
+import { ObjectId } from 'mongodb'; // ✅ Added ObjectId import
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    // 1. Extract Search Params from URL
     const { searchParams } = new URL(request.url);
     const ipOwnerId = searchParams.get('ipOwnerId');
     const requestedUserId = searchParams.get('userId');
 
-    // 2. Authenticate the user
     const authHeader = request.headers.get('Authorization');
     const token = authHeader?.substring(7) || request.cookies.get('auth_token')?.value;
     
@@ -24,44 +23,51 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // 3. Connect to database
     const { db } = await connectToDatabase();
 
-    // 4. Build the dynamic Query Object
-    const query = {};
-
-    // Logic: Decide what to fetch based on params
-    if (ipOwnerId) {
-      // Fetch Community Products (Used in the Community Curation Tab)
-      query.ipOwnerId = ipOwnerId;
-      query.userId = { $ne: decoded.userId }; // Don't show the user's own products here
-    } else if (requestedUserId) {
-      // Fetch specific User's Products (Used in Settings / My Products)
-      query.userId = requestedUserId;
-    } else {
-      // Fallback: Default to the authenticated user
-      query.userId = decoded.userId;
+    // ✅ Safely create an ObjectId for robust querying
+    let userObjId;
+    try {
+      userObjId = new ObjectId(decoded.userId);
+    } catch {
+      userObjId = decoded.userId;
     }
 
     // Always exclude deleted items
-    query.status = { $ne: 'deleted' };
+    const query = { status: { $ne: 'deleted' } };
 
-    // 5. Execute search
+    if (ipOwnerId) {
+      query.ipOwnerId = ipOwnerId;
+      query.userId = { $ne: decoded.userId }; 
+    } else if (requestedUserId) {
+      let reqObjId;
+      try { reqObjId = new ObjectId(requestedUserId); } catch { reqObjId = requestedUserId; }
+      query.$or = [
+        { userId: requestedUserId }, { userId: reqObjId },
+        { creatorId: requestedUserId }, { creatorId: reqObjId }
+      ];
+    } else {
+      // ✅ Check BOTH userId and creatorId, as well as String vs ObjectId
+      query.$or = [
+        { userId: decoded.userId }, { userId: userObjId },
+        { creatorId: decoded.userId }, { creatorId: userObjId }
+      ];
+    }
+
     const products = await db
       .collection('products')
       .find(query)
       .sort({ createdAt: -1 })
       .toArray();
 
-    // 6. Map results to ensure consistent field names (id and _id)
     const processedProducts = products.map(p => ({
       ...p,
-      id: p._id.toString(),      // Forces an 'id' string for the frontend dropdowns
-      _id: p._id.toString(),     // Keeps the original _id as a string
-      imageUrl: p.thumbnailUrl || (p.mockupImages && p.mockupImages[0]) || p.imageUrl || 'https://placehold.co/600x600?text=No+Image'
+      id: p._id.toString(),
+      _id: p._id.toString(),
+      // ✅ Ensure we grab the mockup URL from wherever it's stored
+      imageUrl: p.mockupUrl || p.thumbnailUrl || (p.mockupImages && p.mockupImages[0]) || p.imageUrl || 'https://placehold.co/600x600?text=No+Image'
     }));
 
-    // Make sure you are returning 'processedProducts', not the raw 'products'
     return NextResponse.json({ 
       success: true, 
       products: processedProducts 
@@ -83,9 +89,11 @@ export async function PATCH(request) {
       return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
     }
 
-    // Update the product in MongoDB
+    let queryId;
+    try { queryId = new ObjectId(id); } catch { queryId = id; }
+
     const result = await db.collection('products').updateOne(
-      { _id: id }, 
+      { $or: [{ _id: queryId }, { id: id }] }, 
       { $set: { ...dataToUpdate, updatedAt: new Date() } }
     );
 

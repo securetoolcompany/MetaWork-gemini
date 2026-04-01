@@ -9,9 +9,9 @@ export async function GET(request, { params }) {
   try {
     const { db } = await connectToDatabase();
     
-    // Fetch Creator Profile by username
+    const searchRegex = new RegExp(`^${username.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
     const creator = await db.collection('users').findOne(
-      { username: username },
+      { username: searchRegex },
       { projection: { password: 0 } }
     );
     

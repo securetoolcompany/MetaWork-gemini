@@ -117,19 +117,13 @@ export default function TrendingProductsSection() {
               <Link key={product.id} href={`/products/${product.id}`}>
                 <Card className="group overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl hover:scale-[1.02]">
                   {/* Product Image */}
-                  <div className="relative aspect-square overflow-hidden bg-muted">
-                    {productImage ? (
-                      <Image
-                        src={productImage}
-                        alt={productName}
-                        fill
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                        No Image
-                      </div>
-                    )}
+                  <div className="aspect-square relative overflow-hidden bg-slate-900 rounded-t-xl">
+                    <img 
+                      src={product.thumbnailUrl || product.mockupImages?.[0] || product.image || '/placeholder.png'} 
+                      alt={product.title || 'Product'}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    
                     {/* Hot Badge */}
                     {salesCount > 20 && (
                       <Badge className="absolute top-3 right-3 bg-red-500 text-white border-0 animate-pulse">

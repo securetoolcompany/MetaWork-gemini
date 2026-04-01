@@ -15,12 +15,13 @@ export default function AisleProductCard({
     : rawPrice;
 
   // Hierarchical image lookup protecting your multiple mockup/images feature
+  // Cleaned up and prioritized for the new Cloudinary structure
   const imageSrc = 
-    product.images?.[0] || 
+    product.thumbnailUrl || 
     product.mockupImages?.[0] || 
+    product.images?.[0] || 
     product.mockupUrl || 
     product.imageUrl || 
-    product.thumbnailUrl || 
     product.image || 
     '/placeholder.png';
 
@@ -31,13 +32,10 @@ export default function AisleProductCard({
     >
       {/* Image Container */}
       <div className="relative w-full pt-[100%] overflow-hidden bg-[#0a0a0a]">
-        <img
-          src={imageSrc}
-          alt={product.name || product.title || 'Product image'}
+        <img 
+          src={imageSrc} 
+          alt={product.title || 'Product Image'} 
           className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          onError={(e) => {
-            e.target.style.opacity = '0';
-          }}
         />
       </div>
 

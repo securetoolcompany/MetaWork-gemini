@@ -24,8 +24,7 @@ export async function POST(request) {
     const user = await db.collection('users').findOne({
       $or: [
         { email: loginIdentifier },
-        { username: loginIdentifier }, // Check if they typed username in the email box
-        { username: 'vYzion' }         // Hard fallback for your dev seed
+        { username: loginIdentifier }
       ]
     });
 

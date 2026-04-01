@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
+import { ObjectId } from 'mongodb';
 
 export async function POST(request) {
   try {
@@ -35,14 +36,19 @@ export async function POST(request) {
     
     const { db } = await connectToDatabase();
     
-    // Use the string ID to match your DB architecture
-    const query = { id: decoded.userId };
+    let queryId;
+    try {
+      queryId = new ObjectId(decoded.userId);
+    } catch {
+      queryId = decoded.userId; // Fallback if it's not a standard Mongo ID
+    }
 
+    // ✅ FIX 1: Used 'updateFields' instead of 'updateData'
     const result = await db.collection('users').updateOne(
-      query,
-      { $set: updateFields }
+      { $or: [{ _id: queryId }, { id: decoded.userId }] },
+      { $set: updateFields } 
     );
-
+      
     console.log('📝 DB Update Result:', {
       userId: decoded.userId,
       matched: result.matchedCount,
@@ -53,9 +59,9 @@ export async function POST(request) {
       return NextResponse.json({ success: false, error: 'User not found in DB' }, { status: 404 });
     }
     
-    // Return updated user
+    // ✅ FIX 2: Use the same $or query to guarantee we find the user we just updated
     const updatedUser = await db.collection('users').findOne(
-      { id: decoded.userId },
+      { $or: [{ _id: queryId }, { id: decoded.userId }] },
       { projection: { password: 0 } }
     );
     

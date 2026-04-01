@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 // Get session from cookie
 export async function GET(request) {
   try {
     console.log('=== SESSION CHECK START ===');
+    const { db } = await connectToDatabase();
     
-    // Log all cookies
     const allCookies = request.cookies.getAll();
     console.log('All cookies received:', allCookies.map(c => ({ name: c.name, hasValue: !!c.value })));
     
@@ -29,9 +30,16 @@ export async function GET(request) {
     
     console.log('Token decoded successfully:', { userId: decoded.userId, email: decoded.email });
     
-    const { db } = await connectToDatabase();
-    const user = await db.collection('users').findOne({ _id: decoded.userId });
-    
+    let queryId;
+    try {
+      queryId = new ObjectId(decoded.userId);
+    } catch {
+      queryId = decoded.userId;
+    }
+    const user = await db.collection('users').findOne({
+      $or: [{ _id: queryId }, { _id: decoded.userId }, { id: decoded.userId }]
+    });
+
     if (!user) {
       console.log('User not found in database for userId:', decoded.userId);
       return NextResponse.json({ user: null });
