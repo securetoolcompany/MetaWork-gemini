@@ -283,7 +283,7 @@ export default function SalesRevenuePage() {
                                   <span className="font-semibold">{sale.quantity}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span>Base Price (Printful)</span>
+                                  <span>Base Price</span>
                                   <span className="font-semibold">${sale.basePrice}</span>
                                 </div>
                                 <div className="flex justify-between">
@@ -427,7 +427,7 @@ export default function SalesRevenuePage() {
                   <p className="text-xs text-muted-foreground mt-1">10% platform fee</p>
                 </div>
                 <div className="p-4 rounded-lg bg-muted border-2 border-border">
-                  <p className="text-sm text-muted-foreground mb-1">Printful</p>
+                  <p className="text-sm text-muted-foreground mb-1">MetaWork</p>
                   <p className="text-2xl font-bold">$14.99</p>
                   <p className="text-xs text-muted-foreground mt-1">Fulfillment</p>
                 </div>

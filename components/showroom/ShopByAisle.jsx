@@ -1,336 +1,127 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import Link from 'next/link';
+import { X, Filter, Search, ChevronDown } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import CreatorCard from './CreatorCard';
 
 const ITEMS_PER_PAGE = 12;
 
 const AISLE_FILTER_GROUPS = [
-  {
-    id: 'audience',
-    title: 'Audience / Theme',
-    icon: '👥',
-    options: [
-      'Kids & Family',
-      'Sports & Combat Sports',
-      'Music & Entertainment',
-      'Esports & Gaming',
-      'Nature & Wildlife',
-      'Sci‑Fi & Fantasy',
-      'Spiritual & Mythology',
-      'Corporate & Professional',
-    ],
-  },
-  {
-    id: 'style',
-    title: 'Art Style',
-    icon: '🎨',
-    options: [
-      'Anime & Manga',
-      'Graffiti & Street Art',
-      'Comic / Graphic Novel',
-      'Minimalist',
-      'Abstract & Geometric',
-      'Retro & Vintage',
-      'Cyberpunk & Futuristic',
-      'Realistic',
-      'Cartoon & Kawaii',
-      'Surreal & Dreamlike',
-      'Pop Art',
-      'Typography & Lettering',
-      'Photography',
-    ],
-  },
-  {
-    id: 'medium',
-    title: 'Medium / Technique',
-    icon: '🧪',
-    options: [
-      'Digital Illustration',
-      'Vector Art',
-      'Pixel Art',
-      '3D / CGI',
-      'Watercolor',
-      'Ink & Line Art',
-      'Acrylic / Oil Painting',
-      'Mixed Media / Collage',
-      'Pencil / Sketch',
-      'Printmaking / Screenprint',
-      'Photography',
-    ],
-  },
-  {
-    id: 'useCase',
-    title: 'Use Case / Service',
-    icon: '🧩',
-    options: [
-      'Logo & Brand Assets',
-      'Mascots & Characters',
-      'Twitch & Stream Overlays',
-      'Social Media Content Packs',
-      'Merch‑Ready Designs',
-      'Commission Slots',
-      'Corporate Illustration',
-      'Album & Cover Art',
-      'Book & Editorial Illustration',
-      'Icons & UI Assets',
-      'Backgrounds & Environments',
-      'Photography Packs',
-    ],
-  },
+  { id: 'audience', title: 'Audience / Theme', icon: '👥', options: ['Kids & Family', 'Sports & Combat Sports', 'Music & Entertainment', 'Esports & Gaming', 'Nature & Wildlife', 'Sci‑Fi & Fantasy', 'Spiritual & Mythology', 'Corporate & Professional'] },
+  { id: 'style', title: 'Art Style', icon: '🎨', options: ['Anime & Manga', 'Graffiti & Street Art', 'Comic / Graphic Novel', 'Minimalist', 'Abstract & Geometric', 'Retro & Vintage', 'Cyberpunk & Futuristic', 'Realistic', 'Cartoon & Kawaii', 'Surreal & Dreamlike', 'Pop Art', 'Typography & Lettering', 'Photography'] },
+  { id: 'medium', title: 'Medium / Technique', icon: '🧪', options: ['Digital Illustration', 'Vector Art', 'Pixel Art', '3D / CGI', 'Watercolor', 'Ink & Line Art', 'Acrylic / Oil Painting', 'Mixed Media / Collage', 'Pencil / Sketch', 'Printmaking / Screenprint', 'Photography'] },
+  { id: 'useCase', title: 'Use Case / Service', icon: '🧩', options: ['Logo & Brand Assets', 'Mascots & Characters', 'Twitch & Stream Overlays', 'Social Media Content Packs', 'Merch‑Ready Designs', 'Commission Slots', 'Corporate Illustration', 'Album & Cover Art', 'Book & Editorial Illustration', 'Icons & UI Assets', 'Backgrounds & Environments', 'Photography Packs'] },
 ];
 
-export default function ShopByAisle({
-  items,
-  filters,
-  onToggleFilter,
-  onClearAll,
-}) {
+export default function ShopByAisle({ items, filters, onToggleFilter, onClearAll }) {
   const [page, setPage] = useState(1);
-  const [expandedGroups, setExpandedGroups] = useState({
-    audience: false,
-    style: false,
-    medium: false,
-    useCase: false,
-  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState({ audience: true, style: false, medium: false, useCase: false });
 
-  const hasActiveFilters =
-    filters.audience.length ||
-    filters.style.length ||
-    filters.medium.length ||
-    filters.useCase.length;
+  const isMobile = useIsMobile();
 
-  const totalPages = Math.max(1, Math.ceil(items.length / ITEMS_PER_PAGE));
-  const currentPage = Math.min(page, totalPages);
+  const filteredItems = useMemo(() => {
+    return items.filter(aisle => {
+      const matchesSearch = !searchQuery || 
+        `${aisle.username} ${aisle.displayName} ${aisle.bio}`.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesSearch;
+    });
+  }, [items, searchQuery]);
 
-  const pageItems = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    const end = start + ITEMS_PER_PAGE;
-    return items.slice(start, end);
-  }, [items, currentPage]);
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
+  const pageItems = filteredItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
-  const toggleGroup = (id) => {
-    setExpandedGroups((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  return (
-    <div className="flex gap-6 relative">
-      {/* SIDEBAR */}
-      <aside className="w-64 flex-shrink-0 sticky top-24 self-start max-h-[calc(100vh-12rem)] overflow-y-auto pb-20 scrollbar-hide">
-        <div className="space-y-6 pr-2">
-          
-          {/* Unified Active Filters Widget */}
-          <div className="bg-slate-900/50 rounded-lg p-4 border border-white/10">
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">
-              Filter Status
-            </div>
-
-            {!hasActiveFilters ? (
-              <p className="text-xs text-slate-500 italic">No filters applied</p>
-            ) : (
-              <div className="space-y-3">
-                {/* Grouped Filter Chips - Functionality like ShopByProduct */}
-                {Object.keys(filters).map((groupId) => {
-                  const activeValues = filters[groupId];
-                  if (!activeValues?.length) return null;
-
-                  return (
-                    <div key={groupId} className="space-y-1">
-                      <div className="text-[9px] font-medium text-slate-500 uppercase">
-                        {groupId.replace(/([A-Z])/g, ' $1')} ({activeValues.length})
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {activeValues.map((val) => (
-                          <span 
-                            key={`${groupId}-${val}`} 
-                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/10 rounded text-[10px] text-slate-200 border border-white/5 group hover:bg-white/20 transition-colors"
-                          >
-                            {val}
-                            <button
-                              onClick={() => onToggleFilter(groupId, val)}
-                              className="text-slate-500 hover:text-white transition-colors"
-                            >
-                              ✕
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* Action Buttons */}
-                <div className="pt-2 border-t border-white/5 mt-2">
-                  <button
-                    onClick={onClearAll}
-                    className="w-full px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded text-[11px] font-bold uppercase tracking-tight transition-all"
-                  >
-                    Reset All Filters
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Filter groups */}
-          {AISLE_FILTER_GROUPS.map((group) => (
-            <div
-              key={group.id}
-              className="bg-[#0f172a] rounded-lg border border-white/10 overflow-hidden"
-            >
-              <button
-                onClick={() => toggleGroup(group.id)}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-lg">{group.icon}</span>
-                  <span className="text-xs font-semibold text-gray-300 uppercase tracking-wide">
-                    {group.title}
-                  </span>
-                </div>
-                <svg
-                  className={`w-4 h-4 text-gray-400 transition-transform ${
-                    expandedGroups[group.id] ? 'rotate-180' : ''
-                  }`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </button>
-
-              {expandedGroups[group.id] && (
-                <div className="px-2 pb-2 space-y-1">
-                  {group.options.map((opt) => {
-                    const isActive = filters[group.id].includes(opt);
-                    return (
-                      <button
-                        key={opt}
-                        onClick={() => onToggleFilter(group.id, opt)}
-                        className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${
-                          isActive
-                            ? 'bg-white text-black font-semibold'
-                            : 'hover:bg-white/5 text-gray-300'
-                        }`}
-                      >
-                        {opt}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </aside>
-
-      {/* MAIN CONTENT */}
-      <main className="flex-1 min-w-0">
-        <div className="flex justify-between items-end mb-6">
-          <div>
-            <h2 className="text-3xl font-bold tracking-tight">Browse Aisles</h2>
-            <p className="text-gray-400 mt-1">
-              Explore curated collections by audience, style, medium, and use case
-            </p>
-          </div>
-          <div className="bg-[#1e293b] px-3 py-1 rounded-md text-[10px] font-bold text-gray-400 border border-white/5">
-            {items.length} aisles
-          </div>
-        </div>
-
-        {items.length === 0 && hasActiveFilters ? (
-          <div className="h-[calc(100vh-20rem)] flex items-center justify-center">
-            <div className="text-center space-y-4">
-              <div className="text-4xl">🔍</div>
-              <h3 className="text-xl font-semibold">No aisles match your filters</h3>
-              <p className="text-gray-400">
-                Try removing some filters or selecting different options
-              </p>
-              <button
-                onClick={onClearAll}
-                className="mt-4 px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-md text-sm font-semibold transition-all"
-              >
-                Clear All Filters
-              </button>
-            </div>
-          </div>
+  const FilterContent = () => (
+    <div className="space-y-6">
+      <div className="bg-slate-900/50 rounded-lg p-4 border border-white/10">
+        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Filter Status</div>
+        {Object.values(filters).flat().length === 0 ? (
+          <p className="text-xs text-slate-500 italic">No active filters</p>
         ) : (
-          <div className="pb-24">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {pageItems.map((aisle) => (
-                <CreatorCard 
-                  key={aisle.id || aisle._id} 
-                  creator={aisle} 
-                />
-              ))}
-            </div>
+          <div className="space-y-3">
+            {Object.keys(filters).map(groupId => filters[groupId].map(val => (
+              <span key={`${groupId}-${val}`} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 rounded text-[10px] text-blue-200 border border-blue-500/20 mr-1">
+                {val} <button onClick={() => onToggleFilter(groupId, val)}>✕</button>
+              </span>
+            )))}
+            <button onClick={onClearAll} className="w-full py-1.5 mt-2 bg-blue-500/10 text-blue-400 rounded text-[11px] font-bold uppercase transition-all">Reset All</button>
           </div>
         )}
+      </div>
+
+      {AISLE_FILTER_GROUPS.map(group => (
+        <div key={group.id} className="bg-[#0f172a] rounded-lg border border-white/10 overflow-hidden">
+          <button onClick={() => setExpandedGroups(p => ({...p, [group.id]: !p[group.id]}))} className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{group.icon}</span>
+              <span className="text-xs font-bold text-slate-300 uppercase tracking-tight">{group.title}</span>
+            </div>
+            <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${expandedGroups[group.id] ? 'rotate-180' : ''}`} />
+          </button>
+          {expandedGroups[group.id] && (
+            <div className="px-2 pb-2 space-y-1">
+              {group.options.map(opt => (
+                <button key={opt} onClick={() => onToggleFilter(group.id, opt)} className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-all ${filters[group.id].includes(opt) ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-white/5'}`}>
+                  {opt}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col md:flex-row gap-6 relative px-4 md:px-0">
+      {isMobile && (
+        <button onClick={() => setIsFilterDrawerOpen(true)} className="fixed bottom-24 right-6 z-50 flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-full shadow-2xl transition-transform">
+          <Filter className="w-5 h-5" />
+          <span className="text-sm font-bold uppercase">Filters</span>
+        </button>
+      )}
+
+      <aside className="hidden md:block w-64 flex-shrink-0 sticky top-24 self-start max-h-[calc(100vh-12rem)] overflow-y-auto pb-20 scrollbar-hide">
+        <FilterContent />
+      </aside>
+
+      <main className="flex-1 min-w-0">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+          <div>
+            <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter text-white">Browse Aisles</h2>
+            <p className="text-slate-400 text-sm">Explore {filteredItems.length} curated creator collections.</p>
+          </div>
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search aisles..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-900 border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm text-white focus:ring-2 focus:ring-blue-500/50 outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 pb-32">
+          {pageItems.map((aisle) => (
+            <CreatorCard key={aisle.id || aisle._id} creator={aisle} />
+          ))}
+        </div>
       </main>
 
-      {totalPages > 1 && (
-        <div className="fixed bottom-0 left-0 right-0 bg-[#020617] border-t border-white/10 py-4 z-20">
-          <div className="container mx-auto px-6 ml-64 flex items-center justify-between gap-4 text-xs">
-            <span className="text-gray-400">
-              Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}
-              {'–'}
-              {Math.min(currentPage * ITEMS_PER_PAGE, items.length)} of {items.length}
-            </span>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className={`px-3 py-1 rounded-md border text-[11px] font-semibold transition-all ${
-                  currentPage === 1
-                    ? 'border-white/10 text-gray-500 cursor-not-allowed'
-                    : 'border-white/20 text-gray-200 hover:border-white hover:bg-white/5'
-                }`}
-              >
-                Previous
-              </button>
-
-              <div className="flex items-center gap-1">
-                {[...Array(totalPages)].map((_, i) => {
-                  const pageNumber = i + 1;
-                  return (
-                    <button
-                      key={pageNumber}
-                      type="button"
-                      onClick={() => setPage(pageNumber)}
-                      className={`h-7 min-w-[1.75rem] px-2 rounded-md text-[11px] font-semibold transition-all ${
-                        pageNumber === currentPage
-                          ? 'bg-white text-black'
-                          : 'text-gray-300 hover:bg-white/10'
-                      }`}
-                    >
-                      {pageNumber}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className={`px-3 py-1 rounded-md border text-[11px] font-semibold transition-all ${
-                  currentPage === totalPages
-                    ? 'border-white/10 text-gray-500 cursor-not-allowed'
-                    : 'border-white/20 text-gray-200 hover:border-white hover:bg-white/5'
-                }`}
-              >
-                Next
-              </button>
+      {/* Mobile Drawer */}
+      {isMobile && isFilterDrawerOpen && (
+        <div className="fixed inset-0 z-[60] flex justify-end">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsFilterDrawerOpen(false)} />
+          <div className="relative w-80 bg-[#020617] h-full shadow-2xl flex flex-col border-l border-white/10 animate-in slide-in-from-right">
+            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900/50">
+              <div className="flex items-center gap-2"><Filter className="w-4 h-4 text-blue-400" /><h2 className="text-sm font-bold uppercase text-white">Aisle Filters</h2></div>
+              <button onClick={() => setIsFilterDrawerOpen(false)} className="p-2 hover:bg-white/10 rounded-full"><X className="w-5 h-5 text-slate-400" /></button>
             </div>
+            <div className="flex-1 overflow-y-auto p-4 pb-32"><FilterContent /></div>
           </div>
         </div>
       )}

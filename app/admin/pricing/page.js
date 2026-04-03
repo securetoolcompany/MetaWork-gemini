@@ -497,7 +497,7 @@ export default function AdminPricingPage() {
                   <CardContent>
                     {categories.length === 0 ? (
                       <p className="text-muted-foreground text-center py-8">
-                        No custom categories defined. Products will use Printful's native categories.
+                        No custom categories defined. Products will use default categories.
                       </p>
                     ) : (
                       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

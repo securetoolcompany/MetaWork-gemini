@@ -5,20 +5,22 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { ShieldCheck } from 'lucide-react';
 
-export default function AisleIPAssetCard({ item, accentColor = '#3b82f6' }) {
-  const title = item.title || item.name || 'Untitled Asset';
+export default function AisleIPAssetCard({ asset, accentColor = '#3b82f6' }) {
+  // Add a safety check: if asset is missing, return null or a skeleton
+  if (!asset) return null;
+
+  const title = asset.title || asset.name || 'Untitled Asset';
   
-  // IP Specific image logic
-  const imageSrc = item.imageUrl || item.thumbnailUrl || item.image || '/placeholder.png';
+  // Update internal references from 'item' to 'asset'
+  const imageSrc = asset.imageUrl || asset.thumbnailUrl || asset.image || '/placeholder.png';
   
-  // IP Specific price logic (Licensing Fee)
-  const rawFee = item.licensingFee || item.price || 0;
+  const rawFee = asset.licensingFee || asset.price || 0;
   const displayFee = typeof rawFee === 'object' 
     ? (rawFee.$numberDecimal || rawFee.toString()) 
     : rawFee;
 
   return (
-    <Link href={`/ip/${item.id || item._id}`} className="group block">
+    <Link href={`/ip/${asset.id || asset._id}`} className="group block">
       <div className="bg-[#0f172a] border border-white/5 rounded-2xl overflow-hidden hover:border-blue-500/50 transition-all flex flex-col h-full shadow-xl">
         {/* Visual Container */}
         <div className="aspect-square relative overflow-hidden bg-slate-900">
@@ -40,7 +42,7 @@ export default function AisleIPAssetCard({ item, accentColor = '#3b82f6' }) {
             {title}
           </h3>
           <p className="text-slate-400 text-xs line-clamp-2 mb-4 flex-1">
-            {item.description || 'Digital IP Asset available for licensing.'}
+            {asset.description || 'Digital IP Asset available for licensing.'}
           </p>
 
           <div className="flex justify-between items-center mt-auto pt-4 border-t border-white/5">

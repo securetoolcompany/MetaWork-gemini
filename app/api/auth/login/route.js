@@ -16,15 +16,13 @@ export async function POST(request) {
     }
     
     const { db } = await connectToDatabase();
-    
-    // 1. Normalize the input
     const loginIdentifier = email.toLowerCase().trim();
+    const searchRegex = new RegExp(`^${loginIdentifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 
-    // 2. Flexible Lookup: Search by Email OR Username
     const user = await db.collection('users').findOne({
       $or: [
-        { email: loginIdentifier },
-        { username: loginIdentifier }
+        { email: searchRegex },
+        { username: searchRegex }
       ]
     });
 
@@ -33,7 +31,6 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // 3. Verify Password
     if (!user.password) {
       return NextResponse.json(
         { error: 'This account uses wallet authentication. Please connect your wallet.' },

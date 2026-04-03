@@ -3,7 +3,7 @@ const { MongoClient } = require('mongodb');
 const bcrypt = require('bcryptjs');
 
 // --- CHANGE THESE VARIABLES TO RESET SOMEONE ---
-const TARGET_USERNAME_OR_EMAIL = "RISE"; 
+const TARGET_USERNAME_OR_EMAIL = "nova"; 
 const NEW_PASSWORD = "Password123!";
 // ---------------------------------------------
 

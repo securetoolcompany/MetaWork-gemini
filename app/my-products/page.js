@@ -391,7 +391,7 @@ function MyProductsInner() {
             <div className="flex gap-3">
               <Button onClick={() => router.push('/products/creator')}>
                 <Wand2 className="mr-2 h-4 w-4" />
-                Create with Printful
+                Create A Product
               </Button>
             </div>
           </div>

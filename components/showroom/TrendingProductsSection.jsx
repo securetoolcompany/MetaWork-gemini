@@ -24,15 +24,12 @@ export default function TrendingProductsSection() {
         
         // ✅ Check if it's an array (which your API currently returns)
         if (Array.isArray(data)) {
-          // Filter out only the products from the mixed array
-          const productsOnly = data.filter(item => 
-             item.type === 'product' || 
-             item.id?.startsWith('prod_') || 
-             item.externalProductId
+          const productsOnlyWithImages = data.filter(item => 
+            (item.type === 'product' || item.externalProductId) && 
+            (item.imageUrl || item.mockupUrl) // ✅ Only keep items that have a picture
           );
 
-          // Sort by sales count and take top 8
-          const sorted = [...productsOnly]
+          const sorted = [...productsOnlyWithImages]
             .sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0))
             .slice(0, 8);
             
@@ -109,7 +106,7 @@ export default function TrendingProductsSection() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {visibleProducts.map((product) => {
             const productName = product.title || product.name || 'Product';
-            const productPrice = product.price || 0;
+            const productPrice = Number(product.price) || 0;
             const productImage = product.imageUrl || '/placeholder.png';
             const salesCount = product.salesCount || 0;
             

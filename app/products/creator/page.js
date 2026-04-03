@@ -501,7 +501,7 @@ function ProductCreatorInner() {
     const script = document.createElement('script')
     script.src = 'https://files.cdn.printful.com/embed/embed.js'
     script.async = true
-    script.onerror = () => toast.error('Failed to load Printful Design Maker')
+    script.onerror = () => toast.error('Failed to load MetaWork Product Creator')
     document.body.appendChild(script)
 
     return () => {

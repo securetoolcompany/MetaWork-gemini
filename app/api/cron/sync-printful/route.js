@@ -22,7 +22,7 @@ export async function GET(req) {
     // For now, we return a success message so you can verify the route works.
     return NextResponse.json({ 
       success: true, 
-      message: 'Printful sync triggered. Monitoring via logs.' 
+      message: 'Sync triggered. Monitoring via logs.' 
     });
 
   } catch (error) {
