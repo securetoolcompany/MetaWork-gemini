@@ -4,26 +4,31 @@ import Link from 'next/link';
 
 export default function AisleProductCard({ 
   product, 
-  accentColor = '#10b981' // Defaults to the emerald-500 color from the showroom
+  accentColor = '#10b981'
 }) {
   const productUrl = `/products/${product.id || product._id}`;
   
-  // Safely parse price to avoid React "Object is not valid as child" crashes
   const rawPrice = product.price || product.basePrice || 0;
   const displayPrice = typeof rawPrice === 'object' 
     ? (rawPrice.$numberDecimal || rawPrice.toString()) 
     : rawPrice;
 
-  // Hierarchical image lookup protecting your multiple mockup/images feature
-  // Cleaned up and prioritized for the new Cloudinary structure
-  const imageSrc = 
+  // 1. Helper to fix protocol-relative URLs (//res.cloudinary.com -> https://res...)
+  const normalizeUrl = (url) => {
+    if (!url || typeof url !== 'string') return null;
+    return url.startsWith('//') ? `https:${url}` : url;
+  };
+
+  // 2. Fix Priority: mockupUrl must be first to support Printful correctly
+  const rawImageSrc = 
+    product.mockupUrl || 
     product.thumbnailUrl || 
     product.mockupImages?.[0] || 
-    product.images?.[0] || 
-    product.mockupUrl || 
     product.imageUrl || 
-    product.image || 
-    '/placeholder.png';
+    product.images?.[0] || 
+    product.image;
+
+  const imageSrc = normalizeUrl(rawImageSrc) || '/placeholder.png';
 
   return (
     <Link
@@ -34,7 +39,7 @@ export default function AisleProductCard({
       <div className="relative w-full pt-[100%] overflow-hidden bg-[#0a0a0a]">
         <img 
           src={imageSrc} 
-          alt={product.title || 'Product Image'} 
+          alt={product.title || product.name || 'Product Image'} 
           className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
       </div>

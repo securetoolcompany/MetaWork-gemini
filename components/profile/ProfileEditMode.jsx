@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Heart, 
   Store, 
@@ -45,6 +46,19 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+
+// Supported Social Platforms Array
+const SOCIAL_PLATFORMS = [
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'twitter', label: 'Twitter / X' },
+  { id: 'tiktok', label: 'TikTok' },
+  { id: 'youtube', label: 'YouTube' },
+  { id: 'linkedin', label: 'LinkedIn' },
+  { id: 'facebook', label: 'Facebook' },
+  { id: 'twitch', label: 'Twitch' },
+  { id: 'discord', label: 'Discord' },
+  { id: 'website', label: 'Custom Link' }
+];
 
 function SortableStorySection({ section, updateStorySection, deleteStorySection, data, onUpdate, accentColor }) {
   const {
@@ -138,7 +152,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
   const [cropperShape, setCropperShape] = useState('rect');
   const [isUploading, setIsUploading] = useState(false);
 
-// HELPER: Convert base64 to File object
+  // HELPER: Convert base64 to File object
   const base64ToFile = async (base64, filename) => {
     const res = await fetch(base64);
     const blob = await res.blob();
@@ -157,9 +171,9 @@ export default function ProfileEditMode({ data, onUpdate }) {
       body: formData
     });
     
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error || 'Upload failed');
-    return data.url; // The secure Cloudinary URL
+    const result = await res.json();
+    if (!result.success) throw new Error(result.error || 'Upload failed');
+    return result.url; // The secure Cloudinary URL
   };
 
   // Setup drag sensors
@@ -311,6 +325,9 @@ export default function ProfileEditMode({ data, onUpdate }) {
   };
 
   const activeSection = (data.storySections || []).find(s => s.id === activeId);
+
+  // Active Socials List (used to filter the dropdown)
+  const activeSocialKeys = Object.keys(data.socialLinks || {});
 
   return (
     <div className="min-h-screen pb-24 bg-background">
@@ -609,7 +626,7 @@ export default function ProfileEditMode({ data, onUpdate }) {
           <div className="space-y-8">
             {/* Accent Color Picker */}
             <Card className="p-6 border-2 border-dashed border-muted-foreground/30">
-              <h3 className="font-bold mb-4">Aisle Accent Color</h3>
+              <h3 className="font-bold mb-4">Profile Accent Color</h3>
               <div className="flex flex-wrap gap-3">
                 {['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4'].map(color => (
                   <button
@@ -634,10 +651,76 @@ export default function ProfileEditMode({ data, onUpdate }) {
                   <Mail className="w-5 h-5 text-muted-foreground" />
                   <Input value={data.email || ''} onChange={(e) => onUpdate({ email: e.target.value })} placeholder="Email" />
                 </div>
-                <div className="flex items-center gap-3">
-                  <Globe className="w-5 h-5 text-muted-foreground" />
-                  <Input value={data.website || ''} onChange={(e) => onUpdate({ website: e.target.value })} placeholder="Website" />
-                </div>
+              </div>
+            </Card>
+
+            {/* DYNAMIC SOCIAL LINKS CARD */}
+            <Card className="p-6 border-2 border-dashed border-muted-foreground/30">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold">Social Links</h3>
+                <Select 
+                  onValueChange={(val) => {
+                    onUpdate({ 
+                      socialLinks: { ...(data.socialLinks || {}), [val]: '' } 
+                    });
+                  }}
+                >
+                  <SelectTrigger className="w-[120px] h-8 text-xs bg-muted/50 border-none">
+                    <SelectValue placeholder="+ Add Link" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SOCIAL_PLATFORMS.filter(p => !activeSocialKeys.includes(p.id)).map(platform => (
+                      <SelectItem key={platform.id} value={platform.id}>
+                        {platform.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-4">
+                {activeSocialKeys.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-2 bg-muted/20 rounded-md border border-white/5">
+                    No social links added yet.
+                  </p>
+                ) : (
+                  activeSocialKeys.map(platform => {
+                    const platformConfig = SOCIAL_PLATFORMS.find(p => p.id === platform) || { label: platform };
+                    const url = data.socialLinks[platform];
+                    
+                    return (
+                      <div className="flex items-center gap-2" key={platform}>
+                        <div className="w-[85px] text-xs font-bold text-muted-foreground shrink-0 truncate">
+                          {platformConfig.label}
+                        </div>
+                        <Input 
+                          type="url"
+                          value={url || ''} 
+                          onChange={(e) => onUpdate({ 
+                            socialLinks: { 
+                              ...(data.socialLinks || {}), 
+                              [platform]: e.target.value 
+                            } 
+                          })} 
+                          placeholder={platform === 'website' ? 'https://...' : `https://${platform}.com/...`} 
+                          className="flex-1 h-9 bg-background/50"
+                        />
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-9 w-9 text-muted-foreground hover:text-destructive shrink-0"
+                          onClick={() => {
+                            const newSocials = { ...data.socialLinks };
+                            delete newSocials[platform];
+                            onUpdate({ socialLinks: newSocials });
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </Card>
 
