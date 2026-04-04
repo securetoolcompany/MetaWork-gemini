@@ -21,6 +21,39 @@ import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
+// The exact categories used by the Showroom to ensure proper filtering
+const PILLAR_SECTIONS = [
+  {
+    id: 'accessories',
+    title: 'Accessories & Apparel',
+    icon: '🎽',
+    categories: [
+      'Accessories', 'Activewear', 'Backpacks', 'Clothing', 'Combat Sports',
+      'Dresses, Skirts & Blouses', 'Embroidered Patches', 'Fightwear',
+      'Fitness & Sports', 'Formalwear', 'Gym Bags', 'Gymwear', 'Headwear',
+      'Hoodies', 'Jersey', 'Pants and Shorts', 'Patches', 'Phone Cases',
+      'Purses & Tote Bags', 'Rash Guards', 'Schoolwear', 'Shirts', 'Shoes',
+      'Sleepwear', 'Streetwear', 'Swimwear',
+    ]
+  },
+  {
+    id: 'home',
+    title: 'Home & Office',
+    icon: '🏠',
+    categories: [
+      'Bathroom', 'Bedroom', 'Blankets', 'Computers', 'Drinkware',
+      'Home Decor', 'Kitchen', 'Magnets & Stickers', 'Office', 'Pets',
+      'Pillows & Cases', 'Posters & Wall Art', 'Sitting Room', 'Tech',
+    ]
+  },
+  {
+    id: 'school',
+    title: 'School & University',
+    icon: '🎓',
+    categories: ['Backpacks', 'School', 'Schoolwear']
+  }
+];
+
 export default function ProductEditDialog({ product, open, onOpenChange, tutorialStep, onSaveSuccess }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -31,34 +64,9 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
     isPublic: true
   });
   
-  const [groupedCategories, setGroupedCategories] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
-
-  // 1. Fetch all categories and group them by your "Main Categories" (type)
-  useEffect(() => {
-    if (open) {
-      const fetchCategories = async () => {
-        try {
-          const res = await fetch('/api/admin/categories'); // Fetch all
-          const data = await res.json();
-          if (data.success && data.categories) {
-            const grouped = data.categories.reduce((acc, cat) => {
-              const groupName = cat.type || 'General';
-              if (!acc[groupName]) acc[groupName] = [];
-              acc[groupName].push(cat);
-              return acc;
-            }, {});
-            setGroupedCategories(grouped);
-          }
-        } catch (error) {
-          console.error('Failed to load categories:', error);
-        }
-      };
-      fetchCategories();
-    }
-  }, [open]);
 
   useEffect(() => {
     if (product) {
@@ -76,7 +84,7 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
     }
   }, [product]);
 
-  // 2. Strict Dynamic Costing - No Hardcoded Fallbacks
+  // Strict Dynamic Costing - No Hardcoded Fallbacks
   const baseProductCost = parseFloat(product?.baseProductCost) || 0;
 
   const ipCosts = (() => {
@@ -106,10 +114,10 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   const profitMargin = formData.price > 0 ? (((formData.price - totalProductionCost) / formData.price) * 100).toFixed(1) : 0;
 
   // Category Selection Handlers
-  const handleSelectCategory = (categoryId) => {
+  const handleSelectCategory = (categoryName) => {
     setFormData(prev => {
       const current = prev.categories || [];
-      if (current.includes(categoryId)) return prev;
+      if (current.includes(categoryName)) return prev;
       
       if (current.length >= 3) {
         toast.warning('Category Limit Reached', {
@@ -117,23 +125,15 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
         });
         return prev;
       }
-      return { ...prev, categories: [...current, categoryId] };
+      return { ...prev, categories: [...current, categoryName] };
     });
   };
 
-  const handleRemoveCategory = (categoryId) => {
+  const handleRemoveCategory = (categoryName) => {
     setFormData(prev => ({
       ...prev,
-      categories: (prev.categories || []).filter(id => id !== categoryId)
+      categories: (prev.categories || []).filter(cat => cat !== categoryName)
     }));
-  };
-
-  const getCategoryName = (id) => {
-    for (const group in groupedCategories) {
-      const cat = groupedCategories[group].find(c => c.id === id);
-      if (cat) return cat.name;
-    }
-    return id; // fallback
   };
 
   const handleMockupUpload = async (e) => {
@@ -198,7 +198,7 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
           description: formData.description,
           price: parseFloat(formData.price),
           tags: tagsArray,
-          categories: formData.categories,
+          categories: formData.categories, // Now saving the exact strings from the Showroom
           isPublic: formData.isPublic,
           isVisible: formData.isPublic, 
           showroomListed: formData.isPublic,
@@ -293,7 +293,7 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
                 <Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} disabled={isLoading} className="min-h-[100px]" />
               </div>
               
-              {/* Category Picker - Moved right under description! */}
+              {/* Category Picker - using exactly the Showroom PILLAR_SECTIONS */}
               <div className="space-y-2 pt-2 pb-2">
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-2">
@@ -305,42 +305,40 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
                   </span>
                 </div>
                 
-                <Select onValueChange={handleSelectCategory} disabled={formData.categories.length >= 3}>
+                <Select onValueChange={handleSelectCategory} value="" disabled={formData.categories.length >= 3}>
                   <SelectTrigger className="w-full bg-background border-border">
                     <SelectValue placeholder="Browse and add a category..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {Object.keys(groupedCategories).length === 0 ? (
-                      <SelectItem value="loading" disabled>Loading categories...</SelectItem>
-                    ) : (
-                      Object.entries(groupedCategories).map(([groupName, categories]) => (
-                        <SelectGroup key={groupName}>
-                          <SelectLabel className="uppercase tracking-wider text-xs text-primary bg-muted/50 mt-1 first:mt-0 px-2 py-1.5">{groupName}</SelectLabel>
-                          {categories.map(cat => (
-                            <SelectItem 
-                              key={cat.id} 
-                              value={cat.id}
-                              disabled={formData.categories.includes(cat.id)}
-                              className="pl-6"
-                            >
-                              {cat.name}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      ))
-                    )}
+                    {PILLAR_SECTIONS.map((section) => (
+                      <SelectGroup key={section.id}>
+                        <SelectLabel className="uppercase tracking-wider text-xs text-primary bg-muted/50 mt-1 first:mt-0 px-2 py-1.5">
+                          {section.icon} {section.title}
+                        </SelectLabel>
+                        {section.categories.map(cat => (
+                          <SelectItem 
+                            key={cat} 
+                            value={cat}
+                            disabled={formData.categories.includes(cat)}
+                            className="pl-6"
+                          >
+                            {cat}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ))}
                   </SelectContent>
                 </Select>
 
                 {/* Selected Categories Visuals */}
                 {formData.categories.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-3">
-                    {formData.categories.map(catId => (
-                      <Badge key={catId} variant="secondary" className="flex items-center gap-1 py-1 px-2 border-white/10">
-                        {getCategoryName(catId)}
+                    {formData.categories.map(catName => (
+                      <Badge key={catName} variant="secondary" className="flex items-center gap-1 py-1 px-2 border-white/10">
+                        {catName}
                         <button 
                           type="button" 
-                          onClick={(e) => { e.preventDefault(); handleRemoveCategory(catId); }}
+                          onClick={(e) => { e.preventDefault(); handleRemoveCategory(catName); }}
                           className="ml-1 hover:bg-red-500/20 hover:text-red-400 rounded-full p-0.5 transition-colors"
                         >
                           <X className="w-3 h-3" />
@@ -372,7 +370,7 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
           {/* ================= RIGHT COLUMN ================= */}
           <div className="space-y-6">
             
-            {/* 1. Aisle Visibility Toggle - Moved to top! */}
+            {/* 1. Aisle Visibility Toggle */}
             <Card className="border-border bg-card" id="product-visibility">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -496,7 +494,7 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
               </CardContent>
             </Card>
 
-            {/* 4. Performance Stats Card (Restored) */}
+            {/* 4. Performance Stats Card */}
             <Card className="border-border bg-card">
               <CardHeader>
                 <CardTitle className="text-lg">Performance</CardTitle>
