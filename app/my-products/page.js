@@ -44,6 +44,8 @@ function MyProductsInner() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
 
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   // --- NEW: Fetch Real Products from DB ---
   useEffect(() => {
     const fetchProducts = async () => {
@@ -99,7 +101,7 @@ function MyProductsInner() {
     };
 
     fetchProducts();
-  }, []);
+  }, [refreshTrigger]);
   // ----------------------------------------
 
   useEffect(() => {
@@ -110,8 +112,8 @@ function MyProductsInner() {
 
   const filteredProducts = products.filter(product => {
     if (filter === 'all') return true;
-    if (filter === 'published') return product.status === 'live';
-    if (filter === 'draft') return product.status === 'draft';
+    if (filter === 'published') return ['live', 'active'].includes(product.status);
+    if (filter === 'draft') return product.status === 'draft' || product.isDraft === true;
     return true;
   });
 
@@ -136,8 +138,8 @@ function MyProductsInner() {
     if (tutorialStep === 9) {
       setTimeout(() => setTutorialStep(10), 500);
     }
-    // Refresh list after edit
     router.refresh(); 
+    setRefreshTrigger(prev => prev + 1);
   };
 
   const handleTutorialNext = () => {
@@ -265,12 +267,12 @@ function MyProductsInner() {
                     <div className="absolute top-2 right-2">
                       <Badge
                         className={
-                          product.status === 'live'
+                          ['live', 'active'].includes(product.status)
                             ? 'bg-green-500 text-black'
                             : 'bg-yellow-400 text-black'
                         }
                       >
-                        {product.status === 'live' ? 'Published' : 'Draft'}
+                        {['live', 'active'].includes(product.status) ? 'Published' : 'Draft'}
                       </Badge>
                     </div>
 
@@ -284,8 +286,7 @@ function MyProductsInner() {
                       </Badge>
                     </div>
 
-                    {!product.isPublic && product.status === 'live' && (
-                      <div className="absolute top-2 left-2">
+                      {!product.isPublic && ['live', 'active'].includes(product.status) && (                      <div className="absolute top-2 left-2">
                         <Badge className="bg-orange-600">Unlisted</Badge>
                       </div>
                     )}
@@ -359,12 +360,12 @@ function MyProductsInner() {
                           <div className="flex gap-2 self-start">
                             <Badge
                               className={cn(
-                                product.status === 'live'
+                                ['live', 'active'].includes(product.status)
                                   ? 'bg-green-500 text-black'
                                   : 'bg-yellow-400 text-black'
                               )}
                             >
-                              {product.status === 'live' ? 'Published' : 'Draft'}
+                              {['live', 'active'].includes(product.status) ? 'Published' : 'Draft'}
                             </Badge>
                           </div>
                         </div>

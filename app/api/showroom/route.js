@@ -5,9 +5,20 @@ export async function GET() {
   try {
     const { db } = await connectToDatabase();
 
+    // Support both legacy products and new products while strictly excluding drafts
+    const productFilter = {
+      isDraft: { $ne: true }, // Explicitly hide new drafts
+      status: { $ne: 'draft' }, // Hide legacy drafts just in case
+      $or: [
+        { showroomListed: true }, // New product visibility tag
+        { status: { $in: ['live', 'active'] } }, // Legacy visibility tag
+        { isPublic: true } // Standard fallback
+      ]
+    };
+
     // parallel fetch from the three source collections
     const [products, aisles, ipAssets] = await Promise.all([
-      db.collection('products').find({}).toArray(),
+      db.collection('products').find(productFilter).toArray(),
       db.collection('aisles').find({}).toArray(),
       db.collection('ip_assets').find({}).toArray() // FIXED NAME HERE
     ]);

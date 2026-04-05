@@ -10,19 +10,26 @@ export async function GET(request) {
     // ✅ DESTRUCTURE to get db from the returned object
     const { db } = await connectToDatabase();
     
-    // Build filter
+    // Build filter supporting both legacy and new tags, strictly excluding drafts
     const filter = {
-      showroomListed: true,
-      status: 'active',
-      isDraft: { $ne: true }
+      isDraft: { $ne: true },
+      status: { $ne: 'draft' },
+      $or: [
+        { showroomListed: true },
+        { status: { $in: ['live', 'active'] } },
+        { isPublic: true }
+      ]
     };
     
     if (query) {
-      filter.$or = [
-        { title: { $regex: query, $options: 'i' } },
-        { description: { $regex: query, $options: 'i' } },
-        { tags: { $in: [new RegExp(query, 'i')] } }
-      ];
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { title: { $regex: query, $options: 'i' } },
+          { description: { $regex: query, $options: 'i' } },
+          { tags: { $in: [new RegExp(query, 'i')] } }
+        ]
+      });
     }
     
     // Fetch products
