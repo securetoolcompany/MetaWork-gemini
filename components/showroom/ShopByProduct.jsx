@@ -40,16 +40,18 @@ const PILLAR_SECTIONS = [
 ];
 
 export default function ShopByProduct({ 
-  items,
+  items = [],
   activeCategories = [],
-  onCategoryToggle = (category) => {},
+  onCategoryToggle = () => {},
   onClearCategories = () => {}
 }) {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  
+  // Set accessories to TRUE so the filters are visibly open by default!
   const [expandedSections, setExpandedSections] = useState({
-    accessories: false,
+    accessories: false, 
     home: false,
     school: false,
   });
@@ -90,7 +92,7 @@ export default function ShopByProduct({
                 </span>
               ))}
             </div>
-            <button onClick={onClearCategories} className="w-full py-1.5 mt-2 bg-blue-500/10 text-blue-400 rounded text-[11px] font-bold uppercase transition-all">
+            <button onClick={onClearCategories} className="w-full py-1.5 mt-2 bg-blue-500/10 text-blue-400 rounded text-[11px] font-bold uppercase transition-all hover:bg-blue-500/20">
               Reset Filters
             </button>
           </div>
@@ -109,6 +111,7 @@ export default function ShopByProduct({
             </div>
             <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${expandedSections[section.id] ? 'rotate-180' : ''}`} />
           </button>
+          
           {expandedSections[section.id] && (
             <div className="px-2 pb-2 space-y-1">
               {section.categories.map(cat => (
@@ -116,7 +119,7 @@ export default function ShopByProduct({
                   key={cat}
                   onClick={() => onCategoryToggle(cat)}
                   className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-all ${
-                    activeCategories.includes(cat) ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-white/5'
+                    activeCategories.includes(cat) ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-white/5 hover:text-white'
                   }`}
                 >
                   {cat}
@@ -160,11 +163,25 @@ export default function ShopByProduct({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 pb-32">
-          {pageItems.map((product) => (
-            <AisleProductCard key={product.id || product._id} product={product} />
-          ))}
-        </div>
+        {pageItems.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6 pb-32">
+            {pageItems.map((product) => (
+              <AisleProductCard key={product.id || product._id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-32 text-center border-2 border-dashed border-white/10 rounded-2xl bg-slate-900/30">
+            <Filter className="w-12 h-12 text-slate-600 mb-4" />
+            <h3 className="text-lg font-bold text-white">No products found</h3>
+            <p className="text-slate-400 text-sm mt-2 max-w-sm">Try adjusting your category filters or search query to find what you're looking for.</p>
+            <button 
+              onClick={() => { setSearchQuery(''); onClearCategories(); }}
+              className="mt-6 px-6 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-semibold transition-colors"
+            >
+              Clear all filters
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Mobile Drawer */}
@@ -177,13 +194,17 @@ export default function ShopByProduct({
                 <Filter className="w-4 h-4 text-blue-400" />
                 <h2 className="text-sm font-bold uppercase tracking-widest text-white">Product Filters</h2>
               </div>
-              <button onClick={() => setIsFilterDrawerOpen(false)} className="p-2 hover:bg-white/10 rounded-full"><X className="w-5 h-5 text-slate-400" /></button>
+              <button onClick={() => setIsFilterDrawerOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 pb-32">
               <FilterContent />
             </div>
             <div className="absolute bottom-0 left-0 right-0 p-4 bg-[#020617] border-t border-white/10">
-              <button onClick={() => setIsFilterDrawerOpen(false)} className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold uppercase text-xs">Show {filteredItems.length} Products</button>
+              <button onClick={() => setIsFilterDrawerOpen(false)} className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold uppercase text-xs transition-colors">
+                Show {filteredItems.length} Products
+              </button>
             </div>
           </div>
         </div>

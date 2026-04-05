@@ -21,38 +21,12 @@ import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-// The exact categories used by the Showroom to ensure proper filtering
-const PILLAR_SECTIONS = [
-  {
-    id: 'accessories',
-    title: 'Accessories & Apparel',
-    icon: '🎽',
-    categories: [
-      'Accessories', 'Activewear', 'Backpacks', 'Clothing', 'Combat Sports',
-      'Dresses, Skirts & Blouses', 'Embroidered Patches', 'Fightwear',
-      'Fitness & Sports', 'Formalwear', 'Gym Bags', 'Gymwear', 'Headwear',
-      'Hoodies', 'Jersey', 'Pants and Shorts', 'Patches', 'Phone Cases',
-      'Purses & Tote Bags', 'Rash Guards', 'Schoolwear', 'Shirts', 'Shoes',
-      'Sleepwear', 'Streetwear', 'Swimwear',
-    ]
-  },
-  {
-    id: 'home',
-    title: 'Home & Office',
-    icon: '🏠',
-    categories: [
-      'Bathroom', 'Bedroom', 'Blankets', 'Computers', 'Drinkware',
-      'Home Decor', 'Kitchen', 'Magnets & Stickers', 'Office', 'Pets',
-      'Pillows & Cases', 'Posters & Wall Art', 'Sitting Room', 'Tech',
-    ]
-  },
-  {
-    id: 'school',
-    title: 'School & University',
-    icon: '🎓',
-    categories: ['Backpacks', 'School', 'Schoolwear']
-  }
-];
+const CATEGORY_UI_MAP = {
+  'accessories': { title: 'Accessories & Apparel', icon: '🎽' },
+  'home': { title: 'Home & Office', icon: '🏠' },
+  'school': { title: 'School & University', icon: '🎓' },
+  'default': { title: 'Other Categories', icon: '📦' }
+};
 
 export default function ProductEditDialog({ product, open, onOpenChange, tutorialStep, onSaveSuccess }) {
   const [formData, setFormData] = useState({
@@ -67,7 +41,39 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+  
+  const [groupedCategories, setGroupedCategories] = useState({});
+  const [isFetchingCategories, setIsFetchingCategories] = useState(false);
 
+  useEffect(() => {
+    if (open) {
+      const fetchCategories = async () => {
+        setIsFetchingCategories(true);
+        try {
+          const res = await fetch('/api/admin/categories?includeInactive=true'); 
+          const data = await res.json();
+          if (data.success && data.categories) {
+            
+            // Group the database categories by their "type" (accessories, home, etc.)
+            const grouped = data.categories.reduce((acc, cat) => {
+              const groupKey = cat.type || 'default';
+              if (!acc[groupKey]) acc[groupKey] = [];
+              acc[groupKey].push(cat.name); // We extract just the name string so it saves properly
+              return acc;
+            }, {});
+            
+            setGroupedCategories(grouped);
+          }
+        } catch (error) {
+          console.error('Failed to load categories:', error);
+        } finally {
+          setIsFetchingCategories(false);
+        }
+      };
+      fetchCategories();
+    }
+  }, [open]);
+  
   useEffect(() => {
     if (product) {
       const isProductLive = product.isPublic ?? product.isVisible ?? (product.status === 'live') ?? true;
@@ -310,23 +316,32 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
                     <SelectValue placeholder="Browse and add a category..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {PILLAR_SECTIONS.map((section) => (
-                      <SelectGroup key={section.id}>
-                        <SelectLabel className="uppercase tracking-wider text-xs text-primary bg-muted/50 mt-1 first:mt-0 px-2 py-1.5">
-                          {section.icon} {section.title}
-                        </SelectLabel>
-                        {section.categories.map(cat => (
-                          <SelectItem 
-                            key={cat} 
-                            value={cat}
-                            disabled={formData.categories.includes(cat)}
-                            className="pl-6"
-                          >
-                            {cat}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
+                    {isFetchingCategories ? (
+                      <SelectItem value="loading" disabled>Loading categories...</SelectItem>
+                    ) : Object.keys(groupedCategories).length === 0 ? (
+                      <SelectItem value="empty" disabled>No categories configured</SelectItem>
+                    ) : (
+                      Object.entries(groupedCategories).map(([groupKey, categories]) => {
+                        const ui = CATEGORY_UI_MAP[groupKey] || CATEGORY_UI_MAP['default'];
+                        return (
+                          <SelectGroup key={groupKey}>
+                            <SelectLabel className="uppercase tracking-wider text-xs text-primary bg-muted/50 mt-1 first:mt-0 px-2 py-1.5">
+                              {ui.icon} {ui.title}
+                            </SelectLabel>
+                            {categories.map(catName => (
+                              <SelectItem 
+                                key={catName} 
+                                value={catName}
+                                disabled={formData.categories.includes(catName)}
+                                className="pl-6"
+                              >
+                                {catName}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        );
+                      })
+                    )}
                   </SelectContent>
                 </Select>
 

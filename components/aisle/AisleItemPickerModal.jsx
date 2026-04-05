@@ -47,8 +47,7 @@ export default function AisleItemPickerModal({
     setData([]);
     try {
       let endpoint = '';
-      // Map tabs to your existing API routes
-      if (tab === 'products') endpoint = '/api/products'; 
+      if (tab === 'products') endpoint = '/api/products?includeDrafts=true&allOwned=true'; 
       if (tab === 'ip') endpoint = '/api/ip/my-library';
       if (tab === 'collections') endpoint = '/api/collections';
       if (tab === 'community') endpoint = '/api/showroom/products?community=true'; // Adjust query param if needed

@@ -90,11 +90,15 @@ export async function GET(request, { params }) {
     }
 
     const mergedProduct = {
-      ...localProduct,
-      ...(pfData?.result?.product ?? {}),
+      ...(pfData?.result?.product ?? {}), // Printful data (lowest priority)
+      ...localProduct,                    // Local DB data (overwrites Printful)
       variants: pfData?.result?.variants ?? [],
       lastUpdated: new Date().toISOString(),
     };
+
+    if (localProduct.price) {
+        mergedProduct.price = parseFloat(localProduct.price);
+    }
 
     return NextResponse.json({ success: true, product: mergedProduct });
   } catch (e) {

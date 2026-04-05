@@ -25,6 +25,8 @@ export async function GET(request) {
             { description: searchRegex },
             { categories: searchRegex },
           ],
+          isDraft: { $ne: true },
+          status: 'active'
         })
         .limit(10)
         .project({ _id: 1, title: 1, slug: 1, creatorId: 1 })

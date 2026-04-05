@@ -13,7 +13,8 @@ export async function GET(request) {
     // Build filter
     const filter = {
       showroomListed: true,
-      status: 'active'
+      status: 'active',
+      isDraft: { $ne: true }
     };
     
     if (query) {

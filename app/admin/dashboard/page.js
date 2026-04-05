@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import CategoryManager from '@/components/admin/CategoryManager'; // Ensure this path is correct
+import CategoryManager from '@/components/admin/CategoryManager';
 
 export default function AdminDashboard() {
   return (
@@ -23,18 +23,9 @@ export default function AdminDashboard() {
           <TabsTrigger value="branding">Branding</TabsTrigger>
         </TabsList>
 
-        {/* CATEGORIES MANAGEMENT TAB */}
-        <TabsContent value="categories" className="mt-8 space-y-6">
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <CategoryManager type="ip" title="IP Asset" />
-            <CategoryManager type="product" title="Product" />
-            <CategoryManager type="aisle" title="Aisle" />
-          </div>
-          <Card className="bg-slate-900/30 border-white/5">
-             <CardContent className="p-4 text-xs text-slate-500 italic">
-               Note: Deleting a category will remove it from the global selection list but will not delete items currently assigned to it.
-             </CardContent>
-          </Card>
+        {/* UNIFIED CATEGORIES MANAGEMENT TAB */}
+        <TabsContent value="categories" className="mt-8">
+          <CategoryManager />
         </TabsContent>
 
         <TabsContent value="ads" className="mt-8 space-y-6">

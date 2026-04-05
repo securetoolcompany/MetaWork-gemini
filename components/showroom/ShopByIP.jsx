@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Search, X, Filter, ChevronDown } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import AisleIPAssetCard from '@/components/aisle-public/AisleIPAssetCard';
@@ -11,25 +11,25 @@ const IP_FILTER_GROUPS = [
   {
     id: 'type',
     title: 'Asset Type',
-    icon: '💎',
+    icon: '📦',
     options: ['Illustration', 'Logo & Icon', 'Pattern & Texture', 'Typography', '3D Model', 'Photography'],
   },
   {
     id: 'style',
     title: 'Visual Style',
-    icon: '🎨',
+    icon: '✨',
     options: ['Anime & Manga', 'Cyberpunk', 'Minimalist', 'Vintage & Retro', 'Street Art', 'Realistic', 'Cartoon'],
   },
   {
     id: 'usage',
     title: 'Best For',
-    icon: '🚀',
+    icon: '🎯',
     options: ['Merch Designs', 'Social Media', 'Game Assets', 'Apparel Print', 'Brand Identity'],
   },
   {
     id: 'theme',
     title: 'Theme',
-    icon: '🎭',
+    icon: '🌌',
     options: ['Esports & Gaming', 'Nature & Wildlife', 'Sci-Fi & Fantasy', 'Spiritual', 'Corporate'],
   },
 ];
@@ -51,12 +51,13 @@ export default function ShopByIP({
   });
 
   const isMobile = useIsMobile();
+  const gridRef = useRef(null);
 
   const toggleGroup = (id) => {
     setExpandedGroups(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // Filter Logic matching the original high-quality structure
+  // Filter Logic
   const filteredItems = useMemo(() => {
     return items.filter(item => {
       // 1. Search Match
@@ -88,7 +89,8 @@ export default function ShopByIP({
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
   const pageItems = filteredItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
-  // Shared Filter UI Component
+  useEffect(() => { setPage(1); }, [filters, searchQuery]);
+
   const FilterContent = () => (
     <div className="space-y-6">
       {/* Active Filter Status Widget */}
@@ -112,7 +114,9 @@ export default function ShopByIP({
                     {activeValues.map((val) => (
                       <span key={`${groupId}-${val}`} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 rounded text-[10px] text-blue-200 border border-blue-500/20">
                         {val}
-                        <button onClick={() => onToggleFilter(groupId, val)} className="hover:text-white">✕</button>
+                        <button onClick={() => onToggleFilter(groupId, val)} className="hover:text-white hover:bg-blue-500/30 rounded-full p-0.5 transition-colors ml-1">
+                          <X className="w-3 h-3" />
+                        </button>
                       </span>
                     ))}
                   </div>
@@ -150,8 +154,8 @@ export default function ShopByIP({
                     onClick={() => onToggleFilter(group.id, opt)}
                     className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-all ${
                       isActive 
-                      ? 'bg-blue-600 text-white shadow-lg font-semibold' 
-                      : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+                      ? 'bg-blue-600 text-white font-semibold' 
+                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
                     }`}
                   >
                     {opt}
@@ -166,9 +170,8 @@ export default function ShopByIP({
   );
 
   return (
-    <div className="flex flex-col md:flex-row gap-6 relative px-4 md:px-0">
+    <div className="flex flex-col md:flex-row gap-6 relative px-4 md:px-0" ref={gridRef}>
       
-      {/* Mobile Filter Toggle Button */}
       {isMobile && (
         <button
           onClick={() => setIsFilterDrawerOpen(true)}
@@ -181,12 +184,10 @@ export default function ShopByIP({
         </button>
       )}
 
-      {/* Desktop Sidebar */}
       <aside className="hidden md:block w-64 flex-shrink-0 sticky top-24 self-start max-h-[calc(100vh-12rem)] overflow-y-auto pb-20 scrollbar-hide">
         <FilterContent />
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 min-w-0">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
           <div>
@@ -208,9 +209,14 @@ export default function ShopByIP({
 
         {filteredItems.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center text-center bg-slate-900/20 rounded-2xl border border-dashed border-white/10">
-            <div className="text-4xl mb-4 text-slate-600">🎨</div>
+            <div className="text-4xl mb-4 text-slate-600">📦</div>
             <h3 className="text-lg font-medium text-white">No IP assets found</h3>
             <p className="text-slate-500 text-sm">Try adjusting your search or resetting filters</p>
+            {hasActiveFilters && (
+              <button onClick={onClearAll} className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-semibold transition-colors">
+                Clear all filters
+              </button>
+            )}
           </div>
         ) : (
           <div className="pb-32">
@@ -223,7 +229,6 @@ export default function ShopByIP({
         )}
       </main>
 
-      {/* Mobile Drawer Overlay */}
       {isMobile && isFilterDrawerOpen && (
         <div className="fixed inset-0 z-[60] flex justify-end">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsFilterDrawerOpen(false)} />
@@ -241,7 +246,7 @@ export default function ShopByIP({
               <FilterContent />
             </div>
             <div className="absolute bottom-0 left-0 right-0 p-4 bg-[#020617] border-t border-white/10">
-              <button onClick={() => setIsFilterDrawerOpen(false)} className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold uppercase text-xs">
+              <button onClick={() => setIsFilterDrawerOpen(false)} className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold uppercase text-xs hover:bg-blue-500 transition-colors">
                 Show {filteredItems.length} Assets
               </button>
             </div>
@@ -249,12 +254,11 @@ export default function ShopByIP({
         </div>
       )}
 
-      {/* Shared Pagination Bar */}
       {totalPages > 1 && (
         <div className="fixed bottom-0 left-0 right-0 bg-[#020617] border-t border-white/10 py-4 z-20">
           <div className="container mx-auto px-6 md:ml-64 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
             <span className="text-gray-400 font-medium">
-              Showing {(page - 1) * ITEMS_PER_PAGE + 1}–{Math.min(page * ITEMS_PER_PAGE, filteredItems.length)} of {filteredItems.length}
+              Showing {(page - 1) * ITEMS_PER_PAGE + 1} - {Math.min(page * ITEMS_PER_PAGE, filteredItems.length)} of {filteredItems.length}
             </span>
             <div className="flex items-center gap-2">
               <button
