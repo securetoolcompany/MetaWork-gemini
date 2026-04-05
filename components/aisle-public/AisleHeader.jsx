@@ -60,6 +60,17 @@ export default function AisleHeader({ creator, settings: propSettings }) {
               {locationStr && <span className="flex items-center gap-2"><MapPin className="w-4 h-4 text-slate-500" />{locationStr}</span>}
               {settings?.email && <span className="flex items-center gap-2"><Mail className="w-4 h-4 text-slate-500" />{settings.email}</span>}
               {settings?.phone && <span className="flex items-center gap-2"><Phone className="w-4 h-4 text-slate-500" />{settings.phone}</span>}
+              {settings?.website && (
+                <a 
+                  href={settings.website.startsWith('http') ? settings.website : `https://${settings.website}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="flex items-center gap-2 hover:text-white transition-colors"
+                >
+                  <Globe className="w-4 h-4 text-slate-500" />
+                  {settings.website}
+                </a>
+              )}
               
               {/* FIX: Ensure Social Links ignore empty strings */}
               {settings?.socialLinks && Object.entries(settings.socialLinks).map(([platform, url]) => {

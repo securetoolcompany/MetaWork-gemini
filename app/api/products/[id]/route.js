@@ -47,20 +47,29 @@ export async function GET(request, { params }) {
       return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
     }
 
-    // FIX: Extract raw images and ensure we have at least one fallback image if the arrays are empty
     let rawImages = product.mockupImages || product.images || [];
     if (rawImages.length === 0) {
       const fallbackImg = product.mockupUrl || product.imageUrl || product.thumbnailUrl;
       if (fallbackImg) rawImages = [fallbackImg];
     }
 
-    // Normalize product ID and ensure ALL images are normalized so next/image doesn't crash
+    let allImages = [];
+    if (Array.isArray(product.images)) allImages.push(...product.images);
+    if (Array.isArray(product.mockupImages)) allImages.push(...product.mockupImages);
+    if (Array.isArray(product.mockupUrls)) allImages.push(...product.mockupUrls); // ✅ Catches the newly linked mockups!
+    if (product.mockupUrl) allImages.push(product.mockupUrl);
+    if (product.imageUrl) allImages.push(product.imageUrl);
+    if (product.thumbnailUrl) allImages.push(product.thumbnailUrl);
+
+    const uniqueImages = [...new Set(allImages.filter(Boolean))];
+
     const normalizedProduct = {
-      ...product,
-      id: product.id || product._id?.toString(),
-      _id: product._id?.toString(),
-      imageUrl: getProductImageUrl(product),
-      images: rawImages.map(normalizeImageUrl).filter(Boolean)
+        ...product,
+        id: product._id.toString(),
+        name: product.title || product.name,
+        images: uniqueImages, 
+        imageUrl: uniqueImages[0] || null,
+        mockupUrl: uniqueImages[0] || null
     };
 
 let creator = null;
@@ -123,12 +132,10 @@ export async function PATCH(request, { params }) {
       return NextResponse.json({ success: false, error: 'ID required' }, { status: 400 });
     }
 
-    // Determine query filter (handle both raw ObjectId and string ID)
     const filter = isValidObjectId(id) 
       ? { $or: [{ _id: new ObjectId(id) }, { id: id }] }
       : { id: id };
 
-    // Perform the update
     const result = await db.collection('products').updateOne(
       filter,
       { 
@@ -156,7 +163,6 @@ export async function PATCH(request, { params }) {
       }
     }
 
-    // Return success (no duplicate check)
     return NextResponse.json({ 
       success: true, 
       message: 'Product updated successfully',
