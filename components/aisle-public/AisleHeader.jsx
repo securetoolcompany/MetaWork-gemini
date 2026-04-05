@@ -26,7 +26,12 @@ export default function AisleHeader({ creator, settings: propSettings }) {
         {banner ? (
           <img src={banner} alt="Banner" className="w-full h-full object-cover absolute inset-0" />
         ) : (
-          <div className="w-full h-full bg-gradient-to-r from-slate-800 to-slate-950" />
+          <div 
+            className="w-full h-full absolute inset-0" 
+            style={{ 
+              backgroundImage: `linear-gradient(135deg, ${accentColor}80 0%, ${accentColor}20 100%)` 
+            }} 
+          />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
       </div>

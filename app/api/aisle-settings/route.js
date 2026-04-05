@@ -1,8 +1,19 @@
-// app/api/aisle-settings/route.js
-
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
+import { ObjectId } from 'mongodb'; // ✅ Import ObjectId
+
+// ✅ Force Next.js to NEVER cache this route
+export const dynamic = 'force-dynamic';
+
+// Helper to safely convert ID to ObjectId if needed
+const getSafeId = (id) => {
+  try {
+    return new ObjectId(id);
+  } catch (e) {
+    return id; // Fallback if your DB actually uses string IDs
+  }
+};
 
 export async function GET(request) {
   try {
@@ -12,8 +23,10 @@ export async function GET(request) {
     const decoded = verifyToken(token);
     const { db } = await connectToDatabase();
     
+    const userId = getSafeId(decoded.userId); // ✅ Convert to ObjectId
+
     const user = await db.collection('users').findOne(
-      { _id: decoded.userId },
+      { _id: userId }, // ✅ Safe query
       { projection: { aisleSettings: 1, 'profile.displayName': 1, username: 1, collections: 1 } }
     );
     
@@ -36,8 +49,6 @@ export async function GET(request) {
 
     const standardizedCollections = (user.collections || []).map(col => ({
       ...col,
-      // MongoDB might use _id, or it might be a legacy object with id. 
-      // This ensures 'id' is always a string.
       id: col.id?.toString() || col._id?.toString() || Math.random().toString(36).substr(2, 9),
       active: col.active !== false 
     }));
@@ -45,7 +56,7 @@ export async function GET(request) {
     return NextResponse.json({ 
       success: true, 
       aisleSettings: user.aisleSettings || {},
-      collections: standardizedCollections, // Use the standardized version
+      collections: standardizedCollections,
       products: products.map(p => ({ ...p, id: p._id.toString() })),
       ipAssets: ipAssets.map(ip => ({ ...ip, id: ip._id.toString() })),
       user: { name: user.profile?.displayName, username: user.username }
@@ -64,9 +75,9 @@ export async function PUT(request) {
     const decoded = verifyToken(token);
     const { aisleSettings, collections } = await request.json();
     const { db } = await connectToDatabase();
+    
+    const userId = getSafeId(decoded.userId); // ✅ Convert to ObjectId
 
-    // FIX: Ensure every collection being saved has an 'active' status 
-    // and that productIds are stored as strings to prevent matching issues.
     const collectionsToSave = (collections || []).map(col => ({
       ...col,
       active: col.active !== undefined ? col.active : true,
@@ -74,7 +85,7 @@ export async function PUT(request) {
     }));
 
     const result = await db.collection('users').updateOne(
-      { _id: decoded.userId },
+      { _id: userId }, // ✅ Safe query
       { 
         $set: { 
           aisleSettings: aisleSettings,
@@ -85,7 +96,7 @@ export async function PUT(request) {
     );
 
     if (result.matchedCount === 0) {
-      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'User not found or ID mismatch' }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, message: 'Settings updated successfully' });

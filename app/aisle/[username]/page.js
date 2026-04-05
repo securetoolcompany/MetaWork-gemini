@@ -14,6 +14,13 @@ export default function PublicAislePage() {
 
   useEffect(() => {
     async function fetchAisle() {
+      // ✅ Intercept the "undefined" string right away
+      if (!username || username === 'undefined') {
+        setError('Invalid Aisle URL. The creator has not set up their custom link yet.');
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         const res = await fetch(`/api/aisle/${username}`);

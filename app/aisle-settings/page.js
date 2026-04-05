@@ -36,14 +36,21 @@ export default function AisleSettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch('/api/aisle-settings');
+      // ✅ Added cache-busting options here
+      const res = await fetch('/api/aisle-settings', {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       const data = await res.json();
       
       if (data.success) {
         setSettings(prev => ({ 
           ...prev, 
           ...data.aisleSettings,
-          slug: data.aisleSettings.slug || data.user?.username
+          slug: data.aisleSettings?.slug || data.user?.username
         }));
         setCollections(data.collections || []);
         setProducts(data.products || []);
@@ -153,7 +160,14 @@ export default function AisleSettingsPage() {
           {/* UPDATED VIEW BUTTON */}
           <Button 
             variant="outline" 
-            onClick={() => window.open(`/aisle/${settings.slug || user?.username}`, '_blank')}
+            onClick={() => {
+              const viewSlug = settings?.slug || user?.username;
+              if (!viewSlug || viewSlug === 'undefined') {
+                toast.error('Please enter and save a Custom URL Slug first!');
+                return;
+              }
+              window.open(`/aisle/${viewSlug}`, '_blank');
+            }}
             className="flex-1 md:flex-none h-11 md:h-10"
           >
             <ExternalLink className="w-4 h-4 mr-2" /> View Public Aisle

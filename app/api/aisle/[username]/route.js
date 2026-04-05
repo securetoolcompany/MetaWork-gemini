@@ -20,8 +20,6 @@ export async function GET(request, { params }) {
 
     const creatorId = creator._id.toString();
     
-    // FIX: Create a robust list of possible ID formats (String and ObjectId) 
-    // to match against creatorId, userId, or ownerId in other collections.
     const idList = [creatorId];
     if (ObjectId.isValid(creatorId)) {
       idList.push(new ObjectId(creatorId));
@@ -34,7 +32,9 @@ export async function GET(request, { params }) {
       db.collection('products').find({
         $and: [
           { $or: [{ creatorId: { $in: idList } }, { userId: { $in: idList } }] },
-          { status: 'live' }
+          { isDraft: false },
+          { isPublic: true },
+          { status: { $in: ['active', 'live'] } } // ✅ Now accepts 'active' products!
         ]
       }).toArray(),
       db.collection('ip_assets').find({

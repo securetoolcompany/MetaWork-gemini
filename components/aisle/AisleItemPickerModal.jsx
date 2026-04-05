@@ -47,15 +47,22 @@ export default function AisleItemPickerModal({
     setData([]);
     try {
       let endpoint = '';
-      if (tab === 'products') endpoint = '/api/products?includeDrafts=true&allOwned=true'; 
-      if (tab === 'ip') endpoint = '/api/ip/my-library';
+      // 1. Updated endpoints with higher limits to bypass pagination cutoff
+      if (tab === 'products') endpoint = '/api/products?includeDrafts=true&allOwned=true&limit=1000'; 
+      if (tab === 'ip') endpoint = '/api/ip/my-library?limit=1000';
       if (tab === 'collections') endpoint = '/api/collections';
-      if (tab === 'community') endpoint = '/api/showroom/products?community=true'; // Adjust query param if needed
+      if (tab === 'community') endpoint = '/api/showroom/products?community=true&limit=100';
 
-      const res = await fetch(endpoint);
+      // 2. THIS IS WHERE YOUR CODE GOES:
+      const res = await fetch(endpoint, {
+        cache: 'no-store', // Prevents Next.js Data Cache
+        headers: {
+          'Cache-Control': 'no-cache', // Prevents browser caching
+          'Pragma': 'no-cache'         // Legacy support for older browsers
+        }
+      });
       const result = await res.json();
       
-      // Safely extract the array based on your standard API responses
       const items = result.products || result.ipAssets || result.collections || result.data || [];
       setData(items);
     } catch (error) {
