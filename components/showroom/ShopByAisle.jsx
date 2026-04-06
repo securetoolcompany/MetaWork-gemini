@@ -14,6 +14,18 @@ const AISLE_FILTER_GROUPS = [
   { id: 'useCase', title: 'Use Case / Service', icon: '🧩', options: ['Logo & Brand Assets', 'Mascots & Characters', 'Twitch & Stream Overlays', 'Social Media Content Packs', 'Merch‑Ready Designs', 'Commission Slots', 'Corporate Illustration', 'Album & Cover Art', 'Book & Editorial Illustration', 'Icons & UI Assets', 'Backgrounds & Environments', 'Photography Packs'] },
 ];
 
+// Shuffle Helper
+const shuffleWithSeed = (array, seed) => {
+  let m = array.length, t, i;
+  while (m) {
+    i = Math.floor(Math.abs(Math.sin(seed++)) * m--);
+    t = array[m];
+    array[m] = array[i];
+    array[i] = t;
+  }
+  return array;
+};
+
 export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, onClearAll }) {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,11 +35,12 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
   const isMobile = useIsMobile();
   const gridRef = useRef(null);
 
+  // Discovery Seed
+  const sessionSeed = useMemo(() => Math.floor(Math.random() * 10000), []);
+
   const filteredItems = useMemo(() => {
-    return items.filter(aisle => {
-      // 1. ROBUST SEARCH LOGIC
-      // We use Optional Chaining (?.) and fallback to empty strings ('') 
-      // to ensure .toLowerCase() never runs on a null/undefined value.
+    const validItems = items.filter(aisle => {
+      // 1. Search Logic
       const searchStr = searchQuery.trim().toLowerCase();
       const matchesSearch = !searchStr || 
         (aisle?.username || '').toLowerCase().includes(searchStr) || 
@@ -36,7 +49,7 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
       
       if (!matchesSearch) return false;
 
-      // 2. FILTER LOGIC
+      // 2. Filter Logic
       return Object.keys(filters).every(groupId => {
         if (!filters[groupId] || filters[groupId].length === 0) return true;
         
@@ -54,11 +67,12 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
         return filters[groupId].some(val => itemValues.includes(val.toLowerCase()));
       });
     });
-  }, [items, searchQuery, filters]);
+
+    // Randomize for discovery (No image requirements)
+    return shuffleWithSeed([...validItems], sessionSeed);
+  }, [items, searchQuery, filters, sessionSeed]);
 
   const hasActiveFilters = Object.values(filters).some(group => group && group.length > 0);
-  
-  // PAGINATION MATH FIX
   const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE) || 0;
   const pageItems = filteredItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
@@ -79,14 +93,16 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
           <div className="space-y-3">
             {Object.keys(filters).map(groupId => {
               if (!filters[groupId]?.length) return null;
-              return filters[groupId].map(val => (
-                <span key={`${groupId}-${val}`} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 rounded text-[10px] text-blue-200 border border-blue-500/20 mr-1 mb-1">
-                  {val} 
-                  <button onClick={() => onToggleFilter(groupId, val)} className="hover:text-white hover:bg-blue-500/30 rounded-full p-0.5 transition-colors ml-1">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ));
+              return (
+                <div key={groupId} className="flex flex-wrap gap-1">
+                  {filters[groupId].map(val => (
+                    <span key={`${groupId}-${val}`} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 rounded text-[10px] text-blue-200 border border-blue-500/20">
+                      {val} 
+                      <button onClick={() => onToggleFilter(groupId, val)} className="hover:text-white ml-1">✕</button>
+                    </span>
+                  ))}
+                </div>
+              );
             })}
             <button onClick={onClearAll} className="w-full py-1.5 mt-2 bg-blue-500/10 text-blue-400 rounded text-[11px] font-bold uppercase transition-all hover:bg-blue-500/20">
               Reset All Filters
@@ -104,7 +120,6 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
             </div>
             <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${expandedGroups[group.id] ? 'rotate-180' : ''}`} />
           </button>
-          
           {expandedGroups[group.id] && (
             <div className="px-2 pb-2 space-y-1">
               {group.options.map(opt => (
@@ -130,7 +145,7 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
       {isMobile && (
         <button onClick={() => setIsFilterDrawerOpen(true)} className="fixed bottom-24 right-6 z-50 flex items-center gap-2 bg-blue-600 text-white px-4 py-3 rounded-full shadow-2xl transition-transform active:scale-95">
           <Filter className="w-5 h-5" />
-          <span className="text-sm font-bold uppercase">Filters {hasActiveFilters && `(${Object.values(filters).flat().length})`}</span>
+          <span className="text-sm font-bold uppercase">Filters ({Object.values(filters).flat().length})</span>
         </button>
       )}
 
@@ -162,12 +177,7 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
             <h3 className="text-lg font-medium text-white">No Aisles found</h3>
             <p className="text-slate-500 text-sm mt-2 max-w-sm">Try adjusting your search or resetting filters</p>
             {(hasActiveFilters || searchQuery) && (
-              <button 
-                onClick={() => { setSearchQuery(''); onClearAll(); }} 
-                className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-semibold transition-colors"
-              >
-                Clear all
-              </button>
+              <button onClick={() => { setSearchQuery(''); onClearAll(); }} className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-semibold transition-colors">Clear all</button>
             )}
           </div>
         ) : (
@@ -198,7 +208,7 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
         </div>
       )}
 
-      {/* FIXED PAGINATION BAR */}
+      {/* Pagination Bar */}
       {totalPages > 1 && (
         <div className="fixed bottom-0 left-0 right-0 bg-[#020617] border-t border-white/10 py-4 z-20">
           <div className="container mx-auto px-6 md:ml-64 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
@@ -207,22 +217,14 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
             </span>
             <div className="flex items-center gap-2">
               <button onClick={() => handlePageChange(Math.max(1, page - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-md border border-white/20 text-gray-200 disabled:opacity-30 hover:bg-white/5 transition-all">Previous</button>
-              
               <div className="flex items-center gap-1">
                 {[...Array(totalPages)].map((_, i) => {
                   const pNum = i + 1;
                   return (
-                    <button
-                      key={pNum}
-                      onClick={() => handlePageChange(pNum)}
-                      className={`w-8 h-8 rounded-md border transition-all ${page === pNum ? 'bg-blue-600 border-blue-500 text-white' : 'border-white/10 text-gray-400 hover:bg-white/5'}`}
-                    >
-                      {pNum}
-                    </button>
+                    <button key={pNum} onClick={() => handlePageChange(pNum)} className={`w-8 h-8 rounded-md border transition-all ${page === pNum ? 'bg-blue-600 border-blue-500 text-white' : 'border-white/10 text-gray-400 hover:bg-white/5'}`}>{pNum}</button>
                   );
                 })}
               </div>
-
               <button onClick={() => handlePageChange(Math.min(totalPages, page + 1))} disabled={page === totalPages} className="px-3 py-1.5 rounded-md border border-white/20 text-gray-200 disabled:opacity-30 hover:bg-white/5 transition-all">Next</button>
             </div>
           </div>
