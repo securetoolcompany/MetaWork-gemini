@@ -49,7 +49,6 @@ export default function ShopByProduct({
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   
-  // Set accessories to TRUE so the filters are visibly open by default!
   const [expandedSections, setExpandedSections] = useState({
     accessories: false, 
     home: false,
@@ -76,6 +75,12 @@ export default function ShopByProduct({
 
   useEffect(() => { setPage(1); }, [activeCategories, searchQuery]);
 
+  // Scroll to top of results when page changes
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const FilterContent = () => (
     <div className="space-y-6">
       <div className="bg-slate-900/50 rounded-lg p-4 border border-white/10">
@@ -88,7 +93,7 @@ export default function ShopByProduct({
               {activeCategories.map((val) => (
                 <span key={val} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 rounded text-[10px] text-blue-200 border border-blue-500/20">
                   {val}
-                  <button onClick={() => onCategoryToggle(val)} className="hover:text-white">✕</button>
+                  <button onClick={() => onCategoryToggle(val)} className="hover:text-white ml-1">✕</button>
                 </span>
               ))}
             </div>
@@ -204,6 +209,58 @@ export default function ShopByProduct({
             <div className="absolute bottom-0 left-0 right-0 p-4 bg-[#020617] border-t border-white/10">
               <button onClick={() => setIsFilterDrawerOpen(false)} className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold uppercase text-xs transition-colors">
                 Show {filteredItems.length} Products
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination Bar */}
+      {totalPages > 1 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-[#020617] border-t border-white/10 py-4 z-20">
+          <div className="container mx-auto px-6 md:ml-64 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+            <span className="text-gray-400 font-medium">
+              Showing {(page - 1) * ITEMS_PER_PAGE + 1} - {Math.min(page * ITEMS_PER_PAGE, filteredItems.length)} of {filteredItems.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => handlePageChange(Math.max(1, page - 1))} 
+                disabled={page === 1} 
+                className="px-3 py-1.5 rounded-md border border-white/20 text-gray-200 disabled:opacity-30 hover:bg-white/5 transition-all"
+              >
+                Previous
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {[...Array(totalPages)].map((_, i) => {
+                  const pageNum = i + 1;
+                  if (totalPages > 5 && Math.abs(pageNum - page) > 1 && pageNum !== 1 && pageNum !== totalPages) {
+                    if (Math.abs(pageNum - page) === 2) return <span key={pageNum} className="text-slate-600 px-1">...</span>;
+                    return null;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`w-8 h-8 rounded-md border transition-all ${
+                        page === pageNum 
+                          ? 'bg-blue-600 border-blue-500 text-white' 
+                          : 'border-white/10 text-gray-400 hover:bg-white/5'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button 
+                onClick={() => handlePageChange(Math.min(totalPages, page + 1))} 
+                disabled={page === totalPages} 
+                className="px-3 py-1.5 rounded-md border border-white/20 text-gray-200 disabled:opacity-30 hover:bg-white/5 transition-all"
+              >
+                Next
               </button>
             </div>
           </div>

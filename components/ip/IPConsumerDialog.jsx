@@ -1,9 +1,12 @@
+'use client';
+
 import React from 'react';
+import { useRouter, usePathname } from 'next/navigation'; // Added usePathname
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { ShareButton } from '@/components/ui/share-button'; // Added Import
+import { ShareButton } from '@/components/ui/share-button';
 import { 
   User, 
   MapPin, 
@@ -23,8 +26,27 @@ import {
 } from 'lucide-react';
 
 export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
+  const router = useRouter();
+  const pathname = usePathname(); // Detect where the user is
+
   if (!ip) return null;
 
+  // Check if we are currently on the creator page
+  const isInsideCreator = pathname.includes('/products/creator');
+
+  const handleAction = () => {
+    if (isInsideCreator && onSelect) {
+      // SCENARIO 1: User is in the Library Panel of the Creator
+      // Apply the art directly to the canvas and close the dialog
+      onSelect(ip);
+    } else {
+      // SCENARIO 2: User is in the Marketplace/Aisle
+      // Send them to the creator with this IP pre-selected
+      router.push(`/products/creator?ipId=${ip.id || ip._id}`);
+    }
+  }; 
+  
+  
   // Calculate stats
   const usageCount = ip.usageCount || 0;
   const totalRevenue = ip.totalRevenue || 0;
@@ -32,8 +54,7 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
   const viewCount = ip.viewCount || 0;
 
   return (
-    <div className="flex flex-col h-full bg-background text-foreground animate-in fade-in slide-in-from-right-4 duration-200">
-      
+    <div className="flex flex-col min-h-0 h-full bg-background text-foreground animate-in fade-in slide-in-from-right-4 duration-200">      
       {/* Header / Nav */}
       <div className="flex items-center gap-3 p-4 border-b">
         <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 text-muted-foreground hover:text-foreground">
@@ -45,11 +66,10 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
       </div>
 
       <div className="flex-1 overflow-hidden">
-        <div className="grid md:grid-cols-12 h-full">
-          
+        <div className="grid grid-cols-1 md:grid-cols-12 min-h-0 flex-1 overflow-y-auto md:overflow-hidden">          
           {/* Left: Image */}
-          <div className="md:col-span-5 bg-muted/30 p-8 flex items-center justify-center border-r">
-             <div className="relative aspect-square w-full max-w-sm rounded-lg overflow-hidden shadow-sm border bg-background">
+          <div className="md:col-span-4 lg:col-span-5 bg-muted/30 p-4 md:p-8 flex items-center justify-center border-b md:border-b-0 md:border-r">
+            <div className="relative aspect-square w-full max-w-[250px] md:max-w-sm rounded-lg ...">
                 <img 
                   src={ip.imageUrl || ip.thumbnailUrl} 
                   alt={ip.name}
@@ -59,8 +79,7 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
           </div>
 
           {/* Right: Info */}
-          <div className="md:col-span-7 flex flex-col h-full">
-            <ScrollArea className="flex-1">
+            <div className="md:col-span-8 lg:col-span-7 flex flex-col h-full min-h-0">            <ScrollArea className="flex-1">
               <div className="p-6 space-y-6">
                 
                 {/* Header Info */}
@@ -218,7 +237,7 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
                         Valid for commercial use
                      </p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap md:flex-nowrap gap-2 justify-end w-full">
                      <ShareButton 
                        url={typeof window !== 'undefined' ? `${window.location.origin}/ip/${ip.id || ip._id}` : ''}
                        title={`Check out this IP: ${ip.name}`}

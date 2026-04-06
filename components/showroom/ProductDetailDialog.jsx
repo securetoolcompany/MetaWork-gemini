@@ -264,8 +264,7 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-[#020617] border-white/10 text-white p-6 md:p-8">
-        <DialogHeader>
+      <DialogContent className="w-[95vw] max-w-6xl max-h-[95vh] md:max-h-[90vh] overflow-y-auto bg-[#020617] border-white/10 text-white p-4 md:p-8">        <DialogHeader>
           <DialogTitle className="sr-only">
             {loading ? 'Loading product...' : productName}
           </DialogTitle>
@@ -280,8 +279,7 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
           <div className="flex flex-col gap-12">
             
             {/* TOP SECTION: Split Pane Image / Details */}
-            <div className="grid lg:grid-cols-2 gap-10">
-              
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 w-full overflow-hidden">              
               {/* Left Column - Sticky Images */}
               <div className="space-y-4 lg:sticky lg:top-0 h-fit">
                 <div className="relative aspect-square bg-gray-900 rounded-xl overflow-hidden border border-white/10">
@@ -416,7 +414,7 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
                 </div>
 
                 {creator && (
-                  <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-[#1e293b] to-[#0f172a] rounded-xl border border-white/10">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-gradient-to-r from-[#1e293b] to-[#0f172a] rounded-xl border border-white/10">
                     <Avatar className="h-12 w-12 border-2 border-emerald-500/50">
                       <AvatarImage src={creator.avatar} />
                       <AvatarFallback className="bg-emerald-900 text-emerald-200">
@@ -544,7 +542,7 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
                   Customer Reviews ({reviews.length})
                 </h3>
 
-                <div className="grid md:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   {/* Write a Review Panel */}
                   <div className="md:col-span-1 bg-[#1e293b] p-6 rounded-xl border border-white/10 h-fit">
                     <h4 className="font-semibold mb-4 text-lg">Leave a Review</h4>
@@ -638,7 +636,7 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
               {relatedProducts && relatedProducts.length > 0 && (
                 <div className="pt-8">
                   <h3 className="font-bold text-2xl mb-6">More from this creator</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
                     {relatedProducts.map((related) => (
                       <button
                         key={related.id}

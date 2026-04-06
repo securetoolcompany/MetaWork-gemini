@@ -25,12 +25,18 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
 
   const filteredItems = useMemo(() => {
     return items.filter(aisle => {
-      const matchesSearch = !searchQuery || 
-        `${aisle.username} ${aisle.displayName} ${aisle.bio}`.toLowerCase().includes(searchQuery.toLowerCase());
+      // 1. ROBUST SEARCH LOGIC
+      // We use Optional Chaining (?.) and fallback to empty strings ('') 
+      // to ensure .toLowerCase() never runs on a null/undefined value.
+      const searchStr = searchQuery.trim().toLowerCase();
+      const matchesSearch = !searchStr || 
+        (aisle?.username || '').toLowerCase().includes(searchStr) || 
+        (aisle?.displayName || '').toLowerCase().includes(searchStr) || 
+        (aisle?.bio || '').toLowerCase().includes(searchStr);
       
       if (!matchesSearch) return false;
 
-      // Filter against aisle Settings tags/categories
+      // 2. FILTER LOGIC
       return Object.keys(filters).every(groupId => {
         if (!filters[groupId] || filters[groupId].length === 0) return true;
         
@@ -51,10 +57,17 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
   }, [items, searchQuery, filters]);
 
   const hasActiveFilters = Object.values(filters).some(group => group && group.length > 0);
-  const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
+  
+  // PAGINATION MATH FIX
+  const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE) || 0;
   const pageItems = filteredItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   useEffect(() => { setPage(1); }, [filters, searchQuery]);
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const FilterContent = () => (
     <div className="space-y-6">
@@ -148,9 +161,12 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
             <div className="text-4xl mb-4 opacity-50">🏪</div>
             <h3 className="text-lg font-medium text-white">No Aisles found</h3>
             <p className="text-slate-500 text-sm mt-2 max-w-sm">Try adjusting your search or resetting filters</p>
-            {hasActiveFilters && (
-              <button onClick={onClearAll} className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-semibold transition-colors">
-                Clear all filters
+            {(hasActiveFilters || searchQuery) && (
+              <button 
+                onClick={() => { setSearchQuery(''); onClearAll(); }} 
+                className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-semibold transition-colors"
+              >
+                Clear all
               </button>
             )}
           </div>
@@ -182,7 +198,7 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
         </div>
       )}
 
-      {/* Pagination Bar */}
+      {/* FIXED PAGINATION BAR */}
       {totalPages > 1 && (
         <div className="fixed bottom-0 left-0 right-0 bg-[#020617] border-t border-white/10 py-4 z-20">
           <div className="container mx-auto px-6 md:ml-64 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
@@ -190,8 +206,24 @@ export default function ShopByAisle({ items = [], filters = {}, onToggleFilter, 
               Showing {(page - 1) * ITEMS_PER_PAGE + 1} - {Math.min(page * ITEMS_PER_PAGE, filteredItems.length)} of {filteredItems.length}
             </span>
             <div className="flex items-center gap-2">
-              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-4 py-1.5 rounded-md border border-white/20 text-gray-200 disabled:opacity-30 hover:bg-white/5 active:scale-95 transition-all">Previous</button>
-              <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="px-4 py-1.5 rounded-md border border-white/20 text-gray-200 disabled:opacity-30 hover:bg-white/5 active:scale-95 transition-all">Next</button>
+              <button onClick={() => handlePageChange(Math.max(1, page - 1))} disabled={page === 1} className="px-3 py-1.5 rounded-md border border-white/20 text-gray-200 disabled:opacity-30 hover:bg-white/5 transition-all">Previous</button>
+              
+              <div className="flex items-center gap-1">
+                {[...Array(totalPages)].map((_, i) => {
+                  const pNum = i + 1;
+                  return (
+                    <button
+                      key={pNum}
+                      onClick={() => handlePageChange(pNum)}
+                      className={`w-8 h-8 rounded-md border transition-all ${page === pNum ? 'bg-blue-600 border-blue-500 text-white' : 'border-white/10 text-gray-400 hover:bg-white/5'}`}
+                    >
+                      {pNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button onClick={() => handlePageChange(Math.min(totalPages, page + 1))} disabled={page === totalPages} className="px-3 py-1.5 rounded-md border border-white/20 text-gray-200 disabled:opacity-30 hover:bg-white/5 transition-all">Next</button>
             </div>
           </div>
         </div>

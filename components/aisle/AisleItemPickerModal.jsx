@@ -20,6 +20,7 @@ import {
   Layers 
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function AisleItemPickerModal({ 
   isOpen, 
@@ -27,8 +28,9 @@ export default function AisleItemPickerModal({
   onSelectItems, 
   sectionId, 
   accentColor = '#10b981',
-  maxSelection = null // Pass 1 for Featured Item, null for standard sections
+  maxSelection = null
 }) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('products');
   const [isLoading, setIsLoading] = useState(false);
   const [data, setData] = useState([]);
@@ -47,18 +49,19 @@ export default function AisleItemPickerModal({
     setData([]);
     try {
       let endpoint = '';
-      // 1. Updated endpoints with higher limits to bypass pagination cutoff
-      if (tab === 'products') endpoint = '/api/products?includeDrafts=true&allOwned=true&limit=1000'; 
+      if (tab === 'products') {
+        const creatorId = user?.id || user?.username || '';
+        endpoint = `/api/products?creator=${creatorId}&includeDrafts=true&limit=1000`; 
+      }
       if (tab === 'ip') endpoint = '/api/ip/my-library?limit=1000';
       if (tab === 'collections') endpoint = '/api/collections';
       if (tab === 'community') endpoint = '/api/showroom/products?community=true&limit=100';
 
-      // 2. THIS IS WHERE YOUR CODE GOES:
       const res = await fetch(endpoint, {
-        cache: 'no-store', // Prevents Next.js Data Cache
+        cache: 'no-store',
         headers: {
-          'Cache-Control': 'no-cache', // Prevents browser caching
-          'Pragma': 'no-cache'         // Legacy support for older browsers
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         }
       });
       const result = await res.json();

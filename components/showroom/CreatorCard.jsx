@@ -39,20 +39,25 @@ export default function CreatorCard({ creator, compact = false }) {
   const [avatarError, setAvatarError] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
-  const creatorName = creator.name || creator.username || creator.displayName || 'Creator';
-  const creatorBio = creator.bio || '';
-  const membershipTier = creator.membershipTier || 'free';
+// 1. Check for standard creator properties OR nested aisle.user properties
+  const creatorName = creator.name || creator.user?.name || creator.title || creator.username || creator.user?.username || 'Creator';
+  const creatorBio = creator.bio || creator.description || '';
+  
+  // 2. Map the tier, checking the nested user object as well
+  const membershipTier = creator.membershipTier || creator.user?.membershipTier || 'free';
   const tierInfo = tierConfig[membershipTier] || tierConfig.free;
   
-  const bannerUrl = creator.banner || creator.bannerUrl;
-  const avatarUrl = creator.avatar || creator.avatarUrl;
+  // 3. Map images (including aisle.headerImage)
+  const bannerUrl = creator.banner || creator.bannerUrl || creator.headerImage;
+  const avatarUrl = creator.avatar || creator.avatarUrl || creator.user?.avatar;
   
-  const stats = creator.stats || {};
-  const totalProducts = stats.totalProducts || 0;
-  const totalIPAssets = stats.totalIPAssets || 0;
+  // 4. Map stats (aisles return totalProducts at the root level)
+  const stats = creator.stats || creator.user?.stats || {};
+  const totalProducts = creator.totalProducts ?? stats.totalProducts ?? 0;
+  const totalIPAssets = creator.totalIPAssets ?? stats.totalIPAssets ?? 0;
+  
   const isTrending = stats.trending || false;
-  const isFeatured = stats.featured || false;
-  
+  const isFeatured = stats.featured || false;  
   const countryFlag = getCountryFlag(creator.country);
   const categoryBadges = [...(creator.artStyles || []), ...(creator.mediums || [])].slice(0, 3);
 
