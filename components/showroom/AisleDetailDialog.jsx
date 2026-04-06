@@ -33,23 +33,36 @@ export default function AisleDetailDialog({ aisle, open, onOpenChange }) {
     { label: "Total Sales", value: aisle.stats?.sales || 0, icon: ShoppingCart, color: "text-green-500" },
   ];
 
+  const getCleanImageUrl = (url) => {
+    if (!url) return '/placeholder.png';
+    if (url.startsWith('//')) return `https:${url}`;
+    return url;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-card border-border shadow-2xl">
-        <DialogHeader>
-          <div className="flex items-center gap-4 mb-2">
-             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
-                <Store className="h-8 w-8 text-primary" />
-             </div>
-             <div>
-                <DialogTitle className="text-2xl font-bold">{creatorName}'s Aisle</DialogTitle>
-                <p className="text-muted-foreground flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4" /> 
-                  Aisle Performance Metrics
-                </p>
-             </div>
-          </div>
-        </DialogHeader>
+        <DialogHeader className="relative">
+        {/* Banner Background */}
+        <div className="absolute inset-0 h-32 w-full overflow-hidden rounded-t-xl opacity-20">
+          <img src={getCleanImageUrl(aisle.headerImage)} className="w-full h-full object-cover blur-sm" />
+        </div>
+        
+        <div className="relative flex items-center gap-4 pt-8 pb-2 px-4 z-10">
+            <div className="h-20 w-20 rounded-full border-4 border-card overflow-hidden bg-muted shadow-xl">
+              <img 
+                  src={getCleanImageUrl(aisle.avatar)} 
+                  className="h-full w-full object-cover" 
+                  alt={creatorName}
+                  onError={(e) => { e.target.src = '/placeholder-avatar.png'; }}
+              />
+            </div>
+            <div>
+              <DialogTitle className="text-3xl font-bold text-white">{creatorName}</DialogTitle>
+              <p className="text-primary font-medium">@{aisle.username}</p>
+            </div>
+        </div>
+      </DialogHeader>
 
         <Separator className="my-6" />
 
@@ -115,7 +128,65 @@ export default function AisleDetailDialog({ aisle, open, onOpenChange }) {
             )}
           </div>
         </div>
+          
+        {/* Aisle Mini-Gallery */}
+        <div className="space-y-8 mt-6">
+          {/* 1. Featured Item (if exists) */}
+          {aisle.featuredProduct && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Featured Item</h4>
+              <div className="flex gap-4 items-center">
+                <img src={aisle.featuredProduct.imageUrl} className="w-20 h-20 rounded-lg object-cover" />
+                <div>
+                  <p className="font-bold text-white">{aisle.featuredProduct.title}</p>
+                  <p className="text-sm text-primary">${aisle.featuredProduct.price}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
+          {/* 2. Products Gallery */}
+          <div>
+            <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+              <Package className="w-4 h-4 text-blue-500" /> Products from this Aisle
+            </h4>
+            <div className="grid grid-cols-3 gap-3">
+              {aisle.galleryProducts?.length > 0 ? aisle.galleryProducts.map(p => (
+                <div key={p.id} className="aspect-square rounded-lg overflow-hidden border border-white/10 bg-muted">
+                  <img 
+                    src={getCleanImageUrl(p.image || p.imageUrl)} 
+                    className="w-full h-full object-cover" 
+                    alt={p.name}
+                    loading="eager"
+                    onError={(e) => { e.target.src = '/placeholder.png'; }}
+                  />                </div>
+              )) : (
+                <p className="text-xs text-slate-500 italic col-span-3">No products listed yet.</p>
+              )}
+            </div>
+          </div>
+
+          {/* 3. IP Assets Gallery */}
+          <div>
+            <h4 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-purple-500" /> IP Assets
+            </h4>
+            <div className="grid grid-cols-3 gap-3">
+              {aisle.galleryIPs?.length > 0 ? aisle.galleryIPs.map(ip => (
+                <div key={ip.id} className="aspect-square rounded-lg overflow-hidden border border-white/10 bg-muted">
+                  <img 
+                      src={getCleanImageUrl(ip.image || ip.imageUrl)} 
+                      className="w-full h-full object-cover" 
+                      alt={ip.title}
+                      onError={(e) => { e.target.src = '/placeholder.png'; }}
+                    />                </div>
+              )) : (
+                <p className="text-xs text-slate-500 italic col-span-3">No IP assets listed yet.</p>
+              )}
+            </div>
+          </div>
+        </div>
+        
         {/* Footer Actions */}
         <div className="mt-10 pt-6 border-t border-border flex flex-col sm:flex-row justify-between items-center gap-4">
            <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
