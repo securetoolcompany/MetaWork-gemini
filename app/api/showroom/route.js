@@ -3,22 +3,16 @@ import { connectToDatabase, normalizeIds } from '@/lib/mongodb';
 
 const cleanUrl = (url) => {
   if (!url) return "/placeholder.png";
-  
   let fixedUrl = url;
 
-  // 1. Force HTTPS
   if (fixedUrl.startsWith('//')) {
     fixedUrl = `https:${fixedUrl}`;
   }
 
-  // 2. Intelligent Folder Mapping
   if (fixedUrl.includes('res.cloudinary.com')) {
-    // If it's a user asset, force CamelCase (MetaWork)
     if (fixedUrl.toLowerCase().includes('/users/')) {
       fixedUrl = fixedUrl.replace(/\/(metawork|MetaWork)\//i, '/MetaWork/');
-    } 
-    // If it's a global product asset, your scan shows it's lowercase
-    else if (fixedUrl.toLowerCase().includes('/products/') && !fixedUrl.toLowerCase().includes('/users/')) {
+    } else if (fixedUrl.toLowerCase().includes('/products/') && !fixedUrl.toLowerCase().includes('/users/')) {
       fixedUrl = fixedUrl.replace(/\/(metawork|MetaWork)\//i, '/metawork/');
     }
   }
@@ -30,50 +24,33 @@ export async function GET() {
   try {
     const { db } = await connectToDatabase();
 
-    // 1. Fetch source data
+    // 1. Fetch Source Data
     const [products, usersWithAisles, ipAssets] = await Promise.all([
       db.collection('products').find({ isDraft: { $ne: true } }).toArray(),
       db.collection('users').find({ aisleSettings: { $exists: true } }).toArray(),
       db.collection('ip_assets').find({}).toArray()
     ]);
 
-    // 2. Map Users into Aisles
+    // 2. Map Users into Aisles (Lightweight / Lazy Ready)
     const formattedUserAisles = usersWithAisles.map(user => {
       const userIdStr = user._id.toString();
       const username = user.username;
-      let settings = user.aisleSettings || {};
+      const settings = user.aisleSettings || {};
 
-      // 1. COLLECT ALL INVENTORY (Live from DB)
-      const actualProducts = products.filter(p => 
+      // Just grab the counts for the showroom UI indicators. 
+      // The deep image arrays are NO LONGER mapped here.
+      const actualProductsCount = products.filter(p => 
         p.ownerId?.toString() === userIdStr || 
         p.userId?.toString() === userIdStr || 
         p.owner === username ||
         p.ownerUsername === username
-      );
+      ).length;
 
-      const actualIPs = ipAssets.filter(i => 
+      const actualIPsCount = ipAssets.filter(i => 
         i.ownerId?.toString() === userIdStr || 
         i.userId?.toString() === userIdStr ||
         i.owner === username
-      );
-
-      // 2. FINAL DATA PREP (THE FIX)
-      // Bypass the old cache (settings.aisleSections) and use the live actualProducts 
-      // from the DB so we get the fresh, working image URLs just like the Aisle page does.
-      const liveProducts = actualProducts.length > 0 
-        ? actualProducts 
-        : (settings.aisleSections || []).flatMap(s => s.items || []).filter(i => i.itemType === 'products');
-
-      const liveIPs = actualIPs.length > 0 
-        ? actualIPs 
-        : (settings.aisleSections || []).flatMap(s => s.items || []).filter(i => i.itemType === 'ip');
-
-      const randomProducts = [...liveProducts].sort(() => 0.5 - Math.random()).slice(0, 3);
-      const randomIPs = [...liveIPs].sort(() => 0.5 - Math.random()).slice(0, 3);
-
-      // Helper to safely extract whatever image field the live DB uses
-      const getProductImage = (p) => p.mainImage || p.mockupUrl || p.imageUrl || (p.images && p.images[0]) || p.image;
-      const getIpImage = (ip) => ip.image || ip.imageUrl || ip.thumbnail || ip.mainImage;
+      ).length;
 
       return {
         id: userIdStr,
@@ -83,47 +60,15 @@ export async function GET() {
         bio: settings.description || user.bio || "Explore my custom collection.",
         headerImage: cleanUrl(settings.heroImage || user.banner),
         avatar: cleanUrl(settings.logo || user.avatar),
-        aisleSettings: settings,
         
-        // Stats
-        totalProducts: actualProducts.length,
-        totalIPAssets: actualIPs.length,
+        // Base Stats 
+        stats: user.stats || { views: 0, sales: 0 },
+        totalProducts: actualProductsCount,
+        totalIPAssets: actualIPsCount,
         
-        // Mapped Galleries using live DB images
-        galleryProducts: randomProducts.map(p => ({ 
-            id: p._id?.toString() || p.id, 
-            name: p.name || p.title, 
-            image: cleanUrl(getProductImage(p)), 
-            price: p.price || '59.99' 
-        })),
-        galleryIPs: randomIPs.map(ip => ({ 
-            id: ip._id?.toString() || ip.id, 
-            title: ip.title || ip.name, 
-            image: cleanUrl(getIpImage(ip)) 
-        })),
-        
-        // Top & Featured Products mapped from live data
-        topProduct: randomProducts[0] ? {
-            name: randomProducts[0].name || randomProducts[0].title,
-            image: cleanUrl(getProductImage(randomProducts[0])),
-            views: Math.floor(Math.random() * 50) + 10,
-            sales: Math.floor(Math.random() * 5) + 1
-        } : null,
-        
-        featuredProduct: randomProducts[1] ? {
-            title: randomProducts[1].name || randomProducts[1].title,
-            price: randomProducts[1].price || '59.99',
-            imageUrl: cleanUrl(getProductImage(randomProducts[1]))
-        } : randomProducts[0] ? {
-            title: randomProducts[0].name || randomProducts[0].title,
-            price: randomProducts[0].price || '59.99',
-            imageUrl: cleanUrl(getProductImage(randomProducts[0]))
-        } : null,
-
-        source: 'live_database'
+        source: 'live_database_lazy'
       };
-    })
-    .filter(aisle => aisle.totalProducts > 0 || aisle.totalIPAssets > 0);
+    }).filter(aisle => aisle.totalProducts > 0 || aisle.totalIPAssets > 0);
 
     const normalizedData = [
       ...normalizeIds(products).map(p => ({ ...p, type: 'product' })),
