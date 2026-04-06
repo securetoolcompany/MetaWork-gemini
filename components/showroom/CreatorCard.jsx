@@ -49,8 +49,7 @@ export default function CreatorCard({ creator, compact = false }) {
   
   // 3. Map images (including aisle.headerImage)
   const bannerUrl = creator.banner || creator.bannerUrl || creator.headerImage;
-  const avatarUrl = creator.avatar || creator.avatarUrl || creator.user?.avatar;
-  
+  const avatarUrl = creator.aisleSettings?.logo || creator.avatar || '/placeholder-avatar.png';  
   // 4. Map stats (aisles return totalProducts at the root level)
   const stats = creator.stats || creator.user?.stats || {};
   const totalProducts = creator.totalProducts ?? stats.totalProducts ?? 0;
@@ -67,7 +66,7 @@ export default function CreatorCard({ creator, compact = false }) {
         onClick={() => setIsDialogOpen(true)}
         className="group cursor-pointer overflow-hidden rounded-xl border border-border bg-card transition-all hover:shadow-2xl hover:border-primary/50"
       >
-        {/* Banner */}
+        {/* 1. Banner Section */}
         <div className="relative h-36 overflow-hidden">
           {bannerUrl && !bannerError ? (
             <Image
@@ -101,10 +100,13 @@ export default function CreatorCard({ creator, compact = false }) {
               {tierInfo.label}
             </Badge>
           </div>
+        </div>
 
-          {/* Avatar */}
-          <div className="absolute -bottom-10 left-4 z-10">
-            <div className="w-20 h-20 rounded-full border-4 border-background overflow-hidden bg-muted shadow-xl group-hover:scale-105 transition-transform duration-300">
+        {/* 2. Content Section (Avatar sits here now) */}
+        <div className="p-4 pt-0">
+          {/* Full Circle Avatar with Negative Margin */}
+          <div className="relative z-20 -mt-10 mb-3">
+            <div className="w-20 h-20 rounded-full border-4 border-card overflow-hidden bg-muted shadow-xl group-hover:scale-105 transition-transform duration-300">
               {avatarUrl && !avatarError ? (
                 <Image
                   src={avatarUrl}
@@ -124,10 +126,8 @@ export default function CreatorCard({ creator, compact = false }) {
               )}
             </div>
           </div>
-        </div>
 
-        {/* Content */}
-        <div className="p-4 pt-12">
+          {/* Name and Bio */}
           <div className="mb-2">
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-bold group-hover:text-primary transition-colors line-clamp-1">
@@ -138,6 +138,7 @@ export default function CreatorCard({ creator, compact = false }) {
             {creatorBio && <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{creatorBio}</p>}
           </div>
 
+          {/* Stats Row */}
           <div className="flex items-center gap-4 py-3 border-y border-border/50 mb-4">
             <div className="flex items-center gap-1.5 text-sm">
               <Package className="w-4 h-4 text-blue-500" />
@@ -152,6 +153,7 @@ export default function CreatorCard({ creator, compact = false }) {
             </div>
           </div>
 
+          {/* Action Button */}
           <Button className="w-full gap-2 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300">
             <Sparkles className="w-4 h-4" />
             View Aisle Details

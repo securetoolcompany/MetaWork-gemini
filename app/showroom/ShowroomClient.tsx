@@ -107,16 +107,17 @@ export default function ShowroomClient() {
         const response = await fetch('/api/showroom');
         const rawData = await response.json();
         const allItems = Array.isArray(rawData) ? rawData : [];
-
+        
         setData({
           products: allItems.filter(item => 
-            item.id?.startsWith('prod_') || item.externalProductId || item.legacyProductId || item.source === 'wp_export'
+            item.type === 'product' || item.id?.startsWith('prod_')
           ),
           aisles: allItems.filter(item => 
-            item.id?.startsWith('aisle_') || (item.slug && !item.legacyProductId)
+            // Accept either the explicit type tag OR the ID prefix
+            item.type === 'aisle' || item.id?.startsWith('aisle_') || item.aisleSettings
           ),
           ipAssets: allItems.filter(item => 
-            item.id?.startsWith('ip_') || item.nftAssetId
+            item.type === 'ip' || item.id?.startsWith('ip_')
           ),
         });
       } catch (error) {

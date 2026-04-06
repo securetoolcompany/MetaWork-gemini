@@ -5,32 +5,76 @@ export async function GET() {
   try {
     const { db } = await connectToDatabase();
 
-    // Support both legacy products and new products while strictly excluding drafts
+    // 1. Basic filter for public products
     const productFilter = {
-      isDraft: { $ne: true }, // Explicitly hide new drafts
-      status: { $ne: 'draft' }, // Hide legacy drafts just in case
+      isDraft: { $ne: true },
+      status: { $ne: 'draft' },
       $or: [
-        { showroomListed: true }, // New product visibility tag
-        { status: { $in: ['live', 'active'] } }, // Legacy visibility tag
-        { isPublic: true } // Standard fallback
+        { showroomListed: true },
+        { status: { $in: ['live', 'active'] } },
+        { isPublic: true }
       ]
     };
 
-    // parallel fetch from the three source collections
-    const [products, aisles, ipAssets] = await Promise.all([
+    // 2. Fetch all raw data
+    const [products, legacyAisles, usersWithAisles, ipAssets] = await Promise.all([
       db.collection('products').find(productFilter).toArray(),
       db.collection('aisles').find({}).toArray(),
-      db.collection('ip_assets').find({}).toArray() // FIXED NAME HERE
+      db.collection('users').find({ aisleSettings: { $exists: true } }).toArray(),
+      db.collection('ip_assets').find({}).toArray()
     ]);
 
-    // Add explicit type tags to make the frontend's job easy
-    const normalizedData = [
-      ...normalizeIds(products).map(p => ({ ...p, type: 'product' })),
-      ...normalizeIds(aisles).map(a => ({ ...a, type: 'aisle' })),
-      ...normalizeIds(ipAssets).map(i => ({ ...i, type: 'ip' }))
+    // 3. Map Users into Aisles with DYNAMIC STATS
+    // We calculate counts based on the fetched products/ip arrays 
+    // where the 'owner' matches the user's ID or username.
+    const formattedUserAisles = usersWithAisles.map(user => {
+      const userId = user._id.toString();
+      
+      // Calculate real counts from the database results
+      const userProductCount = products.filter(p => 
+        p.ownerId === userId || p.owner === user.username
+      ).length;
+
+      const userIPCount = ipAssets.filter(i => 
+        i.ownerId === userId || i.owner === user.username
+      ).length;
+
+      return {
+        ...user,
+        id: userId,
+        _id: userId,
+        type: 'aisle',
+        username: user.username,
+        displayName: user.aisleSettings?.title || user.profile?.displayName || user.name || user.username,
+        bio: user.aisleSettings?.description || user.bio || '',
+        headerImage: user.aisleSettings?.heroImage || user.banner,
+        avatar: user.avatar,
+        aisleSettings: user.aisleSettings || {},
+        // PASS THE CALCULATED STATS HERE
+        totalProducts: userProductCount,
+        totalIPAssets: userIPCount,
+        source: 'user_collection'
+      };
+    });
+
+    // 4. Combine and Deduplicate
+    const combinedAisles = [
+      ...formattedUserAisles,
+      ...normalizeIds(legacyAisles)
+        .filter(la => !formattedUserAisles.find(ua => ua.username === la.username))
+        .map(a => ({ 
+          ...a, 
+          type: 'aisle',
+          totalProducts: a.totalProducts || 0,
+          totalIPAssets: a.totalIPAssets || 0 
+        }))
     ];
 
-    console.log(`📡 SHOWROOM SYNC: P(${products.length}) A(${aisles.length}) IP(${ipAssets.length})`);
+    const normalizedData = [
+      ...normalizeIds(products).map(p => ({ ...p, type: 'product' })),
+      ...combinedAisles,
+      ...normalizeIds(ipAssets).map(i => ({ ...i, type: 'ip' }))
+    ];
 
     return NextResponse.json(normalizedData);
   } catch (error) {

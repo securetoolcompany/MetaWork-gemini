@@ -7,12 +7,13 @@ export async function GET(request) {
     
     const { db } = await connectToDatabase();
     
-    // Get all users
     const users = await db.collection('users')
-      .find({}, { projection: { password: 0 } })
-      .toArray();
+    .find({ 
+      'profile.displayName': { $exists: true },
+      aisleSettings: { $exists: true } 
+    }, { projection: { password: 0 } })
+    .toArray();
     
-    // Count products for each user
     const aislesWithData = await Promise.all(
       users.map(async (user) => {
         const productCount = await db.collection('products').countDocuments({
@@ -22,31 +23,32 @@ export async function GET(request) {
         
         return {
           id: user.id,
-          slug: user.username, // ADD THIS - use username as slug
-          title: user.name,
-          description: user.bio,
-          headerImage: user.banner,
+          slug: user.username,
+          title: user.profile?.displayName || user.name || user.username,
+          description: user.aisleSettings?.description || user.bio || '',
+          headerImage: user.aisleSettings?.bannerImage || user.banner,
           totalProducts: productCount,
+          // CRITICAL: This allows the ShopByAisle page to actually see the filters
+          aisleSettings: user.aisleSettings || {}, 
           user: {
             id: user.id,
-            name: user.name,
+            name: user.profile?.displayName || user.name,
             username: user.username,
             avatar: user.avatar,
             verified: user.membershipTier === 'pro',
-            tagline: user.bio ? user.bio.substring(0, 60) : '',
+            tagline: user.aisleSettings?.tagline || (user.bio ? user.bio.substring(0, 60) : ''),
             stats: {
               followers: 0
             }
           },
           metrics: {
-            views: productCount * 50 // Mock view count
+            views: productCount * 50 
           },
           createdAt: user.createdAt
         };
       })
     );
     
-    // Filter by query if provided
     let filteredAisles = aislesWithData;
     if (query) {
       filteredAisles = aislesWithData.filter(aisle =>
@@ -56,7 +58,6 @@ export async function GET(request) {
       );
     }
     
-    // Only return aisles with products
     const aislesWithProducts = filteredAisles.filter(a => a.totalProducts > 0);
     
     return Response.json({ aisles: aislesWithProducts });
