@@ -1,63 +1,77 @@
 'use client';
 
-import React from 'react';
 import Link from 'next/link';
-import { Badge } from '@/components/ui/badge';
-import { ShieldCheck } from 'lucide-react';
 
-export default function AisleIPAssetCard({ asset, accentColor = '#3b82f6' }) {
-  // Add a safety check: if asset is missing, return null or a skeleton
-  if (!asset) return null;
+export default function AisleIPAssetCard({ 
+  item, 
+  accentColor = '#3b82f6' 
+}) {
+  if (!item) return null;
 
-  const title = asset.title || asset.name || 'Untitled Asset';
+  const assetUrl = `/ip/${item.id || item._id}`;
   
-  // Update internal references from 'item' to 'asset'
-  const imageSrc = asset.imageUrl || asset.thumbnailUrl || asset.image || '/placeholder.png';
-  
-  const rawFee = asset.licensingFee || asset.price || 0;
-  const displayFee = typeof rawFee === 'object' 
-    ? (rawFee.$numberDecimal || rawFee.toString()) 
-    : rawFee;
+  // 1. URL Normalization (fixes // protocol issues)
+  const normalizeUrl = (url) => {
+    if (!url || typeof url !== 'string') return null;
+    return url.startsWith('//') ? `https:${url}` : url;
+  };
+
+  const imageSrc = normalizeUrl(item.imageUrl || item.thumbnailUrl || item.image);
 
   return (
-    <Link href={`/ip/${asset.id || asset._id}`} className="group block">
-      <div className="bg-[#0f172a] border border-white/5 rounded-2xl overflow-hidden hover:border-blue-500/50 transition-all flex flex-col h-full shadow-xl">
-        {/* Visual Container */}
-        <div className="aspect-square relative overflow-hidden bg-slate-900">
-          <img 
-            src={imageSrc} 
-            alt={title} 
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
-          />
-          <div className="absolute top-3 left-3">
-             <Badge className="bg-blue-600/90 text-white border-none flex gap-1 items-center py-1">
-                <ShieldCheck className="w-3 h-3" /> IP ASSET
-             </Badge>
-          </div>
-        </div>
-        
-        {/* Detail Container */}
-        <div className="p-5 flex flex-col flex-1">
-          <h3 className="font-bold text-white text-lg truncate mb-1 group-hover:text-blue-400 transition-colors">
-            {title}
-          </h3>
-          <p className="text-slate-400 text-xs line-clamp-2 mb-4 flex-1">
-            {asset.description || 'Digital IP Asset available for licensing.'}
-          </p>
+    <Link
+      href={assetUrl}
+      className="bg-[#111] rounded-2xl overflow-hidden border border-white/5 flex flex-col h-full hover:border-white/20 transition-all cursor-pointer block group"
+    >
+      {/* IMAGE CONTAINER - Fixed Square Ratio */}
+      <div className="relative w-full aspect-square overflow-hidden bg-[#0a0a0a]">
+        <img
+          src={imageSrc || '/placeholder.png'}
+          alt={item.title || item.name}
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          onError={(e) => {
+            // Hides broken image icon but keeps the card height stable
+            e.target.style.opacity = '0';
+            e.target.parentElement.style.backgroundColor = '#1a1a1a';
+          }} 
+        />
+      </div>
 
-          <div className="flex justify-between items-center mt-auto pt-4 border-t border-white/5">
-            <div className="flex flex-col">
-              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Licensing Fee</span>
-              <span className="text-xl font-black text-white">
-                ${Number(displayFee).toFixed(2)}
-              </span>
-            </div>
-            <div 
-              className="px-4 py-2 rounded-lg text-xs font-bold text-white transition-all"
-              style={{ backgroundColor: accentColor }}
-            >
-              View License
-            </div>
+      {/* CONTENT AREA - Restored UI Elements */}
+      <div className="p-4 flex flex-col gap-2 flex-1">
+        <h3 className="text-sm font-semibold line-clamp-1 text-white">
+          {item.title || item.name}
+        </h3>
+        
+        {/* Restored Creator Name */}
+        {item.creator && (
+          <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
+            BY {item.creator.displayName || item.creator.username || 'Unknown Creator'}
+          </p>
+        )}
+
+        {/* Restored Description */}
+        <p className="text-xs text-gray-400 line-clamp-2 mt-1">
+          {item.description || 'Verified Intellectual Property'}
+        </p>
+
+        {/* Restored Royalty and Usage Stats */}
+        <div className="mt-auto pt-3 flex items-center justify-between">
+          <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20">
+            {item.royaltyPercentage || 5}% Royalty
+          </span>
+          <span className="text-[10px] text-gray-500 italic">
+            {item.usageCount || 0} Uses
+          </span>
+        </div>
+
+        {/* Restored "Use IP" Action Button */}
+        <div className="mt-3">
+          <div 
+            className="w-full text-[15px] font-bold py-2 rounded-md text-white text-center transition-opacity group-hover:opacity-90 shadow-md"
+            style={{ backgroundColor: accentColor }}
+          >
+            Use IP
           </div>
         </div>
       </div>

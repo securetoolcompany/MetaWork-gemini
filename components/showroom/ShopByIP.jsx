@@ -5,6 +5,17 @@ import { Search, X, Filter, ChevronDown } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import AisleIPAssetCard from '@/components/aisle-public/AisleIPAssetCard';
 
+const shuffleWithSeed = (array, seed) => {
+  let m = array.length, t, i;
+  while (m) {
+    i = Math.floor(Math.abs(Math.sin(seed++)) * m--);
+    t = array[m];
+    array[m] = array[i];
+    array[i] = t;
+  }
+  return array;
+};
+
 const ITEMS_PER_PAGE = 12;
 
 const IP_FILTER_GROUPS = [
@@ -57,35 +68,45 @@ export default function ShopByIP({
     setExpandedGroups(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const sessionSeed = useMemo(() => Math.floor(Math.random() * 10000), []);
+
   // Filter Logic
   const filteredItems = useMemo(() => {
-    return items.filter(item => {
-      const matchesSearch = !searchQuery || 
-        `${item.title} ${item.name} ${item.description}`.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      if (!matchesSearch) return false;
-
-      return Object.keys(filters).every(groupId => {
-        if (!filters[groupId] || filters[groupId].length === 0) return true;
+      // A. Filter out garbage data and apply search/categories
+      const validItems = items.filter(item => {
+        // Get image path
+        const rawImage = item.imageUrl || item.thumbnailUrl || item.image;
         
-        const itemValues = [
-          ...(item.categories || []),
-          ...(item.tags || []),
-          item.category,
-          item.visualStyle,
-          item.usageType,
-          item.assetTheme
-        ].filter(Boolean).map(v => String(v).toLowerCase());
+        // Strict Check: Remove if no data or known broken patterns
+        if (!rawImage || typeof rawImage !== 'string' || rawImage.length < 5) return false;
+        const lower = rawImage.toLowerCase();
+        if (lower.includes('placeholder') || lower.includes('null') || lower.includes('undefined')) return false;
 
-        return filters[groupId].some(val => itemValues.includes(val.toLowerCase()));
+        // Search Logic
+        const matchesSearch = !searchQuery || 
+          `${item.title} ${item.name} ${item.description}`.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        if (!matchesSearch) return false;
+
+        // Filter Groups Logic (Categories)
+        const matchesFilters = Object.keys(filters).every(groupId => {
+          if (!filters[groupId] || filters[groupId].length === 0) return true;
+          // Adjust this depending on your IP Asset data structure (tags vs categories)
+          const itemValues = [...(item.categories || []), ...(item.tags || [])];
+          return filters[groupId].some(val => itemValues.includes(val));
+        });
+
+        return matchesFilters;
       });
-    });
-  }, [items, searchQuery, filters]);
+
+      return shuffleWithSeed([...validItems], sessionSeed);
+
+    }, [items, searchQuery, filters, sessionSeed]);
 
   const hasActiveFilters = Object.values(filters).some(group => group && group.length > 0);
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
-  const pageItems = filteredItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
-
+  const pageItems = filteredItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);  
+  
   useEffect(() => { setPage(1); }, [filters, searchQuery]);
 
   // Scroll to top of results when page changes
@@ -223,7 +244,11 @@ export default function ShopByIP({
           <div className="pb-32">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {pageItems.map((item) => (
-                <AisleIPAssetCard key={item.id || item._id} asset={item} accentColor="#3b82f6" />
+                <AisleIPAssetCard 
+                  key={item.id || item._id} 
+                  item={item}  // CHANGED FROM asset={item}
+                  accentColor="#3b82f6" 
+                />
               ))}
             </div>
           </div>
