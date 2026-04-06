@@ -1,116 +1,188 @@
 'use client';
 
-import { useCart } from '@/lib/CartContext';
+import { useState } from 'react';
+import { useCart } from '@/contexts/CartContext';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { X, Minus, Plus, ShoppingBag } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { X, Minus, Plus, ShoppingBag, Trash2, Loader2 } from 'lucide-react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { toast } from 'sonner';
 
 export default function CartSidebar() {
-  const { cart, isOpen, setIsOpen, removeFromCart, updateQuantity, getCartTotal, getCartCount } = useCart();
+  const { cart, isOpen, setIsOpen, updateQuantity, removeFromCart, loading } = useCart();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [updatingItem, setUpdatingItem] = useState(null);
+
+  // --- Unified Stripe Logic ---
+  const handleStripeCheckout = async () => {
+    if (cart.items.length === 0) return;
+    
+    setIsRedirecting(true);
+    try {
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          items: cart.items.map(item => ({
+            name: item.title,
+            price: item.priceSnapshot,
+            quantity: item.quantity,
+            image: item.thumbnailUrl,
+            id: item.productId 
+          })) 
+        }),
+      });
+
+      const data = await response.json();
+      if (data.url) {
+        window.location.href = data.url; 
+      } else {
+        toast.error(data.error || "Checkout failed");
+      }
+    } catch (err) {
+      console.error("Stripe Error:", err);
+      toast.error("Could not connect to payment gateway");
+    } finally {
+      setIsRedirecting(false);
+    }
+  };
+
+  // --- Robust Data Helpers ---
+  const formatAttributes = (attributes) => {
+    if (!attributes || Object.keys(attributes).length === 0) return null;
+    return Object.entries(attributes)
+      .map(([key, value]) => `${key.replace(/^pa_/, '')}: ${value}`)
+      .join(', ');
+  };
+
+  const handleQtyChange = async (productId, variationId, newQty) => {
+    setUpdatingItem(`${productId}-${variationId}`);
+    const result = await updateQuantity(productId, variationId, newQty);
+    if (!result.success) toast.error(result.error || 'Update failed');
+    setUpdatingItem(null);
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetContent className="w-full sm:max-w-lg">
-        <SheetHeader>
+      <SheetContent className="w-full sm:max-w-lg flex flex-col h-full p-0">
+        <SheetHeader className="p-6 border-b">
           <SheetTitle className="flex items-center gap-2">
             <ShoppingBag className="w-5 h-5" />
-            Shopping Cart ({getCartCount()} items)
+            Your Cart
+            {cart.totalItems > 0 && (
+              <Badge variant="secondary" className="ml-2">
+                {cart.totalItems} {cart.totalItems === 1 ? 'item' : 'items'}
+              </Badge>
+            )}
           </SheetTitle>
         </SheetHeader>
 
-        {cart.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-            <ShoppingBag className="w-16 h-16 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Your cart is empty</h3>
-            <p className="text-muted-foreground mb-6">Add some products to get started!</p>
-            <Button onClick={() => setIsOpen(false)}>Continue Shopping</Button>
-          </div>
-        ) : (
-          <div className="flex flex-col h-full">
-            {/* Cart Items */}
-            <div className="flex-1 overflow-auto py-6 space-y-4">
-              {cart.map((item) => (
-                <div key={item.id} className="flex gap-4">
-                  <div className="relative w-20 h-20 rounded-md overflow-hidden flex-shrink-0">
-                    <Image
-                      src={item.product.imageUrl}
-                      alt={item.product.name}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-sm mb-1 line-clamp-1">{item.product.name}</h4>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      {item.size} • {item.color.name}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      >
-                        <Minus className="w-3 h-3" />
-                      </Button>
-                      <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      >
-                        <Plus className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col items-end justify-between">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => removeFromCart(item.id)}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                    <p className="font-bold">${(item.price * item.quantity).toFixed(2)}</p>
-                  </div>
-                </div>
-              ))}
+        <div className="flex-1 overflow-y-auto p-6">
+          {cart.items.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+              <ShoppingBag className="w-16 h-16 text-muted-foreground opacity-20" />
+              <p className="text-muted-foreground">Your shopping cart is empty.</p>
+              <Button variant="outline" onClick={() => setIsOpen(false)}>Start Shopping</Button>
             </div>
+          ) : (
+            <div className="space-y-6">
+              {cart.items.map((item) => {
+                const itemKey = `${item.productId}-${item.variationId}`;
+                const isUpdating = updatingItem === itemKey;
+                
+                return (
+                  <div key={itemKey} className="flex gap-4 relative group">
+                    <div className="relative w-24 h-24 rounded-lg overflow-hidden border bg-muted flex-shrink-0">
+                      <Image src={item.thumbnailUrl || '/placeholder.png'} alt={item.title} fill className="object-cover" />
+                    </div>
 
-            <Separator className="my-4" />
+                    <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+                      <div>
+                        <h4 className="font-semibold text-sm line-clamp-1">{item.title}</h4>
+                        {item.attributes && (
+                          <p className="text-xs text-muted-foreground mt-1 capitalize">
+                            {formatAttributes(item.attributes)}
+                          </p>
+                        )}
+                      </div>
 
-            {/* Cart Summary */}
-            <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center border rounded-md h-8">
+                          <Button 
+                            variant="ghost" size="icon" className="h-7 w-7 rounded-none"
+                            onClick={() => handleQtyChange(item.productId, item.variationId, item.quantity - 1)}
+                            disabled={isUpdating || loading || item.quantity <= 1}
+                          >
+                            <Minus className="w-3 h-3" />
+                          </Button>
+                          <span className="w-8 text-center text-xs font-medium">{item.quantity}</span>
+                          <Button 
+                            variant="ghost" size="icon" className="h-7 w-7 rounded-none"
+                            onClick={() => handleQtyChange(item.productId, item.variationId, item.quantity + 1)}
+                            disabled={isUpdating || loading}
+                          >
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                        </div>
+                        <p className="font-bold text-sm">
+                          ${(item.priceSnapshot * item.quantity).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button 
+                      variant="ghost" size="icon" 
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => removeFromCart(item.productId, item.variationId)}
+                      disabled={isUpdating || loading}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {cart.items.length > 0 && (
+          <div className="p-6 border-t bg-card space-y-4">
+            <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span className="font-semibold">${getCartTotal().toFixed(2)}</span>
+                <span className="font-semibold">${cart.totalPrice.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Shipping</span>
-                <span className="font-semibold">Calculated at checkout</span>
+              <div className="flex justify-between text-sm text-green-600 font-medium">
+                <span>Blockchain Royalties Included</span>
+                <span>$0.00 extra</span>
               </div>
-              <Separator />
+              <Separator className="my-2" />
               <div className="flex justify-between text-lg">
                 <span className="font-bold">Total</span>
-                <span className="font-bold">${getCartTotal().toFixed(2)}</span>
+                <span className="font-bold text-primary">${cart.totalPrice.toFixed(2)}</span>
               </div>
-
-              <Link href="/showroom/checkout" onClick={() => setIsOpen(false)}>
-                <Button className="w-full" size="lg">
-                  Proceed to Checkout
-                </Button>
-              </Link>
-              <Button variant="outline" className="w-full" onClick={() => setIsOpen(false)}>
-                Continue Shopping
-              </Button>
             </div>
+
+            <Button 
+              className="w-full h-12 text-md font-bold" 
+              size="lg" 
+              onClick={handleStripeCheckout}
+              disabled={isRedirecting || loading}
+            >
+              {isRedirecting ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Securing Connection...
+                </>
+              ) : (
+                "Complete Purchase"
+              )}
+            </Button>
+            <p className="text-[10px] text-center text-muted-foreground">
+              Payments secured by Stripe. Assets will be distributed via Algorand post-purchase.
+            </p>
           </div>
         )}
       </SheetContent>
