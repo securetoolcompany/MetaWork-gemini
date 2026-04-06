@@ -25,16 +25,16 @@ export default function AisleDetailDialog({ aisle, open, onOpenChange }) {
 
   const creatorName = aisle.name || aisle.username || 'Creator';
   
-  // Stats mapping from your existing data structures
+  // FIXED: Removed the `.stats?` wrapper around totalProducts and totalIPAssets
   const stats = [
     { label: "Aisle Views", value: aisle.stats?.views || 0, icon: Eye, color: "text-blue-500" },
-    { label: "Products", value: aisle.stats?.totalProducts || 0, icon: Package, color: "text-purple-500" },
-    { label: "IP Assets", value: aisle.stats?.totalIPAssets || 0, icon: ImageIcon, color: "text-orange-500" },
+    { label: "Products", value: aisle.totalProducts || 0, icon: Package, color: "text-purple-500" },
+    { label: "IP Assets", value: aisle.totalIPAssets || 0, icon: ImageIcon, color: "text-orange-500" },
     { label: "Total Sales", value: aisle.stats?.sales || 0, icon: ShoppingCart, color: "text-green-500" },
   ];
 
   const getCleanImageUrl = (url) => {
-    if (!url) return '/placeholder.png';
+    if (!url) return 'https://placehold.co/400x400/1e293b/a21caf?text=No+Image';
     if (url.startsWith('//')) return `https:${url}`;
     return url;
   };
@@ -54,7 +54,7 @@ export default function AisleDetailDialog({ aisle, open, onOpenChange }) {
                   src={getCleanImageUrl(aisle.avatar)} 
                   className="h-full w-full object-cover" 
                   alt={creatorName}
-                  onError={(e) => { e.target.src = '/placeholder-avatar.png'; }}
+                  onError={(e) => { e.target.src = 'https://placehold.co/400x400/1e293b/a21caf?text=No+Avatar'; }}
               />
             </div>
             <div>
@@ -86,7 +86,7 @@ export default function AisleDetailDialog({ aisle, open, onOpenChange }) {
             </h3>
             {aisle.topProduct ? (
               <div className="group relative rounded-xl border border-border bg-muted/20 p-4 flex gap-4 items-center">
-                <img src={aisle.topProduct.image} className="h-20 w-20 rounded-lg object-cover shadow-sm" alt="" />
+                <img src={getCleanImageUrl(aisle.topProduct.image)} className="h-20 w-20 rounded-lg object-cover shadow-sm bg-muted" alt="" onError={(e) => { e.target.src = 'https://placehold.co/400x400/1e293b/a21caf?text=Error'; }} />
                 <div className="flex-1 min-w-0">
                   <p className="font-bold truncate">{aisle.topProduct.name}</p>
                   <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
@@ -110,7 +110,7 @@ export default function AisleDetailDialog({ aisle, open, onOpenChange }) {
             </h3>
             {aisle.topIp ? (
               <div className="group relative rounded-xl border border-border bg-muted/20 p-4 flex gap-4 items-center">
-                <img src={aisle.topIp.image} className="h-20 w-20 rounded-lg object-cover shadow-sm" alt="" />
+                <img src={getCleanImageUrl(aisle.topIp.image)} className="h-20 w-20 rounded-lg object-cover shadow-sm bg-muted" alt="" onError={(e) => { e.target.src = 'https://placehold.co/400x400/1e293b/a21caf?text=Error'; }} />
                 <div className="flex-1 min-w-0">
                   <p className="font-bold truncate">{aisle.topIp.name}</p>
                   <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
@@ -136,7 +136,7 @@ export default function AisleDetailDialog({ aisle, open, onOpenChange }) {
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
               <h4 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Featured Item</h4>
               <div className="flex gap-4 items-center">
-                <img src={aisle.featuredProduct.imageUrl} className="w-20 h-20 rounded-lg object-cover" />
+                <img src={getCleanImageUrl(aisle.featuredProduct.imageUrl)} className="w-20 h-20 rounded-lg object-cover bg-muted" onError={(e) => { e.target.src = 'https://placehold.co/400x400/1e293b/a21caf?text=Error'; }} />
                 <div>
                   <p className="font-bold text-white">{aisle.featuredProduct.title}</p>
                   <p className="text-sm text-primary">${aisle.featuredProduct.price}</p>
@@ -158,7 +158,7 @@ export default function AisleDetailDialog({ aisle, open, onOpenChange }) {
                     className="w-full h-full object-cover" 
                     alt={p.name}
                     loading="eager"
-                    onError={(e) => { e.target.src = '/placeholder.png'; }}
+                    onError={(e) => { e.target.src = 'https://placehold.co/400x400/1e293b/a21caf?text=Error'; }}
                   />                </div>
               )) : (
                 <p className="text-xs text-slate-500 italic col-span-3">No products listed yet.</p>
@@ -178,7 +178,7 @@ export default function AisleDetailDialog({ aisle, open, onOpenChange }) {
                       src={getCleanImageUrl(ip.image || ip.imageUrl)} 
                       className="w-full h-full object-cover" 
                       alt={ip.title}
-                      onError={(e) => { e.target.src = '/placeholder.png'; }}
+                      onError={(e) => { e.target.src = 'https://placehold.co/400x400/1e293b/a21caf?text=Error'; }}
                     />                </div>
               )) : (
                 <p className="text-xs text-slate-500 italic col-span-3">No IP assets listed yet.</p>
