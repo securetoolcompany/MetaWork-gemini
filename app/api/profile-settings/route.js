@@ -21,7 +21,7 @@ export async function POST(request) {
       'bioSectionTitle', 'tagline', 'avatar', 'profilePicture', 'banner', 
       'heroMedia', 'socials', 'mission', 'missionSectionTitle', 
       'storySections', 'chaptersSectionTitle', 'country', 'location', 
-      'email', 'phone', 'website', 'tipJar', 'accentColor'
+      'email', 'phone', 'website', 'tipJar', 'accentColor', 'shippingAddress'
     ];
     
     if (profileData) {

@@ -109,7 +109,7 @@ export default function Sidebar() {
               <span className="text-sm font-medium">Sign In</span>
             </Button>
             <Button 
-              onClick={() => router.push('/register')}
+              onClick={() => router.push('/login')}
               className="w-full justify-start gap-3 bg-green-600 hover:bg-green-700 text-white rounded-xl shadow-lg shadow-green-900/20"
             >
               <UserPlus className="h-4 w-4" />
