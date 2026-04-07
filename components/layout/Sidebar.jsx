@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { 
   LayoutDashboard, Database, ShoppingBag, Settings, 
   TrendingUp, Gift, Info, Landmark, Box, Zap, Globe, 
-  Home, LogIn, LogOut, UserPlus, Store, Palette
+  Home, LogIn, LogOut, UserPlus, Store, Palette, LayoutGrid
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
@@ -17,12 +17,13 @@ export default function Sidebar() {
   const router = useRouter();
   const { isAuthenticated, loading, logout } = useAuth();
 
-  // 1. Fully Restored Dashboard Menu (Logged In)
+  // Define Dashboard Menu (Logged In)
   const dashboardMenuItems = [
     { icon: Home, label: 'Home', href: '/' },
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-    { icon: Store, label: 'Aisle Settings', href: '/aisle-settings' }, // RESTORED
-    { icon: Palette, label: 'Product Designer', href: '/products/creator' }, // RESTORED
+    { icon: Store, label: 'Aisle Settings', href: '/aisle-settings' },
+    { icon: Palette, label: 'Product Designer', href: '/products/creator' },
+    { icon: LayoutGrid, label: 'Showroom', href: '/showroom' }, // Added Showroom to logged in side
     { icon: Database, label: 'My IP Assets', href: '/my-ip' },
     { icon: ShoppingBag, label: 'My Products', href: '/my-products' },
     { icon: TrendingUp, label: 'Earnings', href: '/earnings' },
@@ -30,12 +31,13 @@ export default function Sidebar() {
     { icon: Settings, label: 'Profile Settings', href: '/profile-settings' },
   ];
 
-  // 2. Site Menu (Logged Out)
+  // Define Site Menu (Logged Out)
   const publicMenuItems = [
     { icon: Home, label: 'Welcome', href: '/' },
+    { icon: LayoutGrid, label: 'Showroom', href: '/showroom' }, // Showroom is now a primary public link
     { icon: Info, label: 'About Us', href: '/about-us' },
     { icon: Landmark, label: 'Tokenization', href: '/tokenization' },
-    { icon: Box, label: 'Product Creation', href: '/product-creation' },
+    { icon: Box, label: 'Product Process', href: '/product-process' },
     { icon: Zap, label: 'Minting Process', href: '/minting-process' },
     { icon: Globe, label: 'Industries', href: '/industries' },
   ];
@@ -47,14 +49,14 @@ export default function Sidebar() {
 
   return (
     <aside className="hidden md:flex w-64 flex-col border-r border-border bg-card/50 backdrop-blur-sm sticky top-0 h-screen z-50">
-      {/* 1. The Logo Area (Fixed in the corner) */}
+      {/* 1. Logo Area */}
       <div className="h-16 flex items-center px-6 border-b border-border/50">
         <Link href="/" className="font-bold text-xl tracking-tighter hover:opacity-80 transition-opacity">
           META<span className="text-green-500">WORK</span>
         </Link>
       </div>
 
-      {/* 2. The Navigation Area */}
+      {/* 2. Navigation Area */}
       <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">
         <h2 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-6">
           {menuTitle}
@@ -116,12 +118,6 @@ export default function Sidebar() {
               <span className="text-sm font-medium">Get Account</span>
             </Button>
           </>
-        )}
-        
-        {!isAuthenticated && (
-          <p className="text-[10px] text-slate-500 text-center italic pt-2 opacity-60 px-2 leading-tight">
-            Opening the global economy to everyone.
-          </p>
         )}
       </div>
     </aside>

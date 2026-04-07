@@ -3,24 +3,25 @@
 import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
+import { useAuth } from '@/lib/AuthContext'; // Import useAuth
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
+  const { isAuthenticated, loading } = useAuth(); // Get auth state
   
-  // 1. Define your public route criteria
-  const isHomePage = pathname === '/';
-  const isPublicAisle = pathname?.startsWith('/aisle');
-  const isShowroom = pathname?.startsWith('/showroom');
-  const isPublicProfile = pathname?.startsWith('/profile');
   const isLogin = pathname === '/login';
+  const isRegister = pathname === '/register';
 
-  // 2. Combine them into a single boolean
-  const hideSidebar = isHomePage || isPublicAisle || isShowroom || isLogin;
+  // LOGIC: 
+  // 1. If we are still loading auth state, we usually show the sidebar to prevent layout shift
+  // 2. If NOT logged in (guest), we ALWAYS show the sidebar (for the new site menu)
+  // 3. If logged in, we only hide it on specific auth pages like Login/Register
+  const shouldHideSidebar = isAuthenticated && (isLogin || isRegister);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
-      {/* 3. Conditional Rendering: Only show sidebar if NOT a public page */}
-      {!hideSidebar && <Sidebar />}
+      {/* Show sidebar unless the hide criteria is met */}
+      {!shouldHideSidebar && <Sidebar />}
       
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
