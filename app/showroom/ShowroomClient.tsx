@@ -225,7 +225,7 @@ export default function ShowroomClient() {
       />
 
       {/* STICKY NAV - MOBILE OPTIMIZED */}
-      <div className="sticky top-16 z-30 bg-[#020617]/80 backdrop-blur-md border-b border-white/5 py-3">
+      <div className="sticky top-0 z-30 bg-[#020617]/80 backdrop-blur-md border-b border-white/5 py-3">
         <div className="container mx-auto px-4 flex justify-center">
           <div className="inline-flex w-full max-w-md p-1 bg-[#0f172a] rounded-xl border border-white/5 shadow-2xl">
             {TABS.map((tab) => (
