@@ -156,6 +156,99 @@ const LiveProductsTelemetry = () => {
   );
 };
 
+// --- QUICK ACTIONS / SYSTEM DIRECTIVES ---
+const ExecutionDirectives = () => {
+  const actions = [
+    { 
+      title: "Mint New Asset", 
+      desc: "Tokenize new IP or RWA", 
+      icon: "[+]", 
+      color: "text-cyan-400", 
+      bgHover: "hover:bg-cyan-950/30", 
+      borderHover: "hover:border-cyan-500/50",
+      href: "/upload-asset"
+    },
+    { 
+      title: "Create Product", 
+      desc: "Initialize creation flow", 
+      icon: "[∆]", 
+      color: "text-pink-400", 
+      bgHover: "hover:bg-pink-950/30", 
+      borderHover: "hover:border-pink-500/50",
+      href: "/create-product" // <-- Wires directly to your new product flow
+    },
+    { 
+      title: "Deploy Product", 
+      desc: "Manage fractional pools", 
+      icon: "[⚡]", 
+      color: "text-green-400", 
+      bgHover: "hover:bg-green-950/30", 
+      borderHover: "hover:border-green-500/50",
+      href: "/my-products"
+    },
+    { 
+      title: "Platform Academy", 
+      desc: "Read MetaWork documentation", 
+      icon: "[i]", 
+      color: "text-slate-500", 
+      bgHover: "hover:bg-slate-900/50", 
+      borderHover: "hover:border-slate-500/30",
+      isComingSoon: true 
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {actions.map((action, idx) => {
+        
+        const InnerContent = (
+          <>
+            <div className={`text-lg font-black mb-2 flex items-center gap-3 ${action.color}`}>
+              <span className="font-mono text-sm opacity-50 group-hover:opacity-100 transition-opacity">
+                {action.icon}
+              </span>
+              <span className="uppercase tracking-widest text-xs italic">
+                {action.title}
+              </span>
+            </div>
+            <div className="text-[10px] text-slate-500 font-mono text-left uppercase tracking-wider">
+              {action.desc}
+            </div>
+            
+            {action.isComingSoon && (
+              <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-[#131722] border border-white/10 text-slate-300 text-[10px] font-mono uppercase tracking-widest rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-xl">
+                System Offline: Coming Soon
+              </div>
+            )}
+          </>
+        );
+
+        if (action.isComingSoon) {
+          return (
+            <button 
+              key={idx} 
+              className={`relative flex flex-col items-start p-4 bg-black border border-white/5 rounded-lg transition-all duration-200 group cursor-not-allowed ${action.bgHover} ${action.borderHover}`}
+              disabled
+            >
+              {InnerContent}
+            </button>
+          );
+        }
+
+        return (
+          <a 
+            key={idx} 
+            href={action.href}
+            className={`relative flex flex-col items-start p-4 bg-black border border-white/10 rounded-lg transition-all duration-200 group cursor-pointer ${action.bgHover} ${action.borderHover} block no-underline`}
+          >
+            {InnerContent}
+          </a>
+        );
+      })}
+    </div>
+  );
+};
+
 // 2A: Global Interest Rates (Bonds)
 const BondsWidget = () => {
   const container = useRef();
@@ -648,6 +741,8 @@ export default function DashboardHome() {
             </Card>
 
           </div>
+
+          <ExecutionDirectives />
 
           {/* ROW 2: INVENTORY & MARKETS */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
