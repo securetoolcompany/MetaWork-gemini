@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 
 export async function POST(request) {
   try {
+    // 1. Parse and validate input
     const body = await request.json();
     const { email, password } = body;
     
@@ -15,8 +16,10 @@ export async function POST(request) {
       );
     }
     
+    // 2. Database Lookup
     const { db } = await connectToDatabase();
     const loginIdentifier = email.toLowerCase().trim();
+    // Regex for case-insensitive exact match
     const searchRegex = new RegExp(`^${loginIdentifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
 
     const user = await db.collection('users').findOne({
@@ -26,6 +29,7 @@ export async function POST(request) {
       ]
     });
 
+    // 3. Authentication Checks
     if (!user) {
       console.log(`❌ Login Failed: No user found for ${loginIdentifier}`);
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
@@ -39,30 +43,28 @@ export async function POST(request) {
     }
 
     const isValid = await bcrypt.compare(password, user.password);
-    
     if (!isValid) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // 4. Update last login using the correct internal ID
-    await db.collection('users').updateOne(
-      { _id: user._id },
-      { $set: { lastLoginAt: new Date(), updatedAt: new Date() } }
-    );
-
-    // 5. Generate token (Ensure we use the ID string)
+    // 4. GENERATE TOKEN (Crucial to do this before setting the cookie)
     const userIdStr = user.id || user.userId || user._id.toString();
-    
     const token = generateToken({
       userId: userIdStr,
       email: user.email,
       walletAddress: user.walletAddress
     });
 
-    // 6. Build response
+    // 5. Update last login in Background
+    await db.collection('users').updateOne(
+      { _id: user._id },
+      { $set: { lastLoginAt: new Date(), updatedAt: new Date() } }
+    );
+
+    // 6. Build the JSON Response
     const response = NextResponse.json({
       success: true,
-      token,
+      token, // Kept for Client-side LocalStorage backup
       user: {
         id: userIdStr,
         email: user.email,
@@ -72,11 +74,13 @@ export async function POST(request) {
       }
     });
 
+    // 7. ATTACH THE COOKIE (This is what the Middleware reads)
     response.cookies.set('auth_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60
+      httpOnly: true, // Security: JS cannot touch this cookie
+      secure: process.env.NODE_ENV === 'production', // Only over HTTPS in prod
+      sameSite: 'lax', // Best balance for redirects
+      maxAge: 30 * 24 * 60 * 60, // 30 days in seconds
+      path: '/', // Available across the whole site
     });
     
     return response;
