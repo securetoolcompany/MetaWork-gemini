@@ -68,10 +68,10 @@ export default function Header({ title }: { title?: string }) {
                 </Button>
               </Link>
             ) : (
-              <Link href="/showroom">
+              <Link href="/dashboard">
                 <Button variant="ghost" size="sm" className="gap-2">
                   <Store className="h-4 w-4" />
-                  <span className="hidden md:inline">Showroom</span>
+                  <span className="hidden md:inline">Dashboard</span>
                 </Button>
               </Link>
             )

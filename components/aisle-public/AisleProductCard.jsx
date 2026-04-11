@@ -37,7 +37,7 @@ export default function AisleProductCard({
       className="bg-[#111] rounded-2xl overflow-hidden border border-white/5 flex flex-col h-full hover:border-white/20 transition-all cursor-pointer block group"
     >
       {/* IMAGE CONTAINER - Fixed Aspect Ratio to prevent "long" cards */}
-      <div className="relative w-full aspect-square overflow-hidden bg-[#0a0a0a]">
+      <div className="relative w-full aspect-square overflow-hidden bg-white">
         <img
           src={imageSrc || '/placeholder.png'}
           alt={product.name || product.title}

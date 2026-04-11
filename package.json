@@ -51,7 +51,7 @@
         "@walletconnect/sign-client": "^2.23.1",
         "adm-zip": "^0.5.16",
         "algosdk": "^3.5.2",
-        "axios": "^1.13.4",
+        "axios": "^1.15.0",
         "bcrypt": "^6.0.0",
         "bcryptjs": "^3.0.3",
         "canvas-confetti": "^1.9.4",
