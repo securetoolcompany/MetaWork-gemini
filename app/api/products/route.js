@@ -6,7 +6,6 @@ export const dynamic = 'force-dynamic';
 export async function GET(request) {
   try {
     const { db } = await connectToDatabase();
-
     const { searchParams } = new URL(request.url);
 
     // Pagination
@@ -19,11 +18,11 @@ export async function GET(request) {
     const status = searchParams.get('status');     // e.g. 'live'
     const category = searchParams.get('category'); // pill category
     const q = searchParams.get('q');               // text search
+    const includeDrafts = searchParams.get('includeDrafts') === 'true'; // ✅ Added Draft support
 
     const query = {};
 
     if (creator) {
-      // adjust to your schema: userId / creatorId / ownerUsername
       query.$or = [
         { userId: creator },
         { creatorId: creator },
@@ -31,38 +30,34 @@ export async function GET(request) {
       ];
     }
 
+    // ✅ FIXED STATUS LOGIC: Include 'published' and handle 'includeDrafts'
     if (status) {
       query.status = status;
     } else {
-      // default to public/live products
-      query.status = { $in: ['live', 'active'] };
+      const allowedStatuses = ['live', 'active', 'published'];
+      if (creator && includeDrafts) {
+        allowedStatuses.push('draft');
+      }
+      query.status = { $in: allowedStatuses };
     }
 
     if (category) {
-      // assuming categories: string[] on the product
       query.categories = category;
     }
 
     if (q) {
       query.$text = { $search: q };
-      // or use regex if you don’t have a text index:
-      // query.title = { $regex: q, $options: 'i' };
     }
 
-// Only apply isPublic filter if we are NOT looking for a specific creator's own stuff
-// Or if a "showDrafts" flag isn't passed.
-if (!creator) {
-  query.isPublic = { $ne: false };
-  query.status = { $in: ['live', 'active'] };
-} else {
-  // If a creator ID is provided, we assume we want to see their 
-  // catalog for management, so we loosen the restriction.
-  // Optional: Check session here to ensure ONLY the owner sees non-public items.
-}
+    // Only apply isPublic filter if we are NOT looking for a specific creator's own stuff
+    if (!creator) {
+      query.isPublic = { $ne: false };
+    } 
+
     const cursor = db
       .collection('products')
       .find(query)
-      .sort({ createdAt: -1 }) // or your preferred sort
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
@@ -71,9 +66,16 @@ if (!creator) {
       db.collection('products').countDocuments(query),
     ]);
 
+    // ✅ Ensure string IDs are attached for the front-end components
+    const processedItems = items.map(item => ({
+      ...item,
+      id: item.id || item._id.toString(),
+      _id: item._id.toString()
+    }));
+
     return NextResponse.json({
       success: true,
-      products: items,
+      products: processedItems,
       pagination: {
         page,
         limit,
