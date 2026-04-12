@@ -247,7 +247,7 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10 w-full">              
               {/* Left Column - Gallery */}
               <div className="space-y-4 lg:sticky lg:top-0 h-fit">
-                <div className="relative aspect-square bg-gray-900 rounded-xl overflow-hidden border border-white/10">
+                <div className="relative aspect-square bg-white rounded-xl overflow-hidden border border-white/10">
                   {displayImages.length > 0 ? (
                     <>
                       <Image src={displayImages[currentMockupIndex]} alt={productName} fill className="object-cover" />

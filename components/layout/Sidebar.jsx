@@ -84,21 +84,21 @@ export default function Sidebar() {
   const { isAuthenticated, loading, logout } = useAuth();
 
   const dashboardMenuItems = [
-    { icon: Home, label: 'Home', href: '/' },
+    //{ icon: Home, label: 'Home', href: '/' },
     { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-    { icon: Store, label: 'Aisle Settings', href: '/aisle-settings' },
-    { icon: Palette, label: 'Product Designer', href: '/products/creator' },
-   // { icon: LayoutGrid, label: 'Showroom', href: '/showroom' },
-    { icon: Database, label: 'My IP Assets', href: '/my-ip' },
-    { icon: ShoppingBag, label: 'My Products', href: '/my-products' },
-    { icon: TrendingUp, label: 'Earnings', href: '/earnings' },
-    { icon: Gift, label: 'Promotions', href: '/promotions' },
-    { icon: Settings, label: 'Profile Settings', href: '/profile-settings' },
+    { icon: Database, label: 'Manage IP Assets', href: '/my-ip' },
+    { icon: ShoppingBag, label: 'Manage Products', href: '/my-products' },
+    { icon: Palette, label: 'Create Products', href: '/products/creator' },
+    { icon: Store, label: 'Design Aisle', href: '/aisle-settings' },
+    { icon: Settings, label: 'Designer Profile', href: '/profile-settings' },
+    //{ icon: TrendingUp, label: 'Earnings', href: '/earnings' },
+    { icon: Gift, label: 'Launch Promotions', href: '/promotions' },
+    { icon: LayoutGrid, label: 'View Showroom', href: '/showroom' },
   ];
 
   const publicMenuItems = [
     { icon: Home, label: 'Welcome', href: '/' },
-   // { icon: LayoutGrid, label: 'Showroom', href: '/showroom' },
+    { icon: LayoutGrid, label: 'Showroom', href: '/showroom' },
     { icon: Info, label: 'About Us', href: '/about-us' },
     { icon: Landmark, label: 'Tokenization', href: '/tokenization' },
     { icon: Box, label: 'Product Creation', href: '/product-creation' },

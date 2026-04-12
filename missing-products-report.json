@@ -1,0 +1,1623 @@
+{
+  "summary": {
+    "totalCsvValidProducts": 420,
+    "totalMongoDbProducts": 146,
+    "missingCount": 269
+  },
+  "missingProducts": [
+    {
+      "name": "Custom T-Shirt",
+      "type": "simple",
+      "categories": "Clothing MFG, MetaManufacturing, Clothing MFG > Shirts MFG",
+      "published": "-1"
+    },
+    {
+      "name": "MetaManufacturing Phone Case (hard)",
+      "type": "simple",
+      "categories": "Accessories MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Ceramic Mug, (11oz)",
+      "type": "simple",
+      "categories": "Cups & Mugs MFG, Kitchen MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Bento Lunch Box",
+      "type": "simple",
+      "categories": "Kitchen MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Glass Cutting Board",
+      "type": "simple",
+      "categories": "Kitchen MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Corkwood Coaster Set",
+      "type": "simple",
+      "categories": "Home Decor MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Apron, 5-Color Straps (AOP)",
+      "type": "simple",
+      "categories": "Kitchen MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Slim Can Cooler",
+      "type": "simple",
+      "categories": "Accessories MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Whey Isolate Protein Supplement (907g, 2lb)",
+      "type": "simple",
+      "categories": "Fitness & Sports MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Low Profile Baseball Cap",
+      "type": "simple",
+      "categories": "Clothing MFG > Caps and Hats MFG, Clothing MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "Unisex Heavy Blend™ Crewneck Sweatshirt",
+      "type": "simple",
+      "categories": "Clothing MFG, MetaManufacturing, Clothing MFG > Shirts MFG",
+      "published": "-1"
+    },
+    {
+      "name": "Unisex College Hoodie",
+      "type": "simple",
+      "categories": "Clothing MFG, Clothing MFG > Hoodies MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Pet Bowl",
+      "type": "simple",
+      "categories": "MetaManufacturing, Pets MFG",
+      "published": "-1"
+    },
+    {
+      "name": "Velveteen Plush Blanket",
+      "type": "simple",
+      "categories": "Home Decor MFG > Blankets MFG, Home Decor MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Tote Bag (AOP)",
+      "type": "simple",
+      "categories": "Accessories MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "Gaming Mouse Pad",
+      "type": "simple",
+      "categories": "MetaManufacturing, Tech MFG",
+      "published": "-1"
+    },
+    {
+      "name": "Kiss-Cut Stickers (3\" x 3\")",
+      "type": "simple",
+      "categories": "Magnets & Stickers MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Unisex Jersey Tank",
+      "type": "simple",
+      "categories": "Clothing MFG, Fitness & Sports MFG, MetaManufacturing, Clothing MFG > Shirts MFG",
+      "published": "-1"
+    },
+    {
+      "name": "Swim Trunks (AOP)",
+      "type": "simple",
+      "categories": "Clothing MFG, MetaManufacturing, Clothing MFG > Swimwear MFG",
+      "published": "-1"
+    },
+    {
+      "name": "EVA Foam Rubber Shoes (AOP)",
+      "type": "simple",
+      "categories": "Clothing MFG, MetaManufacturing, Clothing MFG > Shoes MFG",
+      "published": "-1"
+    },
+    {
+      "name": "Men's Indoor Slippers",
+      "type": "simple",
+      "categories": "Clothing MFG, MetaManufacturing, Clothing MFG > Shoes MFG",
+      "published": "-1"
+    },
+    {
+      "name": "Matte Framed Posters, 8\" x 10\"",
+      "type": "simple",
+      "categories": "Home Decor MFG, MetaManufacturing, Home Decor MFG > Posters and Wall Art MFG",
+      "published": "-1"
+    },
+    {
+      "name": "Matte Canvas, Stretched, 6\" x 6\"",
+      "type": "simple",
+      "categories": "Home Decor MFG, MetaManufacturing, Home Decor MFG > Posters and Wall Art MFG",
+      "published": "-1"
+    },
+    {
+      "name": "Shot Glass",
+      "type": "simple",
+      "categories": "Cups & Mugs MFG, Home Decor MFG, Kitchen MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Whiskey Glass",
+      "type": "simple",
+      "categories": "Cups & Mugs MFG, Kitchen MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Clear Pint Glass",
+      "type": "simple",
+      "categories": "Cups & Mugs MFG, Kitchen MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Frosted Pint Glass, 16oz",
+      "type": "simple",
+      "categories": "Cups & Mugs MFG, Kitchen MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Unisex Performance Long Sleeve Shirt",
+      "type": "simple",
+      "categories": "Clothing MFG, Fitness & Sports MFG, MetaManufacturing, Clothing MFG > Shirts MFG",
+      "published": "-1"
+    },
+    {
+      "name": "Round Vinyl Stickers",
+      "type": "simple",
+      "categories": "Magnets & Stickers MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Square Vinyl Stickers",
+      "type": "simple",
+      "categories": "Magnets & Stickers MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Sticker Sheets (5.83″×8.27″)",
+      "type": "simple",
+      "categories": "Magnets & Stickers MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Holographic Die-cut Stickers (3\" x 3\")",
+      "type": "simple",
+      "categories": "Magnets & Stickers MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Die-Cut Magnets (3\" x 3\")",
+      "type": "simple",
+      "categories": "Magnets & Stickers MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Bumper Stickers",
+      "type": "simple",
+      "categories": "Magnets & Stickers MFG, MetaManufacturing",
+      "published": "-1"
+    },
+    {
+      "name": "Women's Bikini Swimsuit (AOP)",
+      "type": "simple",
+      "categories": "Clothing MFG, MetaManufacturing, Clothing MFG > Swimwear MFG",
+      "published": "-1"
+    },
+    {
+      "name": "Women's One-piece Swimsuit (AOP)",
+      "type": "simple",
+      "categories": "Clothing MFG, MetaManufacturing, Clothing MFG > Swimwear MFG",
+      "published": "-1"
+    },
+    {
+      "name": "ION + Select Electrolyte Supplement (225g, 7.9oz)",
+      "type": "simple",
+      "categories": "Fitness & Sports MFG, MetaManufacturing, Fitness & Sports MFG > Supplements",
+      "published": "-1"
+    },
+    {
+      "name": "Quinn Williams - Night-Night (Mary Randell)",
+      "type": "variable",
+      "categories": "Creator Marketplace, Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Lexxi Moncada - Keep Fighting (@belali)",
+      "type": "variable",
+      "categories": "Creator Marketplace, Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Coach Grippado - Belt up (Mary Randell)",
+      "type": "variable",
+      "categories": "Clothing, Combat Sports > Coach Grippado, Combat Sports, Creator Marketplace, Creator Marketplace > M.R. Illustration, Clothing > Shirts, Clothing > Streetwear",
+      "published": "-1"
+    },
+    {
+      "name": "MetaWork Cash-Out ($5 USD)",
+      "type": "simple",
+      "categories": "Cash Outs",
+      "published": "1"
+    },
+    {
+      "name": "MetaWork Cash-Out ($10 USD)",
+      "type": "simple",
+      "categories": "Cash Outs",
+      "published": "1"
+    },
+    {
+      "name": "LITM (VINCENT)",
+      "type": "simple",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > VINCENT",
+      "published": "1"
+    },
+    {
+      "name": "Framed Tiger Poster (Nwobi)",
+      "type": "simple",
+      "categories": "Creator Marketplace, Home Decor, Creator Marketplace > Nwobi, Home Decor > Posters & Wall Art",
+      "published": "-1"
+    },
+    {
+      "name": "itz cool (balogun) - (The Unique PreshyArt)",
+      "type": "simple",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > The Unique PreshyArt",
+      "published": "-1"
+    },
+    {
+      "name": "The Unique PreshyArt",
+      "type": "simple",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > The Unique PreshyArt",
+      "published": "-1"
+    },
+    {
+      "name": "The Unique PreshyArt 2",
+      "type": "simple",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > The Unique PreshyArt",
+      "published": "-1"
+    },
+    {
+      "name": "The Unique PreshyArt 3",
+      "type": "variable",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > The Unique PreshyArt",
+      "published": "-1"
+    },
+    {
+      "name": "The Unique PreshyArt 4",
+      "type": "simple",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > The Unique PreshyArt",
+      "published": "-1"
+    },
+    {
+      "name": "The Unique PreshyArt 5",
+      "type": "simple",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > The Unique PreshyArt",
+      "published": "-1"
+    },
+    {
+      "name": "The Unique PreshyArt 6",
+      "type": "simple",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > The Unique PreshyArt",
+      "published": "-1"
+    },
+    {
+      "name": "The Unique PreshyArt 7",
+      "type": "simple",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > The Unique PreshyArt",
+      "published": "-1"
+    },
+    {
+      "name": "The Unique PreshyArt 8",
+      "type": "variable",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > The Unique PreshyArt",
+      "published": "-1"
+    },
+    {
+      "name": "All-Over-Print Backpack",
+      "type": "variable",
+      "categories": "Accessories MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "nirvana framed poster (AnaRose)",
+      "type": "simple",
+      "categories": "Creator Marketplace > aiyan.smolak, Creator Marketplace, Home Decor, Home Decor > Posters & Wall Art",
+      "published": "-1"
+    },
+    {
+      "name": "One-Piece Swimsuit (aya)",
+      "type": "simple",
+      "categories": "Creator Marketplace > aiyan.smolak, Clothing, Creator Marketplace, Clothing > Swimwear",
+      "published": "-1"
+    },
+    {
+      "name": "sammiesketch tees",
+      "type": "variable",
+      "categories": "Clothing, Creator Marketplace, Creator Marketplace > SAMMIEsketch, Clothing > Shirts, Clothing > Streetwear",
+      "published": "1"
+    },
+    {
+      "name": "sammiesketch tees",
+      "type": "variable",
+      "categories": "Clothing, Creator Marketplace, Creator Marketplace > SAMMIEsketch, Clothing > Shirts, Clothing > Streetwear",
+      "published": "1"
+    },
+    {
+      "name": "Enhanced Matte Paper Poster (in)",
+      "type": "variable",
+      "categories": "Home Decor MFG, MetaManufacturing, Home Decor MFG > Posters and Wall Art MFG",
+      "published": "1"
+    },
+    {
+      "name": "All-Over Print Men's Rash Guard",
+      "type": "variable",
+      "categories": "Combat Sports MFG, Fitness & Sports MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "Canvas (in)",
+      "type": "variable",
+      "categories": "Home Decor MFG, MetaManufacturing, Home Decor MFG > Posters and Wall Art MFG",
+      "published": "1"
+    },
+    {
+      "name": "Thatkaiguy 3 (Thatkaiguy)",
+      "type": "variable",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > Thatkaiguy",
+      "published": "1"
+    },
+    {
+      "name": "Thatkaiguy 1 (Thatkaiguy)",
+      "type": "variable",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > Thatkaiguy",
+      "published": "1"
+    },
+    {
+      "name": "Unisex Classic Tee",
+      "type": "variable",
+      "categories": "Clothing MFG, MetaManufacturing, Clothing MFG > Shirts MFG",
+      "published": "1"
+    },
+    {
+      "name": "White Glossy Mug",
+      "type": "variable",
+      "categories": "Cups & Mugs MFG, Kitchen MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "Die-Cut Magnets",
+      "type": "variable",
+      "categories": "Magnets & Stickers MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "Shaker Pint Glass (16 oz)",
+      "type": "variable",
+      "categories": "Cups & Mugs MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "Men's Rash Guard (The Bear Club)",
+      "type": "variable",
+      "categories": "Combat Sports, Clothing > Fightwear, Combat Sports > Rash Guards, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Men's Tank Top (The Bear Club)",
+      "type": "variable",
+      "categories": "Clothing, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Snapback Hat (The Bear Club)",
+      "type": "variable",
+      "categories": "Clothing, Accessories > Headwear, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "White Glossy Mug (The Bear Club)",
+      "type": "variable",
+      "categories": "Cups & Mugs, Home Decor, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Stemless Wine Glass (15 oz)",
+      "type": "variable",
+      "categories": "Cups & Mugs MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "All-Over Print Recycled Swim Trunks",
+      "type": "variable",
+      "categories": "Clothing MFG, MetaManufacturing, Clothing MFG > Swimwear MFG",
+      "published": "1"
+    },
+    {
+      "name": "Unisex Heavy Blend Hoodie | Gildan 18500",
+      "type": "variable",
+      "categories": "Clothing MFG, Clothing MFG > Hoodies MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "Unisex Crew Neck Sweatshirt | Gildan 18000",
+      "type": "variable",
+      "categories": "Clothing MFG, MetaManufacturing, Clothing MFG > Shirts MFG",
+      "published": "1"
+    },
+    {
+      "name": "Men’s Staple Tank Top | Bella + Canvas 3480",
+      "type": "variable",
+      "categories": "Clothing MFG > Activewear MFG, Clothing MFG, MetaManufacturing, Clothing MFG > Shirts MFG",
+      "published": "1"
+    },
+    {
+      "name": "All-Over Print One-Piece Swimsuit",
+      "type": "variable",
+      "categories": "Clothing MFG, MetaManufacturing, Clothing MFG > Swimwear MFG",
+      "published": "1"
+    },
+    {
+      "name": "All-Over Print Recycled String Bikini",
+      "type": "variable",
+      "categories": "Clothing MFG, MetaManufacturing, Clothing MFG > Swimwear MFG",
+      "published": "1"
+    },
+    {
+      "name": "Throw Blanket",
+      "type": "variable",
+      "categories": "Home Decor MFG > Blankets MFG, Home Decor MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "Kiss-Cut Stickers",
+      "type": "variable",
+      "categories": "Magnets & Stickers MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "Kiss-Cut Holographic Stickers",
+      "type": "variable",
+      "categories": "Magnets & Stickers MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "Kiss-Cut Sticker Sheet",
+      "type": "variable",
+      "categories": "Magnets & Stickers MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "Pet Bowl",
+      "type": "variable",
+      "categories": "MetaManufacturing, Pets MFG",
+      "published": "1"
+    },
+    {
+      "name": "Gaming Mouse Pad",
+      "type": "variable",
+      "categories": "MetaManufacturing, Tech MFG",
+      "published": "1"
+    },
+    {
+      "name": "Savage by Nature (The Bear Club)",
+      "type": "variable",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Premium Mouse Pad, 18\" x 16\" (The Bear Club)",
+      "type": "simple",
+      "categories": "Accessories > Computers, Creator Marketplace, Tech, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Pet Bowl (The Bear Club)",
+      "type": "variable",
+      "categories": "Creator Marketplace, Pets, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "The Bear Club Hoodie (The Bear Club)",
+      "type": "variable",
+      "categories": "Clothing, Creator Marketplace, Clothing > Hoodies, Clothing > Streetwear, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Bear Club Rash Guard (Red Gloves)",
+      "type": "variable",
+      "categories": "Clothing, Combat Sports, Creator Marketplace, Clothing > Fightwear, Fitness & Sports, Combat Sports > Rash Guards, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "BearClub Rashguard - BJJ (The Bear Club)",
+      "type": "variable",
+      "categories": "Combat Sports, Clothing > Fightwear, Fitness & Sports, Combat Sports > Rash Guards, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Bear Club Rash Guard (Black Gloves)",
+      "type": "variable",
+      "categories": "Clothing, Combat Sports, Creator Marketplace, Clothing > Fightwear, Combat Sports > Rash Guards, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Bearclub One-piece Bathing Suit (The Bear Club)",
+      "type": "variable",
+      "categories": "Clothing, Clothing > Swimwear, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Bearclub 2-piece Bathing Suit (The Bear Club)",
+      "type": "variable",
+      "categories": "Clothing, Clothing > Swimwear, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Loyal Snapback Hat (The Unique PreshyArt)",
+      "type": "simple",
+      "categories": "Accessories, Clothing, Accessories > Headwear, Creator Marketplace > The Unique PreshyArt",
+      "published": "1"
+    },
+    {
+      "name": "All-Over Print Basic Pillow Case",
+      "type": "variable",
+      "categories": "Accessories MFG, Home Decor MFG, Home Decor MFG > Pillows & Cases MFG",
+      "published": "1"
+    },
+    {
+      "name": "Bear Club Mug (Bear Club)",
+      "type": "variable",
+      "categories": "Cups & Mugs, Home Decor, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "adidas Space-Dyed Polo Shirt",
+      "type": "variable",
+      "categories": "Clothing MFG, Clothing MFG > Shirts MFG",
+      "published": "-1"
+    },
+    {
+      "name": "Unisex Premium Pique Polo Shirt",
+      "type": "variable",
+      "categories": "Clothing MFG, MetaManufacturing, Clothing MFG > Shirts MFG",
+      "published": "1"
+    },
+    {
+      "name": "All-Over Print Gym Bag",
+      "type": "variable",
+      "categories": "Accessories MFG, Combat Sports MFG, Fitness & Sports MFG, MetaManufacturing",
+      "published": "1"
+    },
+    {
+      "name": "Bear Club M4 Rash Guard (The Bear Club)",
+      "type": "variable",
+      "categories": "Clothing, Combat Sports, Creator Marketplace, Clothing > Fightwear, Fitness & Sports, Combat Sports > Rash Guards, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Bearclub Rashguard BJJ kids class (The Bear Club)",
+      "type": "variable",
+      "categories": "Clothing, Combat Sports, Creator Marketplace, Clothing > Fightwear, Fitness & Sports, Combat Sports > Rash Guards, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Bear Club M4 two Men's Rash Guard",
+      "type": "variable",
+      "categories": "Clothing, Combat Sports, Creator Marketplace, Clothing > Fightwear, Fitness & Sports, Combat Sports > Rash Guards, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Bear Club Kids Rash Guard",
+      "type": "variable",
+      "categories": "Clothing, Combat Sports, Creator Marketplace, Clothing > Fightwear, Fitness & Sports, Combat Sports > Rash Guards, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Bear Club Rash Guard Kids Class 3",
+      "type": "variable",
+      "categories": "Clothing, Combat Sports, Creator Marketplace, Clothing > Fightwear, Fitness & Sports, Combat Sports > Rash Guards, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Bearclub OD Green Rash Guard",
+      "type": "variable",
+      "categories": "Clothing, Combat Sports, Creator Marketplace, Clothing > Fightwear, Fitness & Sports, Combat Sports > Rash Guards, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Bearclub Rashguard Chocolate",
+      "type": "variable",
+      "categories": "Clothing, Combat Sports, Creator Marketplace, Clothing > Fightwear, Fitness & Sports, Combat Sports > Rash Guards, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Bearclub RashGuard Limited Edition Black Sleeves",
+      "type": "variable",
+      "categories": "Clothing, Combat Sports, Creator Marketplace, Clothing > Fightwear, Fitness & Sports, Combat Sports > Rash Guards, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Bearclub RashGuard Savage Black",
+      "type": "variable",
+      "categories": "Clothing, Combat Sports, Creator Marketplace, Clothing > Fightwear, Fitness & Sports, Combat Sports > Rash Guards, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Bear Club Polo",
+      "type": "variable",
+      "categories": "Clothing, Creator Marketplace, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Daniel \"Grippaudo Trained\" - Men's Rash Guard (RISE)",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Clothing, Combat Sports, Clothing > Fightwear, Fitness & Sports, Combat Sports > Rash Guards, Creator Marketplace > RISE",
+      "published": "1"
+    },
+    {
+      "name": "Chris \"Kamikaze\" Cariaso BMX - Men's Rash Guard (RISE)",
+      "type": "variable",
+      "categories": "Creator Marketplace > RISE",
+      "published": "-1"
+    },
+    {
+      "name": "Grippaudo Men's Rash Guard (RISE)",
+      "type": "variable",
+      "categories": "Creator Marketplace > RISE",
+      "published": "-1"
+    },
+    {
+      "name": "TDX Shirt",
+      "type": "variable",
+      "categories": "Accessories",
+      "published": "-1"
+    },
+    {
+      "name": "Fighter Card - Big Bad Bruiser",
+      "type": "variable",
+      "categories": "Creator Marketplace > anyinwagu, Combat Sports, Combat Sports > Lexi Moncado, Creator Marketplace > RISE",
+      "published": "-1"
+    },
+    {
+      "name": "Rise of the Prospects \"Moments\" - Lexxi Moncada Beatdown!",
+      "type": "simple",
+      "categories": "Creator Marketplace > RISE",
+      "published": "-1"
+    },
+    {
+      "name": "All-Over Print Beanie (Anarose)",
+      "type": "variable",
+      "categories": "Clothing, Creator Marketplace, Accessories > Headwear",
+      "published": "-1"
+    },
+    {
+      "name": "Tapered stainless steel tumbler (Anarose)",
+      "type": "simple",
+      "categories": "Creator Marketplace, Cups & Mugs, Home Decor, Kitchen",
+      "published": "1"
+    },
+    {
+      "name": "Latte mug (Anarose)",
+      "type": "simple",
+      "categories": "Creator Marketplace, Cups & Mugs, Home Decor, Kitchen",
+      "published": "1"
+    },
+    {
+      "name": "Black Glossy Mug (Anarose)",
+      "type": "variable",
+      "categories": "Creator Marketplace, Cups & Mugs, Home Decor, Kitchen",
+      "published": "1"
+    },
+    {
+      "name": "Enamel Mug (Anarose)",
+      "type": "simple",
+      "categories": "Creator Marketplace, Cups & Mugs, Home Decor, Kitchen",
+      "published": "1"
+    },
+    {
+      "name": "Pet collar (Anarose)",
+      "type": "variable",
+      "categories": "Pets",
+      "published": "1"
+    },
+    {
+      "name": "Pet bowl (Anarose)",
+      "type": "simple",
+      "categories": "Pets",
+      "published": "1"
+    },
+    {
+      "name": "Pet leash - My Little Cuddler",
+      "type": "simple",
+      "categories": "Pets",
+      "published": "1"
+    },
+    {
+      "name": "Pet bowl Ukraine (AnaRose)",
+      "type": "simple",
+      "categories": "Pets",
+      "published": "1"
+    },
+    {
+      "name": "All-Over Print Kids Swimsuit (AnaRose)",
+      "type": "variable",
+      "categories": "Clothing, Clothing > Swimwear",
+      "published": "1"
+    },
+    {
+      "name": "All-Over Print Youth Swimsuit (AnaRose)",
+      "type": "variable",
+      "categories": "Clothing, Clothing > Swimwear",
+      "published": "1"
+    },
+    {
+      "name": "One-Piece Swimsuit (AnaRose)",
+      "type": "simple",
+      "categories": "Clothing, Clothing > Swimwear",
+      "published": "1"
+    },
+    {
+      "name": "Tie-strap midi dress (AnaRose)",
+      "type": "simple",
+      "categories": "Clothing, Clothing > Dresses\\, Skirts and Blouses, Clothing > Formalwear",
+      "published": "1"
+    },
+    {
+      "name": "Skater Dress (AnaRose)",
+      "type": "simple",
+      "categories": "Clothing, Clothing > Dresses\\, Skirts and Blouses, Clothing > Streetwear",
+      "published": "1"
+    },
+    {
+      "name": "Snap case for iPhone® (AnaRose)",
+      "type": "variable",
+      "categories": "Accessories, Accessories > Phone Cases, Tech",
+      "published": "1"
+    },
+    {
+      "name": "Rubber Case for AirPods® (AnaRose)",
+      "type": "variable",
+      "categories": "Accessories, Accessories > Phone Cases, Tech",
+      "published": "1"
+    },
+    {
+      "name": "Gaming mouse pad (AnaRose)",
+      "type": "variable",
+      "categories": "Accessories, Accessories > Computers, Tech",
+      "published": "1"
+    },
+    {
+      "name": "Gaming mouse pad (AnaRose)",
+      "type": "variable",
+      "categories": "Accessories, Accessories > Computers, Tech",
+      "published": "1"
+    },
+    {
+      "name": "Men's Rash Guard (AnaRose)",
+      "type": "simple",
+      "categories": "Clothing, Combat Sports, Clothing > Fightwear, Combat Sports > Rash Guards",
+      "published": "1"
+    },
+    {
+      "name": "Tie-strap midi dress (AnaRose)",
+      "type": "simple",
+      "categories": "Clothing, Clothing > Dresses\\, Skirts and Blouses, Clothing > Formalwear",
+      "published": "1"
+    },
+    {
+      "name": "Drop Bombs (Kamikaze, RISE Combat Sports)",
+      "type": "variable",
+      "categories": "Creator Marketplace > RISE",
+      "published": "-1"
+    },
+    {
+      "name": "Barragangster T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Ochoa T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Magnolia T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Kishi T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Carlos Matus T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Mario Camargo T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Fabiola T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Margarita T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Meno T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Abril T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Alicia T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Fernanda T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Coach Yalvany T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Dani T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Martha T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "O. Barbosa T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Paez T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Alvarez T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Maribel T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Quintana T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "Diana T-Shirt - INVICTUS Gym",
+      "type": "variable",
+      "categories": "Creator Marketplace > Invictus Gym",
+      "published": "1"
+    },
+    {
+      "name": "All-Over Print Recycled Long Sleeve Crop Top - Mary Randell",
+      "type": "variable",
+      "categories": "Creator Marketplace > anyinwagu",
+      "published": "1"
+    },
+    {
+      "name": "RISE Combat Sports Sticker",
+      "type": "simple",
+      "categories": "Combat Sports, Creator Marketplace, Creator Marketplace > RISE",
+      "published": "0"
+    },
+    {
+      "name": "LYMBER Dark Shorts - LYMBER",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Clothing, Combat Sports, Fitness & Sports, Creator Marketplace > LYMBER, Clothing > Pants and Shorts, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "LYMBER Light Shorts - LYMBER",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Clothing, Combat Sports, Fitness & Sports, Creator Marketplace > LYMBER, Clothing > Pants and Shorts, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "Shapes, Details, Bob Ross Backpack - Prof. Art",
+      "type": "variable",
+      "categories": "Accessories, Accessories > Backpacks, Combat Sports, Creator Marketplace, School, Creator Marketplace > SECUREMetaWork",
+      "published": "-1"
+    },
+    {
+      "name": "Anime-style Line Art Backpack - vYzion",
+      "type": "variable",
+      "categories": "Accessories, Accessories > Backpacks, Creator Marketplace, Creator Marketplace > nova, School, Creator Marketplace > vYzion",
+      "published": "1"
+    },
+    {
+      "name": "Bakugo Line Art Backpack -n0va4HuB",
+      "type": "variable",
+      "categories": "Accessories, Accessories > Backpacks, Creator Marketplace, Creator Marketplace > nova, School, Creator Marketplace > vYzion",
+      "published": "1"
+    },
+    {
+      "name": "The Dragon's Lair Pillow Case - n0va4HuB",
+      "type": "variable",
+      "categories": "Home Decor > Bedroom, Home Decor, Creator Marketplace > nova, Home Decor > Pillows & Cases, Creator Marketplace > vYzion",
+      "published": "1"
+    },
+    {
+      "name": "Chinchilla Dragon Backpack - n0va4HuB",
+      "type": "variable",
+      "categories": "Accessories, Accessories > Backpacks, Creator Marketplace > nova, School, Creator Marketplace > vYzion",
+      "published": "1"
+    },
+    {
+      "name": "Katsuki Bakugou Spiral Notebook - n0va4HuB",
+      "type": "simple",
+      "categories": "Accessories, Creator Marketplace, Creator Marketplace > nova, School, Creator Marketplace > vYzion",
+      "published": "1"
+    },
+    {
+      "name": "T-SHIRT - Taiwo",
+      "type": "variable",
+      "categories": "Creator Marketplace > Taiwo",
+      "published": "1"
+    },
+    {
+      "name": "Embroidered patches",
+      "type": "simple",
+      "categories": "Uncategorized",
+      "published": "1"
+    },
+    {
+      "name": "LYMBER Light Rash Guard - LYMBER",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Clothing > Fightwear, Fitness & Sports, Creator Marketplace > LYMBER, Combat Sports > Rash Guards, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "LYMBER Dark Rash Guard - LYMBER",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Clothing > Fightwear, Fitness & Sports, Creator Marketplace > LYMBER, Combat Sports > Rash Guards, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "LYMBER Light Tank - LYMBER",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Combat Sports, Creator Marketplace, Fitness & Sports, Creator Marketplace > LYMBER, MetaManufacturing, Clothing > Shirts, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "LYMBER Dark Tank - LYMBER",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Clothing MFG > Activewear MFG, Clothing, Clothing MFG, Combat Sports, Creator Marketplace, Fitness & Sports, Creator Marketplace > LYMBER, Clothing > Shirts, Clothing MFG > Shirts MFG, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "LYMBER Light Joggers - LYMBER",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Clothing MFG > Activewear MFG, Clothing, Clothing MFG, Combat Sports, Creator Marketplace, Fitness & Sports, Creator Marketplace > LYMBER, MetaManufacturing, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "LYMBER Dark Joggers - LYMBER",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Clothing, Combat Sports, Creator Marketplace, Fitness & Sports, Creator Marketplace > LYMBER, MetaManufacturing, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "LYMBER Light Long Sleeve Crop - LYMBER",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Clothing, Clothing MFG, Creator Marketplace, Fitness & Sports, Fitness & Sports MFG, Creator Marketplace > LYMBER, Clothing > Shirts, Clothing MFG > Shirts MFG, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "LYMBER Dark Long Sleeve Crop - LYMBER",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Clothing, Clothing MFG, Creator Marketplace, Fitness & Sports, Fitness & Sports MFG, Creator Marketplace > Invictus Gym, Creator Marketplace > LYMBER, Clothing > Shirts, Clothing MFG > Shirts MFG, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "Michael's Hub Spiral Notebook - Taiwo",
+      "type": "variable",
+      "categories": "Creator Marketplace > Taiwo",
+      "published": "1"
+    },
+    {
+      "name": "All-Over Print Minimalist Backpack from the Michael's Hub - Taiwo",
+      "type": "variable",
+      "categories": "Creator Marketplace > Taiwo",
+      "published": "1"
+    },
+    {
+      "name": "6007 Five-Panel Flat Bill Cap Michael 's Hub - Taiwo",
+      "type": "variable",
+      "categories": "Creator Marketplace > Taiwo",
+      "published": "1"
+    },
+    {
+      "name": "All-Over Print Basic Pillow Michael's Hub - Taiwo",
+      "type": "variable",
+      "categories": "Home Decor > Bedroom, Home Decor, Home Decor > Pillows & Cases, Creator Marketplace > Taiwo",
+      "published": "1"
+    },
+    {
+      "name": "All-Over Print Boxy Football Jersey Michael's Hub - Taiwo",
+      "type": "variable",
+      "categories": "Creator Marketplace > Taiwo",
+      "published": "1"
+    },
+    {
+      "name": "Michael's Hub Shirt - Taiwo",
+      "type": "variable",
+      "categories": "Clothing, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > Taiwo",
+      "published": "1"
+    },
+    {
+      "name": "The Woman in Me Sports Bra. - Taiwo",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Clothing, Creator Marketplace > Taiwo",
+      "published": "1"
+    },
+    {
+      "name": "Michael's Hub T-Shirt - Taiwo",
+      "type": "variable",
+      "categories": "Clothing, Clothing > Shirts, Clothing > Streetwear, Creator Marketplace > Taiwo",
+      "published": "1"
+    },
+    {
+      "name": "White Glossy Mug. - Taiwo",
+      "type": "variable",
+      "categories": "Cups & Mugs, Home Decor, Creator Marketplace > Taiwo",
+      "published": "-1"
+    },
+    {
+      "name": "Stainless Steel Water Bottle with a Straw Lid. - Taiwo",
+      "type": "variable",
+      "categories": "Cups & Mugs, Home Decor, Creator Marketplace > Taiwo",
+      "published": "-1"
+    },
+    {
+      "name": "White Natsu Coffee MugGlossy Mug - vYzion",
+      "type": "variable",
+      "categories": "Cups & Mugs, Cups & Mugs MFG, Home Decor, Creator Marketplace > nova, Creator Marketplace > vYzion",
+      "published": "1"
+    },
+    {
+      "name": "Fairy Tail Emblem Patch - vYzion",
+      "type": "variable",
+      "categories": "Accessories, Creator Marketplace > nova, Accessories > Patches, School, Clothing > Schoolwear, Creator Marketplace > vYzion",
+      "published": "1"
+    },
+    {
+      "name": "Bear Club Neck Gaiter - victorcorrea",
+      "type": "variable",
+      "categories": "Accessories, Clothing, Clothing > Streetwear, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Alpha Wolfpack 01 - AlphaBJJ",
+      "type": "variable",
+      "categories": "Creator Marketplace > AlphaBJJ, Clothing > Fightwear",
+      "published": "1"
+    },
+    {
+      "name": "ALPHA BJJ Base Black White Rash Guard - AlphaBJJ",
+      "type": "variable",
+      "categories": "Creator Marketplace > AlphaBJJ, Clothing > Fightwear",
+      "published": "1"
+    },
+    {
+      "name": "ALPHA BJJ Base Black White Rash Guard - AlphaBJJ",
+      "type": "variable",
+      "categories": "Creator Marketplace > AlphaBJJ, Clothing > Fightwear, Creator Marketplace > zakkaz.pro",
+      "published": "1"
+    },
+    {
+      "name": "ALPHA BJJ Snake Set Shorts - AlphaBJJ",
+      "type": "variable",
+      "categories": "Academy, Clothing > Activewear, Creator Marketplace > AlphaBJJ",
+      "published": "-1"
+    },
+    {
+      "name": "Silly Rash Guard - victorcorrea",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Combat Sports, Fitness & Sports, Creator Marketplace > The Bear Club",
+      "published": "-1"
+    },
+    {
+      "name": "Retro RISE Embroidered Patch - RISE",
+      "type": "variable",
+      "categories": "Accessories, Clothing, Combat Sports, Clothing > Fightwear, Fitness & Sports, Accessories > Patches, Creator Marketplace > RISE, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "Retro RISE Midnight Embroidered PatchEmbroidered Patch - RISE",
+      "type": "variable",
+      "categories": "Accessories, Clothing, Combat Sports, Clothing > Fightwear, Fitness & Sports, Accessories > Patches, Creator Marketplace > RISE, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "Retro RISE Flame Embroidered PatchEmbroidered Patch - RISE",
+      "type": "variable",
+      "categories": "Accessories, Clothing, Combat Sports, Clothing > Fightwear, Fitness & Sports, Accessories > Patches, Creator Marketplace > RISE, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "Retro RISE Noir Embroidered PatchEmbroidered Patch - RISE",
+      "type": "variable",
+      "categories": "Accessories, Clothing, Combat Sports, Clothing > Fightwear, Fitness & Sports, Accessories > Patches, Clothing MFG > Patches MFG, Creator Marketplace > RISE, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "Stainless Steel Water Bottle with a Straw Lid. - Taiwo",
+      "type": "variable",
+      "categories": "Creator Marketplace > Taiwo",
+      "published": "1"
+    },
+    {
+      "name": "Boxing Fit Sweater - Boxing Fit University",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Creator Marketplace > Boxing Fit University, Clothing > Fightwear",
+      "published": "-1"
+    },
+    {
+      "name": "Boxing Men’s Joggers Black - Boxing Fit University",
+      "type": "variable",
+      "categories": "Creator Marketplace > Boxing Fit University",
+      "published": "-1"
+    },
+    {
+      "name": "Boxing Men’s Joggers White - Boxing Fit University",
+      "type": "variable",
+      "categories": "Creator Marketplace > Boxing Fit University",
+      "published": "-1"
+    },
+    {
+      "name": "Boxing Men’s Joggers Black - Boxing Fit University",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Creator Marketplace > Boxing Fit University, Combat Sports, Clothing > Fightwear",
+      "published": "-1"
+    },
+    {
+      "name": "Boxing Men’s Joggers White - Boxing Fit University",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Creator Marketplace > Boxing Fit University, Combat Sports, Clothing > Fightwear",
+      "published": "-1"
+    },
+    {
+      "name": "Boxing Men’s Leggings Black - Boxing Fit University",
+      "type": "variable",
+      "categories": "Creator Marketplace > Boxing Fit University",
+      "published": "-1"
+    },
+    {
+      "name": "Boxing Men’s Joggers Black - Boxing Fit University",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Creator Marketplace > Boxing Fit University, Combat Sports, Clothing > Fightwear, Creator Marketplace > zakkaz.pro",
+      "published": "-1"
+    },
+    {
+      "name": "Boxing Men’s Joggers White - Boxing Fit University",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Creator Marketplace > Boxing Fit University, Combat Sports, Clothing > Fightwear",
+      "published": "-1"
+    },
+    {
+      "name": "Bridal with Fascinator White Glossy Mug - Belali",
+      "type": "variable",
+      "categories": "Cups & Mugs, Kitchen, Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Red Flowing Gown White Glossy Mug - Belali",
+      "type": "variable",
+      "categories": "Cups & Mugs, Kitchen, Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Blue Drama iPhone Case - Belali",
+      "type": "variable",
+      "categories": "Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "URU Stainless Steel Water Bottle with a Straw Lid - Belali",
+      "type": "variable",
+      "categories": "Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Red Flowing Formal Organic Cotton Large Tote - Belali",
+      "type": "variable",
+      "categories": "Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Blue Drama longsleeve shirt - Belali",
+      "type": "variable",
+      "categories": "Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Bridal with Fascinator Gaming Mouse Pad - Belali",
+      "type": "variable",
+      "categories": "Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Red Boa White Glossy Mug - Belali",
+      "type": "variable",
+      "categories": "Cups & Mugs, Kitchen, Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Bear Club Water Bottle with a Straw Lid - victorcorrea",
+      "type": "variable",
+      "categories": "Combat Sports, Cups & Mugs, Fitness & Sports, Creator Marketplace > The Bear Club",
+      "published": "1"
+    },
+    {
+      "name": "Grippaudo Patch - victorcorrea",
+      "type": "variable",
+      "categories": "Accessories, Clothing, Combat Sports > Coach Grippado, Combat Sports, Accessories > Patches, Creator Marketplace > The Bear Club",
+      "published": "-1"
+    },
+    {
+      "name": "Grippaudo Trained Patch 2 - victorcorrea",
+      "type": "variable",
+      "categories": "Accessories, Clothing, Combat Sports > Coach Grippado, Combat Sports, Accessories > Patches, Creator Marketplace > The Bear Club",
+      "published": "-1"
+    },
+    {
+      "name": "Blue Drama White Glossy Mug - Belali",
+      "type": "variable",
+      "categories": "Cups & Mugs, Kitchen, Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Blue Drama Samsung Case - Belali",
+      "type": "variable",
+      "categories": "Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Red flowing gown All-Over Print Crossbody Bag - Belali",
+      "type": "variable",
+      "categories": "Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Red flowing gown Samsung Case - Belali",
+      "type": "variable",
+      "categories": "Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Red flowing gown iPhone Case - Belali",
+      "type": "variable",
+      "categories": "Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Wedding gown with fascinator All-Over Print Crossbody Bag - Belali",
+      "type": "variable",
+      "categories": "Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Cactus Flower All-Over Print Crossbody Bag - Belali",
+      "type": "variable",
+      "categories": "Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Rose Trio All-Over Print Crossbody Bag - Belali",
+      "type": "variable",
+      "categories": "Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Cactus Flower All-Over Print Headband - Belali",
+      "type": "variable",
+      "categories": "Accessories, Clothing > Activewear, Combat Sports, Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Cactus Flower All-Over Print Leggings - Belali",
+      "type": "variable",
+      "categories": "Clothing > Activewear, Combat Sports, Fitness & Sports, Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Rose All-Over Print Headband - Belali",
+      "type": "variable",
+      "categories": "Accessories, Combat Sports, Fitness & Sports, Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Blue Drama All-Over Print Premium Pillow - Belali",
+      "type": "variable",
+      "categories": "Home Decor > Bedroom, Creator Marketplace, Home Decor, Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Rose All-Over Print Leggings - Belali",
+      "type": "variable",
+      "categories": "Accessories, Creator Marketplace, Fitness & Sports, Creator Marketplace > M.R. Illustration",
+      "published": "-1"
+    },
+    {
+      "name": "Nullis Enhanced Matte Paper Poster With Hanger (in) - Belali",
+      "type": "variable",
+      "categories": "Kitchen, Creator Marketplace > M.R. Illustration, Home Decor > Office, Home Decor > Posters & Wall Art",
+      "published": "-1"
+    },
+    {
+      "name": "Cui Bono? Hardcover Bound Notebook | JournalBook® - Belali",
+      "type": "variable",
+      "categories": "Academy, Accessories, Creator Marketplace > M.R. Illustration, School",
+      "published": "-1"
+    },
+    {
+      "name": "Wedding Gown with Fascinator Suitcase - Belali",
+      "type": "variable",
+      "categories": "Accessories, Home Decor, Creator Marketplace > M.R. Illustration, Accessories > Purses & Tote Bags",
+      "published": "-1"
+    },
+    {
+      "name": "Wedding gown with Fascinator All-Over Print Large Tote Bag w/ Pocket - Belali",
+      "type": "variable",
+      "categories": "Accessories, Home Decor, Creator Marketplace > M.R. Illustration, Accessories > Purses & Tote Bags",
+      "published": "-1"
+    },
+    {
+      "name": "BMW Hyper Car Magnets - Belali",
+      "type": "variable",
+      "categories": "Accessories, Home Decor, Creator Marketplace > M.R. Illustration, Magnets & Stickers",
+      "published": "-1"
+    },
+    {
+      "name": "Red Flowing Gown Matte Paper Framed Poster With Mat (in) - Belali",
+      "type": "variable",
+      "categories": "Creator Marketplace, Home Decor, Creator Marketplace > M.R. Illustration, Home Decor > Posters & Wall Art",
+      "published": "-1"
+    },
+    {
+      "name": "Cyclone All-Over Print Case for AirPods® - Belali",
+      "type": "variable",
+      "categories": "Accessories, Accessories > Headwear, Creator Marketplace > M.R. Illustration, Tech",
+      "published": "-1"
+    },
+    {
+      "name": "Rose AirPods Case - Belali",
+      "type": "variable",
+      "categories": "Accessories, Accessories > Headwear, Creator Marketplace > M.R. Illustration, Tech",
+      "published": "-1"
+    },
+    {
+      "name": "Rose All-Over Print Gym Bag - Belali",
+      "type": "variable",
+      "categories": "Combat Sports, Accessories > Gym Bags, Creator Marketplace > M.R. Illustration, Accessories > Purses & Tote Bags",
+      "published": "-1"
+    },
+    {
+      "name": "Tremblay BJJ Gym Bag - Tremblay BJJ MMA",
+      "type": "variable",
+      "categories": "Accessories, Combat Sports, Accessories > Gym Bags, Creator Marketplace > Tremblay BJJ MMA",
+      "published": "1"
+    },
+    {
+      "name": "Tremblay BJJ + Partners iPhone Case - Tremblay BJJ MMA",
+      "type": "variable",
+      "categories": "Accessories, Accessories > Phone Cases, Tech, Creator Marketplace > Tremblay BJJ MMA",
+      "published": "1"
+    },
+    {
+      "name": "Tremblay BJJ Coffee Mug - Tremblay BJJ MMA",
+      "type": "variable",
+      "categories": "Cups & Mugs, Home Decor, Kitchen, Creator Marketplace > Tremblay BJJ MMA",
+      "published": "1"
+    },
+    {
+      "name": "Official Embroidered Patch - Tremblay BJJ MMA",
+      "type": "variable",
+      "categories": "Accessories, Clothing, Combat Sports, Accessories > Patches, Creator Marketplace > Tremblay BJJ MMA",
+      "published": "1"
+    },
+    {
+      "name": "Keep your head(band) on the mat - Tremblay BJJ MMA",
+      "type": "variable",
+      "categories": "Accessories, Clothing > Activewear, Combat Sports, Creator Marketplace > Tremblay BJJ MMA",
+      "published": "1"
+    },
+    {
+      "name": "Stainless Steel Water Bottle w/ a Straw Lid - Tremblay BJJ MMA",
+      "type": "variable",
+      "categories": "Combat Sports, Cups & Mugs, Creator Marketplace > Tremblay BJJ MMA",
+      "published": "1"
+    },
+    {
+      "name": "Official Rash Guard - Tremblay BJJ MMA",
+      "type": "variable",
+      "categories": "Combat Sports, Clothing > Fightwear, Combat Sports > Rash Guards, Creator Marketplace > Tremblay BJJ MMA",
+      "published": "1"
+    },
+    {
+      "name": "UND1SPUTED White Gym Bag - Und1sputed Arizona",
+      "type": "variable",
+      "categories": "Accessories, Combat Sports, Combat Sports MFG, Accessories > Gym Bags, Accessories MFG > Gym Bags MFG, Clothing MFG > Gymwear MFG, Creator Marketplace > Und1sputed Arizona",
+      "published": "1"
+    },
+    {
+      "name": "UNDISPUTED Stainless Steel Water Bottle with a Straw Lid - Und1sputed Arizona",
+      "type": "variable",
+      "categories": "Combat Sports, Cups & Mugs, Fitness & Sports, Creator Marketplace > Und1sputed Arizona",
+      "published": "1"
+    },
+    {
+      "name": "UNDISPUTED Unity Stainless Steel Water Bottle with a Straw Lid - Und1sputed Arizona",
+      "type": "variable",
+      "categories": "Creator Marketplace > Und1sputed Arizona",
+      "published": "1"
+    },
+    {
+      "name": "UNDISPUTED Dark Gym Bag - Und1sputed Arizona",
+      "type": "variable",
+      "categories": "Combat Sports, Combat Sports MFG, Fitness & Sports, Accessories > Gym Bags, Accessories MFG > Gym Bags MFG, Clothing MFG > Gymwear MFG, Creator Marketplace > Und1sputed Arizona, Creator Marketplace > zakkaz.pro",
+      "published": "1"
+    },
+    {
+      "name": "Cui Bono? Hardcover Bound Notebook | JournalBook® - M.R. Illustration",
+      "type": "variable",
+      "categories": "Academy, Accessories, Creator Marketplace > M.R. Illustration, School",
+      "published": "1"
+    },
+    {
+      "name": "Backless Gown on Stainless Steel Water Bottle with a Straw Lid - M.R. Illustration",
+      "type": "variable",
+      "categories": "Accessories, Cups & Mugs, Creator Marketplace > M.R. Illustration",
+      "published": "1"
+    },
+    {
+      "name": "Silver Sleeves Stainless Steel Water Bottle with a Straw Lid - M.R. Illustration",
+      "type": "variable",
+      "categories": "Accessories, Cups & Mugs, Kitchen, Creator Marketplace > M.R. Illustration",
+      "published": "1"
+    },
+    {
+      "name": "Wedding gown with Fascinator Stainless Steel Water Bottle with a Straw Lid - M.R. Illustration",
+      "type": "variable",
+      "categories": "Accessories, Cups & Mugs, Kitchen, Creator Marketplace > M.R. Illustration",
+      "published": "1"
+    },
+    {
+      "name": "Blue Drama Stainless Steel Water Bottle with a Straw Lid - M.R. Illustration",
+      "type": "variable",
+      "categories": "Accessories, Cups & Mugs, Kitchen, Creator Marketplace > M.R. Illustration",
+      "published": "1"
+    },
+    {
+      "name": "Nullis in Verba Hardcover Bound Notebook | JournalBook® - M.R. Illustration",
+      "type": "variable",
+      "categories": "Creator Marketplace > M.R. Illustration",
+      "published": "1"
+    },
+    {
+      "name": "Be bold - Lambert Dipamo lamdee",
+      "type": "variable",
+      "categories": "Creator Marketplace > Lambert Dipamo lamdee, Clothing > Shirts",
+      "published": "-1"
+    },
+    {
+      "name": "Centurion Mockup - LegionMMA",
+      "type": "variable",
+      "categories": "Creator Marketplace > LegionMMA",
+      "published": "-1"
+    },
+    {
+      "name": "RashGuard Alpha BJJ White Belt - AlphaBJJ",
+      "type": "variable",
+      "categories": "Clothing MFG > Activewear MFG, Creator Marketplace > AlphaBJJ, Combat Sports MFG, Fitness & Sports MFG, Clothing MFG > Gymwear MFG",
+      "published": "1"
+    },
+    {
+      "name": "RashGuard Alpha BJJ Blue Belt - AlphaBJJ",
+      "type": "variable",
+      "categories": "Clothing MFG > Activewear MFG, Creator Marketplace > AlphaBJJ, Combat Sports MFG, Fitness & Sports MFG, Clothing MFG > Gymwear MFG",
+      "published": "1"
+    },
+    {
+      "name": "RashGuard Alpha BJJ Purple Belt - AlphaBJJ",
+      "type": "variable",
+      "categories": "Clothing MFG > Activewear MFG, Creator Marketplace > AlphaBJJ, Combat Sports MFG, Fitness & Sports MFG, Clothing MFG > Gymwear MFG",
+      "published": "1"
+    },
+    {
+      "name": "Unisex Hoodie",
+      "type": "simple",
+      "categories": "",
+      "published": "0"
+    },
+    {
+      "name": "Unisex Hoodie",
+      "type": "simple",
+      "categories": "",
+      "published": "0"
+    },
+    {
+      "name": "Unisex Hoodie",
+      "type": "simple",
+      "categories": "",
+      "published": "0"
+    },
+    {
+      "name": "Mobile Phone - ReyesBoxing",
+      "type": "variable",
+      "categories": "Creator Marketplace > ReyesBoxing",
+      "published": "1"
+    },
+    {
+      "name": "Ultimate Gym Bag - ReyesBoxing",
+      "type": "variable",
+      "categories": "Combat Sports MFG, Accessories MFG > Gym Bags MFG, Clothing MFG > Gymwear MFG, Creator Marketplace > ReyesBoxing",
+      "published": "1"
+    },
+    {
+      "name": "Hoodie - ReyesBoxing",
+      "type": "variable",
+      "categories": "Clothing MFG, Clothing MFG > Hoodies MFG, Creator Marketplace > ReyesBoxing, Clothing MFG > Streetwear MFG",
+      "published": "1"
+    }
+  ]
+}
