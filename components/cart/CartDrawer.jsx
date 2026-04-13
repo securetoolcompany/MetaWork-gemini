@@ -12,9 +12,10 @@ import {
   DialogFooter,
   DialogDescription
 } from '@/components/ui/dialog';
-import { X, Plus, Minus, Trash2, ShoppingBag, Loader2 } from 'lucide-react';
+import { Plus, Minus, Trash2, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 export default function CartDrawer({ open, onOpenChange }) {
   const {
@@ -25,41 +26,15 @@ export default function CartDrawer({ open, onOpenChange }) {
   } = useCart();
 
   const [updatingItem, setUpdatingItem] = useState(null);
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  const router = useRouter();
 
-  // --- STRIPE CHECKOUT LOGIC ---
-  const handleStripeCheckout = async () => {
+  // --- UPDATED NAVIGATION LOGIC ---
+  // We now navigate to the local checkout page to collect 
+  // international shipping and tax info before hitting Stripe.
+  const handleGoToCheckout = () => {
     if (cart.items.length === 0) return;
-    
-    setIsRedirecting(true);
-    try {
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          items: cart.items.map(item => ({
-            name: item.title,
-            price: item.priceSnapshot,
-            quantity: item.quantity,
-            image: item.thumbnailUrl,
-            id: item.productId 
-          })) 
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (data.url) {
-        window.location.href = data.url; 
-      } else {
-        toast.error(data.error || "Failed to create checkout session");
-      }
-    } catch (err) {
-      console.error("Stripe Error:", err);
-      toast.error("Could not connect to payment gateway");
-    } finally {
-      setIsRedirecting(false);
-    }
+    onOpenChange(false); // Close the drawer
+    router.push('/showroom/checkout');
   };
   // -----------------------------
 
@@ -139,18 +114,18 @@ export default function CartDrawer({ open, onOpenChange }) {
                       {item.attributes && <p className="text-xs text-muted-foreground mb-2 capitalize">{formatAttributes(item.attributes)}</p>}
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => handleUpdateQuantity(item.productId, item.variationId, item.quantity - 1)} disabled={isUpdating || loading || isRedirecting}>
+                          <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => handleUpdateQuantity(item.productId, item.variationId, item.quantity - 1)} disabled={isUpdating || loading}>
                             <Minus className="h-3 w-3" />
                           </Button>
                           <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
-                          <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => handleUpdateQuantity(item.productId, item.variationId, item.quantity + 1)} disabled={isUpdating || loading || isRedirecting}>
+                          <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => handleUpdateQuantity(item.productId, item.variationId, item.quantity + 1)} disabled={isUpdating || loading}>
                             <Plus className="h-3 w-3" />
                           </Button>
                         </div>
                         <p className="text-sm font-semibold">{formatPrice(item.priceSnapshot * item.quantity)}</p>
                       </div>
                     </div>
-                    <Button size="sm" variant="ghost" className="absolute top-2 right-2 h-6 w-6 p-0 text-muted-foreground hover:text-destructive" onClick={() => handleRemoveItem(item.productId, item.variationId)} disabled={isUpdating || loading || isRedirecting}>
+                    <Button size="sm" variant="ghost" className="absolute top-2 right-2 h-6 w-6 p-0 text-muted-foreground hover:text-destructive" onClick={() => handleRemoveItem(item.productId, item.variationId)} disabled={isUpdating || loading}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -168,17 +143,16 @@ export default function CartDrawer({ open, onOpenChange }) {
             </div>
             
             <div className="flex gap-2 w-full">
-              <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)} disabled={isRedirecting}>
+              <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
                 Back to Shop
               </Button>
               
               <Button 
                 className="flex-1"
-                onClick={handleStripeCheckout}
-                disabled={isRedirecting || loading}
+                onClick={handleGoToCheckout}
+                disabled={loading}
               >
-                {isRedirecting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                {isRedirecting ? 'Connecting...' : 'Pay with Stripe'}
+                Checkout
               </Button>
             </div>
           </DialogFooter>

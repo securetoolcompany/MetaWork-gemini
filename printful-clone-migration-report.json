@@ -1,0 +1,36 @@
+{
+  "migratedCount": 0,
+  "failureCount": 5,
+  "failures": [
+    {
+      "mongoId": "69d96ebbb7f20754f134acbe",
+      "name": "Kimetsu no Yaiba pillow - 777jc",
+      "error": "Printful error 400: {\"code\":400,\"result\":\"This API endpoint applies only to Printful stores based on the Manual Order / API platform. Find out more at Printful API docs.\",\"error\":{\"reason\":\"BadRequest\",\"message\":\"This API endpoint applies only to Printful stores based on the Manual Order / API platform. Find out more at Printful API docs.\"}}"
+    },
+    {
+      "mongoId": "69d96ebbb7f20754f134acbf",
+      "name": "Kimetsu no Yaiba Backpack - 777jc",
+      "error": "Printful error 400: {\"code\":400,\"result\":\"This API endpoint applies only to Printful stores based on the Manual Order / API platform. Find out more at Printful API docs.\",\"error\":{\"reason\":\"BadRequest\",\"message\":\"This API endpoint applies only to Printful stores based on the Manual Order / API platform. Find out more at Printful API docs.\"}}"
+    },
+    {
+      "mongoId": "69d96ebbb7f20754f134acc0",
+      "name": "kimetsu no yaiba Athletic T-Shirt - 777jc",
+      "error": "Printful error 400: {\"code\":400,\"result\":\"This API endpoint applies only to Printful stores based on the Manual Order / API platform. Find out more at Printful API docs.\",\"error\":{\"reason\":\"BadRequest\",\"message\":\"This API endpoint applies only to Printful stores based on the Manual Order / API platform. Find out more at Printful API docs.\"}}"
+    },
+    {
+      "mongoId": "69d96ebbb7f20754f134acc4",
+      "name": "kimetsu no yaiba Swimsuit - 777jc",
+      "error": "Printful error 400: {\"code\":400,\"result\":\"This API endpoint applies only to Printful stores based on the Manual Order / API platform. Find out more at Printful API docs.\",\"error\":{\"reason\":\"BadRequest\",\"message\":\"This API endpoint applies only to Printful stores based on the Manual Order / API platform. Find out more at Printful API docs.\"}}"
+    },
+    {
+      "mongoId": "69d96ebbb7f20754f134accc",
+      "name": "kimetsu no yaiba Beanie - 777jc",
+      "error": "Printful error 400: {\"code\":400,\"result\":\"This API endpoint applies only to Printful stores based on the Manual Order / API platform. Find out more at Printful API docs.\",\"error\":{\"reason\":\"BadRequest\",\"message\":\"This API endpoint applies only to Printful stores based on the Manual Order / API platform. Find out more at Printful API docs.\"}}"
+    }
+  ],
+  "dryRun": true,
+  "processedCount": 5,
+  "oldStoreId": "15804358",
+  "newStoreId": "18010063",
+  "completedAt": "2026-04-13T00:33:25.102Z"
+}
