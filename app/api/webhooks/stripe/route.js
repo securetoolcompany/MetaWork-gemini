@@ -1,31 +1,198 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
-import { distributeRoyalties } from '@/lib/algorand';
+import { connectToDatabase } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(req) {
-  const payload = await req.text(); // Get raw body for Stripe signature verification
+  const payload = await req.text();
   const sig = req.headers.get('stripe-signature');
 
   let event;
 
   try {
     event = stripe.webhooks.constructEvent(
-      payload, 
-      sig, 
+      payload,
+      sig,
       process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+    return NextResponse.json(
+      { error: `Webhook Error: ${err.message}` },
+      { status: 400 }
+    );
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    const orderData = JSON.parse(session.metadata.order_details);
-    
-    // This now calls the function we just added to lib/algorand.js
-    await distributeRoyalties(orderData);
+  if (event.type !== 'payment_intent.succeeded') {
+    return NextResponse.json({ received: true });
+  }
+
+  const paymentIntent = event.data.object;
+  const { order_id } = paymentIntent.metadata || {};
+
+  try {
+    const { db } = await connectToDatabase();
+
+    // 1. Strict idempotency gate: one Stripe event processed once
+    try {
+      const webhookCheck = await db.collection('processed_webhooks').updateOne(
+        { _id: event.id },
+        {
+          $setOnInsert: {
+            processedAt: new Date(),
+            type: event.type,
+            orderId: order_id || null,
+            paymentIntentId: paymentIntent.id,
+          },
+        },
+        { upsert: true }
+      );
+
+      if (!webhookCheck.upsertedId) {
+        console.log(`Webhook ${event.id} already processed. Skipping.`);
+        return NextResponse.json({ received: true });
+      }
+    } catch (e) {
+      if (e?.code === 11000) {
+        console.log(`Webhook ${event.id} duplicate-key race. Skipping.`);
+        return NextResponse.json({ received: true });
+      }
+      throw e;
+    }
+
+    if (!order_id) {
+      throw new Error('No order_id found in Stripe metadata');
+    }
+
+    const orderData = await db.collection('orders').findOne({
+      _id: new ObjectId(order_id),
+    });
+
+    if (!orderData) {
+      throw new Error('Order not found in database');
+    }
+
+    // Secondary guard in case order was already finalized by another path
+    if (orderData.status === 'paid') {
+      console.log(`Order ${order_id} already marked paid. Skipping.`);
+      return NextResponse.json({ received: true });
+    }
+
+    // 2. Prepare items for Printful
+    const printfulItems = (orderData.items || [])
+      .filter((item) => item.sync_variant_id || item.printfulVariantId)
+      .map((item) => ({
+        sync_variant_id: item.sync_variant_id || item.printfulVariantId,
+        quantity: item.quantity,
+      }));
+
+    let printfulOrderId = null;
+    let fulfillmentStatus = 'failed';
+    let printfulError = null;
+
+    // 3. Send to Printful
+    if (printfulItems.length === 0) {
+      printfulError = 'Order paid, but no valid Printful sync_variant_id values were found.';
+      console.error(`[Order ${order_id}] ${printfulError}`);
+    } else {
+      const printfulPayload = {
+        //confirm: true, 
+        recipient: {
+          name: orderData.shippingInfo?.name,
+          email: orderData.email,
+          address1: orderData.shippingInfo?.address1,
+          city: orderData.shippingInfo?.city,
+          state_code: orderData.shippingInfo?.state_code,
+          country_code: orderData.shippingInfo?.country_code,
+          zip: orderData.shippingInfo?.zip,
+        },
+        items: printfulItems,
+      };
+
+      try {
+        const headers = {
+          Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`,
+          'Content-Type': 'application/json',
+        };
+
+        if (process.env.PRINTFUL_STORE_ID) {
+          headers['X-PF-Store-Id'] = process.env.PRINTFUL_STORE_ID;
+        }
+
+        const pfRes = await fetch('https://api.printful.com/orders', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(printfulPayload),
+        });
+
+        if (pfRes.ok) {
+          const pfData = await pfRes.json();
+          printfulOrderId = pfData?.result?.id ?? null;
+          fulfillmentStatus = 'awaiting_approval';
+        } else {
+          fulfillmentStatus = 'failed';
+          printfulError = await pfRes.text();
+          console.error(`[Order ${order_id}] Printful API Error: ${printfulError}`);
+        }
+      } catch (networkErr) {
+        fulfillmentStatus = 'failed';
+        printfulError = `Network error connecting to Printful: ${networkErr.message}`;
+        console.error(`[Order ${order_id}] ${printfulError}`);
+      }
+    }
+
+    // 4. Update MongoDB with payment and fulfillment status
+    await db.collection('orders').updateOne(
+      { _id: new ObjectId(order_id) },
+      {
+        $set: {
+          status: 'paid',
+          fulfillmentStatus,
+          printfulError,
+          stripePaymentId: paymentIntent.id,
+          stripeTaxCalculationId: paymentIntent.metadata?.stripe_tax_calculation_id || null,
+          printfulOrderId,
+          paidAt: new Date(),
+        },
+      }
+    );
+
+    // 5. Explicitly record the Stripe Tax Transaction
+    if (paymentIntent.metadata?.stripe_tax_calculation_id) {
+      try {
+        const taxTx = await stripe.tax.transactions.createFromCalculation({
+          calculation: paymentIntent.metadata.stripe_tax_calculation_id,
+          reference: order_id, 
+        });
+        
+        await db.collection('orders').updateOne(
+          { _id: new ObjectId(order_id) },
+          {
+            $set: {
+              stripeTaxTransactionId: taxTx.id,
+              stripeTaxTransactionRecorded: true,
+              stripeTaxTransactionError: null,
+            },
+          }
+        );
+        console.log(`[Order ${order_id}] Stripe Tax transaction recorded.`);
+      } catch (taxErr) {
+        await db.collection('orders').updateOne(
+          { _id: new ObjectId(order_id) },
+          {
+            $set: {
+              stripeTaxTransactionRecorded: false,
+              stripeTaxTransactionError: taxErr.message,
+            },
+          }
+        );
+        console.error(`[Order ${order_id}] Failed to record tax transaction:`, taxErr.message);
+      }
+    }
+
+  } catch (error) {
+    console.error('WEBHOOK FULFILLMENT ERROR:', error);
   }
 
   return NextResponse.json({ received: true });

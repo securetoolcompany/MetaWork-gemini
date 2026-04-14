@@ -1,69 +1,116 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
+import { connectToDatabase } from '@/lib/mongodb';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { items, shippingInfo } = body;
+    const { items, shippingInfo, shippingCost, promoCode } = body;
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: "No items in cart" }, { status: 400 });
     }
 
-    // To fix the error, we use top-level parameters that are compatible with automatic_tax
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card', 'cashapp'], 
-      
-      // 1. Contact Pre-fill
-      customer_email: shippingInfo?.email,
+    // 1. Calculate Base Subtotal & Discounts
+    const itemsSubtotal = items.reduce((acc, item) => {
+      return acc + (parseFloat(item.priceSnapshot || item.price) * item.quantity);
+    }, 0);
 
-      // 2. Shipping Address Collection (Required for International)
-      shipping_address_collection: {
-        allowed_countries: [
-          'US', 'CA', 'GB', 'AU', 'DE', 'FR', 'ES', 'IT', 'JP', 'MX', 'BR', 
-          'NL', 'BE', 'AT', 'DK', 'FI', 'IE', 'NO', 'PT', 'SE', 'CH', 'NZ'
-        ],
-      },
+    let discountAmount = 0;
+    if (promoCode) {
+      if (promoCode === 'SAVE10') discountAmount = 10.00;
+      else if (promoCode === 'HALFOFF') discountAmount = itemsSubtotal * 0.5;
+    }
 
-      // 3. Tax Calculation (Now compatible)
-      automatic_tax: { enabled: true },
+    // Prevent negative subtotal
+    discountAmount = Math.min(discountAmount, itemsSubtotal);
+    const discountedSubtotal = itemsSubtotal - discountAmount;
 
-      line_items: items.map(item => ({
-        price_data: {
-          currency: 'usd',
-          product_data: { 
-            name: item.title || item.name,
-            images: item.thumbnailUrl ? [item.thumbnailUrl] : [],
-          },
-          tax_behavior: 'exclusive',
-          unit_amount: Math.round(parseFloat(item.priceSnapshot || item.price) * 100),
+    // Calculate proportional discount multiplier to avoid overcharging tax
+    // e.g. A $10 discount on a $50 cart = 0.8 multiplier applied to all items
+    const discountMultiplier = itemsSubtotal > 0 ? (discountedSubtotal / itemsSubtotal) : 1;
+
+    // 2. ASK STRIPE FOR THE EXACT TAX AMOUNT (International & Domestic)
+    const lineItems = items.map((item) => ({
+      // Apply the discount directly to the line item so Stripe taxes the right amount
+      amount: Math.round(parseFloat(item.priceSnapshot || item.price) * item.quantity * discountMultiplier * 100),
+      reference: item.title || item.name || 'Item',
+      tax_behavior: 'exclusive',
+    }));
+
+    // Generate the tax calculation with shipping properly separated
+    const taxCalculation = await stripe.tax.calculations.create({
+      currency: 'usd',
+      customer_details: {
+        address: {
+          line1: shippingInfo.address1,
+          city: shippingInfo.city,
+          state: shippingInfo.state_code,
+          postal_code: shippingInfo.zip,
+          country: shippingInfo.country_code,
         },
-        quantity: item.quantity,
-      })),
-
-      // We remove payment_intent_data.shipping to resolve the conflict.
-      // Stripe will now use the email and the user's saved Stripe profile 
-      // (if they have one) to pre-fill, or they will quickly enter it once.
-
-      metadata: {
-        customer_email: shippingInfo?.email || '',
-        shipping_name: shippingInfo?.name || '',
-        // We still pass the address in metadata so your webhooks can save it to your DB
-        shipping_address_line1: shippingInfo?.address1 || '',
-        shipping_city: shippingInfo?.city || '',
-        shipping_state: shippingInfo?.state_code || '',
-        shipping_zip: shippingInfo?.zip || '',
-        shipping_country: shippingInfo?.country_code || '',
+        address_source: 'shipping',
       },
-
-      mode: 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/showroom?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/showroom?canceled=true`,
+      line_items: lineItems,
+      shipping_cost: parseFloat(shippingCost || 0) > 0 ? {
+        amount: Math.round(parseFloat(shippingCost) * 100),
+        tax_behavior: 'exclusive',
+      } : undefined,
     });
 
-    return NextResponse.json({ url: session.url });
+    const finalAmountInCents = taxCalculation.amount_total;
+    const exactTaxAmount = taxCalculation.tax_amount_exclusive / 100;
+
+    // 3. CREATE PENDING ORDER IN MONGODB
+    const { db } = await connectToDatabase(); 
+    
+    // Generate a clean 6-digit order number for the user
+    const generatedOrderNumber = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    const pendingOrder = {
+      orderNumber: generatedOrderNumber,
+      email: shippingInfo.email.toLowerCase().trim(),
+      shippingInfo: shippingInfo,
+      items: items, 
+      subtotal: itemsSubtotal,
+      discount: discountAmount,
+      shippingCost: parseFloat(shippingCost || 0),
+      tax: exactTaxAmount,
+      total: finalAmountInCents / 100,
+      status: 'pending', 
+      createdAt: new Date(),
+    };
+
+    const insertResult = await db.collection('orders').insertOne(pendingOrder);
+    const orderId = insertResult.insertedId.toString();
+
+    // 4. CREATE THE PAYMENT INTENT
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: finalAmountInCents,
+      currency: 'usd',
+      automatic_payment_methods: { enabled: true },
+      metadata: {
+        customer_email: shippingInfo.email,
+        customer_name: shippingInfo.name,
+        order_id: orderId, 
+        shipping_country: shippingInfo.country_code,
+        applied_promo: promoCode || 'none',
+        discount_amount: discountAmount.toFixed(2),
+        stripe_tax_calculation_id: taxCalculation.id, 
+        tax_collected: exactTaxAmount.toFixed(2)
+      },
+    });
+
+    // Return the secret to the frontend so it can render the card inputs safely
+    return NextResponse.json({
+      clientSecret: paymentIntent.client_secret,
+      orderNumber: generatedOrderNumber,
+      amountSubtotal: taxCalculation.amount_subtotal,
+      amountTax: taxCalculation.tax_amount_exclusive,
+      amountTotal: taxCalculation.amount_total,
+    });
   } catch (err) {
     console.error("STRIPE BACKEND ERROR:", err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });

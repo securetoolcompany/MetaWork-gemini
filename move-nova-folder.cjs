@@ -1,330 +1,139 @@
+const { MongoClient, ObjectId } = require('mongodb');
 require('dotenv').config({ path: '.env.local' });
 
-const fs = require('fs/promises');
-const path = require('path');
-const { MongoClient, ObjectId } = require('mongodb');
+const MONGO_URL = process.env.MONGO_URL || process.env.MONGODB_URI;
+const DB_NAME = process.env.DB_NAME || 'metawork_db';
+const COLLECTION = process.env.PRODUCTS_COLLECTION || 'products';
+const DRY_RUN = process.env.DRY_RUN !== 'true';
 
-const MONGODB_URI =
-  process.env.MONGO_URL ||
-  process.env.MONGODB_URI ||
-  process.env.MONGODB_URL ||
-  process.env.MONGO_URI;
-
-const MONGODB_DB =
-  process.env.MONGODB_DB ||
-  process.env.DB_NAME ||
-  'metawork_db';
-
-const PRODUCTS_COLLECTION = 'products';
-
-const PRINTFUL_TOKEN =
-  process.env.PRINTFUL_API_TOKEN ||
-  process.env.PRINTFUL_API_KEY;
-
-const PRINTFUL_OLD_STORE_ID = process.env.PRINTFUL_OLD_STORE_ID;
-const PRINTFUL_NEW_STORE_ID =
-  process.env.PRINTFUL_NEW_STORE_ID ||
-  process.env.PRINTFUL_STORE_ID;
-
-const PRINTFUL_BASE_URL = 'https://api.printful.com';
-const AUDIT_FILE = 'mongodb-products-audit.json';
-
-const DRY_RUN = true;
-const MIGRATION_LIMIT = 5;
-const BASE_DELAY_MS = 1000;
-const RETRY_429_MS = 65000;
-
-if (!MONGODB_URI) throw new Error('Missing Mongo connection string');
-if (!PRINTFUL_TOKEN) throw new Error('Missing PRINTFUL_API_KEY / PRINTFUL_API_TOKEN');
-if (!PRINTFUL_OLD_STORE_ID) throw new Error('Missing PRINTFUL_OLD_STORE_ID');
-if (!PRINTFUL_NEW_STORE_ID) throw new Error('Missing PRINTFUL_STORE_ID / PRINTFUL_NEW_STORE_ID');
-
-function headersForStore(storeId) {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${PRINTFUL_TOKEN}`,
-    'X-PF-Store-Id': String(storeId),
-  };
+if (!MONGO_URL) {
+  console.error('Missing MONGO_URL or MONGODB_URI env var');
+  process.exit(1);
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+const REQUIRED_FIELDS = [
+  'printfulVariantId',
+  'sync_variant_id',
+  'printful_variant_id',
+  'variant_id',
+];
+
+function get(obj, path) {
+  return path.split('.').reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
 }
 
-async function fetchJson(url, options = {}) {
-  const res = await fetch(url, options);
-  const text = await res.text();
-
-  let data;
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch (err) {
-    data = { raw: text };
+function firstPresent(doc, keys) {
+  for (const key of keys) {
+    const value = get(doc, key);
+    if (value !== undefined && value !== null && value !== '') return { key, value };
   }
-
-  if (!res.ok) {
-    const error = new Error(`Printful error ${res.status}: ${JSON.stringify(data)}`);
-    error.status = res.status;
-    error.payload = data;
-    throw error;
-  }
-
-  return data;
+  return null;
 }
 
-async function getOldSyncProductByExternalId(externalId) {
-  const url = new URL(`${PRINTFUL_BASE_URL}/store/products`);
-  url.searchParams.set('external_id', externalId);
+function collectVariantCandidates(doc) {
+  const out = [];
+  const top = firstPresent(doc, REQUIRED_FIELDS);
+  if (top) out.push(top);
 
-  const data = await fetchJson(url.toString(), {
-    method: 'GET',
-    headers: headersForStore(PRINTFUL_OLD_STORE_ID),
-  });
-
-  const result = data.result;
-
-  if (!result) return null;
-  if (Array.isArray(result)) return result[0] || null;
-  if (Array.isArray(result.products)) return result.products[0] || null;
-  if (Array.isArray(result.result)) return result.result[0] || null;
-
-  return result;
-}
-
-function normalizeOldVariants(oldSyncProduct) {
-  if (Array.isArray(oldSyncProduct.sync_variants)) return oldSyncProduct.sync_variants;
-  if (Array.isArray(oldSyncProduct.variants)) return oldSyncProduct.variants;
-  return [];
-}
-
-function buildMongoVariantMap(product) {
-  const map = new Map();
-
-  for (const v of product.variations || []) {
-    const variantId = Number(v.printfulVariantId || v.id);
-    if (!variantId) continue;
-    map.set(variantId, v);
-  }
-
-  return map;
-}
-
-function buildCreatePayload(oldSyncProduct, mongoProduct) {
-  const oldVariants = normalizeOldVariants(oldSyncProduct);
-  if (!oldVariants.length) {
-    throw new Error('Old sync product has no variants');
-  }
-
-  const mongoVariantMap = buildMongoVariantMap(mongoProduct);
-
-  const sync_product = {
-    name: mongoProduct.name || oldSyncProduct.name || 'Untitled product',
-    external_id: mongoProduct.id || String(mongoProduct._id),
-    thumbnail: mongoProduct.image || oldSyncProduct.thumbnail || undefined,
-  };
-
-  const sync_variants = oldVariants.map((oldVariant) => {
-    const variantId = Number(oldVariant.variant_id);
-    const mongoVariant = mongoVariantMap.get(variantId);
-
-    const retailPrice =
-      mongoVariant?.regular_price ??
-      mongoVariant?.price ??
-      mongoProduct.price ??
-      oldVariant.retail_price ??
-      null;
-
-    return {
-      variant_id: variantId,
-      external_id: `${mongoProduct.id || mongoProduct._id}-${variantId}`,
-      retail_price: retailPrice != null ? String(retailPrice) : undefined,
-      sku: mongoVariant?.sku || oldVariant.sku || undefined,
-      files: oldVariant.files || [],
-      options: oldVariant.options || [],
-    };
-  });
-
-  const missingFiles = sync_variants.filter(
-    (v) => !Array.isArray(v.files) || v.files.length === 0
-  );
-
-  if (missingFiles.length) {
-    throw new Error(`Missing variant files on cloned source product (${missingFiles.length} variants)`);
-  }
-
-  return { sync_product, sync_variants };
-}
-
-async function createNewSyncProduct(payload) {
-  if (DRY_RUN) {
-    return {
-      id: 'dry-run-store-product-id',
-      variants: payload.sync_variants.map((v, i) => ({
-        id: `dry-run-sync-variant-${i + 1}`,
-        external_id: v.external_id,
-        variant_id: v.variant_id,
-      })),
-    };
-  }
-
-  const data = await fetchJson(`${PRINTFUL_BASE_URL}/store/products`, {
-    method: 'POST',
-    headers: headersForStore(PRINTFUL_NEW_STORE_ID),
-    body: JSON.stringify(payload),
-  });
-
-  const result = data.result || data;
-
-  return {
-    id: result.id,
-    variants: (result.variants || result.sync_variants || []).map((sv) => ({
-      id: sv.id,
-      external_id: sv.external_id,
-      variant_id: sv.variant_id,
-    })),
-  };
-}
-
-async function createWithRetry(payload) {
-  try {
-    return await createNewSyncProduct(payload);
-  } catch (err) {
-    if (err.status === 429) {
-      console.log(`Rate limited. Waiting ${RETRY_429_MS / 1000}s and retrying once...`);
-      await sleep(RETRY_429_MS);
-      return await createNewSyncProduct(payload);
+  if (Array.isArray(doc.variants)) {
+    for (const v of doc.variants) {
+      const found = firstPresent(v, REQUIRED_FIELDS);
+      if (found) out.push(found);
     }
-    throw err;
   }
+
+  if (Array.isArray(doc.printfulVariants)) {
+    for (const v of doc.printfulVariants) {
+      const found = firstPresent(v, REQUIRED_FIELDS);
+      if (found) out.push(found);
+    }
+  }
+
+  return out;
 }
 
-async function main() {
-  console.log('Starting Printful clone migration script');
+function normalizeNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
-  const auditPath = path.resolve(AUDIT_FILE);
-  const auditRaw = await fs.readFile(auditPath, 'utf8');
-  const audit = JSON.parse(auditRaw);
+function buildUpdate(doc) {
+  const candidates = collectVariantCandidates(doc);
+  const normalized = candidates
+    .map(c => ({ ...c, normalized: normalizeNumber(c.value) }))
+    .filter(c => c.normalized !== null);
 
-  const readyProducts = audit.ready || [];
-  console.log(`Loaded audit file with ${audit.stats?.totalProducts || 0} total, ${readyProducts.length} readyForMigration`);
+  const update = { $set: {}, $unset: {} };
+  const issues = [];
 
-  const toProcess = MIGRATION_LIMIT > 0
-    ? readyProducts.slice(0, MIGRATION_LIMIT)
-    : readyProducts;
+  const chosen = normalized[0];
+  if (chosen) {
+    if (doc.sync_variant_id !== chosen.normalized) update.$set.sync_variant_id = chosen.normalized;
+    if (doc.printfulVariantId !== chosen.normalized) update.$set.printfulVariantId = chosen.normalized;
+  } else {
+    issues.push('missing_variant_id');
+  }
 
-  console.log(`Processing ${toProcess.length} product(s)`);
+  const syncProductId = firstPresent(doc, ['sync_product_id', 'printfulProductId', 'product_id']);
+  if (syncProductId) {
+    const n = normalizeNumber(syncProductId.value);
+    if (n !== null && doc.sync_product_id !== n) update.$set.sync_product_id = n;
+  }
 
-  const client = new MongoClient(MONGODB_URI);
+  const externalId = firstPresent(doc, ['external_id', 'printfulExternalId', 'slug', 'handle']);
+  if (externalId && !doc.external_id) {
+    update.$set.external_id = String(externalId.value);
+  }
+
+  if (Object.keys(update.$set).length === 0) delete update.$set;
+  if (Object.keys(update.$unset).length === 0) delete update.$unset;
+
+  return { update, issues, chosen };
+}
+
+(async () => {
+  const client = new MongoClient(MONGO_URL);
   await client.connect();
+  const db = client.db(DB_NAME);
+  const collection = db.collection(COLLECTION);
 
-  const db = client.db(MONGODB_DB);
-  const productsCol = db.collection(PRODUCTS_COLLECTION);
+  const docs = await collection.find({}).toArray();
+  const report = {
+    db: DB_NAME,
+    collection: COLLECTION,
+    dryRun: DRY_RUN,
+    total: docs.length,
+    missingVariantId: 0,
+    updated: 0,
+    unchanged: 0,
+    flagged: [],
+  };
 
-  let migratedCount = 0;
-  const failures = [];
+  for (const doc of docs) {
+    const { update, issues, chosen } = buildUpdate(doc);
+    const hasUpdate = !!(update.$set || update.$unset);
 
-  for (const ready of toProcess) {
-    const mongoIdStr = ready._id;
-
-    console.log('\n---');
-    console.log(`Migrating product ${mongoIdStr} - ${ready.name}`);
-
-    try {
-      const product = await productsCol.findOne({ _id: new ObjectId(mongoIdStr) });
-
-      if (!product) {
-        throw new Error('Product not found in Mongo');
-      }
-
-      if (product?.printful?.storeProductId) {
-        console.log('Already migrated, skipping');
-        continue;
-      }
-
-      const externalProductId =
-        product?.legacyMetadata?._smpf_external_product_id ||
-        ready.externalProductId ||
-        null;
-
-      if (!externalProductId) {
-        throw new Error('Missing externalProductId');
-      }
-
-      await sleep(BASE_DELAY_MS);
-
-      const oldSyncProduct = await getOldSyncProductByExternalId(externalProductId);
-
-      if (!oldSyncProduct) {
-        throw new Error(`Old sync product not found for external_id=${externalProductId}`);
-      }
-
-      const payload = buildCreatePayload(oldSyncProduct, product);
-
-      await sleep(BASE_DELAY_MS);
-
-      const created = await createWithRetry(payload);
-
-      console.log(`Created new store sync product ${created.id} with ${created.variants.length} variants`);
-
-      if (!DRY_RUN) {
-        const syncVariants = created.variants.map((sv) => ({
-          syncVariantId: sv.id,
-          externalId: sv.external_id,
-          printfulVariantId: sv.variant_id,
-        }));
-
-        await productsCol.updateOne(
-          { _id: product._id },
-          {
-            $set: {
-              'printful.storeProductId': created.id,
-              'printful.syncVariants': syncVariants,
-              'printful.migratedAt': new Date(),
-              'printful.migrationSource': 'old-store-to-new-store-clone',
-              'printful.oldExternalProductId': externalProductId,
-              'printful.oldStoreId': String(PRINTFUL_OLD_STORE_ID),
-              'printful.newStoreId': String(PRINTFUL_NEW_STORE_ID),
-            },
-          }
-        );
-
-        console.log('Updated Mongo with new Printful sync IDs');
-      }
-
-      migratedCount += 1;
-    } catch (err) {
-      console.error(`Migration failed: ${err.message}`);
-      failures.push({
-        mongoId: mongoIdStr,
-        name: ready.name,
-        error: err.message,
+    if (issues.includes('missing_variant_id')) {
+      report.missingVariantId += 1;
+      report.flagged.push({
+        _id: String(doc._id),
+        title: doc.title || doc.name || '(untitled)',
+        slug: doc.slug || null,
+        issue: 'missing_variant_id',
       });
     }
+
+    if (hasUpdate) {
+      if (!DRY_RUN) {
+        await collection.updateOne({ _id: doc._id instanceof ObjectId ? doc._id : new ObjectId(doc._id) }, update);
+      }
+      report.updated += 1;
+    } else {
+      report.unchanged += 1;
+    }
   }
 
-  const report = {
-    migratedCount,
-    failureCount: failures.length,
-    failures,
-    dryRun: DRY_RUN,
-    processedCount: toProcess.length,
-    oldStoreId: String(PRINTFUL_OLD_STORE_ID),
-    newStoreId: String(PRINTFUL_NEW_STORE_ID),
-    completedAt: new Date().toISOString(),
-  };
-
-  const reportPath = path.resolve('printful-clone-migration-report.json');
-  await fs.writeFile(reportPath, JSON.stringify(report, null, 2), 'utf8');
-
-  console.log('\n===');
-  console.log(`Migrated: ${migratedCount}`);
-  console.log(`Failed: ${failures.length}`);
-  console.log(`Report written to ${reportPath}`);
-
+  console.log(JSON.stringify(report, null, 2));
   await client.close();
-}
-
-main().catch((err) => {
-  console.error('Fatal error:', err);
-  process.exit(1);
-});
+})();
