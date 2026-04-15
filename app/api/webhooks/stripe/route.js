@@ -1,7 +1,11 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
+//import { ObjectId } from 'mongodb';
+
+const orderData = await db.collection('orders').findOne({
+  _id: typeof order_id === 'string' ? new (await import('mongodb')).ObjectId(order_id) : order_id
+});
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -79,13 +83,23 @@ export async function POST(req) {
       return NextResponse.json({ received: true });
     }
 
-    // 2. Prepare items for Printful
     const printfulItems = (orderData.items || [])
-      .filter((item) => item.sync_variant_id || item.printfulVariantId)
-      .map((item) => ({
-        sync_variant_id: item.sync_variant_id || item.printfulVariantId,
+      .map((item) => {
+        // We need to find the ACTUAL 10-digit Printful ID from our variations array
+        // because the 'variationId' in the cart might still be the old 6-digit legacy ID.
+        const syncId = item.sync_variant_id || item.printfulVariantId;
+
+        if (!syncId) {
+          console.error(`[Order ${order_id}] Item ${item.productId} is missing a Sync ID!`);
+          return null;
+        }
+
+      return {
+        sync_variant_id: Number(syncId), // Printful expects a Number, not a String
         quantity: item.quantity,
-      }));
+      };
+    })
+    .filter(Boolean);
 
     let printfulOrderId = null;
     let fulfillmentStatus = 'failed';

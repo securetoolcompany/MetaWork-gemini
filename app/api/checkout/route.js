@@ -63,17 +63,32 @@ export async function POST(req) {
     const finalAmountInCents = taxCalculation.amount_total;
     const exactTaxAmount = taxCalculation.tax_amount_exclusive / 100;
 
-    // 3. CREATE PENDING ORDER IN MONGODB
+    // 3. ENRICH ITEMS WITH SYNC IDs & CREATE PENDING ORDER
     const { db } = await connectToDatabase(); 
+
+    const enrichedItems = await Promise.all(items.map(async (cartItem) => {
+      const dbProduct = await db.collection('products').findOne({ _id: new ObjectId(cartItem.productId) });
+      
+      const dbVariation = dbProduct?.variations?.find(v => 
+        v.id.toString() === cartItem.variationId?.toString() || 
+        v.printfulVariantId?.toString() === cartItem.variationId?.toString()
+      );
+
+      return {
+        ...cartItem,
+        // THIS IS THE KEY: ensure the 10-digit ID is attached to the item
+        sync_variant_id: dbVariation?.sync_variant_id || dbVariation?.printfulVariantId || null,
+        title: dbProduct?.name || cartItem.title
+      };
+    }));
     
-    // Generate a clean 6-digit order number for the user
     const generatedOrderNumber = Math.floor(100000 + Math.random() * 900000).toString();
     
     const pendingOrder = {
       orderNumber: generatedOrderNumber,
       email: shippingInfo.email.toLowerCase().trim(),
       shippingInfo: shippingInfo,
-      items: items, 
+      items: enrichedItems, // SAVE THE ENRICHED ITEMS INSTEAD
       subtotal: itemsSubtotal,
       discount: discountAmount,
       shippingCost: parseFloat(shippingCost || 0),

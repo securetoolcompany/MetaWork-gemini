@@ -176,14 +176,16 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
   };
 
   const handleSizeChange = (size) => {
-    setSelectedSize(size);
-    const variation = product.variations?.find(
-      v => v.attributes?.pa_size === size
-    );
-    if (variation) {
-      setSelectedVariation(variation);
-    }
-  };
+      setSelectedSize(size);
+      const variation = product.variations?.find(v => {
+        const varSize = v.attributes?.pa_size || v.name;
+        return varSize?.toLowerCase().includes(size.toLowerCase());
+      });
+      
+      if (variation) {
+        setSelectedVariation(variation);
+      }
+    };
 
   const handleAddToCart = async () => {
     if (addingToCart.current || !product?._id) return;
@@ -219,15 +221,21 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
 
   const sizeOrder = ['xs', 's', 'm', 'l', 'xl', '2xl', '2xs', '3xl', '4xl', '5xl', '6xl'];
   const availableSizes = product?.variations
-    ? Array.from(new Set(product.variations.map(v => v.attributes?.pa_size).filter(Boolean)))
-        .map(size => decodeURIComponent(size))
+      ? Array.from(new Set(product.variations.map(v => {
+          // Look for the new attribute first, then fallback to name cleaning
+          const rawSize = v.attributes?.pa_size || v.name;
+          if (!rawSize) return null;
+          
+          // Handle "AlphaBJJ / XS" vs "XS"
+          return rawSize.includes(' / ') ? rawSize.split(' / ')[1] : rawSize;
+        }).filter(Boolean)))
         .sort((a, b) => {
           const aIndex = sizeOrder.indexOf(a.toLowerCase());
           const bIndex = sizeOrder.indexOf(b.toLowerCase());
           if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
           return a.localeCompare(b);
         })
-    : [];
+      : [];
 
   const averageRating = reviews.length > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
