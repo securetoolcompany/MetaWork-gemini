@@ -6,6 +6,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(req) {
   try {
+    const { ObjectId } = await import('mongodb');
     const body = await req.json();
     const { items, shippingInfo, shippingCost, promoCode } = body;
 
@@ -73,6 +74,18 @@ export async function POST(req) {
         v.id.toString() === cartItem.variationId?.toString() || 
         v.printfulVariantId?.toString() === cartItem.variationId?.toString()
       );
+
+      // --- ADD THESE LOGS ---
+      console.log(`\n[Enrichment Diagnostic] Processing Cart Item:`, cartItem.title || cartItem.productId);
+      console.log(`[Enrichment Diagnostic] -> Cart Variation ID:`, cartItem.variationId);
+      console.log(`[Enrichment Diagnostic] -> Found matching DB Product:`, !!dbProduct);
+      console.log(`[Enrichment Diagnostic] -> Found matching DB Variation:`, !!dbVariation);
+      if (dbVariation) {
+        console.log(`[Enrichment Diagnostic] -> Extracted Sync ID:`, dbVariation.sync_variant_id || dbVariation.printfulVariantId);
+      } else if (dbProduct?.variations) {
+         // If we found the product but no variation matched, log what variations DO exist so you can spot the mismatch
+         console.log(`[Enrichment Diagnostic] -> DB Product Variations available:`, dbProduct.variations.map(v => v.id));
+      }
 
       return {
         ...cartItem,

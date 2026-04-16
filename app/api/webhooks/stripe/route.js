@@ -3,16 +3,13 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 //import { ObjectId } from 'mongodb';
 
-const orderData = await db.collection('orders').findOne({
-  _id: typeof order_id === 'string' ? new (await import('mongodb')).ObjectId(order_id) : order_id
-});
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(req) {
   const payload = await req.text();
   const sig = req.headers.get('stripe-signature');
-
+  const { ObjectId } = await import('mongodb');
+  
   let event;
 
   try {
@@ -133,6 +130,15 @@ export async function POST(req) {
         if (process.env.PRINTFUL_STORE_ID) {
           headers['X-PF-Store-Id'] = process.env.PRINTFUL_STORE_ID;
         }
+
+        console.log('[Printful DEBUG] Payload:', JSON.stringify({
+          payload: printfulPayload,
+          headers: {
+            'Content-Type': headers['Content-Type'],
+            'X-PF-Store-Id': headers['X-PF-Store-Id'] || null,
+            // Do NOT log Authorization value
+          },
+        }, null, 2));
 
         const pfRes = await fetch('https://api.printful.com/orders', {
           method: 'POST',

@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getUserFromToken } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
-import { ObjectId } from 'mongodb';
 
 export async function POST(req) {
   try {
-    // Auth check using the correct helper identified in your logs
+    const { ObjectId } = await import('mongodb');
     const token = req.cookies.get('auth_token')?.value;
     const user = token ? getUserFromToken(token) : null;
 

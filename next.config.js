@@ -1,10 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+
   images: {
     unoptimized: true,
     remotePatterns: [
-      // ... existing patterns
       {
         protocol: 'https',
         hostname: 'files.cdn.printful.com',
@@ -12,11 +12,9 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: '*.printful.com',
+        hostname: '**.printful.com',
         pathname: '/**',
       },
-    ],
-    remotePatterns: [
       {
         protocol: 'https',
         hostname: 'securemetawork.com',
@@ -24,7 +22,7 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: '*.cloudinary.com',
+        hostname: '**.cloudinary.com',
         pathname: '/**',
       },
       {
@@ -34,23 +32,26 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: '*.unsplash.com',
+        hostname: '**.unsplash.com',
         pathname: '/**',
       },
     ],
   },
-  serverExternalPackages: ['mongodb'],  // Moved from experimental
-  turbopack: {},  // Enables Turbopack cleanly
+
+  serverExternalPackages: ['mongodb'],
+
+  turbopack: {},
+
   async headers() {
     return [
       {
-        source: "/(.*)",
+        source: '/(.*)',
         headers: [
-          { key: "X-Frame-Options", value: "ALLOWALL" },
-          { key: "Content-Security-Policy", value: "frame-ancestors *;" },
-          { key: "Access-Control-Allow-Origin", value: process.env.CORS_ORIGINS || "*" },
-          { key: "Access-Control-Allow-Methods", value: "GET, POST, PUT, DELETE, OPTIONS" },
-          { key: "Access-Control-Allow-Headers", value: "*" },
+          { key: 'X-Frame-Options', value: 'ALLOWALL' },
+          { key: 'Content-Security-Policy', value: 'frame-ancestors *;' },
+          { key: 'Access-Control-Allow-Origin', value: process.env.CORS_ORIGINS || '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: '*' },
         ],
       },
     ];
