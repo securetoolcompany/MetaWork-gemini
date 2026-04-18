@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Package, ExternalLink, Loader2, Search } from 'lucide-react';
+import { AlertCircle, Package, ExternalLink, Loader2, Search, ClipboardList, Printer, Truck, XCircle, AlertTriangle } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -84,16 +84,93 @@ export default function TrackingPage() {
     }
   };
 
-  const getStatusBadge = (status) => {
-    if (!status) return <Badge variant="outline">Processing</Badge>;
-    switch(status.toLowerCase()) {
-      case 'fulfilled': return <Badge className="bg-green-500 hover:bg-green-600">Shipped</Badge>;
-      case 'inprocess': return <Badge className="bg-blue-500 hover:bg-blue-600">In Production</Badge>;
-      case 'pending': return <Badge className="bg-yellow-500 hover:bg-yellow-600 text-yellow-950">Pending</Badge>;
-      case 'canceled': return <Badge variant="destructive">Canceled</Badge>;
-      case 'paid': return <Badge className="bg-blue-500 hover:bg-blue-600">In Production</Badge>;
-      default: return <Badge variant="outline" className="capitalize">{status}</Badge>;
+  // Maps the backend's clean displayStatus to the visual timeline
+  const renderFulfillmentTimeline = (order) => {
+    const ds = order.displayStatus;
+    
+    // Handle Error / Hold States
+    if (ds === 'fulfillment_issue') {
+      return (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2 text-destructive bg-destructive/10 px-3 py-2 rounded-md w-fit">
+            <XCircle className="w-4 h-4" />
+            <span className="text-sm font-bold">{order.statusLabel}</span>
+          </div>
+          <span className="text-xs text-muted-foreground leading-snug max-w-[240px]">{order.statusMessage}</span>
+        </div>
+      );
     }
+    if (ds === 'on_hold') {
+      return (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2 text-yellow-600 bg-yellow-500/10 px-3 py-2 rounded-md w-fit">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="text-sm font-bold">{order.statusLabel}</span>
+          </div>
+          <span className="text-xs text-muted-foreground leading-snug max-w-[240px]">{order.statusMessage}</span>
+        </div>
+      );
+    }
+
+    // Determine UI Step (1: Confirmed, 2: Production, 3: Shipped)
+    let step = 1;
+    if (ds === 'being_fulfilled') step = 2;
+    if (ds === 'fulfilled' || ds === 'shipped') step = 3;
+
+    return (
+      <div className="min-w-[180px] max-w-[240px]">
+        <div className="text-xs font-bold text-foreground mb-1 uppercase tracking-wider">{order.statusLabel}</div>
+        <div className="text-xs text-muted-foreground mb-3 leading-snug">{order.statusMessage}</div>
+        
+        <div className="flex items-center w-full">
+          {/* Step 1: Confirmed */}
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border-2 transition-colors ${step >= 1 ? 'border-primary bg-primary text-primary-foreground' : 'border-muted bg-background text-muted-foreground'}`}>
+            <ClipboardList className="w-3.5 h-3.5" />
+          </div>
+          
+          <div className={`flex-1 h-1.5 mx-1 rounded-full transition-colors ${step >= 2 ? 'bg-primary' : 'bg-muted'}`} />
+
+          {/* Step 2: Production */}
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border-2 transition-colors ${step >= 2 ? 'border-blue-500 bg-blue-500 text-white' : 'border-muted bg-background text-muted-foreground'}`}>
+            <Printer className="w-3.5 h-3.5" />
+          </div>
+
+          <div className={`flex-1 h-1.5 mx-1 rounded-full transition-colors ${step >= 3 ? 'bg-blue-500' : 'bg-muted'}`} />
+
+          {/* Step 3: Shipped */}
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 border-2 transition-colors ${step >= 3 ? 'border-green-500 bg-green-500 text-white' : 'border-muted bg-background text-muted-foreground'}`}>
+            <Truck className="w-3.5 h-3.5" />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Dynamic tracking text based on mapped status
+  const renderTrackingCell = (order) => {
+    if (order.hasTracking && order.tracking?.length > 0) {
+      return (
+        <a href={order.tracking[0].trackingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-md transition-colors shadow-sm">
+          Track {order.tracking[0].carrier || 'Package'} <ExternalLink className="w-4 h-4" />
+        </a>
+      );
+    }
+    
+    const ds = order.displayStatus;
+    
+    if (ds === 'fulfillment_issue') return <span className="text-sm text-muted-foreground">N/A</span>;
+    if (ds === 'on_hold') return <span className="text-sm text-yellow-600 font-medium">Pending Resolution</span>;
+    
+    let text = "Awaiting Fulfillment";
+    if (ds === 'being_fulfilled') text = "Printing & Sewing...";
+    if (ds === 'fulfilled') text = "Generating Label..."; 
+    
+    return (
+      <span className="text-sm text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-md inline-flex items-center gap-2 border border-muted">
+        {ds === 'being_fulfilled' && <Loader2 className="w-3 h-3 animate-spin text-blue-500" />}
+        {text}
+      </span>
+    );
   };
 
   if (authLoading) {
@@ -102,7 +179,6 @@ export default function TrackingPage() {
 
   return (
     <div className="min-h-screen bg-background pt-16 pb-24">
-      {/* Increased max-width to 7xl to give the side-by-side layout room to breathe */}
       <div className="max-w-7xl mx-auto px-4">
         
         <div className="mb-10">
@@ -112,7 +188,6 @@ export default function TrackingPage() {
           </p>
         </div>
 
-        {/* SIDE-BY-SIDE GRID LAYOUT */}
         <div className="grid lg:grid-cols-12 gap-8 items-start">
           
           {/* LEFT COLUMN: Tracking Box */}
@@ -127,7 +202,6 @@ export default function TrackingPage() {
                 </p>
               </div>
               
-              {/* Stacked inputs vertically since the sidebar is narrower */}
               <form onSubmit={handleManualTrack} className="space-y-5">
                 <div>
                   <Label htmlFor="orderNumber">Order Number (Specific Package)</Label>
@@ -192,36 +266,30 @@ export default function TrackingPage() {
                       <TableRow>
                         <TableHead>Date & Order #</TableHead>
                         <TableHead>Items</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Fulfillment Status</TableHead>
                         <TableHead className="text-right">Tracking</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {orders.map((order) => (
                         <TableRow key={order.orderNumber}>
-                          <TableCell>
+                          <TableCell className="align-top pt-5">
                             <div className="font-bold text-base">#{order.orderNumber}</div>
                             <div className="text-xs text-muted-foreground mt-0.5">
                               {new Date(order.date).toLocaleDateString()}
                             </div>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="align-top pt-5">
                             <div className="text-sm font-medium">{order.items?.length || 0} Items</div>
-                            <div className="text-xs text-muted-foreground line-clamp-1 max-w-[250px] mt-0.5">
+                            <div className="text-xs text-muted-foreground line-clamp-2 max-w-[200px] mt-0.5 leading-relaxed">
                               {order.items?.map(i => `${i.quantity}x ${i.name || i.title}`).join(', ')}
                             </div>
                           </TableCell>
-                          <TableCell>{getStatusBadge(order.status)}</TableCell>
-                          <TableCell className="text-right">
-                            {order.tracking?.length > 0 ? (
-                              <a href={order.tracking[0].trackingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-md transition-colors">
-                                Track {order.tracking[0].carrier} <ExternalLink className="w-4 h-4" />
-                              </a>
-                            ) : (
-                              <span className="text-sm text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-md inline-block">
-                                Preparing...
-                              </span>
-                            )}
+                          <TableCell className="align-top pt-4">
+                            {renderFulfillmentTimeline(order)}
+                          </TableCell>
+                          <TableCell className="text-right align-top pt-5">
+                            {renderTrackingCell(order)}
                           </TableCell>
                         </TableRow>
                       ))}

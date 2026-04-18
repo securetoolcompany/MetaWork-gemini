@@ -49,7 +49,8 @@ export async function GET(request, { params }) {
     if (token) {
       try {
         const decoded = verifyToken(token);
-        if (decoded?.userId === ipAsset.ownerId) {
+        if (decoded?.userId && ipAsset.ownerId &&
+            String(decoded.userId) === String(ipAsset.ownerId)) {
           isOwner = true;
         }
       } catch (e) { /* Invalid token, proceed as guest */ }
@@ -119,10 +120,16 @@ ipAsset.viewCount =
 // PUT - Update IP asset
 export async function PUT(request, { params }) {
   try {
-    const token = request.cookies.get('auth_token')?.value;
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.substring(7);
     if (!token) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
-    
-    const decoded = verifyToken(token);
+
+    let decoded;
+    try {
+      decoded = verifyToken(token);
+    } catch (e) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
     if (!decoded?.userId) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     
     const { id } = await params;
@@ -136,7 +143,7 @@ export async function PUT(request, { params }) {
         { id: id },
         { revenueTokenAssetId: parseInt(id) || -1 }
       ],
-      ownerId: decoded.userId
+      ownerId: String(decoded.userId)
     };
     
     // Try ObjectId format if it's a valid ObjectId string

@@ -109,3 +109,91 @@ export async function POST(req) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
+
+// Add this helper function at the bottom or top of your file
+function mapTrackOrder(order) {
+  const tracking = Array.isArray(order.tracking) ? order.tracking : [];
+  const hasTracking = tracking.length > 0;
+  
+  let displayStatus = 'unknown';
+  let statusLabel = 'Updating';
+  let statusMessage = 'We’re updating your order status.';
+  let progressStage = 0;
+  let statusTone = 'muted';
+  
+  if (order.status === 'pending') {
+    displayStatus = 'payment_pending';
+    statusLabel = 'Payment Pending';
+    statusMessage = 'Payment is still being confirmed.';
+    progressStage = 1;
+    statusTone = 'warning';
+  } else if (order.status === 'paid' && order.fulfillmentStatus === 'failed') {
+    displayStatus = 'fulfillment_issue';
+    statusLabel = 'Fulfillment Issue';
+    statusMessage = order.printfulError || 'Your payment was received, but fulfillment needs attention.';
+    progressStage = 2;
+    statusTone = 'destructive';
+  } else if (order.status === 'paid' && order.fulfillmentStatus === 'on_hold') {
+    displayStatus = 'on_hold';
+    statusLabel = 'On Hold';
+    statusMessage = 'Your order is on hold and needs review.';
+    progressStage = 2;
+    statusTone = 'warning';
+  } else if (order.status === 'paid' && order.fulfillmentStatus === 'awaiting_approval') {
+    displayStatus = 'waiting_for_fulfillment';
+    statusLabel = 'Waiting for Fulfillment';
+    statusMessage = 'Your order was received and is waiting to enter production.';
+    progressStage = 2;
+    statusTone = 'info';
+  } else if (order.status === 'paid' && order.fulfillmentStatus === 'processing') {
+    displayStatus = 'being_fulfilled';
+    statusLabel = 'In Production';
+    statusMessage = 'Your items are being printed, checked, and packed.';
+    progressStage = 3;
+    statusTone = 'info';
+  } else if (hasTracking) {
+    displayStatus = 'shipped';
+    statusLabel = 'Shipped';
+    statusMessage = 'Your order has shipped. Tracking is now available.';
+    progressStage = 4;
+    statusTone = 'success';
+  } else if (order.fulfillmentStatus === 'fulfilled') {
+    displayStatus = 'fulfilled';
+    statusLabel = 'Preparing Shipment';
+    statusMessage = 'Your order is packed and shipment details are being finalized.';
+    progressStage = 4;
+    statusTone = 'success';
+  } else if (order.status === 'paid' && order.printfulOrderId) {
+    displayStatus = 'order_received';
+    statusLabel = 'Order Confirmed';
+    statusMessage = 'Your payment was confirmed and your order was sent to fulfillment.';
+    progressStage = 2;
+    statusTone = 'info';
+  } else if (order.status === 'paid') {
+    displayStatus = 'order_received';
+    statusLabel = 'Order Confirmed';
+    statusMessage = 'Your payment was confirmed and your order was created.';
+    progressStage = 2;
+    statusTone = 'info';
+  }
+  
+  return {
+    orderNumber: order.orderNumber,
+    date: order.createdAt || order.date,
+    items: order.items || [],
+    tracking,
+    rawStatus: order.status || null,
+    rawFulfillmentStatus: order.fulfillmentStatus || null,
+    displayStatus,
+    statusLabel,
+    statusMessage,
+    progressStage,
+    statusTone,
+    hasTracking,
+    printfulOrderId: order.printfulOrderId || null,
+  };
+}
+
+// Example of how you return the data at the end of your POST handlers:
+// const formattedOrders = dbOrders.map(mapTrackOrder);
+// return NextResponse.json(formattedOrders);

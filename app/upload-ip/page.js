@@ -142,23 +142,34 @@ function UploadIPInner() {
       const step1 = await res1.json();
       if (!res1.ok) throw new Error(step1.error || 'Deployment failed');
 
-      // ... (The rest of your transaction signing logic remains exactly the same)
       // 4. Sign NFT Mint Txn
       toast.loading('Sign NFT Mint Transaction...', { id: toastId });
       const signedNft = await signTransactionGroup([
-        new Uint8Array(Buffer.from(step1.transaction, 'base64')),
+        [new Uint8Array(Buffer.from(step1.transaction, 'base64'))],  // ✅ array of groups
       ]);
+      if (!signedNft || signedNft.length === 0) throw new Error('NFT signing cancelled');
 
+      // 5. Confirm NFT mint on-chain  ← THIS FETCH WAS MISSING
+      toast.loading('Confirming NFT on chain...', { id: toastId });
+      const res2 = await fetch('/api/ip/mint-v2', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({
+          step: 'confirm_nft',
+          ipAssetId: step1.ipAssetId,
+          signedTxns: signedNft.map((t) => Buffer.from(t).toString('base64')),
+        }),
+      });
       const step2 = await res2.json();
       if (!res2.ok) throw new Error(step2.error || 'NFT Confirmation failed');
 
-      // 5. Sign Pool Setup Group
+      // 6. Sign Pool Setup Group
       toast.loading(`Sign ${step2.transactions.length} transactions to launch pool...`, { id: toastId });
       const poolTxns = step2.transactions.map((t) => new Uint8Array(Buffer.from(t, 'base64')));
-      const signedPool = await signTransactionGroup(poolTxns);
+      const signedPool = await signTransactionGroup([poolTxns]);  // ✅ array of groups
       if (!signedPool || signedPool.length === 0) throw new Error('Pool setup signing cancelled');
-
-      // 6. FINAL: Confirm Pool Creation
+      
+      // 7. Confirm Pool Creation  ← ADD THIS FETCH
       toast.loading('Finalizing Revenue Pool...', { id: toastId });
       const res3 = await fetch('/api/ip/mint-v2', {
         method: 'PUT',

@@ -39,7 +39,7 @@ function encodeAllocations(stakeholders) {
 export async function POST(request) {
   try {
     const authHeader = request.headers.get("authorization");
-    const token = authHeader?.substring(7) || request.cookies.get("auth_token")?.value;
+    const token = authHeader?.substring(7);
     if (!token) return NextResponse.json({ error: "Auth required" }, { status: 401 });
 
     const decoded = verifyToken(token);
@@ -55,43 +55,66 @@ export async function POST(request) {
       stakeholders: incomingStakeholders 
     } = body;
 
-    let user = await db.collection("users").findOne({ id: decoded.userId });
-    
-    if (connectedWallet && user.walletAddress !== connectedWallet) {
-      await db.collection("users").updateOne({ id: decoded.userId }, { $set: { walletAddress: connectedWallet } });
-      user.walletAddress = connectedWallet;
+    const { ObjectId } = await import('mongodb');
+
+    let userQuery;
+    try {
+      userQuery = { $or: [{ id: decoded.userId }, { _id: new ObjectId(decoded.userId) }] };
+    } catch {
+      // decoded.userId isn't a valid ObjectId — query by id field only
+      userQuery = { id: decoded.userId };
     }
+
+    let user = await db.collection("users").findOne(userQuery);
+    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+
+    const senderWallet = connectedWallet || user.walletAddress;
+      if (!senderWallet || !algosdk.isValidAddress(senderWallet)) {
+        return NextResponse.json({ error: "Valid wallet address required" }, { status: 400 });
+      }
 
     if (!name || !imageCid) return NextResponse.json({ error: "Missing fields" }, { status: 400 });
 
+    const ipAssetId = new (await import('mongodb')).ObjectId().toString();
+
     // 1. Sanitize Stakeholders (Platform 20% Fee)
-    let finalStakeholders = incomingStakeholders || [];
     const platformWallet = process.env.METAWORK_PLATFORM_WALLET;
-    const hasPlatform = finalStakeholders.some(s => s.address === platformWallet);
-    
-    if (!hasPlatform) {
-       if (finalStakeholders.length === 1 && finalStakeholders[0].address === user.walletAddress) {
-           finalStakeholders[0].percentage = 80;
-       }
-       finalStakeholders.push({ address: platformWallet, percentage: 20, name: "Platform" });
-    }
+      let finalStakeholders = (incomingStakeholders || []).filter(s => s.address !== platformWallet);
+
+      // Normalize remaining stakeholders to sum to 80
+      const currentTotal = finalStakeholders.reduce((sum, s) => sum + parseFloat(s.percentage || 0), 0);
+      if (currentTotal > 0) {
+        finalStakeholders = finalStakeholders.map(s => ({
+          ...s,
+          percentage: Math.round((parseFloat(s.percentage) / currentTotal) * 80)
+        }));
+      } else {
+        // Default: creator gets 80%
+        finalStakeholders = [{ address: senderWallet, percentage: 80, name: "Creator" }];
+      }
+
+      finalStakeholders.push({ address: platformWallet, percentage: 20, name: "Platform" });
 
     // 2. Prepare IPFS URLs
-    const imageUrl = imageCid.startsWith('ipfs://') ? imageCid : `ipfs://${imageCid}`;
+    const isCid = imageCid && !imageCid.startsWith('http') && imageCid.length > 20;
+    if (!isCid) {
+      return NextResponse.json({ 
+        error: "image must be an IPFS CID, not a URL. Pin via /api/ipfs/upload first." 
+      }, { status: 400 });
+    }
 
     // 3. Prepare Database Record
-    const ipAssetId = `ip_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    const imageUrl = imageCid.startsWith('ipfs://') ? imageCid : `ipfs://${imageCid}`;
 
     // Create and upload only the ARC3 Metadata JSON
     const meta = createARC3Metadata({ 
         name, 
         description, 
         imageUrl, 
-        ipAssetId, // Pass the ID here
-        properties: { // Ensure you've updated the helper to accept a 'properties' object
-            category, 
-            creator: user.walletAddress 
-        }
+        ipAssetId,
+        category, 
+        creator: senderWallet 
     });
     
     const metaRes = await uploadJsonToPinata(meta, name + "_meta");
@@ -107,12 +130,12 @@ export async function POST(request) {
     const shortAssetUrl = `ipfs://${cidOnly}`;
 
     const nftTxn = algosdk.makeAssetCreateTxnWithSuggestedParamsFromObject({
-      sender: String(user.walletAddress).trim(),
+      sender: senderWallet,
       total: 1n,
       decimals: 0,
       defaultFrozen: false,
-      manager: user.walletAddress,
-      reserve: user.walletAddress,
+      manager: senderWallet,
+      reserve: senderWallet,
       unitName: "IPNFT",
       assetName: name.substring(0, 32),
       assetURL: shortAssetUrl, // This will be ~54 bytes, well under the 96 limit
@@ -129,7 +152,7 @@ export async function POST(request) {
       metadataUrl: metaRes.ipfsUrl, 
       metadataHash,
       ownerId: decoded.userId, 
-      ownerWallet: user.walletAddress,
+      ownerWallet: senderWallet,
       stakeholders: finalStakeholders, // Uses sanitized stakeholders
       status: "pending_nft_mint", 
       createdAt: new Date()
@@ -154,6 +177,18 @@ export async function POST(request) {
 // =========================================================
 export async function PUT(request) {
   try {
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.substring(7);
+    if (!token) return NextResponse.json({ error: "Auth required" }, { status: 401 });
+
+    let decoded;
+    try {
+      decoded = verifyToken(token);
+    } catch (e) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
+
+
     const { step, ipAssetId, signedTxn, signedTxns } = await request.json();
     const { db } = await connectToDatabase();
     const algodClient = getAlgodClient();
@@ -161,16 +196,28 @@ export async function PUT(request) {
     // -----------------------------------------------------
     // STEP A: Confirm NFT Mint -> Prepare Pool Creation
     // -----------------------------------------------------
+    const ipAsset = await db.collection("ip_assets").findOne({ id: ipAssetId });
+      if (!ipAsset) return NextResponse.json({ error: "IP asset not found" }, { status: 404 });
+
+      // ✅ Verify the requestor owns this asset before submitting to chain
+      if (String(ipAsset.ownerId) !== String(decoded.userId)) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+      }    
+    
     if (step === "confirm_nft") {
       // 1. Submit the signed NFT Mint transaction
       const { txid } = await algodClient.sendRawTransaction(new Uint8Array(Buffer.from(signedTxn, "base64"))).do();
       const confirmed = await waitForConfirmation(txid, 10);
-      const nftAssetId = confirmed["asset-index"] ?? confirmed["created-asset-index"];
+      const nftAssetId = confirmed["asset-index"]    // v2 style
+      ?? confirmed["created-asset-index"]           // v2 alt
+      ?? confirmed.assetIndex                       // v3 style
+      ?? confirmed.createdAssetIndex;               // v3 alt
+
+    if (!nftAssetId) throw new Error(`NFT mint confirmed but asset-index missing. TxID: ${txid}`);
 
       const poolAppId = parseInt(process.env.NEXT_PUBLIC_REVENUE_POOL_APP_ID || "0");
       if (!poolAppId) throw new Error("Global Pool App ID not configured (check .env)");
 
-      const ipAsset = await db.collection("ip_assets").findOne({ id: ipAssetId });
       const creatorAddress = String(ipAsset.ownerWallet).trim();
 
       // 2. Prepare "Safety Deposit" Transaction Group
@@ -245,9 +292,11 @@ new Uint8Array(encodeAllocations(ipAsset.stakeholders || []))        ],
         const boxVal = await algodClient.getApplicationBoxByName(poolAppId, boxName).do();
 
         const boxBytes = boxVal.value;
-        const view = new DataView(boxBytes.buffer);
+        const view = new DataView(boxBytes.buffer, boxBytes.byteOffset, boxBytes.byteLength);
+        const revenueTokenId = Number(view.getBigUint64(0, false));
+        //const view = new DataView(boxBytes.buffer);
         // The first 8 bytes of the box are the Revenue Token Asset ID
-        const revenueTokenId = Number(BigInt(view.getBigUint64(0, false))); 
+        //const revenueTokenId = Number(BigInt(view.getBigUint64(0, false))); 
 
         // 3. Final DB Update
         await db.collection("ip_assets").updateOne(
