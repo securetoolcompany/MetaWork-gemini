@@ -1,0 +1,475 @@
+#pragma version 8
+txn ApplicationID
+int 0
+==
+bnz main_l31
+txn OnCompletion
+int DeleteApplication
+==
+bnz main_l30
+txn OnCompletion
+int UpdateApplication
+==
+bnz main_l29
+txn OnCompletion
+int CloseOut
+==
+bnz main_l28
+txn OnCompletion
+int OptIn
+==
+bnz main_l27
+txna ApplicationArgs 0
+byte "create_pool"
+==
+bnz main_l20
+txna ApplicationArgs 0
+byte "claim_tokens"
+==
+bnz main_l14
+txna ApplicationArgs 0
+byte "deposit"
+==
+bnz main_l13
+txna ApplicationArgs 0
+byte "claim_usdc"
+==
+bnz main_l12
+txna ApplicationArgs 0
+byte "opt_in_usdc"
+==
+bnz main_l11
+err
+main_l11:
+txn Sender
+global CreatorAddress
+==
+assert
+itxn_begin
+int axfer
+itxn_field TypeEnum
+global CurrentApplicationAddress
+itxn_field AssetReceiver
+int 0
+itxn_field AssetAmount
+int 10458941
+itxn_field XferAsset
+int 0
+itxn_field Fee
+itxn_submit
+int 1
+return
+main_l12:
+txna ApplicationArgs 1
+callsub boxkey_1
+store 0
+load 0
+box_get
+store 25
+store 24
+load 24
+store 11
+load 11
+extract 0 8
+btoi
+store 10
+txn Sender
+load 10
+asset_holding_get AssetBalance
+store 27
+store 26
+load 27
+assert
+load 26
+store 8
+load 8
+int 0
+>
+assert
+global CurrentApplicationAddress
+int 10458941
+asset_holding_get AssetBalance
+store 29
+store 28
+load 29
+assert
+load 28
+store 7
+load 7
+int 0
+>
+assert
+load 7
+load 8
+*
+int 10000
+/
+store 9
+txna ApplicationArgs 2
+btoi
+int 0
+>
+assert
+txna ApplicationArgs 2
+btoi
+load 9
+<=
+assert
+itxn_begin
+int axfer
+itxn_field TypeEnum
+txn Sender
+itxn_field AssetReceiver
+txna ApplicationArgs 2
+btoi
+itxn_field AssetAmount
+int 10458941
+itxn_field XferAsset
+int 0
+itxn_field Fee
+itxn_submit
+byte "usdc_claimed:"
+txna ApplicationArgs 2
+btoi
+itob
+concat
+log
+int 1
+return
+main_l13:
+txn GroupIndex
+int 0
+>
+assert
+txn GroupIndex
+int 1
+-
+gtxns TypeEnum
+int axfer
+==
+assert
+txn GroupIndex
+int 1
+-
+gtxns XferAsset
+int 10458941
+==
+assert
+txn GroupIndex
+int 1
+-
+gtxns AssetReceiver
+global CurrentApplicationAddress
+==
+assert
+txn GroupIndex
+int 1
+-
+gtxns AssetAmount
+int 0
+>
+assert
+int 1
+return
+main_l14:
+txna ApplicationArgs 1
+callsub boxkey_1
+store 0
+load 0
+box_get
+store 23
+store 22
+load 22
+store 11
+load 11
+extract 0 8
+btoi
+store 10
+load 11
+extract 8 1
+btoi
+store 1
+int 0
+store 4
+int 0
+store 5
+int 0
+store 2
+main_l15:
+load 2
+load 1
+<
+load 4
+int 0
+==
+&&
+bnz main_l17
+load 4
+int 1
+==
+assert
+load 5
+int 0
+>
+assert
+load 5
+store 6
+itxn_begin
+int axfer
+itxn_field TypeEnum
+txn Sender
+itxn_field AssetReceiver
+load 6
+itxn_field AssetAmount
+load 10
+itxn_field XferAsset
+int 0
+itxn_field Fee
+itxn_submit
+load 2
+int 1
+-
+callsub entryoffset_0
+store 3
+load 0
+load 3
+int 32
++
+int 2
++
+byte "\x01"
+box_replace
+byte "claimed:"
+load 6
+itob
+concat
+log
+int 1
+return
+main_l17:
+load 2
+callsub entryoffset_0
+store 3
+load 11
+load 3
+int 32
+extract3
+txn Sender
+==
+bnz main_l19
+main_l18:
+load 2
+int 1
++
+store 2
+b main_l15
+main_l19:
+load 11
+load 3
+int 32
++
+int 2
++
+int 1
+extract3
+btoi
+int 0
+==
+assert
+load 11
+load 3
+int 32
++
+int 2
+extract3
+btoi
+store 5
+int 1
+store 4
+b main_l18
+main_l20:
+txna ApplicationArgs 4
+len
+int 34
+%
+int 0
+==
+assert
+txna ApplicationArgs 4
+len
+int 34
+/
+store 12
+load 12
+int 0
+>
+assert
+load 12
+int 100
+<=
+assert
+int 0
+store 13
+int 0
+store 14
+main_l21:
+load 14
+load 12
+<
+bnz main_l26
+load 13
+int 10000
+==
+assert
+txna ApplicationArgs 1
+callsub boxkey_1
+store 0
+load 0
+box_get
+store 21
+store 20
+load 21
+int 0
+==
+assert
+itxn_begin
+int acfg
+itxn_field TypeEnum
+int 10000
+itxn_field ConfigAssetTotal
+int 0
+itxn_field ConfigAssetDecimals
+int 0
+itxn_field ConfigAssetDefaultFrozen
+global CurrentApplicationAddress
+itxn_field ConfigAssetManager
+global CurrentApplicationAddress
+itxn_field ConfigAssetReserve
+global CurrentApplicationAddress
+itxn_field ConfigAssetFreeze
+global CurrentApplicationAddress
+itxn_field ConfigAssetClawback
+txna ApplicationArgs 2
+itxn_field ConfigAssetName
+txna ApplicationArgs 3
+itxn_field ConfigAssetUnitName
+int 0
+itxn_field Fee
+itxn_submit
+itxn CreatedAssetID
+store 16
+load 16
+itob
+load 12
+itob
+extract 7 1
+concat
+store 17
+int 0
+store 14
+main_l23:
+load 14
+load 12
+<
+bnz main_l25
+load 0
+load 17
+box_put
+byte "asset_id:"
+load 16
+itob
+concat
+log
+int 1
+return
+main_l25:
+txna ApplicationArgs 4
+load 14
+int 34
+*
+int 32
+extract3
+store 18
+txna ApplicationArgs 4
+load 14
+int 34
+*
+int 32
++
+int 2
+extract3
+store 19
+load 17
+load 18
+concat
+load 19
+concat
+byte "\x00"
+concat
+store 17
+load 14
+int 1
++
+store 14
+b main_l23
+main_l26:
+txna ApplicationArgs 4
+load 14
+int 34
+*
+int 32
++
+int 2
+extract3
+btoi
+store 15
+load 15
+int 0
+>
+assert
+load 13
+load 15
++
+store 13
+load 14
+int 1
++
+store 14
+b main_l21
+main_l27:
+int 1
+return
+main_l28:
+int 1
+return
+main_l29:
+int 0
+return
+main_l30:
+txn Sender
+global CreatorAddress
+==
+assert
+int 1
+return
+main_l31:
+int 1
+return
+
+// entry_offset
+entryoffset_0:
+proto 1 1
+int 9
+frame_dig -1
+int 35
+*
++
+retsub
+
+// box_key
+boxkey_1:
+proto 1 1
+byte "p_"
+frame_dig -1
+concat
+retsub
