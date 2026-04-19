@@ -1,12 +1,12 @@
 """
-deploy_v4.py — Deploy Revenue Pool V4 to Algorand TestNet
+deploy_v5.py — Deploy Revenue Pool V4 to Algorand TestNet
 ─────────────────────────────────────────────────────────
 Usage:
-    python deploy_v4.py
+    python deploy_v5.py
 
 Reads:
-    revenue_pool_v4_approval.teal
-    revenue_pool_v4_clear.teal
+    revenue_pool_v5_approval.teal
+    revenue_pool_v5_clear.teal
 
 Requires env var (or .env file):
     AUTHORITY_MNEMONIC   — 25-word mnemonic of the deployer/authority wallet
@@ -34,12 +34,12 @@ from algosdk import transaction
 ALGOD_URL   = "https://testnet-api.algonode.cloud"
 ALGOD_TOKEN = ""
 
-APPROVAL_TEAL = os.path.join(os.path.dirname(__file__), "revenue_pool_v4_approval.teal")
-CLEAR_TEAL    = os.path.join(os.path.dirname(__file__), "revenue_pool_v4_clear.teal")
+APPROVAL_TEAL = os.path.join(os.path.dirname(__file__), "revenue_pool_v5_approval.teal")
+CLEAR_TEAL    = os.path.join(os.path.dirname(__file__), "revenue_pool_v5_clear.teal")
 APP_ID_FILE   = os.path.join(os.path.dirname(__file__), "app_id.txt")
 
 # Global state: release_mode (uint) + release_delay_days (uint)
-GLOBAL_INTS  = 2
+GLOBAL_INTS  = 0
 GLOBAL_BYTES = 0
 
 # No local state needed
@@ -125,6 +125,7 @@ def main():
             num_uints=LOCAL_INTS,
             num_byte_slices=LOCAL_BYTES,
         ),
+        extra_pages=3,
     )
 
     # Sign and submit
