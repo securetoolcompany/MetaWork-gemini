@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Gift
 } from 'lucide-react';
+import algosdk from 'algosdk';
 
 const bigintReplacer = (_key, value) =>
   typeof value === 'bigint' ? value.toString() : value;
@@ -68,7 +69,7 @@ export default function ClaimPage() {
       const poolsWithClaimInfo = await Promise.all(
         ipsWithPools.map(async (ip) => {
           try {
-            const res = await fetch(`/api/revenue-pool/claim?appId=${Number(ip.revenuePoolAppId)}&userAddress=${accountAddress}`);
+            const res = await fetch(`/api/revenue-pool/claim?appId=${Number(ip.revenuePoolAppId)}&userAddress=${accountAddress}&ipId=${ip.id}`);
             if (res.ok) return { ...ip, claimInfo: await res.json() };
           } catch (err) {}
           return { ...ip, claimInfo: null };
@@ -151,9 +152,8 @@ export default function ClaimPage() {
 
       const txnsToSign = data.transactions || [data.transaction];
 
-      // GLOBAL FIX 2: Ensure we aren't passing null transactions to the signer
       const signed = await signTransactionGroup(
-        txnsToSign.map(t => new Uint8Array(Buffer.from(t, 'base64')))
+        txnsToSign.map(t => algosdk.decodeUnsignedTransaction(Buffer.from(t, 'base64')))
       );
 
       if (!signed || signed.length === 0) throw new Error('Signing cancelled');
@@ -190,6 +190,7 @@ export default function ClaimPage() {
         body: JSON.stringify({
           claimerAddress: accountAddress,
           appId: Number(pool.revenuePoolAppId),
+          ipId: pool.id,
           amount: parseInt(amount),
           userTokenBalance: Number(pool.claimInfo?.user?.tokenBalance || 0)
         }, bigintReplacer)
@@ -274,15 +275,81 @@ export default function ClaimPage() {
               {revenuePools.length === 0 ? (
                 <p className="text-center py-8 text-muted-foreground">No active pools found.</p>
               ) : (
-                revenuePools.map(p => (
-                  <Card key={p.id}><CardContent className="p-4 flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                      {p.imageUrl && <img src={p.imageUrl} className="w-12 h-12 rounded object-cover" />}
-                      <div><h3 className="font-bold">{p.name}</h3><p className="text-sm text-muted-foreground">Available: ${p.claimInfo?.user?.claimableFormatted}</p></div>
-                    </div>
-                    <Button onClick={() => handleClaimRevenue(p)} disabled={claimingRevenue === p.id}>Claim USDC</Button>
-                  </CardContent></Card>
-                ))
+                revenuePools.map((p) => {
+                  const userTokenBalance = Number(p.claimInfo?.user?.tokenBalance || 0);
+                  const claimableAmount = Number(p.claimInfo?.user?.claimableAmount || 0);
+                  const claimableFormatted = p.claimInfo?.user?.claimableFormatted || '0.00';
+                  const poolBalanceFormatted = p.claimInfo?.pool?.balanceFormatted || '0.00';
+                  const isClaiming = claimingRevenue === p.id;
+                  const isDisabled = isClaiming || claimableAmount <= 0;
+
+                  return (
+                    <Card key={p.id} className="overflow-hidden">
+                      <CardContent className="p-0">
+                        <div className="grid min-h-[132px] grid-cols-1 md:grid-cols-[96px_minmax(0,1fr)_180px]">
+                          <div className="flex items-center justify-center border-b bg-muted/20 p-4 md:border-b-0 md:border-r">
+                            {p.imageUrl ? (
+                              <img
+                                src={p.imageUrl}
+                                alt={p.name}
+                                className="h-16 w-16 rounded-xl object-cover"
+                              />
+                            ) : (
+                              <div className="h-16 w-16 rounded-xl bg-muted" />
+                            )}
+                          </div>
+
+                          <div className="flex min-w-0 flex-col justify-center p-4 md:p-5">
+                            <h3 className="truncate text-lg font-semibold leading-tight">{p.name}</h3>
+
+                            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                              <div className="min-w-0 rounded-lg border bg-background/60 px-3 py-3">
+                                <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                                  Pool Balance
+                                </p>
+                                <p className="mt-1 truncate text-sm font-semibold">
+                                  {poolBalanceFormatted}
+                                </p>
+                              </div>
+
+                              <div className="min-w-0 rounded-lg border bg-background/60 px-3 py-3">
+                                <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                                  Your Share
+                                </p>
+                                <p className="mt-1 truncate text-sm font-semibold">
+                                  {userTokenBalance} / 100
+                                </p>
+                              </div>
+
+                              <div className="min-w-0 rounded-lg border bg-background/60 px-3 py-3">
+                                <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                                  Claimable
+                                </p>
+                                <p className="mt-1 truncate text-sm font-semibold">
+                                  ${claimableFormatted} USDC
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-center border-t bg-muted/10 p-4 md:border-l md:border-t-0">
+                            <Button
+                              onClick={() => handleClaimRevenue(p)}
+                              disabled={isDisabled}
+                              className="h-11 w-full md:w-[148px]"
+                            >
+                              {isClaiming ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                `Claim $${claimableAmount > 0 ? claimableFormatted : '0.00'}`
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
               )}
             </TabsContent>
           </Tabs>

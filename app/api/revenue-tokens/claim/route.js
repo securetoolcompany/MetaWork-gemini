@@ -5,10 +5,6 @@ import { safeJson } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * NODE ROTATION STRATEGY
- * Priority: 1. Tatum (Authorized) -> 2. Nodely Dev -> 3. Algonode
- */
 async function getHealthyNode() {
   const configs = [
     { 
@@ -16,40 +12,29 @@ async function getHealthyNode() {
       url: 'https://algorand-testnet-algod.gateway.tatum.io', 
       token: { 'x-api-key': process.env.TATUM_API_KEY } 
     },
-    { 
-      name: 'Nodely Dev',
-      url: 'https://testnet-api.4160.nodely.dev', 
-      token: '' 
-    },
-    { 
-      name: 'Algonode',
-      url: 'https://testnet-api.algonode.cloud', 
-      token: '' 
-    }
+    { name: 'Nodely Dev', url: 'https://testnet-api.4160.nodely.dev', token: '' },
+    { name: 'Algonode', url: 'https://testnet-api.algonode.cloud', token: '' }
   ];
 
   for (const config of configs) {
     try {
-      // Skip Tatum if key is missing
       if (config.url.includes('tatum') && (!config.token['x-api-key'] || config.token['x-api-key'].includes('YOUR_'))) {
         continue;
       }
-
       const client = new algosdk.Algodv2(config.token, config.url, '');
-
-      // Fast status check
       const status = await client.status().do();
-      const round = Number(status['last-round'] || 0);
-
+      // v3 fix: status keys are now camelCase
+      const round = Number(status['last-round'] ?? status['lastRound'] ?? 0);
+      console.log(`[NODE STATUS KEYS] ${config.name}:`, Object.keys(status));
+      console.log(`[NODE ROUND] ${config.name}: ${round}`);
       if (round > 0) {
-        // Double-check params integrity
         const params = await client.getTransactionParams().do();
         console.log(`[NODE SELECTED] ${config.name} at Round ${round}`);
         return { client, params, round, url: config.url, token: config.token };
       }
       console.warn(`[NODE LAG] ${config.name} is at Round 0.`);
     } catch (e) {
-      console.warn(`[NODE ERROR] ${config.name} (${config.url}): ${e.message}`);
+      console.warn(`[NODE ERROR] ${config.name}: ${e.message}`);
     }
   }
   throw new Error("Critical: No synced Algorand nodes available. Testnet may be down.");
@@ -60,7 +45,6 @@ export async function POST(request) {
     const body = await request.json();
     const userAddr = String(body.userAddress || body.accountAddress || "").trim();
 
-    // 1. INPUT VALIDATION
     if (!userAddr || !algosdk.isValidAddress(userAddr)) {
       throw new Error(`Invalid sender address: "${userAddr}"`);
     }
@@ -75,53 +59,56 @@ export async function POST(request) {
     if (!Number.isFinite(appId) || appId <= 0) throw new Error(`Invalid App ID: ${appId}`);
     if (!Number.isFinite(tokenId) || tokenId <= 0) throw new Error(`Invalid Token ID: ${tokenId}`);
 
-    // 2. GET SYNCHRONIZED NODE
     const { params: raw, round: currentRound } = await getHealthyNode();
 
-    // 3. ADDRESS DERIVATION
     const poolAddrStr = algosdk.encodeAddress(algosdk.getApplicationAddress(appId).publicKey);
 
+    // v3 fix: firstRound/lastRound renamed to firstValid/lastValid, fees are BigInt
     const txParams = {
-      fee: 1000,
+      fee: 1000n,
       flatFee: true,
-      firstRound: currentRound,
-      lastRound: currentRound + 1000,
+      firstValid: BigInt(currentRound),
+      lastValid: BigInt(currentRound + 1000),
       genesisHash: raw.genesisHash || "SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=",
-      genesisID: raw.genesisID || "testnet-v1.0"
+      genesisID: raw.genesisID || "testnet-v1.0",
+      minFee: 1000n
     };
 
-    // 4. TRANSACTION CONSTRUCTION (Positional Arguments)
     const txns = [];
 
-    // Tx 0: Payment (0.2 ALGO for Box MBR)
-    txns.push(algosdk.makePaymentTxnWithSuggestedParams(
-      userAddr, poolAddrStr, 200000, undefined, undefined, txParams
-    ));
+    // v3 fix: all make*Txn positional fns replaced with make*FromObject
+    txns.push(algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+      sender: userAddr,
+      receiver: poolAddrStr,
+      amount: 200000,
+      suggestedParams: txParams
+    }));
 
-    // Tx 1: Asset Opt-in (Refund method)
-    txns.push(algosdk.makeAssetTransferTxnWithSuggestedParams(
-      userAddr, userAddr, undefined, undefined, 0, undefined, tokenId, txParams
-    ));
+    txns.push(algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+      sender: userAddr,
+      receiver: userAddr,
+      amount: 0,
+      assetIndex: tokenId,
+      suggestedParams: txParams
+    }));
 
-    // Tx 2: Application Call (Claim Logic)
     const decodedUser = algosdk.decodeAddress(userAddr);
     const boxName = new Uint8Array(Buffer.concat([Buffer.from('stk_'), decodedUser.publicKey]));
 
-    txns.push(algosdk.makeApplicationNoOpTxn(
-      userAddr, 
-      { ...txParams, fee: 3000 }, // 3x fee for storage I/O
-      appId, 
-      [new Uint8Array(Buffer.from('claim_tokens'))], 
-      undefined, undefined, [tokenId], 
-      undefined, undefined, undefined, 
-      [{ appIndex: appId, name: boxName }]
-    ));
+    txns.push(algosdk.makeApplicationNoOpTxnFromObject({
+      sender: userAddr,
+      appIndex: appId,
+      appArgs: [new Uint8Array(Buffer.from('claim_tokens'))],
+      foreignAssets: [tokenId],
+      boxes: [{ appIndex: appId, name: boxName }],
+      suggestedParams: { ...txParams, fee: 3000n }
+    }));
 
     algosdk.assignGroupID(txns);
 
     return NextResponse.json(safeJson({
       success: true,
-      transactions: txns.map(t => Buffer.from(t.toByte()).toString('base64'))
+      transactions: txns.map(t => Buffer.from(algosdk.encodeUnsignedTransaction(t)).toString('base64'))
     }));
 
   } catch (error) {
@@ -133,20 +120,24 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const { signedTxns } = await request.json();
-    const { client } = await getHealthyNode(); // Use same healthy node for broadcast
+    //const { client } = await getHealthyNode();
+    const client = new algosdk.Algodv2('', 'https://testnet-api.algonode.cloud', '');
 
     const binaryTxns = signedTxns.map(t => new Uint8Array(Buffer.from(t, 'base64')));
-    const { txId } = await client.sendRawTransaction(binaryTxns).do();
+    const result = await client.sendRawTransaction(binaryTxns).do();
 
-    console.log(`TRANSACTION SUBMITTED: https://testnet.explorer.perawallet.app/tx/${txId}`);
+    // v3 returns txid lowercase — handle both just in case
+    const txid = result.txid ?? result.txId;
 
-    await algosdk.waitForConfirmation(client, txId, 4);
+    console.log(`TRANSACTION SUBMITTED: https://testnet.explorer.perawallet.app/tx/${txid}`);
+    await algosdk.waitForConfirmation(client, txid, 4);
     return NextResponse.json({ 
-      success: true, 
-      txId, 
-      explorerUrl: `https://testnet.explorer.perawallet.app/tx/${txId}` 
+      success: true,
+      txId: txid,
+      explorerUrl: `https://testnet.explorer.perawallet.app/tx/${txid}` 
     });
   } catch (error) {
+    console.error('PUT ERROR:', error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
