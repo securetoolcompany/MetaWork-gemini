@@ -547,6 +547,217 @@ def test_set_snapshot_freq(client, app_id, auth_pk, auth_addr, ip_id):
     wait(client, txid)
     print(f"  {PASS} snapshot_freq reset to 0 (per-release)")
 
+# ── Test 9: token transfer between rounds → snapshot correctness ──
+
+def test_token_transfer_snapshot(client, app_id, auth_pk, auth_addr,
+                                  mw_pk, mw_addr, ip_id, asa_id, total_micro):
+    section("TEST 9: token transfer → new holder captured in round 3 snapshot")
+
+    bkey  = pool_key(ip_id)
+    rkey  = reg_key(ip_id)
+    r3key = round_key(ip_id, 3)
+    app_addr = algosdk.logic.get_application_address(app_id)
+
+    # ── Step 1: generate a fresh third wallet ─────────────────────
+    new_pk, new_addr = algosdk.account.generate_account()
+    print(f"  New holder wallet: {new_addr}")
+
+    # ── Step 2: fund new wallet with ALGO (needs ~0.3 ALGO) ───────
+    # 0.1 ALGO base MBR + 0.1 opt-in ASA + 0.1 opt-in USDC + fees
+    fund_txn = transaction.PaymentTxn(
+        sender=auth_addr,
+        sp=sp(client),
+        receiver=new_addr,
+        amt=500_000,  # 0.5 ALGO — covers MBR + both opt-ins + fees
+    )
+    txid = client.send_transaction(fund_txn.sign(auth_pk))
+    wait(client, txid)
+    print(f"  {PASS} Funded new wallet with 0.5 ALGO")
+
+    # ── Step 3: new wallet opts in to revenue ASA ─────────────────
+    opt_in_asset(client, new_pk, new_addr, asa_id)
+    print(f"  {PASS} New wallet opted in to revenue ASA ({asa_id})")
+
+    # ── Step 4: new wallet opts in to USDC ───────────────────────
+    opt_in_asset(client, new_pk, new_addr, USDC_ASSET_ID)
+    print(f"  {PASS} New wallet opted in to USDC ({USDC_ASSET_ID})")
+
+    # ── Step 5: authority transfers its 80 revenue tokens to new wallet
+    xfer = transaction.AssetTransferTxn(
+        sender=auth_addr,
+        sp=sp(client),
+        receiver=new_addr,
+        amt=80,
+        index=asa_id,
+    )
+    txid = client.send_transaction(xfer.sign(auth_pk))
+    wait(client, txid)
+    assert asset_balance(client, new_addr, asa_id) == 80, "New wallet should hold 80 tokens"
+    assert asset_balance(client, auth_addr, asa_id) == 0,  "Authority should hold 0 tokens"
+    print(f"  {PASS} Transferred 80 tokens from authority → new wallet")
+
+    # ── Step 6: sync new_holder into registry ────────────────────
+    # new_addr now holds 80 tokens → should be accepted
+    txn = transaction.ApplicationNoOpTxn(
+        sender=new_addr,
+        sp=sp(client),
+        index=app_id,
+        app_args=[b"sync_holder", ip_id.encode()],
+        foreign_assets=[asa_id],
+        boxes=[
+            transaction.BoxReference(0, bkey),
+            transaction.BoxReference(0, rkey),
+        ],
+    )
+    txid = client.send_transaction(txn.sign(new_pk))
+    wait(client, txid)
+    reg_data = read_box_raw(client, app_id, rkey)
+    num_holders = struct.unpack_from(">H", reg_data, 0)[0]
+    print(f"  {PASS} New wallet synced into registry ({num_holders} holders total)")
+
+    # ── Step 7: verify authority (0 tokens) sync is rejected ─────
+    try:
+        txn = transaction.ApplicationNoOpTxn(
+            sender=auth_addr,
+            sp=sp(client),
+            index=app_id,
+            app_args=[b"sync_holder", ip_id.encode()],
+            foreign_assets=[asa_id],
+            boxes=[
+                transaction.BoxReference(0, bkey),
+                transaction.BoxReference(0, rkey),
+            ],
+        )
+        client.send_transaction(txn.sign(auth_pk))
+        print(f"  {FAIL} Authority (0 tokens) sync_holder should have been rejected")
+    except Exception:
+        print(f"  {PASS} Authority (0 tokens) sync_holder correctly rejected")
+
+    # ── Step 8: deposit_held + fund app for round 3 MBR ──────────
+    fund_mbr = transaction.PaymentTxn(
+        sender=auth_addr,
+        sp=sp(client),
+        receiver=app_addr,
+        amt=100_000,
+    )
+    txid = client.send_transaction(fund_mbr.sign(auth_pk))
+    wait(client, txid)
+
+    axfer = transaction.AssetTransferTxn(
+        sender=auth_addr,
+        sp=sp(client),
+        receiver=app_addr,
+        amt=total_micro,
+        index=USDC_ASSET_ID,
+    )
+    app_call = transaction.ApplicationNoOpTxn(
+        sender=auth_addr,
+        sp=sp(client),
+        index=app_id,
+        app_args=[b"deposit_held", ip_id.encode()],
+        foreign_assets=[USDC_ASSET_ID],
+        boxes=[transaction.BoxReference(0, bkey)],
+    )
+    gid = transaction.calculate_group_id([axfer, app_call])
+    axfer.group = app_call.group = gid
+    txid = send_group(client, [axfer.sign(auth_pk), app_call.sign(auth_pk)])
+    wait(client, txid)
+    print(f"  {PASS} Round 3 deposit_held: {total_micro/1e6:.6f} USDC")
+
+    # ── Step 9: release_held → creates round 3 snapshot ──────────
+    # accounts must include ALL currently registered holders at release time
+    # (auth_addr is still in registry from earlier rounds — contract reads
+    #  registry box, so pass all addresses the contract may iterate over)
+    txn = transaction.ApplicationNoOpTxn(
+        sender=auth_addr,
+        sp=sp(client, fee=4000),
+        index=app_id,
+        app_args=[b"release_held", ip_id.encode(), uint64_be(total_micro)],
+        foreign_assets=[USDC_ASSET_ID, asa_id],
+        accounts=[auth_addr, mw_addr, new_addr],   # all registered holders
+        boxes=[
+            transaction.BoxReference(0, bkey),
+            transaction.BoxReference(0, rkey),
+            transaction.BoxReference(0, r3key),
+        ],
+    )
+    txid = client.send_transaction(txn.sign(auth_pk))
+    wait(client, txid)
+
+    pool = parse_pool_box(read_pool_box(client, app_id, ip_id))
+    assert pool["current_round_id"] == 3, \
+        f"Expected round_id=3, got {pool['current_round_id']}"
+    rnd_data  = read_box_raw(client, app_id, r3key)
+    rnd       = parse_round_box(rnd_data)
+    print(f"  {PASS} Round 3 snapshot created — {rnd['num_entries']} entries, "
+          f"{rnd['round_amount']/1e6:.6f} USDC")
+
+    # ── Step 10: new_holder claims round 3 → should receive 80% ──
+    expected_new  = total_micro * 80 // 100
+    before_new    = asset_balance(client, new_addr, USDC_ASSET_ID)
+
+    txn = transaction.ApplicationNoOpTxn(
+        sender=new_addr,
+        sp=sp(client, fee=3000),
+        index=app_id,
+        app_args=[b"claim_revenue_round", ip_id.encode(), uint64_be(3)],
+        foreign_assets=[USDC_ASSET_ID],
+        boxes=[
+            transaction.BoxReference(0, bkey),
+            transaction.BoxReference(0, r3key),
+        ],
+    )
+    txid = client.send_transaction(txn.sign(new_pk))
+    wait(client, txid)
+
+    received_new = asset_balance(client, new_addr, USDC_ASSET_ID) - before_new
+    assert received_new == expected_new, \
+        f"New holder: got {received_new/1e6:.6f}, expected {expected_new/1e6:.6f}"
+    print(f"  {PASS} New holder claimed round 3: {received_new/1e6:.6f} USDC (80%)")
+
+    # ── Step 11: old authority claims round 3 → must be rejected ─
+    try:
+        txn = transaction.ApplicationNoOpTxn(
+            sender=auth_addr,
+            sp=sp(client, fee=3000),
+            index=app_id,
+            app_args=[b"claim_revenue_round", ip_id.encode(), uint64_be(3)],
+            foreign_assets=[USDC_ASSET_ID],
+            boxes=[
+                transaction.BoxReference(0, bkey),
+                transaction.BoxReference(0, r3key),
+            ],
+        )
+        client.send_transaction(txn.sign(auth_pk))
+        print(f"  {FAIL} Authority should be rejected from round 3 (not in snapshot)")
+    except Exception:
+        print(f"  {PASS} Authority correctly rejected from round 3 (not in snapshot)")
+
+    # ── Step 12: metawork claims round 3 → should receive 20% ────
+    expected_mw = total_micro * 20 // 100
+    before_mw   = asset_balance(client, mw_addr, USDC_ASSET_ID)
+
+    txn = transaction.ApplicationNoOpTxn(
+        sender=mw_addr,
+        sp=sp(client, fee=3000),
+        index=app_id,
+        app_args=[b"claim_revenue_round", ip_id.encode(), uint64_be(3)],
+        foreign_assets=[USDC_ASSET_ID],
+        boxes=[
+            transaction.BoxReference(0, bkey),
+            transaction.BoxReference(0, r3key),
+        ],
+    )
+    txid = client.send_transaction(txn.sign(mw_pk))
+    wait(client, txid)
+
+    received_mw = asset_balance(client, mw_addr, USDC_ASSET_ID) - before_mw
+    assert received_mw == expected_mw, \
+        f"MetaWork: got {received_mw/1e6:.6f}, expected {expected_mw/1e6:.6f}"
+    print(f"  {PASS} MetaWork claimed round 3: {received_mw/1e6:.6f} USDC (20%)")
+
+    print(f"  {PASS} Snapshot model verified: transfer correctly shifts entitlement")
+
 
 # ── Main ──────────────────────────────────────────────────────────
 
@@ -615,6 +826,7 @@ def main():
         test_claim_revenue_round(client, app_id, auth_pk, auth_addr, mw_pk, mw_addr, TEST_IP_ID, asa_id, test_micro)
         test_round2_claim_all(client, app_id, auth_pk, auth_addr, mw_pk, mw_addr, TEST_IP_ID, asa_id, test_micro)
         test_set_snapshot_freq(client, app_id, auth_pk, auth_addr, TEST_IP_ID)
+        test_token_transfer_snapshot(client, app_id, auth_pk, auth_addr, mw_pk, mw_addr, TEST_IP_ID, asa_id, test_micro)
 
         section("ALL V5 TESTS PASSED ✅")
         print(f"\n  App ID:   {app_id}")

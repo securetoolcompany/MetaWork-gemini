@@ -1,24 +1,29 @@
-"""
-cleanup_app_assets.py
-Closes out all non-USDC assets held by the app address back to the authority,
-then verifies the app address MBR is back to baseline.
+# close_stale_optins.py
+# Run this BEFORE deploy_v5.py to reclaim ALGO locked in stale ASA opt-ins
 
-Usage:
-  python cleanup_app_assets.py
-"""
+import os
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
-import os, sys, base64
 import algosdk
 from algosdk.v2client import algod
 from algosdk import transaction
 
 ALGOD_URL     = "https://testnet-api.algonode.cloud"
 ALGOD_TOKEN   = ""
-USDC_ASSET_ID = 10458941
-APP_ID_FILE   = "app_id.txt"
+USDC_ASSET_ID = 10458941  # keep this one always
 
 def get_client():
     return algod.AlgodClient(ALGOD_TOKEN, ALGOD_URL)
+
+def sp(client):
+    p = client.suggested_params()
+    p.flat_fee = True
+    p.fee = 1000
+    return p
 
 def wait(client, txid, rounds=10):
     last = client.status()["last-round"]
@@ -33,108 +38,133 @@ def wait(client, txid, rounds=10):
         last += 1
     raise Exception(f"Timeout waiting for {txid}")
 
-def sp(client, fee=2000):
-    p = client.suggested_params()
-    p.flat_fee = True
-    p.fee = fee
-    return p
+def close_stale_optins(client, pk, addr, keep_ids):
+    info     = client.account_info(addr)
+    assets   = info.get("assets", [])
+    stale    = [a for a in assets if a["asset-id"] not in keep_ids]
 
-def main():
-    if not os.path.exists(APP_ID_FILE):
-        print("ERROR: app_id.txt not found.")
-        sys.exit(1)
-    with open(APP_ID_FILE) as f:
-        app_id = int(f.read().strip())
-
-    auth_mnemonic = os.environ.get("AUTHORITY_MNEMONIC", "").strip()
-    if not auth_mnemonic:
-        auth_mnemonic = input("Enter AUTHORITY mnemonic: ").strip()
-    auth_pk   = algosdk.mnemonic.to_private_key(auth_mnemonic)
-    auth_addr = algosdk.account.address_from_private_key(auth_pk)
-    app_addr  = algosdk.logic.get_application_address(app_id)
-
-    client = get_client()
-    info   = client.account_info(app_addr)
-    assets = info.get("assets", [])
-
-    print(f"\nApp address : {app_addr}")
-    print(f"App balance : {info['amount'] / 1e6:.6f} ALGO")
-    print(f"Assets held : {len(assets)}")
-
-    stale = [a for a in assets if a["asset-id"] != USDC_ASSET_ID]
-    usdc  = [a for a in assets if a["asset-id"] == USDC_ASSET_ID]
-
-    if usdc:
-        print(f"  USDC balance: {usdc[0]['amount'] / 1e6:.6f} — keeping opt-in")
+    print(f"\nWallet: {addr}")
+    print(f"  Total opted-in assets : {len(assets)}")
+    print(f"  Keeping               : {keep_ids}")
+    print(f"  Closing               : {len(stale)}")
 
     if not stale:
-        print("\nNo stale assets to close. Nothing to do.")
+        print("  Nothing to close.")
         return
 
-    print(f"\nClosing {len(stale)} stale asset(s):")
-    for a in stale:
-        print(f"  ASA {a['asset-id']}  balance={a['amount']}")
-
-    # Each close-out is an inner txn called via app call
-    # We use an asset transfer with close_assets_to=auth_addr and amount=0
-    # This must be signed by the app (inner txn) — so we call a special
-    # admin method. If the contract doesn't have one, we use the low-level
-    # approach: send an app call that issues an inner AssetTransfer close-out.
-    #
-    # Fallback: if contract has no close_asset method, we need to call
-    # whatever admin op does an inner asset close. Print instructions.
-
-    print("\nNOTE: To close stale assets the app must issue inner transactions.")
-    print("If revenue_pool_v5.py has a 'close_asset' or 'admin_close_asset' method,")
-    print("this script will call it. Otherwise add one (see below).\n")
-
-    # Try calling b"close_asset" with the asset ID for each stale asset
-    closed = 0
+    recovered = 0
     for a in stale:
         asset_id = a["asset-id"]
+        amount   = a["amount"]
         try:
-            txn = transaction.ApplicationNoOpTxn(
-                sender=auth_addr,
-                sp=sp(client, fee=3000),
-                index=app_id,
-                app_args=[b"close_asset", asset_id.to_bytes(8, "big")],
-                foreign_assets=[asset_id],
-            )
-            txid = client.send_transaction(txn.sign(auth_pk))
-            wait(client, txid)
-            print(f"  ✅ Closed ASA {asset_id}")
-            closed += 1
-        except Exception as e:
-            print(f"  ❌ ASA {asset_id} — close_asset call failed: {e}")
-            print(f"     → Add close_asset handler to contract (see instructions below)")
+            asset_info = client.asset_info(asset_id)
+            creator    = asset_info["params"]["creator"]
+        except Exception:
+            creator = addr
 
-    if closed < len(stale):
-        print("\n──────────────────────────────────────────────────")
-        print("Add this to revenue_pool_v5.py approval_program():")
-        print("──────────────────────────────────────────────────")
-        print("""
-    # In your router / method dispatch:
-    If(method == Bytes("close_asset"),
-        Seq(
-            Assert(Txn.sender() == Global.creator_address()),
-            asset_id := ScratchVar(),
-            asset_id.store(Btoi(Txn.application_args[1])),
-            InnerTxnBuilder.Execute({
-                TxnField.type_enum: TxnType.AssetTransfer,
-                TxnField.xfer_asset: asset_id.load(),
-                TxnField.asset_amount: Int(0),
-                TxnField.asset_receiver: Global.creator_address(),
-                TxnField.asset_close_to: Global.creator_address(),
-                TxnField.fee: Int(0),
-            }),
-            Approve(),
+        # If we hold a non-zero balance we must send it somewhere.
+        # For revenue ASAs we created, the app is the creator/reserve —
+        # but since the app may be deleted, fall back to addr (only valid at 0).
+        close_to = creator if amount == 0 or creator != addr else addr
+
+        txn = transaction.AssetTransferTxn(
+            sender=addr,
+            sp=sp(client),
+            receiver=close_to,
+            amt=amount,
+            index=asset_id,
+            close_assets_to=close_to,
         )
-    ),
-""")
+        try:
+            txid = client.send_transaction(txn.sign(pk))
+            wait(client, txid)
+            recovered += 100_000  # 0.1 ALGO MBR per opt-in
+            print(f"  ✅ Closed ASA {asset_id}  (balance was {amount})  +0.1 ALGO reclaimed")
+        except Exception as e:
+            print(f"  ⚠️  Skipped ASA {asset_id}: {e}")
 
-    info2 = client.account_info(app_addr)
-    print(f"\nApp balance after cleanup: {info2['amount'] / 1e6:.6f} ALGO")
-    print(f"Assets remaining: {len(info2.get('assets', []))}")
+    print(f"\n  Recovered ~{recovered/1e6:.1f} ALGO from {len(stale)} closed opt-ins")
+
+    # Show updated balance
+    info    = client.account_info(addr)
+    bal     = info["amount"]
+    min_bal = info["min-balance"]
+    print(f"  New balance : {bal/1e6:.4f} ALGO")
+    print(f"  MBR locked  : {min_bal/1e6:.4f} ALGO")
+    print(f"  Free        : {(bal - min_bal)/1e6:.4f} ALGO")
+
+def destroy_created_assets(client, pk, addr, keep_ids):
+    """
+    Destroy ASAs that were CREATED by this wallet (not just opted into).
+    Requires the wallet to hold the full supply before destroying.
+    """
+    info = client.account_info(addr)
+    
+    # Find assets this wallet created
+    created = []
+    for a in info.get("assets", []):
+        asset_id = a["asset-id"]
+        if asset_id in keep_ids:
+            continue
+        try:
+            asset_info = client.asset_info(asset_id)
+            if asset_info["params"]["creator"] == addr:
+                created.append((asset_id, a["amount"]))
+        except Exception:
+            pass
+
+    if not created:
+        print("  No created assets to destroy.")
+        return
+
+    print(f"  Destroying {len(created)} created asset(s)...")
+    for asset_id, balance in created:
+        try:
+            # Step 1: if balance is 0, just send destroy tx
+            # Step 2: if balance > 0, must clawback/send to self first — 
+            #         but creator holding full supply can destroy directly
+            txn = transaction.AssetConfigTxn(
+                sender=addr,
+                sp=sp(client),
+                index=asset_id,
+                strict_empty_address_check=False,
+                # All zero addresses = destroy
+                manager="",
+                reserve="",
+                freeze="",
+                clawback="",
+            )
+            # Actually destroy requires AssetConfigTxn with no params at all:
+            txn = transaction.AssetDestroyTxn(
+                sender=addr,
+                sp=sp(client),
+                index=asset_id,
+            )
+            txid = client.send_transaction(txn.sign(pk))
+            wait(client, txid)
+            print(f"    ✅ Destroyed ASA {asset_id}")
+        except Exception as e:
+            print(f"    ⚠️  Could not destroy ASA {asset_id}: {e}")
+            print(f"       (Must hold 100% of supply to destroy)")
+
+def main():
+    mnemonic = os.environ.get("AUTHORITY_MNEMONIC", "").strip()
+    if not mnemonic:
+        mnemonic = input("Enter authority mnemonic: ").strip()
+
+    pk   = algosdk.mnemonic.to_private_key(mnemonic)
+    addr = algosdk.account.address_from_private_key(pk)
+
+    client = get_client()
+
+    # Only keep USDC — everything else is a stale test ASA
+    # If you want to keep the current active ASA too, add its ID here:
+    #   keep_ids = {USDC_ASSET_ID, 759077634}
+    keep_ids = {USDC_ASSET_ID}
+
+    close_stale_optins(client, pk, addr, keep_ids)
+    destroy_created_assets(client, pk, addr, keep_ids)  # destroy created ASAs
+    print("\nDone. You can now run deploy_v5.py.")
 
 if __name__ == "__main__":
     main()
