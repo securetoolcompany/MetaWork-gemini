@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Terminal, Coffee, ArrowRight, Pizza, Store, Users, ChevronRight } from 'lucide-react';
+import { Terminal, Coffee, ArrowRight, Pizza, Store, Users, ChevronRight, Target, CheckCircle2, Beer, Truck, Building2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function FoodBeveragePage() {
@@ -51,7 +51,7 @@ export default function FoodBeveragePage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                Your investors are your neighbors. They will buy their coffee from you instead of Starbucks, because every time the register rings, their tokenized wallet earns a micro-yield.
+                Your investors are your neighbors. They will buy their coffee from you instead of a corporate chain, because every time the register rings, their tokenized wallet earns a micro-yield.
               </p>
             </CardContent>
           </Card>
@@ -69,8 +69,106 @@ export default function FoodBeveragePage() {
         </div>
       </section>
 
+      {/* ROBUST DEPLOYMENT TRACKS */}
       <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
-        <div className="max-w-4xl mx-auto rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden shadow-2xl">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">Hospitality Deployment Tracks</h2>
+            <p className="text-zinc-400 text-lg leading-relaxed max-w-3xl">
+              Turn-key economic engines tailored for independent restaurants, craft breweries, and food trucks looking to scale without traditional debt.
+            </p>
+          </div>
+
+          <div className="space-y-12">
+            {/* TRACK 1 */}
+            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-emerald-500/30 transition-all group relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Beer className="w-48 h-48" /></div>
+              <div className="relative z-10 grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1">
+                  <div className="inline-flex items-center rounded bg-emerald-500/10 px-2 py-1 text-xs font-mono text-emerald-400 mb-4 border border-emerald-500/20">TRACK_01: CRAFT_BREWERY</div>
+                  <h3 className="text-2xl font-bold mb-4">Tokenized Mug Clubs</h3>
+                  <p className="text-sm text-zinc-400 leading-relaxed">Upgrade the traditional "Mug Club." Sell digital tokens that grant patrons lifetime discounts, voting rights on new beer flavors, and automated dividends from taproom merch sales.</p>
+                </div>
+                <div className="lg:col-span-2 grid sm:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><Target className="mr-2 h-4 w-4 text-emerald-400" /> Business Goals</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Generate day-one liquidity for canning lines or fermenters.</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Establish a die-hard local marketing base.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><CheckCircle2 className="mr-2 h-4 w-4 text-emerald-400" /> Platform Deliverables</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Secure NFT access passes for VIP taproom events.</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> POS-integrated dividend routing.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* TRACK 2 */}
+            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-emerald-500/30 transition-all group relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Store className="w-48 h-48" /></div>
+              <div className="relative z-10 grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1">
+                  <div className="inline-flex items-center rounded bg-emerald-500/10 px-2 py-1 text-xs font-mono text-emerald-400 mb-4 border border-emerald-500/20">TRACK_02: INDEPENDENT_CAFE</div>
+                  <h3 className="text-2xl font-bold mb-4">Neighborhood Expansion</h3>
+                  <p className="text-sm text-zinc-400 leading-relaxed">Ready to open location #2? Don't give up 40% equity to an angel investor. Tokenize a fraction of the new store's revenue and let your existing regulars fund the buildout.</p>
+                </div>
+                <div className="lg:col-span-2 grid sm:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><Target className="mr-2 h-4 w-4 text-emerald-400" /> Business Goals</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Secure capital for equipment and commercial leases.</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Retain 100% operational control.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><CheckCircle2 className="mr-2 h-4 w-4 text-emerald-400" /> Platform Deliverables</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Smart Contract Revenue Pool setup.</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Live crowdfunding dashboard.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* TRACK 3 */}
+            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-emerald-500/30 transition-all group relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Truck className="w-48 h-48" /></div>
+              <div className="relative z-10 grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1">
+                  <div className="inline-flex items-center rounded bg-emerald-500/10 px-2 py-1 text-xs font-mono text-emerald-400 mb-4 border border-emerald-500/20">TRACK_03: FOOD_TRUCK</div>
+                  <h3 className="text-2xl font-bold mb-4">Fleet & Brick-and-Mortar</h3>
+                  <p className="text-sm text-zinc-400 leading-relaxed">Transition from four wheels to a permanent foundation. Use your strong social media following to launch an apparel line; funnel 100% of those merch profits into a transparent pool to buy a physical location.</p>
+                </div>
+                <div className="lg:col-span-2 grid sm:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><Target className="mr-2 h-4 w-4 text-emerald-400" /> Business Goals</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Monetize digital audience via physical goods.</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Bridge the gap between mobile operations and fixed retail.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><CheckCircle2 className="mr-2 h-4 w-4 text-emerald-400" /> Platform Deliverables</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> On-demand MetaManufacturing Aisle.</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> QR code integration for on-truck ordering.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
+        <div className="max-w-4xl mx-auto rounded-md border border-zinc-800 bg-zinc-900/50 overflow-hidden shadow-2xl">
           <div className="bg-zinc-900 px-4 py-3 border-b border-zinc-800 flex justify-between">
             <div className="flex gap-2"><div className="h-3 w-3 rounded-full bg-red-500/20" /><div className="h-3 w-3 rounded-full bg-yellow-500/20" /></div>
             <span className="text-[10px] font-mono text-emerald-400">/pos-integration/yield-distribution</span>

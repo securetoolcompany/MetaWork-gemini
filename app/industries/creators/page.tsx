@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Terminal, Palette, ArrowRight, ShieldCheck, Box, Activity, ChevronRight } from 'lucide-react';
+import { Terminal, Palette, ArrowRight, ShieldCheck, Box, Activity, ChevronRight, Video, Gamepad, Paintbrush, Target, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CreatorsPage() {
@@ -69,8 +69,106 @@ export default function CreatorsPage() {
         </div>
       </section>
 
+      {/* ROBUST DEPLOYMENT TRACKS */}
       <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
-        <div className="max-w-4xl mx-auto rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden shadow-2xl">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">Digital Creator Pipelines</h2>
+            <p className="text-zinc-400 text-lg leading-relaxed max-w-3xl">
+              Specialized workflows to help digital-native creators bridge the gap into physical merchandising and verifiable digital licensing.
+            </p>
+          </div>
+
+          <div className="space-y-12">
+            {/* TRACK 1 */}
+            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-purple-500/30 transition-all group relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Paintbrush className="w-48 h-48" /></div>
+              <div className="relative z-10 grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1">
+                  <div className="inline-flex items-center rounded bg-purple-500/10 px-2 py-1 text-xs font-mono text-purple-400 mb-4 border border-purple-500/20">TRACK_01: VISUAL_ARTS</div>
+                  <h3 className="text-2xl font-bold mb-4">Illustrators & Webtoon Artists</h3>
+                  <p className="text-sm text-zinc-400 leading-relaxed">Turn your character designs and comic panels into licensed merch. Let other designers on MetaWork build apparel featuring your art, generating passive royalties while you focus on drawing.</p>
+                </div>
+                <div className="lg:col-span-2 grid sm:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><Target className="mr-2 h-4 w-4 text-purple-400" /> Creator Goals</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-purple-400 mr-2">-</span> Decouple income from active client commissions.</li>
+                      <li className="flex items-start"><span className="text-purple-400 mr-2">-</span> Stop art theft via cryptographic hashing.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><CheckCircle2 className="mr-2 h-4 w-4 text-emerald-400" /> Platform Deliverables</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> IP Vault for organizing layers and character sheets.</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Public licensing catalog integration.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* TRACK 2 */}
+            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-purple-500/30 transition-all group relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Video className="w-48 h-48" /></div>
+              <div className="relative z-10 grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1">
+                  <div className="inline-flex items-center rounded bg-purple-500/10 px-2 py-1 text-xs font-mono text-purple-400 mb-4 border border-purple-500/20">TRACK_02: CONTENT_CREATORS</div>
+                  <h3 className="text-2xl font-bold mb-4">Streamers & YouTubers</h3>
+                  <p className="text-sm text-zinc-400 leading-relaxed">Launch a premium apparel line for your subscribers in 10 minutes. Offer exclusive "Merch Drop NFTs" to your Twitch subs that grant them access to hidden products in your Aisle.</p>
+                </div>
+                <div className="lg:col-span-2 grid sm:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><Target className="mr-2 h-4 w-4 text-purple-400" /> Creator Goals</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-purple-400 mr-2">-</span> Diversify away from ad-revenue dependency.</li>
+                      <li className="flex items-start"><span className="text-purple-400 mr-2">-</span> Reward top-tier subscribers with exclusive physical access.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><CheckCircle2 className="mr-2 h-4 w-4 text-emerald-400" /> Platform Deliverables</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Zero-maintenance merch storefront (Aisle).</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> NFT token-gating for exclusive product visibility.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* TRACK 3 */}
+            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-purple-500/30 transition-all group relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Gamepad className="w-48 h-48" /></div>
+              <div className="relative z-10 grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1">
+                  <div className="inline-flex items-center rounded bg-purple-500/10 px-2 py-1 text-xs font-mono text-purple-400 mb-4 border border-purple-500/20">TRACK_03: GAME_DEVS</div>
+                  <h3 className="text-2xl font-bold mb-4">Indie Game Studios</h3>
+                  <p className="text-sm text-zinc-400 leading-relaxed">Funding a game is hard. Tokenize your concept art and game lore. Fans buy into the IP Pool to fund your development, and you can instantly offer them physical merch of the game characters.</p>
+                </div>
+                <div className="lg:col-span-2 grid sm:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><Target className="mr-2 h-4 w-4 text-purple-400" /> Creator Goals</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-purple-400 mr-2">-</span> Bootstrap development without a publisher.</li>
+                      <li className="flex items-start"><span className="text-purple-400 mr-2">-</span> Monetize 3D models and lore bibles physically.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><CheckCircle2 className="mr-2 h-4 w-4 text-emerald-400" /> Platform Deliverables</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Crowdfunding Revenue Pool generation.</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> 3D to 2D product rendering pipeline.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
+        <div className="max-w-4xl mx-auto rounded-md border border-zinc-800 bg-zinc-900/50 overflow-hidden shadow-2xl">
           <div className="bg-zinc-900 px-4 py-3 border-b border-zinc-800 flex justify-between">
              <div className="flex gap-2"><div className="h-3 w-3 rounded-full bg-red-500/20" /><div className="h-3 w-3 rounded-full bg-yellow-500/20" /></div>
             <span className="text-[10px] font-mono text-purple-400">/vault/ip-management</span>
@@ -85,7 +183,7 @@ export default function CreatorsPage() {
             <div className="flex justify-between text-zinc-500 border-b border-zinc-800 pb-2">
               <span>ACTIVE_NETWORK_DEPLOYMENTS:</span><span className="text-zinc-300">47 PRODUCTS</span>
             </div>
-            <div className="mt-4 text-xs text-zinc-400 space-y-1">
+            <div className="mt-4 text-xs text-zinc-400 space-y-1 pt-4">
               <p className="text-purple-400 mb-2">SYSTEM_EVENT &gt; SALE EXECUTED</p>
               <p>&gt; Consumer purchased hoodie via "StreetWear_Aisle".</p>
               <p className="text-emerald-400">&gt; $2.50 IP royalty routed to Creator Wallet.</p>

@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Terminal, ShoppingBag, ArrowRight, BarChart3, Repeat, Target, ChevronRight } from 'lucide-react';
+import { Terminal, ArrowRight, BarChart3, Repeat, Target, ChevronRight, ShoppingBag, Dice5, Zap, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function RetailersPage() {
@@ -51,7 +51,7 @@ export default function RetailersPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                Spot a trend? Browse the MetaWork IP library to find artwork matching the current zeitgeist. Apply it to blanks and sell immediately; smart contracts automatically handle the creator's royalty.
+                Spot a trend? Browse the MetaWork IP library to find artwork matching the current zeitgeist. Apply it to blanks and sell immediately; smart contracts handle the creator's royalty.
               </p>
             </CardContent>
           </Card>
@@ -69,8 +69,78 @@ export default function RetailersPage() {
         </div>
       </section>
 
+      {/* ROBUST DEPLOYMENT TRACKS */}
       <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
-        <div className="max-w-4xl mx-auto rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden shadow-2xl">
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">Retail Agility Tracks</h2>
+            <p className="text-zinc-400 text-lg leading-relaxed max-w-3xl">
+              From high-fashion e-commerce drops to specialized tabletop gaming stores, MetaWork provides the supply chain back-end to scale without overhead.
+            </p>
+          </div>
+
+          <div className="space-y-12">
+            {/* TRACK 1 */}
+            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-cyan-500/30 transition-all group relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Zap className="w-48 h-48" /></div>
+              <div className="relative z-10 grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1">
+                  <div className="inline-flex items-center rounded bg-cyan-500/10 px-2 py-1 text-xs font-mono text-cyan-400 mb-4 border border-cyan-500/20">TRACK_01: E_COMMERCE</div>
+                  <h3 className="text-2xl font-bold mb-4">Flash Sales & Pop-up Drops</h3>
+                  <p className="text-sm text-zinc-400 leading-relaxed">Capitalize on internet trends instantly. See a meme blowing up? License the IP, launch a t-shirt drop on your Aisle within 20 minutes, and capture the hype cycle.</p>
+                </div>
+                <div className="lg:col-span-2 grid sm:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><Target className="mr-2 h-4 w-4 text-cyan-400" /> Business Goals</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-cyan-400 mr-2">-</span> Maximize speed-to-market.</li>
+                      <li className="flex items-start"><span className="text-cyan-400 mr-2">-</span> Avoid buying inventory for a trend that dies in a week.</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><CheckCircle2 className="mr-2 h-4 w-4 text-emerald-400" /> Platform Deliverables</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Instant network licensing from the IP Library.</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> 1-click publishing to public Aisles.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* TRACK 2 */}
+            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-cyan-500/30 transition-all group relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Dice5 className="w-48 h-48" /></div>
+              <div className="relative z-10 grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-1">
+                  <div className="inline-flex items-center rounded bg-cyan-500/10 px-2 py-1 text-xs font-mono text-cyan-400 mb-4 border border-cyan-500/20">TRACK_02: NICHE_RETAIL</div>
+                  <h3 className="text-2xl font-bold mb-4">Hobby & Tabletop Shops</h3>
+                  <p className="text-sm text-zinc-400 leading-relaxed">Run a Local Game Store (LGS)? Go beyond selling boosters. License fantasy art to create custom playmats, deck boxes, and apparel. Tokenize your store's community to fund a larger play space for MTG and Chess tournaments.</p>
+                </div>
+                <div className="lg:col-span-2 grid sm:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><Target className="mr-2 h-4 w-4 text-cyan-400" /> Business Goals</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-cyan-400 mr-2">-</span> Differentiate from online mega-retailers with custom goods.</li>
+                      <li className="flex items-start"><span className="text-cyan-400 mr-2">-</span> Deepen local community investment (Revenue Pools).</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="flex items-center text-sm font-bold text-white mb-3"><CheckCircle2 className="mr-2 h-4 w-4 text-emerald-400" /> Platform Deliverables</h4>
+                    <ul className="space-y-2 text-xs text-zinc-400">
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> High-margin custom accessory manufacturing.</li>
+                      <li className="flex items-start"><span className="text-emerald-400 mr-2">-</span> Community token issuance and dividend routing.</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
+        <div className="max-w-4xl mx-auto rounded-md border border-zinc-800 bg-zinc-900/50 overflow-hidden shadow-2xl">
           <div className="bg-zinc-900 px-4 py-3 border-b border-zinc-800 flex justify-between">
             <div className="flex gap-2"><div className="h-3 w-3 rounded-full bg-red-500/20" /><div className="h-3 w-3 rounded-full bg-yellow-500/20" /></div>
             <span className="text-[10px] font-mono text-cyan-400">/retail/demand-telemetry</span>
@@ -85,7 +155,7 @@ export default function RetailersPage() {
             <div className="flex justify-between text-zinc-500 border-b border-zinc-800 pb-2">
               <span>TOP_CONVERTING_ASSET:</span><span className="text-cyan-400">"CYBER_PUNK_VAR_03" (18%)</span>
             </div>
-            <div className="mt-4 p-4 bg-cyan-500/10 border border-cyan-500/20 rounded text-xs text-zinc-400">
+            <div className="mt-4 p-4 bg-cyan-500/10 border border-cyan-500/20 rounded text-xs text-zinc-400 pt-4">
               <p className="text-cyan-400 mb-2">SYSTEM_RECOMMENDATION &gt;</p>
               <p>&gt; High engagement detected on "Vintage Wash Blank".</p>
               <p>&gt; Base raw material (Cotton) up 2% today.</p>
