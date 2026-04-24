@@ -27,7 +27,7 @@ export default function IndustriesPage() {
           </h1>
           
           <p className="text-xl text-zinc-400 leading-relaxed font-light mb-10 max-w-3xl">
-            MetaWork isn't theoretical. It's a live, operational layer currently powering supply chains, capital raises, and IP licensing across 7 core industries. Select your sector below to see how we bypass legacy gatekeepers.
+            MetaWork is an operational layer currently powering supply chains, capital raises, and IP licensing across industries. Select your sector below to see how blockchain and tokenization can power your business to the next level.
           </p>
           
           <div className="flex gap-4">

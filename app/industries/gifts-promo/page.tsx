@@ -22,7 +22,7 @@ export default function GiftsPromoPage() {
             Provide end-to-end merchandising solutions for corporate clients. Build custom promotional products via the MetaManufacturing drag-and-drop tool and route fulfillment globally without touching a warehouse.
           </p>
           <div className="flex gap-4">
-            <Link href="/register">
+            <Link href="/login">
               <Button size="lg" className="h-12 px-8 bg-pink-600 hover:bg-pink-700 text-white rounded-none font-mono">
                 <Terminal className="mr-2 h-4 w-4" /> Start Manufacturing
               </Button>

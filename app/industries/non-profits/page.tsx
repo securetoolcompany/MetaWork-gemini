@@ -22,7 +22,7 @@ export default function NonProfitsPage() {
             Donors want to know exactly where their money goes. MetaWork uses the Algorand blockchain to create 100% transparent fundraising pools, while enabling charities to sell awareness merchandise with zero overhead.
           </p>
           <div className="flex gap-4">
-            <Link href="/register">
+            <Link href="/login">
               <Button size="lg" className="h-12 px-8 bg-amber-600 hover:bg-amber-700 text-white rounded-none font-mono border-amber-500">
                 <Terminal className="mr-2 h-4 w-4" /> Open Charity Vault
               </Button>

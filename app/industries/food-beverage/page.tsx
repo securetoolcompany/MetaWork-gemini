@@ -22,7 +22,7 @@ export default function FoodBeveragePage() {
             Want to open a cafe or pizzeria? Bypass massive bank loans. Tokenize your future revenue and let your local community fund your build-out. They become highly motivated customers who get paid when you succeed.
           </p>
           <div className="flex gap-4">
-            <Link href="/register">
+            <Link href="/login">
               <Button size="lg" className="h-12 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-none font-mono">
                 <Terminal className="mr-2 h-4 w-4" /> Initialize Revenue Pool
               </Button>

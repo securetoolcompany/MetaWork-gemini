@@ -28,7 +28,7 @@ export default function EducationPage() {
             Replace theoretical business classes with actual commerce. Schools use MetaWork to let students design products, launch storefronts, and raise real funds for clubs and teams—without touching district budgets.
           </p>
           <div className="flex gap-4">
-            <Link href="/register">
+            <Link href="/login">
               <Button size="lg" className="h-12 px-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-none font-mono">
                 <Terminal className="mr-2 h-4 w-4" /> Initialize Class Network
               </Button>

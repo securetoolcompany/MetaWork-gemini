@@ -22,7 +22,7 @@ export default function RetailersPage() {
             Retailers use MetaWork to spin up new product lines instantly. License trending IP, push products to your Aisle in seconds, and see what converts—all before manufacturing a single unit. 
           </p>
           <div className="flex gap-4">
-            <Link href="/register">
+            <Link href="/login">
               <Button size="lg" className="h-12 px-8 bg-cyan-600 hover:bg-cyan-700 text-white rounded-none font-mono">
                 <Terminal className="mr-2 h-4 w-4" /> Open Retail Terminal
               </Button>
