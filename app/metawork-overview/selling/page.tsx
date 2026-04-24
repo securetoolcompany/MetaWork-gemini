@@ -315,7 +315,7 @@ export default function CommerceProcessPage() {
             </div>
           </div>
 
-          <Link href="/selling/architecture">
+          <Link href="/platform-architecture">
             <Button size="lg" variant="outline" className="h-14 px-10 text-lg border-amber-500 text-amber-400 hover:bg-amber-500 hover:text-zinc-950 rounded-none font-mono transition-all">
               <Terminal className="mr-3 h-5 w-5" /> View Full Protocol Specs
             </Button>

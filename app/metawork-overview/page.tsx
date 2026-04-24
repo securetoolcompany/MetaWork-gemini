@@ -274,7 +274,7 @@ export default function ProtocolWhitepaperPage() {
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link href="/register">
+            <Link href="/login">
               <Button size="lg" className="h-14 px-10 text-lg bg-white text-black hover:bg-zinc-200 rounded-none font-bold shadow-[0_0_30px_rgba(255,255,255,0.1)]">
                 Initialize Workspace
               </Button>
