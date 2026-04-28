@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Terminal, ArrowRight, BarChart3, Repeat, Target, ChevronRight, ShoppingBag, Dice5, Zap, CheckCircle2 } from 'lucide-react';
+import { Terminal, ArrowRight, BarChart3, Repeat, Target, ChevronRight, ShoppingBag, Dice5, Zap, CheckCircle2, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export default function RetailersPage() {
@@ -66,6 +66,43 @@ export default function RetailersPage() {
               </p>
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      {/* THE VALUE SHIFT: RETAIL & MERCH */}
+      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-5">
+          <ShoppingBag className="w-96 h-96" />
+        </div>
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="inline-flex items-center rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-mono text-cyan-400 uppercase tracking-widest mb-8">
+            <ShieldCheck className="mr-2 h-3.5 w-3.5" /> The IP Imperative
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">
+                The <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-teal-400">Fast-Fashion Defense.</span>
+              </h2>
+              <p className="text-lg text-zinc-400 leading-relaxed font-light mb-6">
+                The retail landscape is plagued by algorithms trained to scrape independent designs and feed them to overseas manufacturing hubs in hours. By the time your boutique brand gains traction, corporate fast-fashion has already diluted your market with cheap knock-offs.
+              </p>
+              <p className="text-lg text-zinc-400 leading-relaxed font-light mb-6">
+                Minting is your cryptographic armor. By registering your design files on the Algorand blockchain the second they are finalized, you establish absolute, chronological proof of origin. It turns a subjective copyright dispute into an undeniable mathematical fact. Furthermore, it allows retailers to verify the authenticity of limited-edition physical drops via paired digital tokens, instantly separating your authentic gear from the counterfeits.
+              </p>
+            </div>
+            
+            <div className="bg-zinc-900/50 border border-zinc-800 p-8 font-mono text-sm space-y-6">
+              <div className="border-l-2 border-cyan-500 pl-4">
+                <div className="text-cyan-400 mb-1">THREAT_VECTOR:</div>
+                <div className="text-zinc-500 text-xs">AI-driven design scraping and instantaneous offshore counterfeiting destroying independent margins.</div>
+              </div>
+              <div className="border-l-2 border-emerald-500 pl-4">
+                <div className="text-emerald-400 mb-1">METAWORK_SOLUTION:</div>
+                <div className="text-zinc-500 text-xs">Timestamped, immutable IP minting. Provide buyers with cryptographic proof of authenticity that fast-fashion cannot replicate.</div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

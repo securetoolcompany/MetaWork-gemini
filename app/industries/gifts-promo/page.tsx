@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Terminal, Gift, ArrowRight, PackageOpen, Layers, Cog, ChevronRight, Target, CheckCircle2, Briefcase, Handshake, MonitorSmartphone } from 'lucide-react';
+import { Terminal, Gift, ArrowRight, PackageOpen, Layers, Cog, ChevronRight, Target, CheckCircle2, Briefcase, Handshake, MonitorSmartphone, ShieldCheck, Zap } from 'lucide-react';
 import Link from 'next/link';
 
 export default function GiftsPromoPage() {
@@ -66,6 +66,43 @@ export default function GiftsPromoPage() {
               </p>
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      {/* THE VALUE SHIFT: B2B & PROMO */}
+      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-5">
+          <PackageOpen className="w-96 h-96" />
+        </div>
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="inline-flex items-center rounded-md border border-pink-500/20 bg-pink-500/10 px-3 py-1 text-xs font-mono text-pink-400 uppercase tracking-widest mb-8">
+            <Zap className="mr-2 h-3.5 w-3.5" /> The Agility Imperative
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">
+                The End of the <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400">Minimum Order.</span>
+              </h2>
+              <p className="text-lg text-zinc-400 leading-relaxed font-light mb-6">
+                The traditional promotional products industry is painfully archaic. Sending a client gift or a new-hire welcome kit usually requires enduring a weeks-long email chain of PDF proofs, negotiating bloated Minimum Order Quantities (MOQs), and ultimately stuffing an HR closet full of obsolete, wrong-sized apparel. 
+              </p>
+              <p className="text-lg text-zinc-400 leading-relaxed font-light mb-6">
+                MetaWork digitizes and accelerates the entire procurement cycle. Jump into the terminal, drag-and-drop your corporate IP onto products, and get a real-time, 3D visual proof instantly. What you see is exactly what is manufactured. With absolute zero MOQs and infinite customization, you can design and route a single, personalized tech backpack to a remote worker in London, or deploy 500 identical event polos to Las Vegas—all in a matter of clicks.
+              </p>
+            </div>
+            
+            <div className="bg-zinc-900/50 border border-zinc-800 p-8 font-mono text-sm space-y-6">
+              <div className="border-l-2 border-pink-500 pl-4">
+                <div className="text-pink-400 mb-1">THREAT_VECTOR:</div>
+                <div className="text-zinc-500 text-xs">Archaic, weeks-long proofing cycles and rigid MOQs that force companies to waste capital on dead inventory.</div>
+              </div>
+              <div className="border-l-2 border-emerald-500 pl-4">
+                <div className="text-emerald-400 mb-1">METAWORK_SOLUTION:</div>
+                <div className="text-zinc-500 text-xs">Real-time digital proofing and zero-MOQ global fulfillment. Design, approve, and ship custom corporate gifts in minutes, not months.</div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

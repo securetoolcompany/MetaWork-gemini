@@ -1,11 +1,17 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Terminal, Palette, ArrowRight, ShieldCheck, Box, Activity, ChevronRight, Video, Gamepad, Paintbrush, Target, CheckCircle2 } from 'lucide-react';
+import { 
+  Terminal, Palette, ShieldCheck, Box, Activity, ChevronRight, 
+  Video, Gamepad, Paintbrush, Target, CheckCircle2,
+  BrainCircuit, AlertTriangle, Fingerprint
+} from 'lucide-react';
 import Link from 'next/link';
 
 export default function CreatorsPage() {
   return (
     <div className="flex flex-col min-h-screen bg-zinc-950 text-zinc-50 selection:bg-purple-500/30">
+      
+      {/* HERO SECTION */}
       <section className="relative px-8 pt-24 pb-16 max-w-7xl mx-auto w-full border-b border-zinc-800/50">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[400px] bg-purple-500/5 blur-[120px] rounded-full pointer-events-none" />
         <div className="relative z-10 max-w-4xl">
@@ -31,9 +37,54 @@ export default function CreatorsPage() {
         </div>
       </section>
 
-      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
+      {/* NEW: THE PARADIGM SHIFT (AI & Truth) */}
+      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-500/5 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="max-w-5xl mx-auto relative z-10 border border-zinc-800 bg-zinc-900/40 p-10 md:p-16 shadow-2xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono mb-8">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            SYSTEM_WARNING: IDENTITY_DEVALUATION
+          </div>
+          
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">
+            The Epoch of Pure Ideation.
+          </h2>
+          
+          <div className="grid md:grid-cols-2 gap-12">
+            <div className="space-y-6 text-zinc-400 leading-relaxed font-light">
+              <p>
+                The definition of human economic value has fundamentally shifted. Historically, value was derived from physical presence. As society industrialized, it shifted to physical labor—who could build the most with their hands. 
+              </p>
+              <p>
+                Today, the "Creator Economy" represents the final transition to <strong className="text-zinc-200">pure ideation</strong>. Generative AI, automation, and advanced compute can now instantly manifest your imagination into reality. But this creates a massive epistemic vulnerability.
+              </p>
+            </div>
+            
+            <div className="space-y-6 text-zinc-400 leading-relaxed font-light">
+              <p>
+                In a landscape of infinite digital replication, escalating deep fakes, and sophisticated fraud, <strong className="text-purple-400">cryptographic truth is your only defense.</strong>
+              </p>
+              <p>
+                Content creators must mint <em>everything</em>. Every YouTube video, every podcast episode, every character design. MetaWork instantiates your ideas on the blockchain, establishing an absolute, timestamped proof of origin. If a bad actor steals your IP, you don't just have a claim—you have undeniable, mathematical recourse.
+              </p>
+            </div>
+          </div>
+          
+          <div className="mt-10 pt-8 border-t border-zinc-800 flex items-center gap-4">
+            <BrainCircuit className="h-8 w-8 text-purple-500 opacity-50" />
+            <Fingerprint className="h-8 w-8 text-blue-500 opacity-50" />
+            <span className="font-mono text-xs text-zinc-500 uppercase tracking-widest ml-4">
+              &gt; Secure your imagination.
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* CORE CAPABILITIES */}
+      <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-6">
-          <Card className="bg-zinc-900/40 border-zinc-800 rounded-none border-t-2 border-t-purple-500/50">
+          <Card className="bg-zinc-950 border-zinc-800 rounded-none border-t-2 border-t-purple-500/50">
             <CardHeader>
               <ShieldCheck className="h-8 w-8 text-purple-400 mb-2" />
               <CardTitle className="font-mono text-lg">Cryptographic Protection</CardTitle>
@@ -44,7 +95,7 @@ export default function CreatorsPage() {
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-zinc-900/40 border-zinc-800 rounded-none border-t-2 border-t-purple-500/50">
+          <Card className="bg-zinc-950 border-zinc-800 rounded-none border-t-2 border-t-purple-500/50">
             <CardHeader>
               <Box className="h-8 w-8 text-purple-400 mb-2" />
               <CardTitle className="font-mono text-lg">Zero Inventory Risk</CardTitle>
@@ -55,7 +106,7 @@ export default function CreatorsPage() {
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-zinc-900/40 border-zinc-800 rounded-none border-t-2 border-t-purple-500/50">
+          <Card className="bg-zinc-950 border-zinc-800 rounded-none border-t-2 border-t-purple-500/50">
             <CardHeader>
               <Activity className="h-8 w-8 text-purple-400 mb-2" />
               <CardTitle className="font-mono text-lg">Algorithmic Royalties</CardTitle>
@@ -70,7 +121,7 @@ export default function CreatorsPage() {
       </section>
 
       {/* ROBUST DEPLOYMENT TRACKS */}
-      <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
+      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
         <div className="max-w-7xl mx-auto">
           <div className="mb-16">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">Digital Creator Pipelines</h2>
@@ -81,7 +132,7 @@ export default function CreatorsPage() {
 
           <div className="space-y-12">
             {/* TRACK 1 */}
-            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-purple-500/30 transition-all group relative overflow-hidden">
+            <div className="border border-zinc-800 bg-zinc-900/30 p-8 hover:border-purple-500/30 transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Paintbrush className="w-48 h-48" /></div>
               <div className="relative z-10 grid lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-1">
@@ -109,7 +160,7 @@ export default function CreatorsPage() {
             </div>
 
             {/* TRACK 2 */}
-            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-purple-500/30 transition-all group relative overflow-hidden">
+            <div className="border border-zinc-800 bg-zinc-900/30 p-8 hover:border-purple-500/30 transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Video className="w-48 h-48" /></div>
               <div className="relative z-10 grid lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-1">
@@ -137,7 +188,7 @@ export default function CreatorsPage() {
             </div>
 
             {/* TRACK 3 */}
-            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-purple-500/30 transition-all group relative overflow-hidden">
+            <div className="border border-zinc-800 bg-zinc-900/30 p-8 hover:border-purple-500/30 transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity"><Gamepad className="w-48 h-48" /></div>
               <div className="relative z-10 grid lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-1">
@@ -167,8 +218,8 @@ export default function CreatorsPage() {
         </div>
       </section>
 
-      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
-        <div className="max-w-4xl mx-auto rounded-md border border-zinc-800 bg-zinc-900/50 overflow-hidden shadow-2xl">
+      <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
+        <div className="max-w-4xl mx-auto rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden shadow-2xl">
           <div className="bg-zinc-900 px-4 py-3 border-b border-zinc-800 flex justify-between">
              <div className="flex gap-2"><div className="h-3 w-3 rounded-full bg-red-500/20" /><div className="h-3 w-3 rounded-full bg-yellow-500/20" /></div>
             <span className="text-[10px] font-mono text-purple-400">/vault/ip-management</span>

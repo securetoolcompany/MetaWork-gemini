@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Terminal, Dumbbell, ArrowRight, ShieldCheck, Activity, 
   Users, LineChart, ChevronRight, Ticket, Trophy, Target, 
-  CheckCircle2, Box
+  CheckCircle2, Box, AlertTriangle, Swords, Fingerprint
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -28,7 +28,7 @@ export default function GymsFitnessPage() {
             You built the community. Now capture the value. Use MetaWork to launch premium gear, crowdfund your fight team, and sell digital event tickets—all automated through the blockchain, with zero upfront costs.
           </p>
           <div className="flex gap-4">
-            <Link href="/login">
+            <Link href="/register">
               <Button size="lg" className="h-12 px-8 bg-rose-600 hover:bg-rose-700 text-white rounded-none font-mono shadow-[0_0_20px_rgba(225,29,72,0.2)]">
                 <Terminal className="mr-2 h-4 w-4" /> Initialize Gym Aisle
               </Button>
@@ -37,10 +37,54 @@ export default function GymsFitnessPage() {
         </div>
       </section>
 
+      {/* NEW: THE PARADIGM SHIFT (Fighter IP & Exploitation) */}
+      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-rose-500/5 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="max-w-5xl mx-auto relative z-10 border border-zinc-800 bg-zinc-900/40 p-10 md:p-16 shadow-2xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono mb-8">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            SYSTEM_WARNING: ATHLETE_EXPLOITATION
+          </div>
+          
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">
+            The Epoch of Verifiable Sweat Equity.
+          </h2>
+          
+          <div className="grid md:grid-cols-2 gap-12">
+            <div className="space-y-6 text-zinc-400 leading-relaxed font-light">
+              <p>
+                In the legacy economy, combat sports generate billions in attention, but the distribution of wealth is fundamentally broken. A viral knockout reel or a legendary sparring session is looped millions of times across Web2 social media platforms. 
+              </p>
+              <p>
+                The platforms sell ads against that attention. The algorithm profits. But the fighter who actually bled for that 10-second clip? <strong className="text-zinc-200">They get nothing.</strong> Their legacy becomes free fuel for a tech conglomerate.
+              </p>
+            </div>
+            
+            <div className="space-y-6 text-zinc-400 leading-relaxed font-light">
+              <p>
+                <strong className="text-rose-400">Tokenization stops this extraction.</strong> Gyms and fighters must treat their highlights, walkouts, and training techniques as intellectual property.
+              </p>
+              <p>
+                Minting these moments establishes cryptographic truth. When an athlete mints their highlight reel as an asset on Algorand, they lock in their ownership. If that clip is used, licensed, or sold, the blockchain guarantees the value routes back directly to the fighter's wallet. You bleed for the highlight. You must own the asset.
+              </p>
+            </div>
+          </div>
+          
+          <div className="mt-10 pt-8 border-t border-zinc-800 flex items-center gap-4">
+            <Swords className="h-8 w-8 text-rose-500 opacity-50" />
+            <Fingerprint className="h-8 w-8 text-red-500 opacity-50" />
+            <span className="font-mono text-xs text-zinc-500 uppercase tracking-widest ml-4">
+              &gt; Secure your legacy.
+            </span>
+          </div>
+        </div>
+      </section>
+
       {/* CORE CAPABILITIES */}
-      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
+      <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-6">
-          <Card className="bg-zinc-900/40 border-zinc-800 rounded-none border-t-2 border-t-rose-500/50 hover:border-rose-500/30 transition-colors">
+          <Card className="bg-zinc-950 border-zinc-800 rounded-none border-t-2 border-t-rose-500/50 hover:border-rose-500/30 transition-colors">
             <CardHeader>
               <Box className="h-8 w-8 text-rose-400 mb-2" />
               <CardTitle className="font-mono text-lg">On-Demand Gear</CardTitle>
@@ -51,7 +95,7 @@ export default function GymsFitnessPage() {
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-zinc-900/40 border-zinc-800 rounded-none border-t-2 border-t-rose-500/50 hover:border-rose-500/30 transition-colors">
+          <Card className="bg-zinc-950 border-zinc-800 rounded-none border-t-2 border-t-rose-500/50 hover:border-rose-500/30 transition-colors">
             <CardHeader>
               <Trophy className="h-8 w-8 text-rose-400 mb-2" />
               <CardTitle className="font-mono text-lg">Tokenized Athletes</CardTitle>
@@ -62,7 +106,7 @@ export default function GymsFitnessPage() {
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-zinc-900/40 border-zinc-800 rounded-none border-t-2 border-t-rose-500/50 hover:border-rose-500/30 transition-colors">
+          <Card className="bg-zinc-950 border-zinc-800 rounded-none border-t-2 border-t-rose-500/50 hover:border-rose-500/30 transition-colors">
             <CardHeader>
               <ShieldCheck className="h-8 w-8 text-rose-400 mb-2" />
               <CardTitle className="font-mono text-lg">IP Protection</CardTitle>
@@ -77,7 +121,7 @@ export default function GymsFitnessPage() {
       </section>
 
       {/* ROBUST DEPLOYMENT TRACKS */}
-      <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
+      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
         <div className="max-w-7xl mx-auto">
           <div className="mb-16">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">Combat & Fitness Deployment Tracks</h2>
@@ -89,7 +133,7 @@ export default function GymsFitnessPage() {
           <div className="space-y-12">
             
             {/* TRACK 1: Supply Chain & Merch */}
-            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-rose-500/30 transition-all group relative overflow-hidden">
+            <div className="border border-zinc-800 bg-zinc-900/30 p-8 hover:border-rose-500/30 transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                 <Box className="w-48 h-48" />
               </div>
@@ -129,7 +173,7 @@ export default function GymsFitnessPage() {
             </div>
 
             {/* TRACK 2: Fighter Trading Cards */}
-            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-rose-500/30 transition-all group relative overflow-hidden">
+            <div className="border border-zinc-800 bg-zinc-900/30 p-8 hover:border-rose-500/30 transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                 <Trophy className="w-48 h-48" />
               </div>
@@ -169,7 +213,7 @@ export default function GymsFitnessPage() {
             </div>
 
             {/* TRACK 3: Event Ticketing & Gate NFTs */}
-            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-rose-500/30 transition-all group relative overflow-hidden">
+            <div className="border border-zinc-800 bg-zinc-900/30 p-8 hover:border-rose-500/30 transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                 <Ticket className="w-48 h-48" />
               </div>
@@ -209,7 +253,7 @@ export default function GymsFitnessPage() {
             </div>
 
             {/* TRACK 4: Facility Expansion */}
-            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-rose-500/30 transition-all group relative overflow-hidden">
+            <div className="border border-zinc-800 bg-zinc-900/30 p-8 hover:border-rose-500/30 transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                 <Users className="w-48 h-48" />
               </div>
@@ -253,8 +297,8 @@ export default function GymsFitnessPage() {
       </section>
 
       {/* Terminal View / Live Data Mockup */}
-      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
-        <div className="max-w-4xl mx-auto rounded-md border border-zinc-800 bg-zinc-900/50 overflow-hidden shadow-2xl">
+      <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
+        <div className="max-w-4xl mx-auto rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden shadow-2xl">
           <div className="bg-zinc-900 px-4 py-3 border-b border-zinc-800 flex justify-between">
             <div className="flex gap-2"><div className="h-3 w-3 rounded-full bg-red-500/20" /><div className="h-3 w-3 rounded-full bg-yellow-500/20" /></div>
             <span className="text-[10px] font-mono text-rose-400">/gym-dashboard/live-telemetry</span>

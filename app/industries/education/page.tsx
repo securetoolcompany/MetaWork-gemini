@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Terminal, GraduationCap, ArrowRight, Library, PieChart, 
   Lightbulb, ChevronRight, BookOpen, Clock, Home, Zap,
-  CheckCircle2, Target
+  CheckCircle2, Target, AlertTriangle, Fingerprint, 
+  BrainCircuit, Network
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -28,7 +29,7 @@ export default function EducationPage() {
             Replace theoretical business classes with actual commerce. Schools use MetaWork to let students design products, launch storefronts, and raise real funds for clubs and teams—without touching district budgets.
           </p>
           <div className="flex gap-4">
-            <Link href="/login">
+            <Link href="/register">
               <Button size="lg" className="h-12 px-8 bg-indigo-600 hover:bg-indigo-700 text-white rounded-none font-mono">
                 <Terminal className="mr-2 h-4 w-4" /> Initialize Class Network
               </Button>
@@ -37,10 +38,54 @@ export default function EducationPage() {
         </div>
       </section>
 
+      {/* NEW: THE PARADIGM SHIFT (Why Education Must Tokenize) */}
+      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50 relative overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/5 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="max-w-5xl mx-auto relative z-10 border border-zinc-800 bg-zinc-900/40 p-10 md:p-16 shadow-2xl">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono mb-8">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            SYSTEM_WARNING: CREDENTIAL_DEVALUATION
+          </div>
+          
+          <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">
+            The Epoch of Verifiable Equity.
+          </h2>
+          
+          <div className="grid md:grid-cols-2 gap-12">
+            <div className="space-y-6 text-zinc-400 leading-relaxed font-light">
+              <p>
+                Higher education is facing an existential crisis of trust. A paper diploma is no longer sufficient proof of capability. To survive the next decade, educational institutions must transition from theoretical vacuums into <strong className="text-zinc-200">applied economic engines.</strong>
+              </p>
+              <p>
+                This starts at the faculty level. Universities sit on massive reserves of unmonetized intellectual property. Whether a tenured professor is publishing groundbreaking frameworks in the philosophy of science, or an engineering lab is prototyping a new physical mechanism, tokenizing that IP is imperative. It allows global networks to fund, license, and deploy academic breakthroughs instantly, bypassing suffocating institutional bureaucracy.
+              </p>
+            </div>
+            
+            <div className="space-y-6 text-zinc-400 leading-relaxed font-light">
+              <p>
+                For students, the paradigm shifts from <strong className="text-indigo-400">getting a grade to building a cap table.</strong>
+              </p>
+              <p>
+                When a student group collaborates on a design, a software protocol, or a business plan, they shouldn't just receive an 'A'—they should receive a smart contract. Minting their project permanently codifies their fractional equity. If their creation is manufactured and sold through the MetaWork network, the blockchain ensures every student receives their exact royalty split for life. Education becomes an asset generation event.
+              </p>
+            </div>
+          </div>
+          
+          <div className="mt-10 pt-8 border-t border-zinc-800 flex items-center gap-4">
+            <Network className="h-8 w-8 text-indigo-500 opacity-50" />
+            <Fingerprint className="h-8 w-8 text-blue-500 opacity-50" />
+            <span className="font-mono text-xs text-zinc-500 uppercase tracking-widest ml-4">
+              &gt; Standardize cryptographic equity.
+            </span>
+          </div>
+        </div>
+      </section>
+
       {/* CORE CAPABILITIES */}
-      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
+      <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-6">
-          <Card className="bg-zinc-900/40 border-zinc-800 rounded-none border-t-2 border-t-indigo-500/50">
+          <Card className="bg-zinc-950 border-zinc-800 rounded-none border-t-2 border-t-indigo-500/50">
             <CardHeader>
               <Lightbulb className="h-8 w-8 text-indigo-400 mb-2" />
               <CardTitle className="font-mono text-lg">Student Enterprises</CardTitle>
@@ -51,7 +96,7 @@ export default function EducationPage() {
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-zinc-900/40 border-zinc-800 rounded-none border-t-2 border-t-indigo-500/50">
+          <Card className="bg-zinc-950 border-zinc-800 rounded-none border-t-2 border-t-indigo-500/50">
             <CardHeader>
               <PieChart className="h-8 w-8 text-indigo-400 mb-2" />
               <CardTitle className="font-mono text-lg">Transparent Fundraising</CardTitle>
@@ -62,7 +107,7 @@ export default function EducationPage() {
               </p>
             </CardContent>
           </Card>
-          <Card className="bg-zinc-900/40 border-zinc-800 rounded-none border-t-2 border-t-indigo-500/50">
+          <Card className="bg-zinc-950 border-zinc-800 rounded-none border-t-2 border-t-indigo-500/50">
             <CardHeader>
               <Library className="h-8 w-8 text-indigo-400 mb-2" />
               <CardTitle className="font-mono text-lg">Credential Verification</CardTitle>
@@ -77,7 +122,7 @@ export default function EducationPage() {
       </section>
 
       {/* ROBUST DEPLOYMENT TRACKS */}
-      <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
+      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
         <div className="max-w-7xl mx-auto">
           <div className="mb-16">
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">MetaWork Academy Deployment Tracks</h2>
@@ -89,7 +134,7 @@ export default function EducationPage() {
           <div className="space-y-12">
             
             {/* TRACK 1: Classroom Curriculum */}
-            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-indigo-500/30 transition-all group relative overflow-hidden">
+            <div className="border border-zinc-800 bg-zinc-900/30 p-8 hover:border-indigo-500/30 transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                 <BookOpen className="w-48 h-48" />
               </div>
@@ -129,7 +174,7 @@ export default function EducationPage() {
             </div>
 
             {/* TRACK 2: After-School Programs */}
-            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-indigo-500/30 transition-all group relative overflow-hidden">
+            <div className="border border-zinc-800 bg-zinc-900/30 p-8 hover:border-indigo-500/30 transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                 <Clock className="w-48 h-48" />
               </div>
@@ -169,7 +214,7 @@ export default function EducationPage() {
             </div>
 
             {/* TRACK 3: Homeschool & ESA */}
-            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-indigo-500/30 transition-all group relative overflow-hidden">
+            <div className="border border-zinc-800 bg-zinc-900/30 p-8 hover:border-indigo-500/30 transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                 <Home className="w-48 h-48" />
               </div>
@@ -209,7 +254,7 @@ export default function EducationPage() {
             </div>
 
             {/* TRACK 4: Workshops & Bootcamps */}
-            <div className="border border-zinc-800 bg-zinc-950 p-8 hover:border-indigo-500/30 transition-all group relative overflow-hidden">
+            <div className="border border-zinc-800 bg-zinc-900/30 p-8 hover:border-indigo-500/30 transition-all group relative overflow-hidden">
               <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
                 <Zap className="w-48 h-48" />
               </div>
@@ -253,8 +298,8 @@ export default function EducationPage() {
       </section>
 
       {/* Terminal View / Live Data Mockup */}
-      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
-        <div className="max-w-4xl mx-auto rounded-md border border-zinc-800 bg-zinc-900/50 overflow-hidden shadow-2xl">
+      <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
+        <div className="max-w-4xl mx-auto rounded-md border border-zinc-800 bg-zinc-950 overflow-hidden shadow-2xl">
           <div className="bg-zinc-900 px-4 py-3 border-b border-zinc-800 flex justify-between">
             <div className="flex gap-2"><div className="h-3 w-3 rounded-full bg-red-500/20" /><div className="h-3 w-3 rounded-full bg-yellow-500/20" /></div>
             <span className="text-[10px] font-mono text-indigo-400">/edu/fundraising-tracker</span>
@@ -269,13 +314,13 @@ export default function EducationPage() {
             <div className="flex justify-between text-zinc-500 border-b border-zinc-800 pb-2">
               <span>CAPITAL_GENERATED:</span><span className="text-emerald-400">$3,120.00 (124% FUNDED)</span>
             </div>
-            <div className="w-full bg-zinc-950 h-2 rounded mt-4 overflow-hidden border border-zinc-800">
+            <div className="w-full bg-zinc-900 h-2 rounded mt-4 overflow-hidden border border-zinc-800">
               <div className="bg-indigo-500 h-full w-[100%]" />
             </div>
             <div className="mt-4 text-xs text-zinc-400 pt-4">
               <p className="text-indigo-400 mb-2">SMART_CONTRACT_LOG &gt;</p>
               <p>&gt; Target exceeded. Hardware purchasing unlocked.</p>
-              <p>&gt; 15% revenue split activated for student creator wallets.</p>
+              <p className="text-emerald-400">&gt; 15% revenue split activated for 5 student creator wallets.</p>
             </div>
           </div>
         </div>

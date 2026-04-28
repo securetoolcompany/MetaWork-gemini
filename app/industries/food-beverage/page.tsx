@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Terminal, Coffee, ArrowRight, Pizza, Store, Users, ChevronRight, Target, CheckCircle2, Beer, Truck, Building2 } from 'lucide-react';
+import { Terminal, Coffee, ArrowRight, Pizza, Store, Users, ChevronRight, Target, CheckCircle2, Beer, Truck, Building2, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export default function FoodBeveragePage() {
@@ -66,6 +66,43 @@ export default function FoodBeveragePage() {
               </p>
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      {/* THE VALUE SHIFT: FOOD & BEVERAGE */}
+      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-5">
+          <Coffee className="w-96 h-96" />
+        </div>
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="inline-flex items-center rounded-md border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-mono text-emerald-400 uppercase tracking-widest mb-8">
+            <ShieldCheck className="mr-2 h-3.5 w-3.5" /> The IP Imperative
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">
+                Monetizing the <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-500">Cult Following.</span>
+              </h2>
+              <p className="text-lg text-zinc-400 leading-relaxed font-light mb-6">
+                Food and beverage is notoriously low-margin, yet it produces some of the most fiercely loyal communities. You pour your soul into a unique craft beer label, a signature coffee aesthetic, or a legendary hot sauce. But when a larger corporate entity steals your vibe, or when your regulars want to rep your brand outside the taproom, you are trapped. You are either defenseless against IP theft, or bleeding capital by ordering boxes of merchandise that sit unsold in the back office.
+              </p>
+              <p className="text-lg text-zinc-400 leading-relaxed font-light mb-6">
+                Minting changes the math. By registering your craft beer can art, your cafe's mascot, or even your proprietary recipes on the blockchain, you establish an undeniable, timestamped record of ownership. More importantly, it unlocks the infinite supply chain. You can instantly map that tokenized art onto hoodies, custom glassware, and accessories in your MetaWork Aisle. Your loyal patrons buy on-demand, transforming from local customers into global, walking billboards—generating high-margin revenue with zero inventory risk.
+              </p>
+            </div>
+            
+            <div className="bg-zinc-900/50 border border-zinc-800 p-8 font-mono text-sm space-y-6">
+              <div className="border-l-2 border-emerald-500 pl-4">
+                <div className="text-emerald-400 mb-1">THREAT_VECTOR:</div>
+                <div className="text-zinc-500 text-xs">Corporate appropriation of craft aesthetics, recipe thievery, and the capital drain of holding dead merchandise stock.</div>
+              </div>
+              <div className="border-l-2 border-emerald-500 pl-4">
+                <div className="text-emerald-400 mb-1">METAWORK_SOLUTION:</div>
+                <div className="text-zinc-500 text-xs">Mint visual IP to secure ownership. Deploy on-demand Aisles to monetize your cult following through premium, global merchandise without buying inventory.</div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

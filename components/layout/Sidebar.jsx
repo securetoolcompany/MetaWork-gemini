@@ -9,7 +9,7 @@ import {
   Home, LogIn, LogOut, UserPlus, Store, Palette, 
   LayoutGrid, Terminal, Menu, ChevronDown, Dumbbell, 
   GraduationCap, Coffee, HeartHandshake, ShoppingCart,
-  Wrench
+  Wrench, FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
@@ -176,8 +176,6 @@ export default function Sidebar() {
 
   const publicMenuItems = [
     { icon: Home, label: 'System Home', href: '/' },
-    { icon: LayoutGrid, label: 'Global Showroom', href: '/showroom' },
-    { icon: Wrench, label: 'The Toolbox', href: '/tools' }, // NEW TOOLBOX PAGE
     { 
       icon: Terminal, 
       label: 'MetaWork Overview',
@@ -188,6 +186,7 @@ export default function Sidebar() {
         { icon: Store, label: 'MetaCommerce Engine', href: '/metawork-overview/selling' },
       ]
     },
+    { icon: Wrench, label: 'The Toolbox', href: '/tools' }, // NEW TOOLBOX PAGE
     { 
       icon: Globe, 
       label: 'Industries We Serve',
@@ -202,7 +201,9 @@ export default function Sidebar() {
         { icon: HeartHandshake, label: 'Non-Profits', href: '/industries/non-profits' },
       ]
     },
+    { icon: LayoutGrid, label: 'Global Showroom', href: '/showroom' },
     { icon: Info, label: 'About Us', href: '/about-us' },
+    { icon: FileText, label: 'Official Whitepaper', href: '/whitepaper' },
   ];
 
   if (loading) return null;

@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Terminal, HeartHandshake, ArrowRight, BookOpenCheck, Coins, Package, ChevronRight, Target, CheckCircle2, Globe, Building } from 'lucide-react';
+import { Terminal, HeartHandshake, ArrowRight, BookOpenCheck, Coins, Package, ChevronRight, Target, CheckCircle2, Globe, Building, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export default function NonProfitsPage() {
@@ -66,6 +66,43 @@ export default function NonProfitsPage() {
               </p>
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      {/* THE VALUE SHIFT: NON-PROFITS */}
+      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-5">
+          <HeartHandshake className="w-96 h-96" />
+        </div>
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="inline-flex items-center rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-mono text-amber-400 uppercase tracking-widest mb-8">
+            <ShieldCheck className="mr-2 h-3.5 w-3.5" /> The Trust Imperative
+          </div>
+          
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            <div>
+              <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">
+                Eradicating <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-500">Philanthropic Fraud.</span>
+              </h2>
+              <p className="text-lg text-zinc-400 leading-relaxed font-light mb-6">
+                In the age of generative AI, bad actors can spin up a tragic backstory, a hyper-realistic fake image, and a fraudulent crowdfunding page in under five minutes. During global crises, donors are paralyzed by the inability to distinguish genuine relief efforts from sophisticated scams.
+              </p>
+              <p className="text-lg text-zinc-400 leading-relaxed font-light mb-6">
+                Blockchain minting restores absolute truth to philanthropy. When an NGO mints their campaign assets or impact reports, they provide cryptographic verification that is impossible to forge. Donors interacting with a MetaWork Aisle aren't just trusting a glossy brochure; they are executing a smart contract that guarantees their capital is securely routed exactly where it was promised. Truth is no longer requested—it is engineered.
+              </p>
+            </div>
+            
+            <div className="bg-zinc-900/50 border border-zinc-800 p-8 font-mono text-sm space-y-6">
+              <div className="border-l-2 border-amber-500 pl-4">
+                <div className="text-amber-400 mb-1">THREAT_VECTOR:</div>
+                <div className="text-zinc-500 text-xs">AI-generated crisis scams destroying donor trust and siphoning capital away from genuine relief efforts.</div>
+              </div>
+              <div className="border-l-2 border-emerald-500 pl-4">
+                <div className="text-emerald-400 mb-1">METAWORK_SOLUTION:</div>
+                <div className="text-zinc-500 text-xs">Immutable campaign minting and transparent public ledgers. Donors verify the exact destination of funds via cryptographic proof.</div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

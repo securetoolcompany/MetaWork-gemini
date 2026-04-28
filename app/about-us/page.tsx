@@ -50,7 +50,7 @@ export default function AboutUsPage() {
       <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
         <div className="max-w-7xl mx-auto">
           <div className="mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">The Universal Access Protocol</h2>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">The Universal Access Platform</h2>
             <p className="text-zinc-500 font-mono text-sm uppercase tracking-widest">Executing systemic inclusion directives.</p>
           </div>
 
@@ -80,7 +80,7 @@ export default function AboutUsPage() {
                 <Cpu className="h-8 w-8 text-blue-400 mb-6 group-hover:scale-110 transition-transform" />
                 <h3 className="text-xl font-bold mb-3">Access to Tools</h3>
                 <p className="text-sm text-zinc-400 leading-relaxed">
-                  A smartphone is the only hardware required. We provide a full suite of business tools—from on-demand global manufacturing to automated smart contracts—democratizing enterprise-grade infrastructure.
+                  A smartphone is the only hardware required. We provide a full suite of business tools, from on, demand global manufacturing to automated smart contracts, democratizing enterprise-grade infrastructure.
                 </p>
               </CardContent>
             </Card>
@@ -105,7 +105,7 @@ export default function AboutUsPage() {
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="mb-20 text-center">
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-4">System Architects</h2>
-            <p className="text-zinc-500 font-mono text-sm uppercase tracking-widest">Co-Founders of the MetaWork Protocol</p>
+            <p className="text-zinc-500 font-mono text-sm uppercase tracking-widest">Co-Founders of SECURE MetaWork</p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-12">
@@ -117,17 +117,17 @@ export default function AboutUsPage() {
               </div>
               <div className="relative z-10">
                 <div className="inline-flex items-center rounded bg-emerald-500/10 px-2 py-1 text-[10px] font-mono text-emerald-400 mb-6 border border-emerald-500/20">
-                  NODE_01: OPERATIONS & ENTERPRISE
+                  NODE_01: STRATEGY & ENTERPRISE PARTNERSHIPS
                 </div>
                 <h3 className="text-3xl font-bold mb-2">Adam Paul Smolak</h3>
                 <p className="text-zinc-500 font-mono text-sm mb-6">Co-Founder & CEO</p>
                 
                 <div className="space-y-4 text-zinc-400 text-sm leading-relaxed mb-8">
                   <p>
-                    Adam bridges the gap between massive physical operations and decentralized digital systems. With extensive executive experience founding and scaling physical product companies (such as SECURE Tool Company), Adam understands the inherent friction and immense overhead of legacy supply chains.
+                    Adam-Paul bridges the gap between massive physical operations and decentralized digital systems. With extensive executive experience founding and scaling physical product companies (such as SECURE Tool Company), Adam-Paul understands the inherent friction and immense overhead of legacy supply chains.
                   </p>
                   <p>
-                    At MetaWork, he drives the strategic vision, forging the physical infrastructure networks—from manufacturing nodes to enterprise partnerships—that allow our users to originate real-world products globally with zero inventory risk.
+                    At MetaWork, he drives the strategic vision, forging the physical infrastructure networks (from manufacturing nodes to enterprise partnerships) that allow our users to originate real-world products globally with zero inventory risk.
                   </p>
                 </div>
                 
@@ -147,7 +147,7 @@ export default function AboutUsPage() {
                   NODE_02: ARCHITECTURE & DEPLOYMENT
                 </div>
                 <h3 className="text-3xl font-bold mb-2">Scott Holbrook</h3>
-                <p className="text-zinc-500 font-mono text-sm mb-6">Co-Founder & Lead Developer</p>
+                <p className="text-zinc-500 font-mono text-sm mb-6">Co-Founder & COO</p>
                 
                 <div className="space-y-4 text-zinc-400 text-sm leading-relaxed mb-8">
                   <p>
