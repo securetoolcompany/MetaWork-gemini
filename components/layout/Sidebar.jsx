@@ -186,7 +186,13 @@ export default function Sidebar() {
         { icon: Store, label: 'MetaCommerce Engine', href: '/metawork-overview/selling' },
       ]
     },
-    { icon: Wrench, label: 'The Toolbox', href: '/tools' }, // NEW TOOLBOX PAGE
+    { icon: Wrench, 
+      label: 'The Toolbox', 
+      href: '/tools',
+      subItems: [
+        { icon: Box, label: 'Manufacturing Catalog', href: '/catalog' },
+      ]
+    },
     { 
       icon: Globe, 
       label: 'Industries We Serve',

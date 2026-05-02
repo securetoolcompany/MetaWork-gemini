@@ -317,7 +317,7 @@ export default function ClaimPage() {
                                   Your Share
                                 </p>
                                 <p className="mt-1 truncate text-sm font-semibold">
-                                  {userTokenBalance} / 100
+                                  {userTokenBalance} / 10000
                                 </p>
                               </div>
 
