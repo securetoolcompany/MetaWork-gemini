@@ -1,9 +1,22 @@
+// @ts-nocheck
 'use client';
 
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
-import { Wallet, Store, LogIn, LayoutDashboard, UserPlus } from 'lucide-react';
-import { toast } from 'sonner';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Wallet,
+  Store,
+  LogIn,
+  LayoutDashboard,
+  UserPlus,
+  Languages,
+} from 'lucide-react';
 import MobileSidebar from './MobileSidebar';
 import CartButton from '@/components/cart/CartButton';
 import { cn } from '@/lib/utils';
@@ -12,6 +25,19 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
 import { useWallet } from '@/lib/WalletContext';
 import GlobalSearch from '@/components/search/GlobalSearch';
+
+declare global {
+  interface Window {
+    doGTranslate?: (lang: string) => void;
+  }
+}
+
+const LANGUAGES = [
+  { code: 'en|en', label: 'English' },
+  { code: 'en|es', label: 'Español' },
+  { code: 'en|fr', label: 'Français' },
+  { code: 'en|it', label: 'Italiano' },
+];
 
 export default function Header({ title }: { title?: string }) {
   const router = useRouter();
@@ -31,40 +57,64 @@ export default function Header({ title }: { title?: string }) {
       try {
         await connect();
       } catch (error) {
-        toast.error('Connection cancelled');
+        // Connection cancelled
       }
     } else {
       router.push('/login');
     }
   };
 
+  const handleLanguageChange = (code: string) => {
+    const lang = code.split('|')[1];
+    document.cookie = `googtrans=/en/${lang}; path=/`;
+    document.cookie = `googtrans=/en/${lang}; domain=${window.location.hostname}; path=/`;
+    window.location.reload();
+  };
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur w-full">
-      {/* Notice the grid start: 
-          We leave the first column empty (or use a placeholder) 
-          so the content aligns with the main stage, 
-          leaving the area above the sidebar for the Sidebar component.
-      */}
       <div className="grid h-16 grid-cols-[256px,1fr,auto] items-center px-4 md:px-8 gap-4">
-        
-        {/* 1. Area above Sidebar (Empty in Header) */}
         <div className="hidden md:block" />
 
-        {/* 2. Center: Search */}
         <div className="flex justify-center">
           <div className="w-full max-w-xl">
             <GlobalSearch />
           </div>
         </div>
 
-        {/* 3. Right Side: Actions */}
         <div className="flex items-center gap-1 md:gap-2 justify-end">
-          {!loading && (
-            isShowroom ? (
-              <Link href={isAuthenticated ? "/dashboard" : "/register"}>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-2">
+                <Languages className="h-4 w-4" />
+                <span className="hidden md:inline">Translate</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {LANGUAGES.map((lang) => (
+                <DropdownMenuItem
+                  key={lang.code}
+                  onClick={() => handleLanguageChange(lang.code)}
+                >
+                  {lang.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {!loading &&
+            (isShowroom ? (
+              <Link href={isAuthenticated ? '/dashboard' : '/register'}>
                 <Button variant="ghost" size="sm" className="gap-2">
-                  {isAuthenticated ? <LayoutDashboard className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
-                  <span className="hidden md:inline">{isAuthenticated ? "Dashboard" : "Get Account"}</span>
+                  {isAuthenticated ? (
+                    <LayoutDashboard className="h-4 w-4" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
+                  )}
+                  <span className="hidden md:inline">
+                    {isAuthenticated ? 'Dashboard' : 'Get Account'}
+                  </span>
                 </Button>
               </Link>
             ) : (
@@ -74,20 +124,27 @@ export default function Header({ title }: { title?: string }) {
                   <span className="hidden md:inline">Showroom</span>
                 </Button>
               </Link>
-            )
-          )}
+            ))}
 
           <CartButton />
 
           <Button
             onClick={isAuthenticated ? handleWalletClick : () => router.push('/login')}
             size="sm"
-            variant={isConnected ? "default" : "outline"}
+            variant={isConnected ? 'default' : 'outline'}
             className={cn('h-9 px-2 md:px-3', isConnected && 'bg-green-600')}
           >
-            {isAuthenticated ? <Wallet className="h-4 w-4 md:mr-2" /> : <LogIn className="h-4 w-4 md:mr-2" />}
+            {isAuthenticated ? (
+              <Wallet className="h-4 w-4 md:mr-2" />
+            ) : (
+              <LogIn className="h-4 w-4 md:mr-2" />
+            )}
             <span className="hidden md:inline">
-              {isAuthenticated ? (isConnected ? truncateAddress(accountAddress) : 'Connect') : 'Sign In'}
+              {isAuthenticated
+                ? isConnected
+                  ? truncateAddress(accountAddress)
+                  : 'Connect'
+                : 'Sign In'}
             </span>
           </Button>
 

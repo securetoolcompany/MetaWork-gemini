@@ -5,7 +5,7 @@ import {
   Terminal, ArrowLeft, Wallet, UploadCloud, Users, 
   Cpu, Store, Coins, ShieldCheck, Database, Zap,
   MousePointer2, FileImage, CheckCircle2, ToggleRight,
-  BarChart3, Activity
+  BarChart3, Activity, AlertCircle, ArrowRight
 } from 'lucide-react';
 
 export default function MintingTutorialPage() {
@@ -45,6 +45,34 @@ export default function MintingTutorialPage() {
       </section>
 
       <div className="max-w-5xl mx-auto px-8 pb-32 space-y-12">
+        <div className="relative z-10 flex items-start gap-4">
+                <div className="mt-1 h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
+                <AlertCircle className="h-4 w-4 text-amber-500" />
+                </div>
+                <div>
+                <h3 className="text-lg font-bold text-amber-500 tracking-tight mb-2 uppercase">Financial Transparency Override</h3>
+                <ul className="space-y-3 text-sm text-zinc-300 font-light">
+                    <li className="flex items-start gap-2">
+                    <span className="text-amber-500 font-bold font-mono">1.</span>
+                    <span><strong className="text-white">Zero Upfront Cost:</strong> You can upload IP, design products, and build your entire storefront for free. No credit card, no wallet required to start.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                    <span className="text-amber-500 font-bold font-mono">2.</span>
+                    <span><strong className="text-white">The Minting Trigger:</strong> You only need a wallet when you are ready to <em>publish and sell</em>. We must mint your IP to the blockchain to guarantee your royalty payouts.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                    <span className="text-amber-500 font-bold font-mono">3.</span>
+                    <span><strong className="text-white">Network Security Fee:</strong> Minting costs approximately <strong className="text-emerald-400 font-mono bg-emerald-400/10 px-1 rounded">0.003 ALGO</strong> (a fraction of a penny). This is a decentralized network fee to permanently secure your data, <em>not</em> a MetaWork charge.</span>
+                    </li>
+                </ul>
+                <div className="mt-4 pt-4 border-t border-amber-500/20">
+                    <Link href="/wallet-guide" className="inline-flex items-center text-xs font-mono text-amber-400 hover:text-amber-300 transition-colors uppercase tracking-widest">
+                    New to Web3? Read the Wallet Setup Guide <ArrowRight className="ml-1 h-3 w-3" />
+                    </Link>
+                </div>
+                </div>
+            </div>
+            </div>
 
         {/* TLDR SUMMARY (Moved to Top) */}
         <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-xl shadow-lg mb-8">
@@ -61,6 +89,11 @@ export default function MintingTutorialPage() {
           </div>
         </div>
 
+        <div className="mb-12 p-6 bg-zinc-900/50 border-l-4 border-amber-500 rounded-r-lg relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+                <ShieldCheck className="h-24 w-24 text-amber-500" />
+            </div>
+
         {/* STAGE 1 */}
         <div className="border border-zinc-800 bg-zinc-900/20 rounded-xl overflow-hidden">
           <div className="bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center gap-3">
@@ -69,7 +102,7 @@ export default function MintingTutorialPage() {
             </div>
             <h2 className="text-lg font-bold font-mono tracking-tight">STAGE_1: PREPARATION & CONNECTIVITY</h2>
           </div>
-          
+      
           <div className="p-6 md:p-8 space-y-12">
             {/* Step 1 */}
             <div className="grid lg:grid-cols-[1fr_350px] gap-8 items-center">

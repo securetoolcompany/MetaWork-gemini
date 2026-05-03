@@ -9,7 +9,7 @@ import {
   Home, LogIn, LogOut, UserPlus, Store, Palette, 
   LayoutGrid, Terminal, Menu, ChevronDown, Dumbbell, 
   GraduationCap, Coffee, HeartHandshake, ShoppingCart,
-  Wrench, FileText
+  Wrench, FileText, DollarSignIcon, Wallet
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
@@ -191,6 +191,8 @@ export default function Sidebar() {
       href: '/tools',
       subItems: [
         { icon: Box, label: 'Manufacturing Catalog', href: '/catalog' },
+        { icon: DollarSignIcon, label: 'Tokenization', href: '/tutorials/minting' },
+        { icon: Wallet, label: 'Secure Wallet', href: '/wallet-guide' },
       ]
     },
     { 

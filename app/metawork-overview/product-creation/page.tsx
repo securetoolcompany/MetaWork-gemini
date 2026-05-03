@@ -69,7 +69,7 @@ export default function ProductProcess() {
           </p>
           
           <div className="flex gap-4">
-            <Link href="/register">
+            <Link href="/catalog">
               <Button size="lg" className="h-12 px-8 bg-purple-600 hover:bg-purple-700 text-white rounded-none border border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.2)]">
                 Initialize Product Line
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -312,7 +312,7 @@ export default function ProductProcess() {
             Zero minimum orders. Zero warehouse leases. Just your creativity and a global infrastructure ready to execute.
           </p>
           
-          <Link href="/register">
+          <Link href="/catalog">
             <Button size="lg" className="h-14 px-10 text-lg bg-purple-600 hover:bg-purple-700 text-white rounded-none border border-purple-500 shadow-[0_0_30px_rgba(168,85,247,0.3)] transition-all hover:shadow-[0_0_50px_rgba(168,85,247,0.5)] font-mono">
               <Terminal className="mr-3 h-5 w-5" />
               Open Design Engine
