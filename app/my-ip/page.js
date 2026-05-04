@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import { Plus, CheckCircle, Clock, Loader2, Trash2, AlertTriangle, Wallet } from 'lucide-react';
 import algosdk from 'algosdk';
 import IPEditDialog from '@/components/ip/IPEditDialog';
+import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 
 // Helper to prevent JSON stringify crashes on BigInts
 const bigintReplacer = (_key, value) =>
@@ -52,7 +53,8 @@ function MyIPPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedIP, setSelectedIP] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
+
   // Minting Steps: 1 = Details, 2 = Stakeholders
   const [mintStep, setMintStep] = useState(1);
 
@@ -282,6 +284,10 @@ const handleCreateIP = async (e) => {
 
     } catch (error) {
       console.error(error);
+      if (error.message?.toLowerCase().includes('insufficient credits')) {
+        setShowCreditsModal(true);
+        return;
+      }
       toast.error(error.message || 'Mint failed', { id: 'mint' });
     } finally {
       setIsCreating(false);
@@ -713,6 +719,10 @@ onClick={() => {
 )}
 
       </div>
+      <InsufficientCreditsModal
+        open={showCreditsModal}
+        onClose={() => setShowCreditsModal(false)}
+      />
     </div>
   );
 }

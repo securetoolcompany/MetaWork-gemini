@@ -202,6 +202,16 @@ function UploadIPInner() {
       console.error(error);
       toast.dismiss(toastId);
 
+      console.log('>>> error.message:', error.message);
+      if (
+        error.message?.toLowerCase().includes('insufficient credits') ||
+        error.message?.toLowerCase().includes('not enough credits')
+      ) {
+        console.log('>>> SETTING CREDITS MODAL TO TRUE');
+        setShowCreditsModal(true);
+        return;
+      }
+
       // Intercept credits error — show buy modal instead of dead toast
       if (
         error.message?.toLowerCase().includes('insufficient credits') ||

@@ -69,7 +69,7 @@ export async function POST(request) {
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // --- CREDITS CHECK & DEDUCTION ---
-    const MINT_COST = 1; // or however many credits an IP mint costs
+    const MINT_COST = 25;
     if ((user.credits || 0) < MINT_COST) {
       return NextResponse.json({ error: "Insufficient credits to mint" }, { status: 402 });
     }

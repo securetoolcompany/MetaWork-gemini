@@ -6,7 +6,7 @@ import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
 
-const TRANSAK_API_KEY = process.env.TRANSAK_API_KEY;
+const TRANSAK_API_KEY = process.env.TRANSAK_API_SECRET;
 
 function verifyTransakSignature(rawBody, signature) {
   if (!TRANSAK_API_KEY) return false;

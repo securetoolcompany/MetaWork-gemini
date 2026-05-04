@@ -8,76 +8,65 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription,
+  DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell,
+  TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import Header from '@/components/layout/Header';
 import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { 
-  DollarSign, 
-  Percent, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Save,
-  Loader2,
-  Tag,
-  Globe,
-  Package,
-  Settings,
-  AlertTriangle
+import {
+  DollarSign, Percent, Plus, Edit, Trash2,
+  Save, Loader2, Tag, Globe, Zap, AlertTriangle,
 } from 'lucide-react';
+
+const DEFAULT_CREDIT_PACKAGES = [
+  { id: 'credits_25',   credits: 25,   priceUsd: 0.25,  label: '',           highlight: false },
+  { id: 'credits_125',  credits: 125,  priceUsd: 1.00,  label: '',           highlight: false },
+  { id: 'credits_600',  credits: 600,  priceUsd: 5.00,  label: 'Best Value', highlight: true  },
+  { id: 'credits_1500', credits: 1500, priceUsd: 10.00, label: 'Power Pack', highlight: false },
+];
 
 export default function AdminPricingPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
-  
+
   const [loading, setLoading] = useState(true);
   const [pricingRules, setPricingRules] = useState([]);
   const [globalDefault, setGlobalDefault] = useState(null);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
-  
-  // Dialog state
+
+  // Credit packages
+  const [creditPackages, setCreditPackages] = useState(DEFAULT_CREDIT_PACKAGES);
+  const [savingCredits, setSavingCredits] = useState(false);
+  const [mintCost, setMintCost] = useState(25);
+
+  // Pricing rule dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
   const [ruleForm, setRuleForm] = useState({
-    printfulProductId: 'global',
-    percentMarkup: '',
-    flatMarkup: '',
-    customCategories: [],
-    isActive: true
+    printfulProductId: 'global', percentMarkup: '',
+    flatMarkup: '', customCategories: [], isActive: true,
   });
   const [saving, setSaving] = useState(false);
 
-  // Category dialog state
+  // Category dialog
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
-  const [categoryForm, setCategoryForm] = useState({
-    name: '',
-    description: '',
-    icon: 'tag',
-    sortOrder: 0
-  });
+  const [categoryForm, setCategoryForm] = useState({ name: '', description: '', icon: 'tag', sortOrder: 0 });
   const [savingCategory, setSavingCategory] = useState(false);
 
-  // Check admin access
+  const getAdminHeaders = () => ({
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${document.cookie.split('auth_token=')[1]?.split(';')[0] || ''}`,
+  });
+
   useEffect(() => {
     if (isAuthenticated && user && !user.isAdmin) {
       toast.error('Admin access required');
@@ -85,50 +74,36 @@ export default function AdminPricingPage() {
     }
   }, [isAuthenticated, user, router]);
 
-  // Fetch data
   useEffect(() => {
-    if (isAuthenticated && user?.isAdmin) {
-      fetchData();
-    }
+    if (isAuthenticated && user?.isAdmin) fetchData();
   }, [isAuthenticated, user]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch pricing rules
-      const pricingRes = await fetch('/api/admin/product-pricing', {
-        headers: {
-          'Authorization': `Bearer ${document.cookie.split('auth_token=')[1]?.split(';')[0] || ''}`
-        }
-      });
+      const [pricingRes, catRes, prodRes, creditsRes] = await Promise.all([
+        fetch('/api/admin/product-pricing', { headers: getAdminHeaders() }),
+        fetch('/api/admin/categories?includeInactive=true', { headers: getAdminHeaders() }),
+        fetch('/api/printful/catalog?all=true'),
+        fetch('/api/admin/credit-packs', { headers: getAuthHeader() })
+      ]);
+
       const pricingData = await pricingRes.json();
-      
       if (pricingData.success) {
         setPricingRules(pricingData.pricingRules || []);
         setGlobalDefault(pricingData.globalDefault || null);
       }
-      
-      // Fetch categories
-      const catRes = await fetch('/api/admin/categories?includeInactive=true', {
-        headers: {
-          'Authorization': `Bearer ${document.cookie.split('auth_token=')[1]?.split(';')[0] || ''}`
-        }
-      });
+
       const catData = await catRes.json();
-      
-      if (catData.success) {
-        setCategories(catData.categories || []);
-      }
-      
-      // Fetch products for reference
-      const prodRes = await fetch('/api/printful/catalog?all=true');
+      if (catData.success) setCategories(catData.categories || []);
+
       const prodData = await prodRes.json();
-      
-      if (prodData.success) {
-        setProducts(prodData.products || []);
+      if (prodData.success) setProducts(prodData.products || []);
+
+      const creditsData = await creditsRes.json();
+      if (creditsData.success && creditsData.packages?.length) {
+        setCreditPackages(creditsData.packages);
       }
-      
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast.error('Failed to load admin data');
@@ -137,131 +112,119 @@ export default function AdminPricingPage() {
     }
   };
 
-  // Save pricing rule
+  // Credit package helpers
+  const updatePackage = (index, field, value) => {
+    setCreditPackages((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  const addPackage = () => {
+    setCreditPackages((prev) => [
+      ...prev,
+      { id: `credits_new_${Date.now()}`, credits: 0, priceUsd: 0, label: '', highlight: false },
+    ]);
+  };
+
+  const removePackage = (index) => {
+    setCreditPackages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveCredits = async () => {
+    setSavingCredits(true);
+    try {
+      const res = await fetch('/api/admin/credit-packages', {
+        method: 'POST',
+        headers: getAdminHeaders(),
+        body: JSON.stringify({ packages: creditPackages }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save');
+      toast.success('Credit packages saved!');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSavingCredits(false);
+    }
+  };
+
+  // Pricing rule handlers
   const handleSaveRule = async () => {
     try {
       setSaving(true);
-      
       const response = await fetch('/api/admin/product-pricing', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${document.cookie.split('auth_token=')[1]?.split(';')[0] || ''}`
-        },
+        headers: getAdminHeaders(),
         body: JSON.stringify({
           printfulProductId: ruleForm.printfulProductId,
           percentMarkup: parseFloat(ruleForm.percentMarkup) || 0,
           flatMarkup: parseFloat(ruleForm.flatMarkup) || 0,
           customCategories: ruleForm.customCategories,
-          isActive: ruleForm.isActive
-        })
+          isActive: ruleForm.isActive,
+        }),
       });
-      
       const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to save');
-      }
-      
+      if (!response.ok) throw new Error(data.error || 'Failed to save');
       toast.success(data.updated ? 'Pricing rule updated!' : 'Pricing rule created!');
       setDialogOpen(false);
       fetchData();
-      
     } catch (error) {
-      console.error('Save error:', error);
       toast.error(error.message);
     } finally {
       setSaving(false);
     }
   };
 
-  // Delete pricing rule
   const handleDeleteRule = async (productId) => {
-    if (!confirm('Are you sure you want to delete this pricing rule?')) return;
-    
+    if (!confirm('Are you sure?')) return;
     try {
       const response = await fetch(`/api/admin/product-pricing?productId=${productId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${document.cookie.split('auth_token=')[1]?.split(';')[0] || ''}`
-        }
+        method: 'DELETE', headers: getAdminHeaders(),
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete');
-      }
-      
+      if (!response.ok) throw new Error('Failed to delete');
       toast.success('Pricing rule deleted');
       fetchData();
-      
-    } catch (error) {
-      toast.error(error.message);
-    }
+    } catch (error) { toast.error(error.message); }
   };
 
-  // Save category
   const handleSaveCategory = async () => {
     try {
       setSavingCategory(true);
-      
       const response = await fetch('/api/admin/categories', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${document.cookie.split('auth_token=')[1]?.split(';')[0] || ''}`
-        },
+        headers: getAdminHeaders(),
         body: JSON.stringify({
           id: editingCategory?.id,
           name: categoryForm.name,
           description: categoryForm.description,
           icon: categoryForm.icon,
           sortOrder: categoryForm.sortOrder,
-          isActive: true
-        })
+          isActive: true,
+        }),
       });
-      
       const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to save');
-      }
-      
+      if (!response.ok) throw new Error(data.error || 'Failed to save');
       toast.success(data.updated ? 'Category updated!' : 'Category created!');
       setCategoryDialogOpen(false);
       fetchData();
-      
-    } catch (error) {
-      toast.error(error.message);
-    } finally {
-      setSavingCategory(false);
-    }
+    } catch (error) { toast.error(error.message); }
+    finally { setSavingCategory(false); }
   };
 
-  // Delete category
   const handleDeleteCategory = async (id) => {
-    if (!confirm('Are you sure you want to delete this category?')) return;
-    
+    if (!confirm('Are you sure?')) return;
     try {
       const response = await fetch(`/api/admin/categories?id=${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${document.cookie.split('auth_token=')[1]?.split(';')[0] || ''}`
-        }
+        method: 'DELETE', headers: getAdminHeaders(),
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete');
-      }
-      
+      if (!response.ok) throw new Error('Failed to delete');
       toast.success('Category deleted');
       fetchData();
-      
-    } catch (error) {
-      toast.error(error.message);
-    }
+    } catch (error) { toast.error(error.message); }
   };
 
-  // Open edit dialog
   const openEditDialog = (rule = null) => {
     if (rule) {
       setEditingRule(rule);
@@ -270,47 +233,29 @@ export default function AdminPricingPage() {
         percentMarkup: rule.percentMarkup?.toString() || '',
         flatMarkup: rule.flatMarkup?.toString() || '',
         customCategories: rule.customCategories || [],
-        isActive: rule.isActive !== false
+        isActive: rule.isActive !== false,
       });
     } else {
       setEditingRule(null);
-      setRuleForm({
-        printfulProductId: 'global',
-        percentMarkup: '',
-        flatMarkup: '',
-        customCategories: [],
-        isActive: true
-      });
+      setRuleForm({ printfulProductId: 'global', percentMarkup: '', flatMarkup: '', customCategories: [], isActive: true });
     }
     setDialogOpen(true);
   };
 
-  // Open category edit dialog
   const openCategoryDialog = (category = null) => {
     if (category) {
       setEditingCategory(category);
-      setCategoryForm({
-        name: category.name,
-        description: category.description || '',
-        icon: category.icon || 'tag',
-        sortOrder: category.sortOrder || 0
-      });
+      setCategoryForm({ name: category.name, description: category.description || '', icon: category.icon || 'tag', sortOrder: category.sortOrder || 0 });
     } else {
       setEditingCategory(null);
-      setCategoryForm({
-        name: '',
-        description: '',
-        icon: 'tag',
-        sortOrder: 0
-      });
+      setCategoryForm({ name: '', description: '', icon: 'tag', sortOrder: 0 });
     }
     setCategoryDialogOpen(true);
   };
 
-  // Get product name by ID
   const getProductName = (productId) => {
     if (productId === 'global') return 'Global Default';
-    const product = products.find(p => p.catalogProductId === productId);
+    const product = products.find((p) => p.catalogProductId === productId);
     return product?.name || `Product #${productId}`;
   };
 
@@ -324,9 +269,7 @@ export default function AdminPricingPage() {
               <AlertTriangle className="h-12 w-12 mx-auto text-yellow-500 mb-4" />
               <h2 className="text-xl font-semibold mb-2">Admin Access Required</h2>
               <p className="text-muted-foreground">You need admin privileges to access this page.</p>
-              <Button className="mt-4" onClick={() => router.push('/')}>
-                Go Home
-              </Button>
+              <Button className="mt-4" onClick={() => router.push('/')}>Go Home</Button>
             </CardContent>
           </Card>
         </div>
@@ -336,16 +279,12 @@ export default function AdminPricingPage() {
 
   return (
     <div className="flex flex-col h-screen bg-background">
-      <Header title="Admin - Product Pricing & Categories" />
-      
+      <Header title="Admin - Pricing & Credits" />
       <div className="flex-1 overflow-auto p-4 md:p-8">
         <div className="max-w-6xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Pricing & Categories</h1>
-              <p className="text-muted-foreground">Manage product markups and custom categories</p>
-            </div>
+          <div>
+            <h1 className="text-2xl font-bold">Pricing & Credits</h1>
+            <p className="text-muted-foreground">Manage product markups, categories, and credit packages</p>
           </div>
 
           {loading ? (
@@ -353,21 +292,115 @@ export default function AdminPricingPage() {
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
-            <Tabs defaultValue="pricing" className="space-y-4">
+            <Tabs defaultValue="credits" className="space-y-4">
               <TabsList>
+                <TabsTrigger value="credits" className="gap-2">
+                  <Zap className="h-4 w-4" /> Credit Packages
+                </TabsTrigger>
                 <TabsTrigger value="pricing" className="gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Product Pricing
+                  <DollarSign className="h-4 w-4" /> Product Pricing
                 </TabsTrigger>
                 <TabsTrigger value="categories" className="gap-2">
-                  <Tag className="h-4 w-4" />
-                  Categories
+                  <Tag className="h-4 w-4" /> Categories
                 </TabsTrigger>
               </TabsList>
 
-              {/* Pricing Tab */}
+              {/* ── Credit Packages Tab ── */}
+              <TabsContent value="credits" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Zap className="h-5 w-5 text-yellow-500" /> Credit Packages
+                    </CardTitle>
+                    <CardDescription>
+                      Each credit = $0.01 USD. Edit the packages shown in the purchase modal.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Mint cost info row */}
+                    <div className="flex items-center gap-4 p-3 bg-muted rounded-lg">
+                      <Label className="whitespace-nowrap">Credits per mint</Label>
+                      <Input
+                        type="number"
+                        className="w-28"
+                        value={mintCost}
+                        onChange={(e) => setMintCost(Number(e.target.value))}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Informational only — also update <code>MINT_COST</code> in{' '}
+                        <code>app/api/ip/mint-v2/route.js</code>.
+                      </p>
+                    </div>
+
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>Credits</TableHead>
+                          <TableHead>Price (USD)</TableHead>
+                          <TableHead>$/credit</TableHead>
+                          <TableHead>Mints</TableHead>
+                          <TableHead>Label</TableHead>
+                          <TableHead>Highlight</TableHead>
+                          <TableHead />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {creditPackages.map((pkg, i) => (
+                          <TableRow key={pkg.id}>
+                            <TableCell>
+                              <Input className="w-36 font-mono text-xs" value={pkg.id}
+                                onChange={(e) => updatePackage(i, 'id', e.target.value)} />
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" className="w-24" value={pkg.credits}
+                                onChange={(e) => updatePackage(i, 'credits', Number(e.target.value))} />
+                            </TableCell>
+                            <TableCell>
+                              <Input type="number" step="0.01" className="w-24" value={pkg.priceUsd}
+                                onChange={(e) => updatePackage(i, 'priceUsd', parseFloat(e.target.value))} />
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-sm">
+                              ${pkg.credits > 0 ? (pkg.priceUsd / pkg.credits).toFixed(4) : '—'}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-sm">
+                              {pkg.credits > 0 ? Math.floor(pkg.credits / mintCost) : '—'}
+                            </TableCell>
+                            <TableCell>
+                              <Input className="w-28" placeholder="e.g. Best Value" value={pkg.label}
+                                onChange={(e) => updatePackage(i, 'label', e.target.value)} />
+                            </TableCell>
+                            <TableCell>
+                              <Switch checked={pkg.highlight}
+                                onCheckedChange={(v) => updatePackage(i, 'highlight', v)} />
+                            </TableCell>
+                            <TableCell>
+                              <Button variant="ghost" size="icon" onClick={() => removePackage(i)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+
+                    <div className="flex justify-between pt-2">
+                      <Button variant="outline" onClick={addPackage}>
+                        <Plus className="h-4 w-4 mr-2" /> Add Package
+                      </Button>
+                      <Button onClick={handleSaveCredits} disabled={savingCredits}>
+                        {savingCredits
+                          ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          : <Save className="h-4 w-4 mr-2" />}
+                        Save Packages
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* ── Product Pricing Tab ── */}
               <TabsContent value="pricing" className="space-y-4">
-                {/* Global Default Card */}
                 <Card className="border-2 border-primary/30">
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -376,13 +409,10 @@ export default function AdminPricingPage() {
                         <CardTitle>Global Default Markup</CardTitle>
                       </div>
                       <Button size="sm" onClick={() => openEditDialog(globalDefault || { printfulProductId: 'global' })}>
-                        <Edit className="h-4 w-4 mr-2" />
-                        {globalDefault ? 'Edit' : 'Set Default'}
+                        <Edit className="h-4 w-4 mr-2" />{globalDefault ? 'Edit' : 'Set Default'}
                       </Button>
                     </div>
-                    <CardDescription>
-                      Applied to all products without specific overrides
-                    </CardDescription>
+                    <CardDescription>Applied to all products without specific overrides</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {globalDefault ? (
@@ -402,7 +432,6 @@ export default function AdminPricingPage() {
                   </CardContent>
                 </Card>
 
-                {/* Product-specific overrides */}
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -411,16 +440,13 @@ export default function AdminPricingPage() {
                         <CardDescription>Custom pricing for individual products</CardDescription>
                       </div>
                       <Button onClick={() => openEditDialog()}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Override
+                        <Plus className="h-4 w-4 mr-2" /> Add Override
                       </Button>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    {pricingRules.filter(r => r.printfulProductId !== 'global').length === 0 ? (
-                      <p className="text-muted-foreground text-center py-8">
-                        No product-specific overrides. All products use global default.
-                      </p>
+                    {pricingRules.filter((r) => r.printfulProductId !== 'global').length === 0 ? (
+                      <p className="text-muted-foreground text-center py-8">No product-specific overrides.</p>
                     ) : (
                       <Table>
                         <TableHeader>
@@ -434,26 +460,22 @@ export default function AdminPricingPage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {pricingRules.filter(r => r.printfulProductId !== 'global').map(rule => (
+                          {pricingRules.filter((r) => r.printfulProductId !== 'global').map((rule) => (
                             <TableRow key={rule.id}>
-                              <TableCell className="font-medium">
-                                {getProductName(rule.printfulProductId)}
-                              </TableCell>
+                              <TableCell className="font-medium">{getProductName(rule.printfulProductId)}</TableCell>
                               <TableCell>{rule.percentMarkup}%</TableCell>
                               <TableCell>${rule.flatMarkup?.toFixed(2)}</TableCell>
                               <TableCell>
                                 {rule.customCategories?.length > 0 ? (
                                   <div className="flex gap-1 flex-wrap">
-                                    {rule.customCategories.slice(0, 2).map(cat => (
+                                    {rule.customCategories.slice(0, 2).map((cat) => (
                                       <Badge key={cat} variant="secondary" className="text-xs">{cat}</Badge>
                                     ))}
                                     {rule.customCategories.length > 2 && (
                                       <Badge variant="outline" className="text-xs">+{rule.customCategories.length - 2}</Badge>
                                     )}
                                   </div>
-                                ) : (
-                                  <span className="text-muted-foreground text-sm">None</span>
-                                )}
+                                ) : <span className="text-muted-foreground text-sm">None</span>}
                               </TableCell>
                               <TableCell>
                                 <Badge variant={rule.isActive ? 'default' : 'secondary'}>
@@ -479,7 +501,7 @@ export default function AdminPricingPage() {
                 </Card>
               </TabsContent>
 
-              {/* Categories Tab */}
+              {/* ── Categories Tab ── */}
               <TabsContent value="categories" className="space-y-4">
                 <Card>
                   <CardHeader>
@@ -489,34 +511,25 @@ export default function AdminPricingPage() {
                         <CardDescription>Define categories for organizing products in the catalog</CardDescription>
                       </div>
                       <Button onClick={() => openCategoryDialog()}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Category
+                        <Plus className="h-4 w-4 mr-2" /> Add Category
                       </Button>
                     </div>
                   </CardHeader>
                   <CardContent>
                     {categories.length === 0 ? (
-                      <p className="text-muted-foreground text-center py-8">
-                        No custom categories defined. Products will use default categories.
-                      </p>
+                      <p className="text-muted-foreground text-center py-8">No custom categories defined.</p>
                     ) : (
                       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {categories.map(cat => (
+                        {categories.map((cat) => (
                           <Card key={cat.id} className={!cat.isActive ? 'opacity-50' : ''}>
                             <CardContent className="p-4">
                               <div className="flex items-start justify-between">
                                 <div>
                                   <h3 className="font-semibold">{cat.name}</h3>
-                                  {cat.description && (
-                                    <p className="text-sm text-muted-foreground">{cat.description}</p>
-                                  )}
+                                  {cat.description && <p className="text-sm text-muted-foreground">{cat.description}</p>}
                                   <div className="flex gap-2 mt-2">
-                                    <Badge variant="outline" className="text-xs">
-                                      Order: {cat.sortOrder}
-                                    </Badge>
-                                    {!cat.isActive && (
-                                      <Badge variant="secondary" className="text-xs">Inactive</Badge>
-                                    )}
+                                    <Badge variant="outline" className="text-xs">Order: {cat.sortOrder}</Badge>
+                                    {!cat.isActive && <Badge variant="secondary" className="text-xs">Inactive</Badge>}
                                   </div>
                                 </div>
                                 <div className="flex gap-1">
@@ -546,9 +559,7 @@ export default function AdminPricingPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingRule ? 'Edit Pricing Rule' : 'Add Pricing Rule'}</DialogTitle>
-            <DialogDescription>
-              Set markup percentages and flat amounts for products
-            </DialogDescription>
+            <DialogDescription>Set markup percentages and flat amounts for products</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -556,56 +567,33 @@ export default function AdminPricingPage() {
               <select
                 className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={ruleForm.printfulProductId}
-                onChange={(e) => setRuleForm(prev => ({ ...prev, printfulProductId: e.target.value }))}
-                disabled={editingRule}
+                onChange={(e) => setRuleForm((prev) => ({ ...prev, printfulProductId: e.target.value }))}
+                disabled={!!editingRule}
               >
                 <option value="global">Global Default (All Products)</option>
-                {products.map(p => (
-                  <option key={p.catalogProductId} value={p.catalogProductId}>
-                    {p.name}
-                  </option>
+                {products.map((p) => (
+                  <option key={p.catalogProductId} value={p.catalogProductId}>{p.name}</option>
                 ))}
               </select>
             </div>
-            
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Percent className="h-4 w-4" />
-                  Percent Markup
-                </Label>
-                <Input
-                  type="number"
-                  step="0.1"
-                  placeholder="20"
-                  value={ruleForm.percentMarkup}
-                  onChange={(e) => setRuleForm(prev => ({ ...prev, percentMarkup: e.target.value }))}
-                />
-                <p className="text-xs text-muted-foreground">e.g., 20 = +20% of base price</p>
+                <Label className="flex items-center gap-2"><Percent className="h-4 w-4" /> Percent Markup</Label>
+                <Input type="number" step="0.1" placeholder="20" value={ruleForm.percentMarkup}
+                  onChange={(e) => setRuleForm((prev) => ({ ...prev, percentMarkup: e.target.value }))} />
+                <p className="text-xs text-muted-foreground">e.g., 20 = +20%</p>
               </div>
-              
               <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Flat Markup
-                </Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="2.00"
-                  value={ruleForm.flatMarkup}
-                  onChange={(e) => setRuleForm(prev => ({ ...prev, flatMarkup: e.target.value }))}
-                />
+                <Label className="flex items-center gap-2"><DollarSign className="h-4 w-4" /> Flat Markup</Label>
+                <Input type="number" step="0.01" placeholder="2.00" value={ruleForm.flatMarkup}
+                  onChange={(e) => setRuleForm((prev) => ({ ...prev, flatMarkup: e.target.value }))} />
                 <p className="text-xs text-muted-foreground">e.g., 2.00 = +$2.00</p>
               </div>
             </div>
-
             <div className="flex items-center justify-between">
               <Label>Active</Label>
-              <Switch
-                checked={ruleForm.isActive}
-                onCheckedChange={(checked) => setRuleForm(prev => ({ ...prev, isActive: checked }))}
-              />
+              <Switch checked={ruleForm.isActive}
+                onCheckedChange={(checked) => setRuleForm((prev) => ({ ...prev, isActive: checked }))} />
             </div>
           </div>
           <DialogFooter>
@@ -623,37 +611,23 @@ export default function AdminPricingPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
-            <DialogDescription>
-              Define a custom category for organizing products
-            </DialogDescription>
+            <DialogDescription>Define a custom category for organizing products</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>Category Name *</Label>
-              <Input
-                placeholder="e.g., Summer Collection"
-                value={categoryForm.name}
-                onChange={(e) => setCategoryForm(prev => ({ ...prev, name: e.target.value }))}
-              />
+              <Input placeholder="e.g., Summer Collection" value={categoryForm.name}
+                onChange={(e) => setCategoryForm((prev) => ({ ...prev, name: e.target.value }))} />
             </div>
-            
             <div className="space-y-2">
               <Label>Description</Label>
-              <Input
-                placeholder="Brief description"
-                value={categoryForm.description}
-                onChange={(e) => setCategoryForm(prev => ({ ...prev, description: e.target.value }))}
-              />
+              <Input placeholder="Brief description" value={categoryForm.description}
+                onChange={(e) => setCategoryForm((prev) => ({ ...prev, description: e.target.value }))} />
             </div>
-            
             <div className="space-y-2">
               <Label>Sort Order</Label>
-              <Input
-                type="number"
-                placeholder="0"
-                value={categoryForm.sortOrder}
-                onChange={(e) => setCategoryForm(prev => ({ ...prev, sortOrder: parseInt(e.target.value) || 0 }))}
-              />
+              <Input type="number" placeholder="0" value={categoryForm.sortOrder}
+                onChange={(e) => setCategoryForm((prev) => ({ ...prev, sortOrder: parseInt(e.target.value) || 0 }))} />
               <p className="text-xs text-muted-foreground">Lower numbers appear first</p>
             </div>
           </div>

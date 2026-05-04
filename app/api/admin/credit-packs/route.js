@@ -24,12 +24,12 @@ async function authenticate(request) {
 
 export async function GET(request) {
   try {
-    const decoded = await authenticate(request);
-    if (!decoded || !isAdmin(decoded)) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
-    }
     const { db } = await connectToDatabase();
-    const packs = await db.collection('creditPacks').find({}).sort({ sortOrder: 1 }).toArray();
+    const packs = await db
+      .collection('creditPacks')
+      .find({ active: true })
+      .sort({ sortOrder: 1 })
+      .toArray();
     return NextResponse.json({ success: true, packs });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch packs' }, { status: 500 });
@@ -75,7 +75,7 @@ export async function PATCH(request) {
     if (!_id) {
       return NextResponse.json({ error: '_id is required' }, { status: 400 });
     }
-    const allowed = ['name', 'credits', 'priceUSDC', 'type', 'active', 'sortOrder'];
+    const allowed = ['name', 'credits', 'priceUSDC', 'type', 'active', 'sortOrder', 'highlight'];
     const update = {};
     for (const key of allowed) {
       if (fields[key] !== undefined) update[key] = fields[key];
