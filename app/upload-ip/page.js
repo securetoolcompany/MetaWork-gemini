@@ -23,6 +23,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import TutorialTooltip from '@/components/onboarding/TutorialTooltip';
 import { useWallet } from '@/lib/WalletContext';
 import { useAuth } from '@/lib/AuthContext';
+import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 
 export default function UploadIPPage() {
   return (
@@ -52,7 +53,8 @@ function UploadIPInner() {
   const [charCount, setCharCount] = useState(0);
   const [tutorialStep, setTutorialStep] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
+  
   useEffect(() => {
     if (isTutorial) {
       setTutorialStep(1);
@@ -198,10 +200,21 @@ function UploadIPInner() {
       }, 1000);
     } catch (error) {
       console.error(error);
-      const msg = error.message.includes('balance')
+      toast.dismiss(toastId);
+
+      // Intercept credits error — show buy modal instead of dead toast
+      if (
+        error.message?.toLowerCase().includes('insufficient credits') ||
+        error.message?.toLowerCase().includes('not enough credits')
+      ) {
+        setShowCreditsModal(true);
+        return;
+      }
+
+      const msg = error.message?.includes('balance')
         ? 'Insufficient ALGO balance (Need ~0.5 ALGO)'
         : error.message;
-      toast.error(msg, { id: toastId });
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -504,6 +517,10 @@ function UploadIPInner() {
           </div>
         </div>
       )}
+      <InsufficientCreditsModal
+        open={showCreditsModal}
+        onClose={() => setShowCreditsModal(false)}
+      />
     </div>
   );
 }

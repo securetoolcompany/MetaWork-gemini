@@ -25,6 +25,42 @@ export async function POST(req) {
     );
   }
 
+  // ─── Credits purchase (Stripe Checkout) ─────────────────────────────────────
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const { userId, creditsToAdd } = session.metadata || {};
+
+    if (!userId || !creditsToAdd) {
+      console.error('[webhook] checkout.session.completed missing metadata', session.id);
+      return NextResponse.json({ received: true });
+    }
+
+    const { db } = await connectToDatabase();
+
+    // Idempotency gate (reuses same processed_webhooks collection)
+    try {
+      const check = await db.collection('processed_webhooks').updateOne(
+        { _id: event.id },
+        { $setOnInsert: { processedAt: new Date(), type: event.type, userId } },
+        { upsert: true }
+      );
+      if (!check.upsertedId) {
+        console.log(`Webhook ${event.id} already processed. Skipping.`);
+        return NextResponse.json({ received: true });
+      }
+    } catch (e) {
+      if (e?.code === 11000) return NextResponse.json({ received: true });
+      throw e;
+    }
+
+    const { addCredits } = await import('@/lib/credits');
+    const newBalance = await addCredits(userId, Number(creditsToAdd));
+    console.log(`[credits] +${creditsToAdd} credits → user ${userId} (balance: ${newBalance})`);
+
+    return NextResponse.json({ received: true });
+  }
+
+  // ─── Product order fulfillment (PaymentIntent) ───────────────────────────────
   if (event.type !== 'payment_intent.succeeded') {
     return NextResponse.json({ received: true });
   }

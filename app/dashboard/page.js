@@ -5,7 +5,7 @@ import {
   Plus, Palette, Database, Store, Zap, 
   ArrowUpRight, BookOpen, Wallet, Eye, 
   Share2, Activity, ShoppingCart, Globe, 
-  TrendingUp, Layout, Cpu, LineChart
+  TrendingUp, Layout, Cpu, LineChart, Terminal, Box, Wallet, ArrowRight, Sparkles, ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -967,5 +967,128 @@ export default function DashboardHome() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function MissionControlTab() {
+  const systemMessages = [
+    { id: 1, type: 'promo', text: 'FLASH_PROMO: 20% credit bonus on all mints today.', color: 'text-amber-400' },
+    { id: 2, type: 'update', text: 'SYSTEM_UPGRADE: MetaManufacturing global nodes expanded to Tokyo.', color: 'text-blue-400' }
+  ];
+
+  return (
+    <div className="space-y-8 animate-in fade-in zoom-in duration-500">
+      
+      {/* 1. SYSTEM ANNOUNCEMENT TICKER */}
+      <div className="bg-zinc-900 border border-zinc-800 px-6 py-2 overflow-hidden rounded-xl">
+        <div className="flex items-center gap-8 animate-marquee whitespace-nowrap">
+          {systemMessages.map((msg) => (
+            <div key={msg.id} className="flex items-center gap-2 text-[10px] font-mono tracking-widest uppercase inline-flex">
+              <span className={msg.color}>● {msg.type}</span>
+              <span className="text-zinc-500">{msg.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <header className="mb-8">
+        <div className="flex items-center gap-3 mb-2">
+          <Terminal className="h-4 w-4 text-blue-500" />
+          <span className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest">Workspace // User_Main_Control</span>
+        </div>
+        <h1 className="text-4xl font-bold tracking-tighter">Welcome back, <span className="text-blue-500 italic">Creator.</span></h1>
+      </header>
+
+      {/* 2. CORE ACTION MODULES */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* Primary Action */}
+        <div className="md:col-span-2 group relative overflow-hidden bg-blue-600 p-1 rounded-xl transition-all hover:shadow-[0_0_30px_rgba(37,99,235,0.3)]">
+          <div className="bg-zinc-950 p-8 h-full rounded-[10px] flex flex-col justify-between border border-blue-500/20">
+            <div>
+              <h3 className="text-2xl font-bold mb-2 text-white">Launch Design Terminal</h3>
+              <p className="text-zinc-400 text-sm max-w-md">Access the full manufacturing catalog, inject your IP, and build new products for your aisle.</p>
+            </div>
+            <Link href="/products/creator" className="mt-8 block">
+              <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-none px-8 uppercase tracking-tighter w-full sm:w-auto shadow-lg shadow-blue-900/20">
+                Initialize Creator Flow <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+            <Sparkles className="absolute top-6 right-6 h-12 w-12 text-blue-500/10 group-hover:text-blue-500/30 transition-colors" />
+          </div>
+        </div>
+
+        {/* Quick Stats / Wallet Health */}
+        <div className="bg-zinc-900/80 border border-zinc-800 p-8 rounded-xl flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h4 className="font-mono text-[10px] text-zinc-500 uppercase tracking-widest">Wallet_Status</h4>
+              <ShieldCheck className="h-4 w-4 text-emerald-500" />
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-zinc-500 mb-1">Available ALGO</p>
+                <p className="text-2xl font-mono font-bold tracking-tight text-white">--</p>
+              </div>
+              <div>
+                <p className="text-xs text-zinc-500 mb-1">Pending Royalties</p>
+                <p className="text-2xl font-mono font-bold text-emerald-400 tracking-tight">$0.00 <span className="text-[10px] ml-1">USDC</span></p>
+              </div>
+            </div>
+          </div>
+          <Link href="/earnings" className="block w-full">
+            <Button variant="outline" className="w-full mt-6 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-none text-xs uppercase font-mono tracking-widest">
+              View Earnings
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* 3. EXPLORATION GRID */}
+      <div>
+        <h3 className="font-mono text-[10px] text-zinc-500 uppercase tracking-[0.3em] mb-4">Discovery_Nodes</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <ExplorerCard 
+            icon={<Box className="text-indigo-400 h-5 w-5" />} 
+            title="Production Catalog" 
+            desc="Browse assets ready for IP injection. Links directly to Creator Flow."
+            href="/products/creator"  // <-- Fixed Link
+          />
+          <ExplorerCard 
+            icon={<Zap className="text-amber-400 h-5 w-5" />} 
+            title="Minting Guide" 
+            desc="Learn how on-chain tokenization protects your IP."
+            href="/tutorials/minting"
+          />
+          <ExplorerCard 
+            icon={<Wallet className="text-blue-400 h-5 w-5" />} 
+            title="Wallet Funding" 
+            desc="Securely connect and fund your decentralized vault."
+            href="/wallet-guide"
+          />
+          <ExplorerCard 
+            icon={<Database className="text-zinc-400 h-5 w-5" />} 
+            title="Technical Specs" 
+            desc="Read the architecture whitepaper and revenue models."
+            href="/selling/architecture"
+          />
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+function ExplorerCard({ icon, title, desc, href }) {
+  return (
+    <Link href={href} className="block h-full">
+      <div className="bg-zinc-900/50 border border-zinc-800 p-6 rounded-xl hover:bg-zinc-900 hover:border-zinc-700 transition-all group h-full flex flex-col">
+        <div className="h-10 w-10 rounded-lg bg-zinc-950 flex items-center justify-center mb-4 border border-zinc-800 group-hover:border-zinc-700 transition-colors shrink-0">
+          {icon}
+        </div>
+        <h4 className="font-bold text-sm mb-2 group-hover:text-blue-400 transition-colors text-zinc-100">{title}</h4>
+        <p className="text-xs text-zinc-500 leading-relaxed flex-grow">{desc}</p>
+      </div>
+    </Link>
   );
 }
