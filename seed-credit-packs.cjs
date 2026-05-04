@@ -2,7 +2,7 @@ const { MongoClient } = require('mongodb');
 require('dotenv').config({ path: '.env.local' });
 
 const PACKS = [
-  { name: '25 Credits',   credits: 25,   priceUSDC: 0.25,  type: 'one-time', active: true, highlight: false, sortOrder: 1 },
+  { name: '50 Credits',   credits: 50,   priceUSDC: 0.50,  type: 'one-time', active: true, highlight: false, sortOrder: 1 },
   { name: '120 Credits',  credits: 120,  priceUSDC: 1.00,  type: 'one-time', active: true, highlight: false, sortOrder: 2 },
   { name: '625 Credits',  credits: 625,  priceUSDC: 5.00,  type: 'one-time', active: true, highlight: true,  sortOrder: 3 },
   { name: '1500 Credits', credits: 1500, priceUSDC: 10.00, type: 'one-time', active: true, highlight: false, sortOrder: 4 },
