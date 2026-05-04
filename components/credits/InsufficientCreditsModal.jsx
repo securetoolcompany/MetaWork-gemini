@@ -29,12 +29,17 @@ export default function InsufficientCreditsModal({ open, onClose, onSuccess }) {
     fetch('/api/admin/credit-packs')
       .then((r) => r.json())
       .then((data) => {
-        if (data.success && data.packages?.length) {
-          setPackages(data.packages);
-          const highlighted = data.packages.find((p) => p.highlight);
-          setSelected((highlighted ?? data.packages[0]).id);
+        if (data.success && data.packs?.length) {
+            const normalized = data.packs.map((p) => ({
+            ...p,
+            id: p._id?.toString() ?? p.id,
+            priceUsd: p.priceUsd ?? p.priceUSDC,
+            }));
+            setPackages(normalized);
+            const highlighted = normalized.find((p) => p.highlight);
+            setSelected((highlighted ?? normalized[0]).id);
         }
-      })
+        })
       .catch(() => toast.error('Failed to load credit packages'))
       .finally(() => setLoadingPackages(false));
   }, [open]);
