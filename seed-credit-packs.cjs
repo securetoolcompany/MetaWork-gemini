@@ -9,10 +9,10 @@ const PACKS = [
 ];
 
 async function seed() {
-  const client = new MongoClient(process.env.MONGODB_URI);
+  const client = new MongoClient(process.env.MONGO_URL);
   try {
     await client.connect();
-    const db = client.db(process.env.MONGODB_DB_NAME);
+    const db = client.db(process.env.DB_NAME || 'metawork_db');
     const col = db.collection('creditPacks');
 
     // Wipe existing packs first
