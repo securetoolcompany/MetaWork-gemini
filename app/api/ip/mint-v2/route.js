@@ -68,6 +68,21 @@ export async function POST(request) {
     let user = await db.collection("users").findOne(userQuery);
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
+    // --- CREDITS CHECK & DEDUCTION ---
+    const MINT_COST = 1; // or however many credits an IP mint costs
+    if ((user.credits || 0) < MINT_COST) {
+      return NextResponse.json({ error: "Insufficient credits to mint" }, { status: 402 });
+    }
+    // Atomically deduct credits before doing any expensive work
+    const creditUpdate = await db.collection("users").findOneAndUpdate(
+      { ...userQuery, credits: { $gte: MINT_COST } },
+      { $inc: { credits: -MINT_COST } },
+      { returnDocument: "after" }
+    );
+    if (!creditUpdate) {
+      return NextResponse.json({ error: "Insufficient credits (race condition prevented)" }, { status: 402 });
+    }
+
 
     const senderWallet = connectedWallet || user.walletAddress;
       if (!senderWallet || !algosdk.isValidAddress(senderWallet)) {
