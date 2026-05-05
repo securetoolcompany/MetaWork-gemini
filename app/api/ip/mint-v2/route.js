@@ -131,6 +131,9 @@ export async function POST(request) {
         category, 
         creator: senderWallet 
     });
+
+    console.log('imageUrl going into metadata:', imageUrl);  // ← ADD HERE
+    console.log('full metadata object:', JSON.stringify(meta));
     
     const metaRes = await uploadJsonToPinata(meta, name + "_meta");
     const metadataHash = crypto.createHash("sha256").update(JSON.stringify(meta)).digest("base64");

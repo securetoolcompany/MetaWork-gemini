@@ -44,7 +44,7 @@ function MyIPPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, getAuthHeader } = useAuth();
-  const { accountAddress, isConnected, signTransactionGroup } = useWallet();
+  const { accountAddress, isConnected, signTransactionGroup, connect } = useWallet();
 
   // --- STATE ---
   const [ipAssets, setIpAssets] = useState([]);
@@ -169,17 +169,23 @@ const checkWalletBalance = useCallback(async () => {
   };
 
   // --- 4. MINTING LOGIC ---
-const handleCreateIP = async (e) => {
+  const handleCreateIP = async (e) => {
     e.preventDefault();
-    if (!isConnected) return toast.error('Please connect your wallet');
+    if (!isConnected) {
+      toast.error('Wallet not connected', {
+        description: 'Please connect your Pera Wallet before minting.',
+        action: { label: 'Connect', onClick: () => connect() },
+      });
+      return;
+    }
     if (walletBalance && !walletBalance.isEnough) return toast.error('Insufficient ALGO balance');
 
-    if (mintStep === 1) {
-      if (!formData.image || !formData.name || !formData.category) return toast.error('Missing required fields');
-      if (stakeholders[0] && !stakeholders[0].address) {
-        setStakeholders([{ address: accountAddress, allocationType: 2, allocationValue: 80 }, ...stakeholders.slice(1)]);
-      }
-      return setMintStep(2);
+      if (mintStep === 1) {
+        if (!formData.image || !formData.name || !formData.category) return toast.error('Missing required fields');
+        if (stakeholders[0] && !stakeholders[0].address) {
+          setStakeholders([{ address: accountAddress, allocationType: 2, allocationValue: 80 }, ...stakeholders.slice(1)]);
+        }
+        return setMintStep(2);
     }
 
     const validStakeholders = stakeholders
@@ -231,7 +237,7 @@ const handleCreateIP = async (e) => {
 
       // 1. Parse the JSON exactly ONCE
       const data1 = await res1.json();
-
+      console.log('mint-v2 response:', JSON.stringify(data1));
       // 2. Check if the response was successful
       if (!res1.ok) {
         throw new Error(data1.error || 'Failed to prepare minting');
@@ -355,11 +361,16 @@ const handleCreateIP = async (e) => {
           </div>
 
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button onClick={resetCreateForm}>
+            <Button onClick={() => {
+                if (!isConnected) {
+                  connect();
+                  return;
+                }
+                resetCreateForm();
+                setShowCreateDialog(true);
+              }}>
                 <Plus className="w-4 h-4 mr-2" /> Mint New IP
               </Button>
-            </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               {/* ... Dialog Content remains the same ... */}
               <DialogHeader>

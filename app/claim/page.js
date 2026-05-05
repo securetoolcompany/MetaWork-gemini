@@ -129,7 +129,6 @@ export default function ClaimPage() {
 
   // --- ATOMIC CLAIM HANDLER (FIXED) ---
   const handleClaimTokens = async (token) => {
-    // GLOBAL FIX 1: Prevent execution if state is not ready
     if (!isConnected || !accountAddress) {
       console.error("CLAIM BLOCKED: accountAddress is missing.");
       return toast.error('Wallet not fully synced. Please reconnect.');
@@ -153,7 +152,7 @@ export default function ClaimPage() {
       const txnsToSign = data.transactions || [data.transaction];
 
       const signed = await signTransactionGroup(
-        txnsToSign.map(t => algosdk.decodeUnsignedTransaction(Buffer.from(t, 'base64')))
+        txnsToSign.map(t => new Uint8Array(Buffer.from(t, 'base64')))
       );
 
       if (!signed || signed.length === 0) throw new Error('Signing cancelled');

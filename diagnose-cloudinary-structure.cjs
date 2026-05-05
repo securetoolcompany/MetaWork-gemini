@@ -1,73 +1,143 @@
+// scripts/cloudinary-audit.cjs
+// Run with: node scripts/cloudinary-audit.cjs
+
 require('dotenv').config({ path: '.env.local' });
-const cloudinary = require('cloudinary').v2;
+const https = require('https');
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'dplnacuyy';
+const API_KEY    = process.env.CLOUDINARY_API_KEY;
+const API_SECRET = process.env.CLOUDINARY_API_SECRET;
 
-async function diagnoseCloudinary() {
-  try {
-    console.log('📡 Scanning Cloudinary structure... This may take a minute depending on file count.');
-    
-    let allResources = [];
-    // Scan both the legacy lowercase and new uppercase root folders
-    const prefixes = ['metawork/', 'MetaWork/'];
+if (!API_KEY || !API_SECRET) {
+  console.error('❌  Missing CLOUDINARY_API_KEY or CLOUDINARY_API_SECRET in .env.local');
+  process.exit(1);
+}
 
-    for (const prefix of prefixes) {
-        let nextCursor = null;
-        do {
-            const result = await cloudinary.api.resources({
-                type: 'upload',
-                prefix: prefix,
-                max_results: 500,
-                next_cursor: nextCursor
-            });
-            allResources = allResources.concat(result.resources);
-            nextCursor = result.next_cursor;
-        } while (nextCursor);
+const auth = Buffer.from(`${API_KEY}:${API_SECRET}`).toString('base64');
+
+function get(path) {
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api.cloudinary.com',
+      path,
+      headers: { Authorization: `Basic ${auth}` },
+    };
+    https.get(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => resolve(JSON.parse(data)));
+    }).on('error', reject);
+  });
+}
+
+async function listFolders(prefix = '') {
+  const endpoint = prefix
+    ? `/v1_1/${CLOUD_NAME}/folders/${encodeURIComponent(prefix)}`
+    : `/v1_1/${CLOUD_NAME}/folders`;
+  const result = await get(endpoint);
+  return result.folders || [];
+}
+
+async function listResources(prefix, maxResults = 10) {
+  const endpoint = `/v1_1/${CLOUD_NAME}/resources/image?type=upload&prefix=${encodeURIComponent(prefix)}&max_results=${maxResults}`;
+  const result = await get(endpoint);
+  return result.resources || [];
+}
+
+async function walkFolders(prefix = '', depth = 0) {
+  const indent = '  '.repeat(depth);
+  const folders = await listFolders(prefix);
+
+  if (folders.length === 0 && depth > 0) {
+    // Leaf folder — show sample images
+    const resources = await listResources(prefix, 3);
+    if (resources.length > 0) {
+      console.log(`${indent}📁 ${prefix}/`);
+      resources.forEach(r => {
+        console.log(`${indent}   🖼  ${r.public_id}  (${r.format}, ${Math.round(r.bytes/1024)}KB)`);
+        console.log(`${indent}       URL: ${r.secure_url}`);
+      });
+    } else {
+      console.log(`${indent}📂 ${prefix}/  [EMPTY]`);
     }
+    return;
+  }
 
-    console.log(`\n📦 Found ${allResources.length} total files across all MetaWork folders.`);
+  if (depth === 0 && folders.length === 0) {
+    console.log('No folders found at root.');
+    return;
+  }
 
-    // Group files by their exact directory path
-    const directoryMap = {};
+  // Filter to only MetaWork-related folders at root level
+  const relevantFolders = depth === 0
+    ? folders.filter(f => f.name.toLowerCase().includes('metawork') || f.path.toLowerCase().includes('metawork'))
+    : folders;
 
-    allResources.forEach(file => {
-        const parts = file.public_id.split('/');
-        parts.pop(); // Remove the actual filename so we just get the folder path
-        
-        const dirPath = parts.join('/') || 'ROOT';
-        directoryMap[dirPath] = (directoryMap[dirPath] || 0) + 1;
-    });
+  // If nothing MetaWork-specific at root, show everything
+  const toWalk = (depth === 0 && relevantFolders.length === 0) ? folders : relevantFolders;
 
-    // Sort alphabetically so folders and subfolders group together naturally
-    const sortedDirs = Object.entries(directoryMap).sort((a, b) => a[0].localeCompare(b[0]));
-
-    console.log("\n==================================================");
-    console.log("📂 CLOUDINARY DIRECTORY MAP");
-    console.log("==================================================");
-    
-    let currentRoot = '';
-
-    for (const [dir, count] of sortedDirs) {
-        // Just for visual grouping in the console
-        const rootFolder = dir.split('/')[0] + '/' + (dir.split('/')[1] || '');
-        if (rootFolder !== currentRoot) {
-            console.log(`\n🗂️  ${rootFolder.toUpperCase()}`);
-            currentRoot = rootFolder;
-        }
-
-        console.log(`   ├─ ${dir}  (${count} files)`);
+  for (const folder of toWalk) {
+    console.log(`${indent}📁 ${folder.path}/`);
+    if (depth < 4) {
+      await walkFolders(folder.path, depth + 1);
     }
-    
-    console.log("\n==================================================");
-    console.log("✅ Scan Complete. No files were altered.");
-
-  } catch (err) {
-    console.error('❌ Script Error:', err);
   }
 }
 
-diagnoseCloudinary();
+async function searchForMockups() {
+  console.log('\n🔍 Searching for mockup images...\n');
+  const endpoint = `/v1_1/${CLOUD_NAME}/resources/search`;
+  
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({
+      expression: 'public_id:*mockup*',
+      max_results: 20,
+      sort_by: [{ created_at: 'desc' }],
+    });
+
+    const options = {
+      hostname: 'api.cloudinary.com',
+      path: `/v1_1/${CLOUD_NAME}/resources/search`,
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        const result = JSON.parse(data);
+        const resources = result.resources || [];
+        if (resources.length === 0) {
+          console.log('  No mockup images found.');
+        } else {
+          resources.forEach(r => {
+            console.log(`  📦 ${r.public_id}`);
+            console.log(`     URL: ${r.secure_url}\n`);
+          });
+        }
+        resolve(resources);
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+(async () => {
+  console.log(`\n☁️  Cloudinary Audit — Cloud: ${CLOUD_NAME}\n`);
+  console.log('━'.repeat(60));
+  console.log('\n📂 FOLDER STRUCTURE:\n');
+
+  await walkFolders('MetaWork');
+
+  await searchForMockups();
+
+  console.log('\n━'.repeat(60));
+  console.log('✅  Audit complete.\n');
+})();

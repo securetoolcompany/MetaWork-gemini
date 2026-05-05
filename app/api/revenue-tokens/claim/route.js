@@ -23,7 +23,6 @@ async function getHealthyNode() {
       }
       const client = new algosdk.Algodv2(config.token, config.url, '');
       const status = await client.status().do();
-      // v3 fix: status keys are now camelCase
       const round = Number(status['last-round'] ?? status['lastRound'] ?? 0);
       console.log(`[NODE STATUS KEYS] ${config.name}:`, Object.keys(status));
       console.log(`[NODE ROUND] ${config.name}: ${round}`);
@@ -61,9 +60,6 @@ export async function POST(request) {
 
     const { params: raw, round: currentRound } = await getHealthyNode();
 
-    const poolAddrStr = algosdk.encodeAddress(algosdk.getApplicationAddress(appId).publicKey);
-
-    // v3 fix: firstRound/lastRound renamed to firstValid/lastValid, fees are BigInt
     const txParams = {
       fee: 1000n,
       flatFee: true,
@@ -74,16 +70,23 @@ export async function POST(request) {
       minFee: 1000n
     };
 
+    // FIX #1: Box key is "p_" + ipId — matches BOX_PREFIX in revenue_pool_v5.py
+    // Old code used "stk_" + pubkey which doesn't exist anywhere in v5
+    const ipIdBytes = new Uint8Array(Buffer.from(body.ipId));
+    const poolBoxName = new Uint8Array(Buffer.concat([
+      Buffer.from('p_'),
+      Buffer.from(body.ipId)
+    ]));
+
+    console.log(`[CLAIM] appId=${appId} tokenId=${tokenId} ipId=${body.ipId}`);
+    console.log(`[CLAIM] poolBoxName hex: ${Buffer.from(poolBoxName).toString('hex')}`);
+
     const txns = [];
 
-    // v3 fix: all make*Txn positional fns replaced with make*FromObject
-    txns.push(algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-      sender: userAddr,
-      receiver: poolAddrStr,
-      amount: 200000,
-      suggestedParams: txParams
-    }));
+    // FIX #2: Removed the 0.2 ALGO payment txn — v5 claim_tokens has no group check,
+    // does not require a payment, and the contract never reads Gtxn at all.
 
+    // Txn 1: Opt-in to revenue token ASA
     txns.push(algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
       sender: userAddr,
       receiver: userAddr,
@@ -92,16 +95,19 @@ export async function POST(request) {
       suggestedParams: txParams
     }));
 
-    const decodedUser = algosdk.decodeAddress(userAddr);
-    const boxName = new Uint8Array(Buffer.concat([Buffer.from('stk_'), decodedUser.publicKey]));
-
+    // Txn 2: App call to claim_tokens
+    // FIX #3: Added ipIdBytes as appArgs[1] — contract reads Txn.application_args[1]
+    // Old code only passed args[0] so the contract had no ip_id to look up the box
     txns.push(algosdk.makeApplicationNoOpTxnFromObject({
       sender: userAddr,
       appIndex: appId,
-      appArgs: [new Uint8Array(Buffer.from('claim_tokens'))],
+      appArgs: [
+        new Uint8Array(Buffer.from('claim_tokens')),  // args[0]: method selector
+        ipIdBytes                                      // args[1]: ip_id (REQUIRED by v5)
+      ],
       foreignAssets: [tokenId],
-      boxes: [{ appIndex: appId, name: boxName }],
-      suggestedParams: { ...txParams, fee: 3000n }
+      boxes: [{ appIndex: appId, name: poolBoxName }],  // FIX #1: correct box key
+      suggestedParams: { ...txParams, fee: 3000n }       // outer + 1 inner ASA transfer
     }));
 
     algosdk.assignGroupID(txns);
@@ -120,13 +126,11 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const { signedTxns } = await request.json();
-    //const { client } = await getHealthyNode();
     const client = new algosdk.Algodv2('', 'https://testnet-api.algonode.cloud', '');
 
     const binaryTxns = signedTxns.map(t => new Uint8Array(Buffer.from(t, 'base64')));
     const result = await client.sendRawTransaction(binaryTxns).do();
 
-    // v3 returns txid lowercase — handle both just in case
     const txid = result.txid ?? result.txId;
 
     console.log(`TRANSACTION SUBMITTED: https://testnet.explorer.perawallet.app/tx/${txid}`);

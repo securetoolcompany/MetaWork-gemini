@@ -16,18 +16,31 @@ export default function AisleProductCard({
 
   // 2. URL Normalization (fixes //res.cloudinary URLs)
   const normalizeUrl = (url) => {
+    if (!url) return null;
+    // Unwrap Cloudinary object { secure_url, url }
+    if (typeof url === 'object') url = url.secure_url || url.url;
     if (!url || typeof url !== 'string') return null;
     return url.startsWith('//') ? `https:${url}` : url;
   };
 
+
   // 3. Image Priority Logic (Restored all fallbacks)
   const rawImageSrc = 
-    product.mockupUrl || 
-    product.thumbnailUrl || 
-    product.mockupImages?.[0] || 
-    product.imageUrl || 
-    product.images?.[0] || 
+    product.mockupImages?.[0] ||   // ← move these TWO up first
+    product.images?.[0] ||         // ← these are populated
+    product.mockupUrl ||
+    product.thumbnailUrl ||
+    product.imageUrl ||
     product.image;
+
+    console.log('product image fields:', {
+      mockupUrl: product.mockupUrl,
+      thumbnailUrl: product.thumbnailUrl,
+      mockupImages: product.mockupImages,
+      imageUrl: product.imageUrl,
+      images: product.images,
+      image: product.image,
+    });
 
   const imageSrc = normalizeUrl(rawImageSrc);
 
