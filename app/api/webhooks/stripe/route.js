@@ -66,7 +66,33 @@ export async function POST(req) {
   }
 
   const paymentIntent = event.data.object;
-  const { order_id } = paymentIntent.metadata || {};
+  const { order_id, userId, creditsToAdd } = paymentIntent.metadata || {};
+
+  // ── Credits purchase (PaymentIntent flow) ──────────────────────────────────
+  if (userId && creditsToAdd) {
+    const { db } = await connectToDatabase();
+
+    try {
+      const check = await db.collection('processed_webhooks').updateOne(
+        { _id: event.id },
+        { $setOnInsert: { processedAt: new Date(), type: event.type, userId } },
+        { upsert: true }
+      );
+      if (!check.upsertedId) {
+        console.log(`Webhook ${event.id} already processed. Skipping.`);
+        return NextResponse.json({ received: true });
+      }
+    } catch (e) {
+      if (e?.code === 11000) return NextResponse.json({ received: true });
+      throw e;
+    }
+
+    const { addCredits } = await import('@/lib/credits');
+    const newBalance = await addCredits(userId, Number(creditsToAdd));
+    console.log(`[credits] +${creditsToAdd} credits → user ${userId} (balance: ${newBalance})`);
+    return NextResponse.json({ received: true });
+  }
+  // ───────────────────────────────────────────────────────────────────────────
 
   try {
     const { db } = await connectToDatabase();
