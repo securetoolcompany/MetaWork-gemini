@@ -41,9 +41,21 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
 
   const getDisplayImage = (item) => {
     if (!item) return '/placeholder.png';
-    let url = item.mockupUrl || item.thumbnailUrl || item.imageUrl || item.images?.[0] || item.mockupImages?.[0];
-    if (!url) return '/placeholder.png';
-    return url.startsWith('//') ? `https:${url}` : url;
+    const candidates = [
+      item.mockupImages?.[0],
+      item.images?.[0],
+      item.mockupUrl,
+      item.thumbnailUrl,
+      item.imageUrl,
+      item.image,
+    ];
+    for (const val of candidates) {
+      if (!val) continue;
+      let url = typeof val === 'object' ? (val.secure_url || val.url) : val;
+      if (!url) continue;
+      return url.startsWith('//') ? `https:${url}` : url;
+    }
+    return '/placeholder.png';
   };
 
   return (
