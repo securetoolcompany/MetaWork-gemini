@@ -8,6 +8,9 @@ export default function AisleIPAssetCard({
 }) {
   if (!item) return null;
 
+  // Temporarily add this at the top of AisleIPAssetCard, after the null check:
+console.log('IP item fields:', JSON.stringify(item, null, 2));
+
   const assetUrl = `/ip/${item.id || item._id}`;
   
   // 1. URL Normalization (fixes // protocol issues)
@@ -17,7 +20,9 @@ export default function AisleIPAssetCard({
   };
 
   const imageSrc = normalizeUrl(item.imageUrl || item.thumbnailUrl || item.image);
-
+  const fee = item.licensingFee ?? item.royaltyFee ?? null;
+  const feeLabel = fee != null ? `$${Number(fee).toFixed(2)} / use` : 'Free to use';
+  
   return (
     <Link
       href={assetUrl}
@@ -58,7 +63,7 @@ export default function AisleIPAssetCard({
         {/* Restored Royalty and Usage Stats */}
         <div className="mt-auto pt-3 flex items-center justify-between">
           <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20">
-            {item.royaltyPercentage || 5}% Royalty
+            {feeLabel}
           </span>
           <span className="text-[10px] text-gray-500 italic">
             {item.usageCount || 0} Uses

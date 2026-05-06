@@ -43,7 +43,7 @@ function LoginInner() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/');
+      router.push('/dashboard');
     }
   }, [isAuthenticated, router]);
 
@@ -67,7 +67,7 @@ function LoginInner() {
       
       await login(data.token, data.user);
       toast.success('Successfully logged in!');
-      router.push('/');
+      router.push('/dashboard');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -96,7 +96,7 @@ function LoginInner() {
       await login(data.token, data.user);
       
       toast.success('Account created successfully!');
-      router.push('/');
+      router.push('/dashboard');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -174,7 +174,7 @@ function LoginInner() {
       await login(token, user);
       
       toast.success('Successfully logged in with wallet!');
-      router.push('/');
+      router.push('/dashboard');
       
     } catch (err) {
       console.error('Wallet auth error:', err);

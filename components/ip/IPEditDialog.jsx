@@ -1,5 +1,6 @@
 'use client';
 
+
 import { useState } from 'react';
 import {
   Dialog,
@@ -23,21 +24,79 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Upload, DollarSign, TrendingUp, AlertCircle, Globe, Lock } from 'lucide-react';
+import {
+  Upload, DollarSign, TrendingUp, AlertCircle, Globe, Lock,
+  Info, ShoppingCart, Eye, Coins, Users, Calendar, Wallet,
+  ExternalLink, BarChart2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Info } from 'lucide-react';
+import CategoryPicker from '@/components/layout/CategoryPicker';
+import { IP_CATEGORY_GROUPS, parseCategoryString, serializeCategoryMap } from '@/lib/ipCategories';
+
+
+// ── helpers ────────────────────────────────────────────────────────────────────
+
+
+function fmtDate(val) {
+  if (!val) return '—';
+  try { return new Date(val).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); }
+  catch { return '—'; }
+}
+
+
+function AlgoExplorerLink({ label, id, type = 'asset' }) {
+  if (!id) return <span className="text-muted-foreground">—</span>;
+  const base = 'https://testnet.explorer.perawallet.app';
+  const url = type === 'asset'
+    ? `${base}/assets/${id}`
+    : `${base}/application/${id}`;
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer"
+       className="inline-flex items-center gap-1 text-blue-500 hover:underline font-mono text-xs">
+      {String(id).length > 12 ? `${String(id).slice(0, 10)}…` : id}
+      <ExternalLink className="h-3 w-3" />
+    </a>
+  );
+}
+
+
+// ── stat row inside a card ─────────────────────────────────────────────────────
+
+
+function StatRow({ label, value, valueClass = '' }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`font-semibold text-foreground ${valueClass}`}>{value}</span>
+    </div>
+  );
+}
+
+
+// ── main component ─────────────────────────────────────────────────────────────
+
 
 export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep }) {
+  // normalise category — may arrive as comma-string or array
+  const rawCat = ipAsset?.category || '';
+  const initialCategory = Array.isArray(rawCat)
+    ? rawCat.join(',')
+    : rawCat;
+
+
   const [formData, setFormData] = useState({
-    name: ipAsset?.name || '',
-    description: ipAsset?.description || 'High-quality digital artwork perfect for print-on-demand products',
-    category: ipAsset?.category || '',
-    tags: ipAsset?.tags || 'design, artwork, print, creative',
+    name:         ipAsset?.name        || '',
+    description:  ipAsset?.description || 'High-quality digital artwork perfect for print-on-demand products',
+    category:     initialCategory,
+    tags:         Array.isArray(ipAsset?.tags) ? ipAsset.tags : (ipAsset?.tags || 'design, artwork, print, creative'),
     licensingFee: ipAsset?.licensingFee || 2.50,
-    isPublic: ipAsset?.isPublic !== undefined ? ipAsset.isPublic : true
+    isPublic:     ipAsset?.isPublic !== undefined ? ipAsset.isPublic : true,
   });
+
+
   const [charCount, setCharCount] = useState(formData.description.length);
+
 
   const handleDescriptionChange = (e) => {
     const text = e.target.value;
@@ -47,76 +106,90 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
     }
   };
 
-  // Calculate potential earnings based on current usage
-  const currentUsageCount = ipAsset?.usageCount || 0;
-  const currentEarnings = ipAsset?.earnings || 0;
-  const averageEarningsPerUse = currentUsageCount > 0 ? (currentEarnings / currentUsageCount) : formData.licensingFee;
-  
-  // Project earnings with new fee
-  const projectedEarningsPerUse = formData.licensingFee;
-  const potentialIncrease = ((projectedEarningsPerUse - averageEarningsPerUse) / averageEarningsPerUse * 100).toFixed(1);
 
+  // ── earnings projections ───────────────────────────────────────────────────
+  const usageCount      = ipAsset?.usageCount      || 0;
+  const totalRevenue    = ipAsset?.totalRevenue     || 0;
+  const avgProductPrice = ipAsset?.avgProductPrice  || 0;
+  const viewCount       = ipAsset?.viewCount        || 0;
+  const earnings        = ipAsset?.earnings         || 0;
+  const stakeholders    = ipAsset?.stakeholders     || [];
+
+
+  const avgEarningsPerUse    = usageCount > 0 ? (earnings / usageCount) : formData.licensingFee;
+  const potentialIncrease    = avgEarningsPerUse > 0
+    ? (((formData.licensingFee - avgEarningsPerUse) / avgEarningsPerUse) * 100).toFixed(1)
+    : '0.0';
+
+
+  // conversion rate: views → products
+  const conversionRate = viewCount > 0 ? ((usageCount / viewCount) * 100).toFixed(1) : '—';
+
+
+  // ── save ───────────────────────────────────────────────────────────────────
   const handleSave = () => {
     if (!formData.name || !formData.category) {
-      toast.error('Missing required fields', {
-        description: 'Please fill in all required fields'
-      });
+      toast.error('Missing required fields', { description: 'Name and at least one category are required.' });
       return;
     }
-
-    if (formData.isPublic && formData.licensingFee <= 0) {
-      toast.error('Invalid licensing fee!', {
-        description: 'Public IP requires a licensing fee'
-      });
-      return;
-    }
-
     if (formData.isPublic && formData.licensingFee < 0.50) {
-      toast.error('Licensing fee too low!', {
-        description: 'Minimum licensing fee is $0.50 per use'
-      });
+      toast.error('Licensing fee too low!', { description: 'Minimum is $0.50 per use.' });
       return;
     }
-
     if (formData.isPublic && formData.licensingFee > 20.00) {
-      toast.warning('High licensing fee', {
-        description: 'High fees may discourage usage. Consider market rates.'
-      });
+      toast.warning('High licensing fee', { description: 'High fees may discourage usage.' });
     }
-
-    // Check if changing from public to private
     if (ipAsset?.isPublic && !formData.isPublic) {
-      toast.success('IP set to private!', {
-        description: 'Removed from library. Existing licenses remain active.'
-      });
+      toast.success('IP set to private!', { description: 'Removed from library. Existing licenses remain active.' });
     } else if (!ipAsset?.isPublic && formData.isPublic) {
-      toast.success('IP set to public!', {
-        description: 'Will be available in library after approval.'
-      });
+      toast.success('IP set to public!', { description: 'Will be available in library once active.' });
     } else {
-      toast.success('IP updated successfully!', {
-        description: 'Your changes have been saved'
-      });
+      toast.success('IP updated successfully!', { description: 'Your changes have been saved.' });
     }
-    
     onOpenChange(false);
   };
 
+
   if (!ipAsset) return null;
 
+
+  // whether the asset has on-chain IDs worth showing
+  const hasOnChain = !!(
+    ipAsset.algorandAssetId || ipAsset.assetId || ipAsset.nftAssetId ||
+    ipAsset.revenueTokenId  || ipAsset.revTokenId ||
+    ipAsset.contractAppId  || ipAsset.appId || ipAsset.smartContractId ||
+    ipAsset.revenueTokenAssetId || ipAsset.revenuePoolAppId
+  );
+
+
+  const nftId  = ipAsset.algorandAssetId || ipAsset.assetId || ipAsset.nftAssetId;
+  const revId  = ipAsset.revenueTokenAssetId || ipAsset.revenueTokenId || ipAsset.revTokenId;
+  const appId  = ipAsset.revenuePoolAppId  || ipAsset.contractAppId  || ipAsset.appId || ipAsset.smartContractId;
+
+
+  // badge color for status
+  const statusColor =
+    ipAsset.status === 'active'              ? 'bg-green-600'  :
+    ipAsset.status === 'pending'             ? 'bg-yellow-600' :
+    ipAsset.status?.startsWith('pending_')   ? 'bg-yellow-600' :
+    'bg-slate-600';
+  const statusLabel =
+    ipAsset.status === 'active'              ? 'Active'         :
+    ipAsset.status === 'pending'             ? 'Pending Review' :
+    ipAsset.status === 'pending_nft_mint'    ? 'Minting NFT…'   :
+    ipAsset.status === 'pending_pool_create' ? 'Creating Pool…' :
+    (ipAsset.status || 'Unknown');
+
+
   return (
-    <Dialog 
-      open={open} 
+    <Dialog
+      open={open}
       onOpenChange={(newOpen) => {
-        // Prevent closing dialog during tutorial steps 3-8 (when user is editing fields)
-        if (tutorialStep >= 3 && tutorialStep <= 8) {
-          // Don't allow closing during these steps
-          return;
-        }
+        if (tutorialStep >= 3 && tutorialStep <= 8) return;
         onOpenChange(newOpen);
       }}
     >
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Edit IP Asset</DialogTitle>
           <DialogDescription>
@@ -124,10 +197,17 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
           </DialogDescription>
         </DialogHeader>
 
+
         <div className="grid gap-6 md:grid-cols-2">
-          {/* Left Column - IP Details */}
+
+
+          {/* ══════════════════════════════════════════════
+              LEFT COLUMN — IP Details + editable fields
+          ══════════════════════════════════════════════ */}
           <div className="space-y-6">
-            {/* IP Preview */}
+
+
+            {/* Preview image with live badge */}
             <Card className="border-border bg-card">
               <CardContent className="p-4">
                 <div className="aspect-square relative rounded-lg overflow-hidden bg-muted mb-3">
@@ -137,13 +217,15 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
                     className="object-cover w-full h-full"
                   />
                   <div className="absolute top-2 right-2">
-                    <Badge className={
-                      ipAsset.status === 'approved' ? 'bg-green-600' :
-                      ipAsset.status === 'pending' ? 'bg-yellow-600' : 'bg-red-600'
-                    }>
-                      {ipAsset.status === 'approved' ? 'Approved' :
-                       ipAsset.status === 'pending' ? 'Pending' : 'Rejected'}
-                    </Badge>
+                    {formData.isPublic ? (
+                      <Badge className="bg-blue-600 flex items-center gap-1">
+                        <Globe className="h-3 w-3" /> Public
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-slate-600 flex items-center gap-1">
+                        <Lock className="h-3 w-3" /> Private
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 <Button variant="outline" className="w-full" size="sm">
@@ -153,7 +235,8 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
               </CardContent>
             </Card>
 
-            {/* Visibility Toggle */}
+
+            {/* Visibility toggle */}
             <Card className="border-border bg-card" id="ip-visibility-toggle">
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
@@ -175,11 +258,9 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
                     </TooltipProvider>
                   </div>
                   <div className="flex items-center gap-2">
-                    {formData.isPublic ? (
-                      <Globe className="h-4 w-4 text-blue-500" />
-                    ) : (
-                      <Lock className="h-4 w-4 text-gray-500" />
-                    )}
+                    {formData.isPublic
+                      ? <Globe className="h-4 w-4 text-blue-500" />
+                      : <Lock  className="h-4 w-4 text-slate-500" />}
                     <Switch
                       id="isPublic"
                       checked={formData.isPublic}
@@ -188,19 +269,18 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {formData.isPublic ? (
-                    <>🌐 Visible in global IP library. Others can license it for royalties.</>
-                  ) : (
-                    <>🔒 Private to you. Free to use in your products. Hidden from library.</>
-                  )}
+                  {formData.isPublic
+                    ? <>🌐 Visible in global IP library. Others can license it for royalties.</>
+                    : <>🔒 Private to you. Free to use in your products. Hidden from library.</>}
                 </p>
-                {ipAsset.usageCount > 0 && !formData.isPublic && (
+                {usageCount > 0 && !formData.isPublic && (
                   <div className="p-2 bg-yellow-500/10 border border-yellow-500/20 rounded text-xs text-muted-foreground">
-                    ⚠️ This IP is used in {ipAsset.usageCount} products. Existing licenses remain active.
+                    ⚠️ This IP is used in {usageCount} products. Existing licenses remain active.
                   </div>
                 )}
               </CardContent>
             </Card>
+
 
             {/* Basic Info */}
             <div className="space-y-4" id="ip-basic-info">
@@ -215,6 +295,7 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
                 />
               </div>
 
+
               <div className="space-y-2" id="ip-description-field">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -222,32 +303,29 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
                   value={formData.description}
                   onChange={handleDescriptionChange}
                   placeholder="Describe your IP asset and intended use..."
-                  className="bg-background border-border min-h-[120px]"
+                  className="bg-background border-border min-h-[100px]"
                 />
                 <p className="text-xs text-muted-foreground text-right">{charCount}/500</p>
               </div>
 
-              <div className="space-y-2" id="ip-category-field">
-                <Label htmlFor="category">Category *</Label>
-                <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-                  <SelectTrigger className="bg-background border-border">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Logo">Logo</SelectItem>
-                    <SelectItem value="Artwork">Artwork</SelectItem>
-                    <SelectItem value="Pattern">Pattern</SelectItem>
-                    <SelectItem value="Typography">Typography</SelectItem>
-                    <SelectItem value="Photography">Photography</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              {/* CategoryPicker — replaces hardcoded accordion */}
+              <div className="space-y-1.5" id="ip-category-field">
+                <div className="flex items-center justify-between">
+                  <Label>Categories * <span className="text-xs text-muted-foreground">(select all that apply)</span></Label>
+                </div>
+                <CategoryPicker
+                  value={formData.category}
+                  onChange={(v) => setFormData({ ...formData, category: v })}
+                />
               </div>
+
 
               <div className="space-y-2" id="ip-tags-field">
                 <Label htmlFor="tags">Tags (comma separated)</Label>
                 <Input
                   id="tags"
-                  value={formData.tags}
+                  value={Array.isArray(formData.tags) ? formData.tags.join(', ') : formData.tags}
                   onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
                   placeholder="e.g. vintage, cool, urban, modern"
                   className="bg-background border-border"
@@ -259,14 +337,19 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
             </div>
           </div>
 
-          {/* Right Column - Licensing & Analytics */}
-          <div className="space-y-6">
-            {/* Licensing Fee (only for public IP) */}
+
+          {/* ══════════════════════════════════════════════
+              RIGHT COLUMN — Licensing + Stats + On-Chain
+          ══════════════════════════════════════════════ */}
+          <div className="space-y-5">
+
+
+            {/* ── Licensing Fee (public only) ──────────────── */}
             {formData.isPublic && (
               <Card className="border-border bg-card" id="ip-licensing-fee">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <DollarSign className="h-5 w-5 text-primary" />
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-primary" />
                     Licensing Fee
                   </CardTitle>
                 </CardHeader>
@@ -291,42 +374,37 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
                     </p>
                   </div>
 
-                  {/* Fee Guidance */}
-                  <div className="p-3 bg-muted/50 rounded-lg space-y-2">
+
+                  <div className="p-3 bg-muted/50 rounded-lg space-y-1">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Recommended Range:</span>
-                      <span className="font-semibold text-foreground">$1.50 - $5.00</span>
+                      <span className="font-semibold text-foreground">$1.50 – $5.00</span>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {formData.licensingFee < 1.50 ? '⚠️ Lower fees encourage more usage' :
-                       formData.licensingFee > 5.00 ? '⚠️ Higher fees may limit adoption' :
-                       '✓ This is within the optimal range'}
+                      {formData.licensingFee < 1.50
+                        ? '⚠️ Lower fees encourage more usage'
+                        : formData.licensingFee > 5.00
+                          ? '⚠️ Higher fees may limit adoption'
+                          : '✓ Within optimal range'}
                     </div>
                   </div>
 
-                  {/* Impact Analysis */}
-                  {currentUsageCount > 0 && (
+
+                  {usageCount > 0 && (
                     <div className="p-3 rounded-lg border border-border bg-background">
                       <div className="flex items-center gap-2 mb-2">
                         <AlertCircle className="h-4 w-4 text-blue-500" />
                         <span className="text-sm font-medium">Impact Analysis</span>
                       </div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Current avg earnings/use:</span>
-                          <span className="font-semibold">${averageEarningsPerUse.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">New earnings/use:</span>
-                          <span className="font-semibold">${projectedEarningsPerUse.toFixed(2)}</span>
-                        </div>
+                      <div className="space-y-1.5 text-sm">
+                        <StatRow label="Current avg/use" value={`$${avgEarningsPerUse.toFixed(2)}`} />
+                        <StatRow label="New earnings/use" value={`$${formData.licensingFee.toFixed(2)}`} />
                         {Math.abs(potentialIncrease) > 1 && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Change:</span>
-                            <span className={`font-semibold ${potentialIncrease > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                              {potentialIncrease > 0 ? '+' : ''}{potentialIncrease}%
-                            </span>
-                          </div>
+                          <StatRow
+                            label="Change"
+                            value={`${potentialIncrease > 0 ? '+' : ''}${potentialIncrease}%`}
+                            valueClass={potentialIncrease > 0 ? 'text-green-500' : 'text-red-500'}
+                          />
                         )}
                       </div>
                     </div>
@@ -335,153 +413,232 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
               </Card>
             )}
 
-            {/* Private IP Info */}
+
+            {/* ── Private IP benefits ──────────────────────── */}
             {!formData.isPublic && (
               <Card className="border-border bg-card">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Lock className="h-5 w-5 text-primary" />
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Lock className="h-4 w-4 text-primary" />
                     Private IP Benefits
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-start gap-2 text-sm">
-                    <div className="rounded-full bg-green-500/20 p-1 mt-0.5">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
+                <CardContent className="space-y-2">
+                  {[
+                    'Free to use in all your products',
+                    'No licensing costs deducted',
+                    'Hidden from public library',
+                    'Exclusive to your brand',
+                  ].map(b => (
+                    <div key={b} className="flex items-start gap-2 text-sm">
+                      <div className="rounded-full bg-green-500/20 p-1 mt-0.5">
+                        <div className="h-2 w-2 rounded-full bg-green-500" />
+                      </div>
+                      <span className="text-muted-foreground">{b}</span>
                     </div>
-                    <span className="text-muted-foreground">Free to use in all your products</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm">
-                    <div className="rounded-full bg-green-500/20 p-1 mt-0.5">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
-                    </div>
-                    <span className="text-muted-foreground">No licensing costs deducted</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm">
-                    <div className="rounded-full bg-green-500/20 p-1 mt-0.5">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
-                    </div>
-                    <span className="text-muted-foreground">Hidden from public library</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm">
-                    <div className="rounded-full bg-green-500/20 p-1 mt-0.5">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
-                    </div>
-                    <span className="text-muted-foreground">Exclusive to your brand</span>
-                  </div>
+                  ))}
                 </CardContent>
               </Card>
             )}
 
-            {/* Usage Analytics */}
+
+            {/* ── Performance Stats ────────────────────────── */}
             <Card className="border-border bg-card">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  Usage Analytics
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <BarChart2 className="h-4 w-4 text-primary" />
+                  Performance
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Total Uses</span>
-                  <span className="font-semibold text-foreground">{ipAsset.usageCount} products</span>
+                {/* 2×2 stat grid */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <div className="flex items-center gap-1.5 mb-1 text-xs text-muted-foreground">
+                      <ShoppingCart className="h-3.5 w-3.5" /> Products
+                    </div>
+                    <p className="text-xl font-bold">{usageCount}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <div className="flex items-center gap-1.5 mb-1 text-xs text-muted-foreground">
+                      <Eye className="h-3.5 w-3.5" /> Views
+                    </div>
+                    <p className="text-xl font-bold">{viewCount}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <div className="flex items-center gap-1.5 mb-1 text-xs text-muted-foreground">
+                      <DollarSign className="h-3.5 w-3.5" /> Revenue
+                    </div>
+                    <p className="text-xl font-bold">${totalRevenue.toFixed(0)}</p>
+                  </div>
+                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                    <div className="flex items-center gap-1.5 mb-1 text-xs text-muted-foreground">
+                      <TrendingUp className="h-3.5 w-3.5" /> Avg Price
+                    </div>
+                    <p className="text-xl font-bold">${avgProductPrice.toFixed(2)}</p>
+                  </div>
                 </div>
-                {formData.isPublic && (
-                  <>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Total Earnings</span>
-                      <span className="font-semibold text-green-500">${ipAsset.earnings.toFixed(2)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Avg per Product</span>
-                      <span className="font-semibold text-foreground">
-                        ${ipAsset.usageCount > 0 ? (ipAsset.earnings / ipAsset.usageCount).toFixed(2) : '0.00'}
-                      </span>
-                    </div>
-                  </>
-                )}
-                
-                <Separator className="bg-border my-3" />
-                
-                {/* Potential Earnings */}
+
+
+                <Separator className="bg-border" />
+
+
+                {/* secondary row stats */}
+                <div className="space-y-2">
+                  {formData.isPublic && (
+                    <StatRow
+                      label="Pool earnings"
+                      value={`$${earnings.toFixed(2)}`}
+                      valueClass="text-green-500"
+                    />
+                  )}
+                  {usageCount > 0 && formData.isPublic && (
+                    <StatRow
+                      label="Avg earnings/use"
+                      value={`$${(earnings / usageCount).toFixed(2)}`}
+                    />
+                  )}
+                  <StatRow
+                    label="Conversion (views → products)"
+                    value={conversionRate !== '—' ? `${conversionRate}%` : '—'}
+                  />
+                </div>
+
+
+                <Separator className="bg-border" />
+
+
+                {/* projected earnings box */}
                 {formData.isPublic ? (
                   <div className="p-3 rounded-lg bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20">
-                    <div className="text-xs text-muted-foreground mb-1">Potential Monthly Earnings</div>
-                    <div className="text-2xl font-bold text-foreground">
-                      ${(formData.licensingFee * Math.max(ipAsset.usageCount, 10)).toFixed(2)}
+                    <div className="text-xs text-muted-foreground mb-1">Projected Monthly Earnings</div>
+                    <div className="text-2xl font-bold">
+                      ${(formData.licensingFee * Math.max(usageCount, 10)).toFixed(2)}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Based on {Math.max(ipAsset.usageCount, 10)} uses per month
+                      Based on {Math.max(usageCount, 10)} uses/month @ ${formData.licensingFee.toFixed(2)}
                     </div>
                   </div>
                 ) : (
                   <div className="p-3 rounded-lg bg-muted/50 border border-border">
-                    <div className="text-xs text-muted-foreground mb-1">Cost Savings</div>
+                    <div className="text-xs text-muted-foreground mb-1">Cost Savings (private)</div>
                     <div className="text-2xl font-bold text-green-500">
-                      ${(2.50 * ipAsset.usageCount).toFixed(2)}
+                      ${(2.50 * usageCount).toFixed(2)}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Saved by keeping IP private (vs $2.50/use)
+                      Saved vs $2.50/use public rate
                     </div>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* IP Status Info */}
+
+            {/* ── Stakeholders ─────────────────────────────── */}
+            {stakeholders.length > 0 && (
+              <Card className="border-border bg-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    Revenue Splits
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {stakeholders.map((s, i) => (
+                    <div key={i} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold shrink-0">
+                          {(s.name || s.address || '?').charAt(0).toUpperCase()}
+                        </div>
+                        <span className="text-muted-foreground truncate max-w-[140px]" title={s.address}>
+                          {s.name || `${String(s.address).slice(0, 8)}…`}
+                        </span>
+                      </div>
+                      <Badge variant="outline" className="shrink-0 font-mono text-xs">
+                        {s.percentage}%
+                      </Badge>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+
+            {/* ── On-Chain Asset IDs ───────────────────────── */}
+            {hasOnChain && (
+              <Card className="border-border bg-card">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Coins className="h-4 w-4 text-primary" />
+                    On-Chain Assets
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {nftId && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">NFT Asset ID</span>
+                      <AlgoExplorerLink id={nftId} type="asset" />
+                    </div>
+                  )}
+                  {revId && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Revenue Token ID</span>
+                      <AlgoExplorerLink id={revId} type="asset" />
+                    </div>
+                  )}
+                  {appId && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Pool App ID</span>
+                      <AlgoExplorerLink id={appId} type="application" />
+                    </div>
+                  )}
+                  {ipAsset.ownerWallet && (
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Wallet className="h-3 w-3" /> Creator Wallet
+                      </span>
+                      <span className="font-mono text-xs text-muted-foreground" title={ipAsset.ownerWallet}>
+                        {ipAsset.ownerWallet.slice(0, 6)}…{ipAsset.ownerWallet.slice(-4)}
+                      </span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+
+            {/* ── Asset Dates & Status ─────────────────────── */}
             <Card className="border-border bg-card">
-              <CardHeader>
-                <CardTitle className="text-lg">Status Information</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  Asset Info
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Approval Status</span>
-                  <Badge className={
-                    ipAsset.status === 'approved' ? 'bg-green-600' :
-                    ipAsset.status === 'pending' ? 'bg-yellow-600' : 'bg-red-600'
-                  }>
-                    {ipAsset.status === 'approved' ? 'Approved' :
-                     ipAsset.status === 'pending' ? 'Pending Review' : 'Rejected'}
-                  </Badge>
+                  <span className="text-muted-foreground">Status</span>
+                  <Badge className={statusColor}>{statusLabel}</Badge>
                 </div>
-                
+                <StatRow label="Minted" value={fmtDate(ipAsset.createdAt)} />
+                {ipAsset.updatedAt && (
+                  <StatRow label="Last updated" value={fmtDate(ipAsset.updatedAt)} />
+                )}
+
+
+                {/* contextual notice — pending only */}
                 {ipAsset.status === 'pending' && formData.isPublic && (
-                  <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                    <p className="text-xs text-muted-foreground">
-                      Your IP is currently under review. You'll be notified once it's approved.
-                      Typical review time: 24-48 hours.
-                    </p>
-                  </div>
-                )}
-                
-                {ipAsset.status === 'rejected' && (
-                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                    <p className="text-xs text-muted-foreground">
-                      This IP was rejected. Please review our guidelines and upload a new version
-                      that meets our quality standards.
-                    </p>
-                  </div>
-                )}
-                
-                {ipAsset.status === 'approved' && formData.isPublic && (
-                  <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                    <p className="text-xs text-muted-foreground">
-                      ✓ This IP is approved and available in the global library.
-                    </p>
-                  </div>
-                )}
-                
-                {!formData.isPublic && (
-                  <div className="p-3 bg-gray-500/10 border border-gray-500/20 rounded-lg">
-                    <p className="text-xs text-muted-foreground">
-                      🔒 This IP is private. Only you can see and use it.
-                    </p>
+                  <div className="mt-2 p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-xs text-muted-foreground">
+                    ⏳ Processing on-chain. Usually completes within a few minutes.
                   </div>
                 )}
               </CardContent>
             </Card>
-          </div>
+
+
+          </div>{/* end right column */}
         </div>
+
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-border">

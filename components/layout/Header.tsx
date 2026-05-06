@@ -17,7 +17,6 @@ import {
   UserPlus,
   Languages,
 } from 'lucide-react';
-import MobileSidebar from './MobileSidebar';
 import CartButton from '@/components/cart/CartButton';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -73,16 +72,16 @@ export default function Header({ title }: { title?: string }) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur w-full">
-      <div className="grid h-16 grid-cols-[256px,1fr,auto] items-center px-4 md:px-8 gap-4">
+      <div className="grid h-16 grid-cols-[1fr,auto] md:grid-cols-[256px,1fr,auto] items-center px-4 md:px-8 gap-4">
         <div className="hidden md:block" />
 
-        <div className="flex justify-center">
-          <div className="w-full max-w-xl">
+        <div className="flex justify-center min-w-0">
+          <div className="w-full max-w-xl min-w-0">
             <GlobalSearch />
           </div>
         </div>
 
-        <div className="flex items-center gap-1 md:gap-2 justify-end">
+        <div className="flex items-center gap-1 md:gap-2 justify-end shrink-0">
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -147,10 +146,6 @@ export default function Header({ title }: { title?: string }) {
                 : 'Sign In'}
             </span>
           </Button>
-
-          <div className="md:hidden">
-            <MobileSidebar />
-          </div>
         </div>
       </div>
     </header>
