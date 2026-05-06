@@ -40,6 +40,7 @@ function CreditPaymentForm({ chosen, onBack, onSuccess }) {
         redirect: 'if_required',
         });
 
+        
     if (error) {
       setPaymentError(error.message);
       setProcessing(false);

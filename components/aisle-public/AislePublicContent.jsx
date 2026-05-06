@@ -97,7 +97,7 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
                         <p className="text-muted-foreground text-sm mt-2">Curated Collection</p>
                       </div>
                     ) : (
-                      <AisleIPAssetCard asset={featuredItem} accentColor={accentColor} />
+                      <AisleIPAssetCard item={featuredItem} accentColor={accentColor} />
                     )}
                 </div>
               </div>
@@ -194,7 +194,7 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
                   {populatedItems.map((item, idx) => {
                     const isIPAsset = item.licensingFee !== undefined || item.vaultType !== undefined;
                     return isIPAsset 
-                      ? <AisleIPAssetCard key={`${safeId(item)}-${idx}`} asset={item} accentColor={accentColor} />
+                      ? <AisleIPAssetCard key={`${safeId(item)}-${idx}`} item={item} accentColor={accentColor} />
                       : <AisleProductCard key={`${safeId(item)}-${idx}`} product={item} accentColor={accentColor} />;
                   })}
                 </div>

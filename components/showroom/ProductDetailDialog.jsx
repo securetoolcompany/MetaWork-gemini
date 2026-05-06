@@ -83,6 +83,9 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
       const data = await response.json();
       
       if (data.success && data.product) {
+          console.log('🖼️ mockupImages:', data.product.mockupImages);
+          console.log('🖼️ images:', data.product.images);
+          console.log('🖼️ thumbnailUrl:', data.product.thumbnailUrl);
         setProduct(data.product);
         setCreator(data.creator);
         setRelatedProducts(data.relatedProducts || []);
@@ -212,8 +215,12 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
 
   if (!open) return null;
 
-  const displayImages = product?.images || product?.mockupImages || [];
-  const productName = product?.name || product?.title || 'Product';
+  const displayImages = 
+    (product?.mockupImages?.length > 0 ? product.mockupImages : null) ||
+    (product?.images?.length > 0 ? product.images : null) ||
+    (product?.thumbnailUrl ? [product.thumbnailUrl] : null) ||
+    (product?.image ? [product.image] : null) ||
+    [];  const productName = product?.name || product?.title || 'Product';
   const productPrice = selectedVariation?.price || product?.price || 0;
   const productDescription = product?.description || '';
   const regularPrice = selectedVariation?.regular_price || product?.regularPrice;

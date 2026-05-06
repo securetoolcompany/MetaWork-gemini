@@ -1,320 +1,264 @@
-// scripts/scrape-and-migrate-product-images.mjs
+// scripts/migrate-product-images-to-cloudinary.mjs
+//
+// Migrates USER product images (aisle products) from VPS → Cloudinary → MongoDB
+// Skips base MFG catalog products entirely
+//
+// Usage:
+//   node --env-file=.env.local scripts/migrate-product-images-to-cloudinary.mjs --dry-run
+//   node --env-file=.env.local scripts/migrate-product-images-to-cloudinary.mjs --limit=10
+//   node --env-file=.env.local scripts/migrate-product-images-to-cloudinary.mjs
+
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { createReadStream } from 'fs';
+import { parse } from 'csv-parse';
 import { MongoClient } from 'mongodb';
 import { v2 as cloudinary } from 'cloudinary';
 import fetch from 'node-fetch';
-import * as cheerio from 'cheerio';
-import dotenv from 'dotenv';
 
-dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.join(__dirname, '..');
 
-// Configure Cloudinary
+const args     = process.argv.slice(2);
+const isDryRun = args.includes('--dry-run');
+const limitArg = args.find(a => a.startsWith('--limit='));
+const limit    = limitArg ? parseInt(limitArg.split('=')[1]) : null;
+const csvArg   = args.find(a => a.startsWith('--csv='));
+const CSV_PATH = csvArg ? csvArg.split('=')[1] : path.join(ROOT, 'wc-product-export.csv');
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Parse command line arguments
-const args = process.argv.slice(2);
-const isDryRun = args.includes('--dry-run');
-const limitArg = args.find(arg => arg.startsWith('--limit='));
-const limit = limitArg ? parseInt(limitArg.split('=')[1]) : null;
+const stats = { total: 0, migrated: 0, skipped: 0, failed: 0, errors: [] };
 
-const WOOCOMMERCE_BASE = 'https://securemetawork.com';
+function normalise(str) {
+  if (!str) return '';
+  return str.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
 
-// Stats
-const stats = {
-  total: 0,
-  migrated: 0,
-  skipped: 0,
-  failed: 0,
-  errors: []
-};
+function safePublicId(str) {
+  return str.toLowerCase().replace(/[^a-z0-9_-]/g, '_').replace(/_+/g, '_').slice(0, 80);
+}
 
-// Cache usernames
-const usernameCache = new Map();
+// ── Is this a user aisle product (not a base MFG template)? ─────
+function isUserProduct(row) {
+  const categories = (row['Categories'] || '').toLowerCase();
+  const name       = (row['Name'] || '').toLowerCase();
+  const parent     = (row['Parent'] || '').trim();
+  const externalId = (row['Meta: _smpf_external_product_id'] || '').trim();
 
-async function downloadImage(url, referer) {
-  const response = await fetch(url, {
+  // Skip variation children (they have a Parent ID)
+  if (parent && parent !== '0') return false;
+
+  // Skip anything categorised as MFG catalog
+  if (categories.includes('mfg')) return false;
+  if (categories.includes('metamanufacturing')) return false;
+
+  // Skip base template names
+  if (name.includes('metamanufacturing')) return false;
+  if (name.match(/\b(custom t-shirt|ceramic mug|phone case|mug,|poster,|hoodie,)\b/) && !externalId) return false;
+
+  // A real user product will have an external Printful product ID OR have images on the VPS
+  const hasImages = (row['Images'] || '').trim().length > 0;
+  return hasImages;
+}
+
+async function downloadBuffer(url) {
+  const res = await fetch(url.replace(/\s+/g, ''), {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Referer': referer || 'https://securemetawork.com/',
-      'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Cache-Control': 'no-cache'
-    }
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+      'Referer': 'https://securemetawork.com/',
+    },
+    timeout: 30000,
   });
-  if (!response.ok) {
-    throw new Error(`Failed to download: ${response.statusText}`);
-  }
-  return response.buffer();
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+  return res.buffer();
 }
 
-async function uploadToCloudinary(imageBuffer, username, productId, filename) {
+async function uploadToCloudinary(buffer, userId, productId, filename) {
   return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
+    const stream = cloudinary.uploader.upload_stream(
       {
-        folder: `metawork/products/${username}/mockups/${productId}`,
-        public_id: filename,
-        resource_type: 'image'
+        folder: `MetaWork/users/${userId}/mockups/${productId}`,
+        public_id: 'thumbnail',
+        resource_type: 'image',
+        overwrite: true,
       },
-      (error, result) => {
-        if (error) reject(error);
-        else resolve(result.secure_url);
-      }
+      (err, result) => err ? reject(err) : resolve(result.secure_url)
     );
-    uploadStream.end(imageBuffer);
+    stream.end(buffer);
   });
 }
 
-async function findUsername(db, categories) {
-  if (!categories || categories.length === 0) {
-    return null;
-  }
+function parseCsv(csvPath) {
+  return new Promise((resolve, reject) => {
+    console.log(`📄 Parsing CSV: ${csvPath}`);
+    const rows = [];
+    createReadStream(csvPath)
+      .pipe(parse({ columns: true, skip_empty_lines: true, bom: true, relax_quotes: true, relax_column_count: true }))
+      .on('data', row => rows.push(row))
+      .on('end', () => {
+        const userProducts = rows.filter(isUserProduct);
+        console.log(`  ✅ ${rows.length} total rows → ${userProducts.length} user aisle products (MFG skipped)\n`);
+        resolve(userProducts);
+      })
+      .on('error', reject);
+  });
+}
 
-  for (const category of categories) {
-    if (usernameCache.has(category)) {
-      const cachedResult = usernameCache.get(category);
-      if (cachedResult) return cachedResult;
+async function migrate(db) {
+  const rows = await parseCsv(CSV_PATH);
+  const productsCol = db.collection('products');
+
+  console.log('🍃 Loading MongoDB products...');
+  const usersCol = db.collection('users');
+  const allUsers = await usersCol.find({}, { projection: { _id: 1, username: 1 } }).toArray();
+  const userIdByUsername = new Map();
+  for (const u of allUsers) {
+    if (u.username) userIdByUsername.set(u.username.toLowerCase(), u._id.toString());
+  }
+  console.log(`  ✅ ${allUsers.length} users loaded\n`);
+  const allProducts = await productsCol.find({}).toArray();
+  const titleIndex  = new Map();
+  for (const p of allProducts) {
+    const key = normalise(p.name || p.title || '');
+    if (key) titleIndex.set(key, p);
+  }
+  console.log(`  ✅ ${allProducts.length} MongoDB products loaded\n`);
+
+  const toProcess = limit ? rows.slice(0, limit) : rows;
+  stats.total = toProcess.length;
+
+  console.log(`🚀 Processing ${stats.total} user products${isDryRun ? ' [DRY RUN]' : ''}...\n`);
+
+  for (let i = 0; i < toProcess.length; i++) {
+    const row  = toProcess[i];
+    const name = row['Name'] || '';
+    const sku  = row['SKU']  || '';
+    const wpId = row['ID']   || String(i);
+    const rawImages = row['Images'] || '';
+    const imageUrls = rawImages.split(',').map(u => u.trim()).filter(Boolean);
+    const imageUrl  = imageUrls[0].replace(/\s+/g, '');
+
+    console.log(`[${i + 1}/${toProcess.length}] "${name}"`);
+
+    if (!imageUrl) {
+      console.log(`  ⚠️  No image URL — skipping\n`);
+      stats.skipped++;
+      stats.errors.push({ name, reason: 'no_image_url' });
       continue;
     }
 
-    const user = await db.collection('users').findOne(
-      { username: category },
-      { projection: { username: 1 } }
-    );
+    // Match by normalised title
+    const normName = normalise(name);
+    let mongoProduct = titleIndex.get(normName) || null;
 
-    if (user) {
-      usernameCache.set(category, user.username);
-      return user.username;
-    } else {
-      usernameCache.set(category, null);
-    }
-  }
-
-  return null;
-}
-
-async function scrapeProductImages(productUrl) {
-  try {
-    const response = await fetch(productUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`Product page not found: ${response.status}`);
-    }
-
-    const html = await response.text();
-    const $ = cheerio.load(html);
-    
-    const images = [];
-    
-    // Try to find product images - WooCommerce typically uses these selectors
-    // Main product image
-    const mainImg = $('.woocommerce-product-gallery__image img').first().attr('src');
-    if (mainImg) {
-      images.push(mainImg);
-    }
-    
-    // Gallery images
-    $('.woocommerce-product-gallery__image img').each((i, el) => {
-      const src = $(el).attr('src') || $(el).attr('data-src');
-      if (src && !images.includes(src)) {
-        images.push(src);
-      }
-    });
-    
-    // Fallback: any product images
-    if (images.length === 0) {
-      $('img[class*="product"]').each((i, el) => {
-        const src = $(el).attr('src');
-        if (src && src.includes('/uploads/')) {
-          images.push(src);
+    if (!mongoProduct) {
+      for (const [key, p] of titleIndex) {
+        if (key.length > 4 && (key.includes(normName) || normName.includes(key))) {
+          mongoProduct = p;
+          break;
         }
-      });
+      }
     }
-    
-    return images.filter(img => img && img.startsWith('http'));
-  } catch (error) {
-    throw new Error(`Scrape failed: ${error.message}`);
-  }
-}
 
-function getProductUrl(product) {
-  // Try different URL patterns
-  if (product.permalink) {
-    return product.permalink;
-  }
-  
-  if (product.slug) {
-    return `${WOOCOMMERCE_BASE}/product/${product.slug}/`;
-  }
-  
-  if (product.legacyProductId) {
-    return `${WOOCOMMERCE_BASE}/?p=${product.legacyProductId}`;
-  }
-  
-  return null;
-}
-
-async function migrateProductImages(db) {
-  const productsCollection = db.collection('products');
-  
-  // Find ALL products (we'll filter by username)
-  let products = await productsCollection.find({}).toArray();
-  
-  // Filter to only products with valid usernames
-  const validProducts = [];
-  for (const product of products) {
-    const username = await findUsername(db, product.categories);
-    if (username) {
-      validProducts.push({ ...product, _username: username });
+    if (!mongoProduct && sku) {
+      mongoProduct = allProducts.find(p => p.sku === sku || p.printfulSku === sku) || null;
     }
-  }
-  
-  if (limit) {
-    validProducts.splice(limit);
-  }
-  
-  stats.total = validProducts.length;
-  console.log(`\n🔍 Found ${stats.total} products with valid usernames${isDryRun ? ' (DRY RUN)' : ''}\n`);
-  
-  for (let i = 0; i < validProducts.length; i++) {
-    const product = validProducts[i];
-    const productId = product.legacyProductId || product._id.toString();
-    const username = product._username;
-    const title = product.title || product.name || 'Untitled';
-    
-    console.log(`\n[${i + 1}/${validProducts.length}] Processing: ${title}`);
-    console.log(`  👤 Username: ${username}`);
-    console.log(`  🆔 Product ID: ${productId}`);
-    
-    try {
-      const productUrl = getProductUrl(product);
-      
-      if (!productUrl) {
-        console.log(`  ⚠️  Could not determine product URL`);
-        stats.skipped++;
-        continue;
+
+    if (!mongoProduct) {
+      console.log(`  ⚠️  No MongoDB match — skipping\n`);
+      stats.skipped++;
+      stats.errors.push({ name, reason: 'no_mongo_match', sku, wpId });
+      continue;
+    }
+
+    let userId = mongoProduct.userId?.toString() || mongoProduct.createdBy?.toString() || null;
+    if (!userId) {
+      const wpCats = (row['Categories'] || '').split(',').map(c => c.trim());
+      for (const cat of wpCats) {
+        const found = userIdByUsername.get(cat.toLowerCase());
+        if (found) { userId = found; break; }
       }
-      
-      console.log(`  🌐 Product URL: ${productUrl}`);
-      
-      if (isDryRun) {
-        console.log(`  [DRY RUN] Would scrape and migrate images`);
-        stats.migrated++;
-        continue;
-      }
-      
-      // Scrape images from live site
-      console.log(`  🕷️  Scraping product page...`);
-      const imageUrls = await scrapeProductImages(productUrl);
-      
-      if (imageUrls.length === 0) {
-        console.log(`  ⚠️  No images found on product page`);
-        stats.skipped++;
-        continue;
-      }
-      
-      console.log(`  📸 Found ${imageUrls.length} images`);
-      
-      const updates = {
-        originalUrls: {
-          thumbnail: product.thumbnailUrl,
-          mockups: product.mockupImages || []
-        }
-      };
-      
-      // Upload first image as thumbnail
-      console.log(`  📥 Downloading thumbnail...`);
-      const thumbnailBuffer = await downloadImage(imageUrls[0], productUrl);
-      const thumbnailUrl = await uploadToCloudinary(thumbnailBuffer, username, productId, 'thumbnail');
-      updates.thumbnailUrl = thumbnailUrl;
-      console.log(`  ✅ Thumbnail migrated: ${thumbnailUrl}`);
-      
-      // Upload remaining images as mockups
-      const mockupUrls = [];
-      for (let j = 0; j < imageUrls.length; j++) {
-        console.log(`  📥 Downloading mockup ${j + 1}/${imageUrls.length}...`);
-        const mockupBuffer = await downloadImage(imageUrls[j], productUrl);
-        const mockupUrl = await uploadToCloudinary(mockupBuffer, username, productId, `mockup_${j}`);
-        mockupUrls.push(mockupUrl);
-        console.log(`  ✅ Mockup ${j + 1} migrated`);
-      }
-      
-      updates.mockupImages = mockupUrls;
-      
-      // Update database
-      await productsCollection.updateOne(
-        { _id: product._id },
-        { $set: updates }
-      );
+    }
+    if (!userId) {
+      console.log(`  ⚠️  Could not resolve userId — skipping\n`);
+      stats.skipped++;
+      stats.errors.push({ name, reason: 'no_userId' });
+      continue;
+    }
+
+    const productId = mongoProduct.legacyProductId || wpId || mongoProduct._id.toString();
+
+    console.log(`  🖼️  ${imageUrl}`);
+    console.log(`  ☁️   MetaWork/users/${userId}/mockups/${productId}/thumbnail`);
+
+    if (isDryRun) {
+      console.log(`  [DRY RUN] Would upload + update\n`);
       stats.migrated++;
-      console.log(`  💾 Database updated`);
-      
-      // Rate limiting
-      if (i < validProducts.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-      
-    } catch (error) {
-      stats.failed++;
-      stats.errors.push({ product: title, url: getProductUrl(product), error: error.message });
-      console.error(`  ❌ Error: ${error.message}`);
+      continue;
     }
+
+    try {
+      console.log(`  📥 Downloading...`);
+      const buffer = await downloadBuffer(imageUrl);
+
+      console.log(`  ⬆️  Uploading...`);
+      const secureUrl = await uploadToCloudinary(buffer, userId, productId);
+      console.log(`  ✅ ${secureUrl}`);
+
+      await productsCol.updateOne(
+        { _id: mongoProduct._id },
+        { $set: { thumbnailUrl: secureUrl, mockupImages: [secureUrl] } }
+      );
+      console.log(`  💾 DB updated\n`);
+      stats.migrated++;
+
+    } catch (err) {
+      stats.failed++;
+      stats.errors.push({ name, reason: 'upload_error', error: err.message, imageUrl });
+      console.error(`  ❌ ${err.message}\n`);
+    }
+
+    await new Promise(r => setTimeout(r, 300));
   }
-  
-  // Print summary
-  console.log('\n' + '='.repeat(60));
-  console.log('📊 MIGRATION SUMMARY');
+
   console.log('='.repeat(60));
-  console.log(`Total products processed: ${stats.total}`);
-  console.log(`Successfully migrated: ${stats.migrated}`);
-  console.log(`Skipped: ${stats.skipped}`);
-  console.log(`Failed: ${stats.failed}`);
-  
-  if (stats.errors.length > 0) {
-    console.log('\n❌ Errors:');
-    stats.errors.forEach(({ product, url, error }) => {
-      console.log(`  - ${product}`);
-      console.log(`    URL: ${url}`);
-      console.log(`    Error: ${error}`);
-    });
+  console.log(`✅ Migrated: ${stats.migrated}  ⚠️ Skipped: ${stats.skipped}  ❌ Failed: ${stats.failed}`);
+
+  if (stats.errors.length) {
+    const errFile = path.join(__dirname, 'migrate-errors.json');
+    fs.writeFileSync(errFile, JSON.stringify(stats.errors, null, 2));
+    console.log(`📋 ${stats.errors.length} issues → scripts/migrate-errors.json`);
   }
-  
-  if (isDryRun) {
-    console.log('\n⚠️  This was a DRY RUN - no changes were made');
-  }
-  
+
+  if (isDryRun) console.log('\n⚠️  DRY RUN — no changes made');
   console.log('='.repeat(60) + '\n');
 }
 
 async function main() {
-  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-    console.error('❌ Missing Cloudinary configuration');
+  const missing = ['CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET', 'MONGODB_URI']
+    .filter(k => !process.env[k]);
+  if (missing.length) { console.error(`❌ Missing env: ${missing.join(', ')}`); process.exit(1); }
+
+  if (!fs.existsSync(CSV_PATH)) {
+    console.error(`❌ CSV not found: ${CSV_PATH}`);
+    console.error(`   Rename your export to wc-product-export.csv in the project root`);
     process.exit(1);
   }
-  
-  if (!process.env.MONGODB_URI) {
-    console.error('❌ Missing MONGODB_URI');
-    process.exit(1);
-  }
-  
-  console.log('🚀 Starting product image scraping and migration...\n');
-  
+
   const client = new MongoClient(process.env.MONGODB_URI);
-  
   try {
     await client.connect();
     console.log('✅ Connected to MongoDB\n');
-    
-    const db = client.db();
-    await migrateProductImages(db);
-    
-  } catch (error) {
-    console.error('❌ Fatal error:', error);
+    await migrate(client.db(process.env.DB_NAME || undefined));
+  } catch (err) {
+    console.error('❌ Fatal:', err.message);
     process.exit(1);
   } finally {
     await client.close();
