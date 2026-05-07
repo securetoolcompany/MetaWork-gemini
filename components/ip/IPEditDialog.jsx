@@ -77,8 +77,7 @@ function StatRow({ label, value, valueClass = '' }) {
 // ── main component ─────────────────────────────────────────────────────────────
 
 
-export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep }) {
-  // normalise category — may arrive as comma-string or array
+export default function IPEditDialog({ ipAsset, open, onOpenChange, onSaved, tutorialStep }) {
   const rawCat = ipAsset?.category || '';
   const initialCategory = Array.isArray(rawCat)
     ? rawCat.join(',')
@@ -90,8 +89,7 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
     description:  ipAsset?.description || 'High-quality digital artwork perfect for print-on-demand products',
     category:     initialCategory,
     tags:         Array.isArray(ipAsset?.tags) ? ipAsset.tags : (ipAsset?.tags || 'design, artwork, print, creative'),
-    licensingFee: ipAsset?.licensingFee || 2.50,
-    isPublic:     ipAsset?.isPublic !== undefined ? ipAsset.isPublic : true,
+    licensingFee: ipAsset?.licensingFee != null ? ipAsset.licensingFee : 1.00,    isPublic:     ipAsset?.isPublic !== undefined ? ipAsset.isPublic : true,
   });
 
 
@@ -127,7 +125,7 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
 
 
   // ── save ───────────────────────────────────────────────────────────────────
-  const handleSave = () => {
+ const handleSave = async () => {
     if (!formData.name || !formData.category) {
       toast.error('Missing required fields', { description: 'Name and at least one category are required.' });
       return;
@@ -139,14 +137,40 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, tutorialStep
     if (formData.isPublic && formData.licensingFee > 20.00) {
       toast.warning('High licensing fee', { description: 'High fees may discourage usage.' });
     }
-    if (ipAsset?.isPublic && !formData.isPublic) {
-      toast.success('IP set to private!', { description: 'Removed from library. Existing licenses remain active.' });
-    } else if (!ipAsset?.isPublic && formData.isPublic) {
-      toast.success('IP set to public!', { description: 'Will be available in library once active.' });
-    } else {
-      toast.success('IP updated successfully!', { description: 'Your changes have been saved.' });
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/ip/${ipAsset._id || ipAsset.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name:         formData.name,
+          description:  formData.description,
+          category:     formData.category,
+          tags:         formData.tags,
+          licensingFee: formData.licensingFee,
+          isPublic:     formData.isPublic,
+        }),
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+
+      if (ipAsset?.isPublic && !formData.isPublic) {
+        toast.success('IP set to private!', { description: 'Removed from library. Existing licenses remain active.' });
+      } else if (!ipAsset?.isPublic && formData.isPublic) {
+        toast.success('IP set to public!', { description: 'Will be available in library once active.' });
+      } else {
+        toast.success('IP updated successfully!', { description: 'Your changes have been saved.' });
+      }
+
+      onSaved?.({ ...ipAsset, ...formData });
+      onOpenChange(false);
+    } catch (err) {
+      toast.error('Save failed', { description: err.message });
     }
-    onOpenChange(false);
   };
 
 
