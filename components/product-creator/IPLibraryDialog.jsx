@@ -150,9 +150,11 @@ export default function IPLibraryDialog({ open, onOpenChange, onSelectIP, isConn
             ip={viewingIP}
             onBack={() => setViewingIP(null)}
             onSelect={(ipToUse) => {
-              onSelectIP?.(ipToUse);
               onOpenChange(false);
               setViewingIP(null);
+              setTimeout(() => {
+                onSelectIP?.(ipToUse);
+              }, 50);
             }}
           />
         </>

@@ -110,7 +110,7 @@ export default function BlankProductDetailsDialog({ open, onOpenChange, product,
     };
   }, [activeProduct]);
 
-  if (!product || !report) return null;
+  if (!product) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -119,64 +119,70 @@ export default function BlankProductDetailsDialog({ open, onOpenChange, product,
         <DialogHeader className="p-6 border-b border-slate-800 bg-slate-900/50 flex-shrink-0">
           <DialogTitle className="text-xl font-bold">{product.name}</DialogTitle>
           <Badge variant="outline" className="mt-2 text-slate-400 border-slate-700">
-            {report.technique}
+            {report?.technique ?? '...'}
           </Badge>
         </DialogHeader>
 
         <ScrollArea className="flex-1">
-          <div className="grid md:grid-cols-12 min-h-full">
-            {/* Image Preview */}
-            <div className="md:col-span-5 bg-white p-8 border-r border-slate-800/50 flex items-center justify-center">
-              <img 
-                src={activeProduct.image || product.thumbnailUrl} 
-                alt={product.name} 
-                className="max-h-full object-contain" 
-              />
+          {!report ? (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="animate-spin h-6 w-6 text-slate-500" />
             </div>
-
-            {/* Details & Pricing */}
-            <div className="md:col-span-7 p-6 space-y-8 bg-slate-950/50">
-              <div className="space-y-4">
-                 <h3 className="font-semibold text-white">Description</h3>
-                 <p className="text-sm text-slate-400 leading-relaxed">
-                   {activeProduct.description || "No description available."}
-                 </p>
-                 
-                 {report.colors.length > 0 && (
-                   <div className="pt-2">
-                     <h4 className="text-xs font-semibold text-slate-500 uppercase mb-2">Available Colors</h4>
-                     <div className="flex flex-wrap gap-2">
-                       {report.colors.map((c, i) => (
-                         <div key={i} className="w-6 h-6 rounded-full border border-slate-700" style={{ backgroundColor: c.hex }} title={c.name} />
-                       ))}
-                     </div>
-                   </div>
-                 )}
+          ) : (
+            <div className="grid md:grid-cols-12 min-h-full">
+              {/* Image Preview */}
+              <div className="md:col-span-5 bg-white p-8 border-r border-slate-800/50 flex items-center justify-center">
+                <img 
+                  src={activeProduct.image || product.thumbnailUrl} 
+                  alt={product.name} 
+                  className="max-h-full object-contain" 
+                />
               </div>
 
-              <Separator className="bg-slate-800" />
+              {/* Details & Pricing */}
+              <div className="md:col-span-7 p-6 space-y-8 bg-slate-950/50">
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-white">Description</h3>
+                  <p className="text-sm text-slate-400 leading-relaxed">
+                    {activeProduct.description || "No description available."}
+                  </p>
+                  
+                  {report.colors.length > 0 && (
+                    <div className="pt-2">
+                      <h4 className="text-xs font-semibold text-slate-500 uppercase mb-2">Available Colors</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {report.colors.map((c, i) => (
+                          <div key={i} className="w-6 h-6 rounded-full border border-slate-700" style={{ backgroundColor: c.hex }} title={c.name} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
-              <div className="space-y-3">
-                 <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
-                   <DollarSign className="w-4 h-4 text-green-500" /> Pricing Matrix
-                 </h4>
-                 <div className="rounded-md border border-slate-800 overflow-hidden text-sm bg-slate-900/50">
+                <Separator className="bg-slate-800" />
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-green-500" /> Pricing Matrix
+                  </h4>
+                  <div className="rounded-md border border-slate-800 overflow-hidden text-sm bg-slate-900/50">
                     <div className="grid grid-cols-12 p-2 bg-slate-900 border-b border-slate-800 font-medium text-slate-400">
-                       <div className="col-span-8">Size</div>
-                       <div className="col-span-4 text-right">Your Cost</div>
+                      <div className="col-span-8">Size</div>
+                      <div className="col-span-4 text-right">Your Cost</div>
                     </div>
                     {loading ? (
-                        <div className="p-4 flex justify-center"><Loader2 className="animate-spin h-5 w-5 text-slate-500" /></div>
+                      <div className="p-4 flex justify-center"><Loader2 className="animate-spin h-5 w-5 text-slate-500" /></div>
                     ) : report.priceTable.map((row, idx) => (
-                       <div key={idx} className="grid grid-cols-12 p-2 border-b border-slate-800/50 last:border-0 hover:bg-slate-900/30">
-                          <div className="col-span-8 text-slate-300">{row.options}</div>
-                          <div className="col-span-4 text-right text-green-400 font-mono font-bold">${row.price}</div>
-                       </div>
+                      <div key={idx} className="grid grid-cols-12 p-2 border-b border-slate-800/50 last:border-0 hover:bg-slate-900/30">
+                        <div className="col-span-8 text-slate-300">{row.options}</div>
+                        <div className="col-span-4 text-right text-green-400 font-mono font-bold">${row.price}</div>
+                      </div>
                     ))}
-                 </div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </ScrollArea>
 
         <DialogFooter className="p-6 border-t border-slate-800 bg-slate-900/50 flex-shrink-0">
@@ -185,11 +191,11 @@ export default function BlankProductDetailsDialog({ open, onOpenChange, product,
           </Button>
           <Button 
             onClick={() => onSelect(activeProduct)} 
-            disabled={loading || report.stockStatus.isOutOfStock} 
+            disabled={loading || !report || report.stockStatus.isOutOfStock} 
             className="bg-blue-600 hover:bg-blue-500 text-white min-w-[140px]"
           >
-             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paintbrush className="w-4 h-4 mr-2" />}
-             Design Product
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paintbrush className="w-4 h-4 mr-2" />}
+            Design Product
           </Button>
         </DialogFooter>
       </DialogContent>

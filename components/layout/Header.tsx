@@ -36,6 +36,7 @@ const LANGUAGES = [
   { code: 'en|es', label: 'Español' },
   { code: 'en|fr', label: 'Français' },
   { code: 'en|it', label: 'Italiano' },
+  { code: 'en|zh-CN', label: '简体中文' },
 ];
 
 export default function Header({ title }: { title?: string }) {

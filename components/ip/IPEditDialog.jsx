@@ -139,8 +139,10 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, onSaved, tut
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/ip/${ipAsset._id || ipAsset.id}`, {
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];      const res = await fetch(`/api/ip/${ipAsset._id || ipAsset.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

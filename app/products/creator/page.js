@@ -214,28 +214,52 @@ function ProductCreatorInner() {
   }, [externalProductId, accountAddress])
 
   const addIPToDesign = useCallback(
-    (ip) => {
+  (ip) => {
+    const imageUrl = (ip.imageUrl || ip.thumbnailUrl || '').replace(/\/ipfs\/ipfs\//, '/ipfs/')
+      if (!imageUrl) return
+
+    const tryAdd = (attempts = 0) => {
       const instance = pfDesignMakerRef.current
-      const imageUrl = ip.imageUrl || ip.thumbnailUrl
-
-      if (!instance || !imageUrl) return
-
+      if (!instance) {
+        if (attempts < 5) setTimeout(() => tryAdd(attempts + 1), 200)
+        else toast.error('Designer not ready — please try again')
+        return
+      }
       setSelectedIPs((prev) =>
         prev.some((p) => p.id === ip.id)
           ? prev.map((p) => (p.id === ip.id ? ip : p))
           : [...prev, ip]
       )
-
       try {
-        instance.sendMessage({ event: 'setUrlImageLayer', url: imageUrl })
-        const edm = document.getElementById('printful-designer-container')
-        if (edm) edm.focus()
-      } catch (err) {
-        toast.error('Failed to add image to designer')
-      }
+  clearGlobalInteractionLocks()
+
+  const iframe = document.querySelector('#printful-designer-container iframe')
+  if (!iframe?.contentWindow) {
+    console.warn('[addIPToDesign] no iframe contentWindow found')
+    return
+  }
+
+  const targetOrigin = 'https://www.printful.com'
+
+  console.log('[addIPToDesign] sending to origin:', targetOrigin, 'imageUrl:', imageUrl)
+
+  iframe.contentWindow.postMessage(
+    {
+      event: 'setUrlImageLayer',
+      imageUrl
     },
-    []
+    targetOrigin
   )
+} catch (err) {
+  console.error('[addIPToDesign] error:', err)
+  toast.error('Failed to add image to designer')
+}
+}
+
+    tryAdd()
+  },
+  [clearGlobalInteractionLocks]
+)
 
   useEffect(() => {
     if (!urlInitialIpId) return

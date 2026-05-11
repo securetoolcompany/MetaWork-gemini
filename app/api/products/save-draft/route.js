@@ -175,6 +175,8 @@ export async function POST(request) {
           baseProduct,
           name: name || baseProduct?.name || 'Untitled Design',
           costAnalysis: costAnalysis || null,
+          baseProductCost: costAnalysis?.base ?? 0,
+          totalIPCost: costAnalysis?.ip ?? 0,
           status: 'draft',
           printfulSyncProductId: null,
           updatedAt: now,

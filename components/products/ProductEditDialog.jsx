@@ -90,8 +90,20 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
     }
   }, [product]);
 
-  // Strict Dynamic Costing - No Hardcoded Fallbacks
-  const baseProductCost = parseFloat(product?.baseProductCost) || 0;
+  const baseProductCost = parseFloat(
+    product?.baseProductCost ??
+    product?.costAnalysis?.base
+  ) || 0;
+
+  console.log('[ProductEditDialog] cost fields:', {
+  baseProductCost: product?.baseProductCost,
+  retailCost: product?.retailCost,
+  baseCost: product?.baseCost,
+  cost: product?.cost,
+  printfulRetailPrice: product?.printfulRetailPrice,
+  basePrice: product?.basePrice,
+  resolved: baseProductCost,
+});
 
   const ipCosts = (() => {
     if (product?.ipUsages && Array.isArray(product.ipUsages)) {

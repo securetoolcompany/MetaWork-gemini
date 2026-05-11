@@ -4,25 +4,21 @@ import { verifyToken } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-/**
- * GET /api/ip/library
- * Get global IP library with filters for Category AND Creator
- */
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search') || '';
     const category = searchParams.get('category') || '';
-    const creator = searchParams.get('creator') || ''; // New creator filter
+    const creator = searchParams.get('creator') || '';
+    const sort = searchParams.get('sort') || '';
     const tags = searchParams.get('tags')?.split(',').filter(Boolean) || [];
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
-    const excludeOwner = searchParams.get('excludeOwner'); 
+    const excludeOwner = searchParams.get('excludeOwner');
 
     let currentUserId = null;
     const authHeader = request.headers.get('authorization');
     const token = authHeader?.substring(7) || request.cookies.get('auth_token')?.value;
-    
     if (token) {
       try {
         const decoded = verifyToken(token);
@@ -32,131 +28,86 @@ export async function GET(request) {
 
     const { db } = await connectToDatabase();
 
-    const query = {
-      $or: [
-        { status: 'listed', isMinted: true },
-        { status: 'minted', minted: true },
-        { minted: true, isPublic: true },
-        { status: 'active', isPublic: true }
-      ]
-    };
+    const andClauses = [];
 
     if (excludeOwner && currentUserId) {
-      query.ownerId = { $ne: currentUserId };
+      andClauses.push({ ownerId: { $ne: currentUserId } });
     }
 
     if (search) {
-      const searchRegex = new RegExp(search, 'i');
-      query.$or = [
-        { name: searchRegex },
-        { title: searchRegex },
-        { description: searchRegex }
-      ];
+      const r = new RegExp(search, 'i');
+      andClauses.push({
+        $or: [{ name: r }, { title: r }, { description: r }, { ownerName: r }]
+      });
     }
 
-    // Category filter (check both systemCategory AND category fields)
-    if (category) {
-      query.$or = query.$or || [];
-      const categoryOr = [
-        { systemCategory: category },
-        { category: category }
-      ];
-      
-      if (query.$or.length > 0) {
-        // Merge with existing $or from search
-        query.$and = [
-          { $or: query.$or },
-          { $or: categoryOr }
-        ];
-        delete query.$or;
-      } else {
-        query.$or = categoryOr;
-      }
+    if (category && category !== 'all') {
+      andClauses.push({ $or: [{ category }, { systemCategory: category }] });
     }
 
-    // Tags filter (check both userTags AND tags fields)
     if (tags.length > 0) {
-      const tagsQuery = {
-        $or: [
-          { userTags: { $in: tags } },
-          { tags: { $in: tags } }
-        ]
-      };
-      
-      if (query.$and) {
-        query.$and.push(tagsQuery);
-      } else if (query.$or) {
-        query.$and = [{ $or: query.$or }, tagsQuery];
-        delete query.$or;
-      } else {
-        query.$and = [tagsQuery];
-      }
+      andClauses.push({ $or: [{ tags: { $in: tags } }, { userTags: { $in: tags } }] });
     }
-    
-    // Filter by Creator
-if (creator && creator !== 'all') {
-  if (query.$and) {
-    query.$and.push({ ownerName: creator });
-  } else {
-    query.ownerName = creator;
-  }
-}
 
+    if (creator && creator !== 'all') {
+      andClauses.push({ ownerName: creator });
+    }
+
+    const query = andClauses.length > 0 ? { $and: andClauses } : {};
 
     const totalCount = await db.collection('ip_assets').countDocuments(query);
 
-    const ipAssets = await db.collection('ip_assets')
-      .find(query)
-      .sort({ usageCount: -1, createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .toArray();
+    let ipAssets;
+    if (sort === 'random') {
+      const pipeline = [];
+      if (andClauses.length > 0) pipeline.push({ $match: query });
+      pipeline.push({ $sample: { size: limit } });
+      ipAssets = await db.collection('ip_assets').aggregate(pipeline).toArray();
+    } else {
+      ipAssets = await db.collection('ip_assets')
+        .find(query)
+        .sort({ usageCount: -1, createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .toArray();
+    }
 
-    // Get filters: Categories and Creators
-    const categories = await db.collection('ip_assets').distinct('category', query);
-    
-    // Get distinct creators (owners) for the dropdown
-    const creators = await db.collection('ip_assets').distinct('ownerName', {
-       // We use the base query (public/listed) but ignore specific filters to populate the full list
-       $or: [
-        { status: 'listed', isMinted: true },
-        { status: 'minted', minted: true },
-        { minted: true, isPublic: true },
-        { status: 'active', isPublic: true }
-      ]
+    const categories = await db.collection('ip_assets').distinct('category', {});
+    const creators = await db.collection('ip_assets').distinct('ownerName', {});
+
+    return NextResponse.json({
+      success: true,
+      ipAssets: ipAssets.map(asset => ({
+        id: asset.id || asset._id?.toString(),
+        _id: asset._id?.toString(),
+        name: asset.name || asset.title,
+        title: asset.title || asset.name,
+        description: asset.description,
+        imageUrl: asset.imageUrl,
+        thumbnailUrl: asset.thumbnailUrl || asset.imageUrl,
+        category: asset.category || asset.systemCategory,
+        tags: asset.tags || asset.userTags || [],
+        ownerId: asset.ownerId,
+        ownerName: asset.ownerName,
+        ownerUsername: asset.ownerUsername,
+        ownerAvatar: asset.ownerAvatar,
+        licensingFee: asset.licensingFee || 0,
+        usageCount: asset.usageCount || 0,
+        totalRevenue: asset.totalRevenue || 0,
+        avgProductPrice: asset.avgProductPrice || 0,
+        viewCount: asset.viewCount || 0,
+        isPublic: asset.isPublic,
+        status: asset.status,
+        minted: asset.minted,
+        createdAt: asset.createdAt,
+      })),
+      pagination: { page, limit, totalCount, totalPages: Math.ceil(totalCount / limit) },
+      filters: {
+        categories: categories.filter(Boolean).sort(),
+        creators: creators.filter(Boolean).sort(),
+        popularTags: [],
+      }
     });
-    
-return NextResponse.json({
-  success: true,
-  ipAssets: ipAssets.map(asset => ({
-    id: asset.id || asset._id?.toString(),
-    _id: asset._id?.toString(),
-    name: asset.name || asset.title,
-    title: asset.title || asset.name,
-    description: asset.description,
-    imageUrl: asset.imageUrl,
-    category: asset.category,
-    tags: asset.tags || [],
-    ownerId: asset.ownerId,
-    ownerName: asset.ownerName,
-    licensingFee: asset.licensingFee || 0,
-    status: asset.status,
-    minted: asset.minted,
-    createdAt: asset.createdAt
-  })),
-  pagination: {
-    page,
-    limit,
-    totalCount,
-    totalPages: Math.ceil(totalCount / limit)
-  },
-  filters: {
-    categories: categories.filter(Boolean),
-    creators: creators.filter(Boolean).sort(),
-    popularTags: [] 
-  }
-});
-
 
   } catch (error) {
     console.error('IP Library API Error:', error);

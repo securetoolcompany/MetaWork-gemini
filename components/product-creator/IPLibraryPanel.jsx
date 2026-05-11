@@ -33,7 +33,7 @@ export default function IPLibraryPanel({
   useEffect(() => {
     const fetchTrending = async () => {
       try {
-        const res = await fetch('/api/ip/library?limit=8');
+        const res = await fetch('/api/ip/library?limit=8&sort=random');
         const data = await res.json();
         if (data.success) setTrendingIPs(data.ipAssets);
       } catch (e) {
