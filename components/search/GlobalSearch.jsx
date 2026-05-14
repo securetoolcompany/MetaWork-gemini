@@ -18,7 +18,6 @@ export default function GlobalSearch() {
         setIsOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
@@ -30,7 +29,6 @@ export default function GlobalSearch() {
         inputRef.current?.blur();
       }
     };
-
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, []);
@@ -51,13 +49,8 @@ export default function GlobalSearch() {
       setIsOpen(true);
 
       try {
-        const response = await fetch(
-          `/api/search?q=${encodeURIComponent(query)}`,
-          { signal }
-        );
-
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal });
         if (!response.ok) throw new Error('Search failed');
-
         const data = await response.json();
         setResults(data);
       } catch (error) {
@@ -98,19 +91,15 @@ export default function GlobalSearch() {
 
   return (
     <div ref={searchRef} className="relative w-full max-w-2xl">
-      <div 
-        className="w-full pl-10 pr-10 py-2 rounded-full bg-muted/60 border border-border/60 
-           focus:outline-none focus:ring-2 focus:ring-primary/70 focus:border-transparent
-           text-sm"
->
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="relative w-full">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
         <input
           ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search products, aisles, creators..."
-          className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm text-black"
+          className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm text-black bg-white"
           aria-label="Global search"
           aria-expanded={isOpen}
           aria-controls="search-results"
@@ -120,6 +109,7 @@ export default function GlobalSearch() {
             onClick={handleClear}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             aria-label="Clear search"
+            type="button"
           >
             <X className="h-4 w-4" />
           </button>
@@ -127,52 +117,44 @@ export default function GlobalSearch() {
       </div>
 
       {isOpen && (
-  <div
-    id="search-results"
-    className="absolute top-full mt-2 w-full bg-slate-900 border border-slate-800 rounded-lg shadow-lg max-h-[500px] overflow-y-auto z-50 text-slate-50"
-  >
-
+        <div
+          id="search-results"
+          className="absolute top-full mt-2 w-full bg-slate-900 border border-slate-800 rounded-lg shadow-lg max-h-[500px] overflow-y-auto z-50 text-slate-50"
+        >
           {isSearching && (
-            <div className="p-4 text-center text-muted-foreground">
-              Searching...
-            </div>
+            <div className="p-4 text-center text-slate-300">Searching...</div>
           )}
 
           {!isSearching && !hasResults && query.trim().length > 0 && (
-            <div className="p-4 text-center text-muted-foreground">
-              No results found for "{query}"
+            <div className="p-4 text-center text-slate-300">
+              No results found for &quot;{query}&quot;
             </div>
           )}
 
           {!isSearching && hasResults && (
             <div className="py-2">
+
               {results.products.length > 0 && (
                 <SearchSection
-  title="Products"
-  icon={Package}
-  items={results.products}
-  renderItem={(product) => (
-    <Link
-      key={product._id}
-      href={`/showroom?product=${product._id}`}
-      onClick={handleResultClick}
-      className="group flex items-center gap-3 px-4 py-2 hover:bg-slate-800 transition-colors"
-    >
-      <Package className="h-4 w-4 text-slate-300 flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="font-medium truncate text-white group-hover:text-white">
-          {product.title}
-        </p>
-        {product.slug && (
-          <p className="text-sm text-slate-300 group-hover:text-slate-200 truncate">
-            /{product.slug}
-          </p>
-        )}
-      </div>
-    </Link>
-  )}
-/>
-
+                  title="Products"
+                  icon={Package}
+                  items={results.products}
+                  renderItem={(product) => (
+                    <Link
+                      key={product._id}
+                      href={`/products/${product.id || product._id}`}
+                      onClick={handleResultClick}
+                      className="group flex items-center gap-3 px-4 py-2 hover:bg-slate-800 transition-colors"
+                    >
+                      <Package className="h-4 w-4 text-slate-300 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate text-slate-100 group-hover:text-white">
+                          {product.name}
+                        </p>
+                      </div>
+                    </Link>
+                  )}
+                />
               )}
 
               {results.aisles.length > 0 && (
@@ -180,22 +162,27 @@ export default function GlobalSearch() {
                   title="Aisles"
                   icon={FolderOpen}
                   items={results.aisles}
-                  renderItem={(aisle) => (
-                    <Link
-                      key={aisle._id}
-                      href={`/aisle/${aisle.slug}`}
-                      onClick={handleResultClick}
-                      className="flex items-center gap-3 px-4 py-2 hover:bg-slate-800 transition-colors"
-                    >
-                      <FolderOpen className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{aisle.name}</p>
-                        <p className="text-sm text-muted-foreground truncate">
-                          /aisle/{aisle.slug}
-                        </p>
-                      </div>
-                    </Link>
-                  )}
+                  renderItem={(aisle) => {
+                    const publicSlug = aisle.publicSlug;
+                    return (
+                      <Link
+                        key={aisle._id}
+                        href={publicSlug ? `/aisle/${publicSlug}` : '#'}
+                        onClick={handleResultClick}
+                        className="group flex items-center gap-3 px-4 py-2 hover:bg-slate-800 transition-colors"
+                      >
+                        <FolderOpen className="h-4 w-4 text-slate-300 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate text-slate-100 group-hover:text-white">
+                            {aisle.title}
+                          </p>
+                          <p className="text-sm text-slate-400 group-hover:text-slate-300 truncate">
+                            {publicSlug ? `/aisle/${publicSlug}` : 'Link unavailable'}
+                          </p>
+                        </div>
+                      </Link>
+                    );
+                  }}
                 />
               )}
 
@@ -209,26 +196,22 @@ export default function GlobalSearch() {
                       key={profile._id}
                       href={`/profile/${profile.slug || profile.username}`}
                       onClick={handleResultClick}
-                      className="flex items-center gap-3 px-4 py-2 hover:bg-slate-800 transition-colors"
+                      className="group flex items-center gap-3 px-4 py-2 hover:bg-slate-800 transition-colors"
                     >
-                      <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <User className="h-4 w-4 text-slate-300 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">
+                        <p className="font-medium truncate text-slate-100 group-hover:text-white">
                           {profile.displayName || profile.username}
                         </p>
-                        {profile.email && (
-                          <p className="text-sm text-muted-foreground truncate">
-                            </p>
-                        )}
+                        <p className="text-sm text-slate-400 group-hover:text-slate-300 truncate">
+                          /profile/{profile.slug || profile.username}
+                        </p>
                       </div>
                     </Link>
                   )}
                 />
               )}
 
-              {/*
-                EXTENSIBILITY: Add more sections here for future content types
-              */}
             </div>
           )}
         </div>
@@ -240,15 +223,14 @@ export default function GlobalSearch() {
 function SearchSection({ title, icon: Icon, items, renderItem }) {
   return (
     <div className="mb-2 last:mb-0">
-      <div className="flex items-center gap-2 px-4 py-2 bg-white border-b border-gray-200">
-        <Icon className="h-4 w-4 text-slate-700" />
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-800">
+      <div className="flex items-center gap-2 px-4 py-2 bg-slate-800 border-b border-slate-700">
+        <Icon className="h-4 w-4 text-slate-300" />
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-200">
           {title}
         </h3>
-        <span className="text-xs text-slate-500">({items.length})</span>
+        <span className="text-xs text-slate-400">({items.length})</span>
       </div>
       <div>{items.map(renderItem)}</div>
     </div>
   );
 }
-

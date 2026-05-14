@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 export async function GET(request) {
   try {
@@ -7,40 +8,37 @@ export async function GET(request) {
     const query = searchParams.get('q')?.trim();
 
     if (!query) {
-      return NextResponse.json({
-        products: [],
-        aisles: [],
-        profiles: [],
-      });
+      return NextResponse.json({ products: [], aisles: [], profiles: [] });
     }
 
     const { db } = await connectToDatabase();
     const searchRegex = new RegExp(query, 'i');
 
-    const [products, aisles, profiles] = await Promise.all([
+    const [products, rawAisles, profiles] = await Promise.all([
       db.collection('products')
         .find({
           $or: [
-            { title: searchRegex },
+            { name: searchRegex },
             { description: searchRegex },
-            { categories: searchRegex },
           ],
           isDraft: { $ne: true },
-          status: 'active'
+          isPublic: true,
+          status: { $in: ['active', 'live'] },
         })
         .limit(10)
-        .project({ _id: 1, title: 1, slug: 1, creatorId: 1 })
+        .project({ _id: 1, name: 1, id: 1 })
         .toArray(),
 
       db.collection('aisles')
         .find({
           $or: [
-            { name: searchRegex },
+            { title: searchRegex },
             { slug: searchRegex },
           ],
+          isActive: true,
         })
         .limit(10)
-        .project({ _id: 1, name: 1, slug: 1 })
+        .project({ _id: 1, title: 1, slug: 1, userId: 1 })
         .toArray(),
 
       db.collection('users')
@@ -56,16 +54,32 @@ export async function GET(request) {
         .toArray(),
     ]);
 
-    return NextResponse.json({
-      products,
-      aisles,
-      profiles,
+    // Resolve the public URL slug for each aisle via userId -> user.aisleSettings.slug || user.username
+    const userIds = rawAisles
+      .map(a => {
+        try { return new ObjectId(a.userId); } catch { return null; }
+      })
+      .filter(Boolean);
+
+    const aisleUsers = userIds.length
+      ? await db.collection('users')
+          .find({ _id: { $in: userIds } })
+          .project({ _id: 1, username: 1, 'aisleSettings.slug': 1 })
+          .toArray()
+      : [];
+
+    const userMap = {};
+    aisleUsers.forEach(u => { userMap[u._id.toString()] = u; });
+
+    const aisles = rawAisles.map(aisle => {
+      const user = userMap[aisle.userId?.toString()];
+      const publicSlug = user?.aisleSettings?.slug || user?.username || null;
+      return { ...aisle, publicSlug };
     });
+
+    return NextResponse.json({ products, aisles, profiles });
   } catch (error) {
     console.error('Search API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

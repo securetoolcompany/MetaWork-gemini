@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
-import { ObjectId } from 'mongodb'; // ✅ Import ObjectId
+import { ObjectId } from 'mongodb';
 
-// ✅ Force Next.js to NEVER cache this route
 export const dynamic = 'force-dynamic';
 
-// Helper to safely convert ID to ObjectId if needed
 const getSafeId = (id) => {
   try {
     return new ObjectId(id);
   } catch (e) {
-    return id; // Fallback if your DB actually uses string IDs
+    return id;
   }
 };
 
@@ -23,10 +21,10 @@ export async function GET(request) {
     const decoded = verifyToken(token);
     const { db } = await connectToDatabase();
     
-    const userId = getSafeId(decoded.userId); // ✅ Convert to ObjectId
+    const userId = getSafeId(decoded.userId);
 
     const user = await db.collection('users').findOne(
-      { _id: userId }, // ✅ Safe query
+      { _id: userId },
       { projection: { aisleSettings: 1, 'profile.displayName': 1, username: 1, collections: 1 } }
     );
     
@@ -76,7 +74,7 @@ export async function PUT(request) {
     const { aisleSettings, collections } = await request.json();
     const { db } = await connectToDatabase();
     
-    const userId = getSafeId(decoded.userId); // ✅ Convert to ObjectId
+    const userId = getSafeId(decoded.userId);
 
     const collectionsToSave = (collections || []).map(col => ({
       ...col,
@@ -85,7 +83,7 @@ export async function PUT(request) {
     }));
 
     const result = await db.collection('users').updateOne(
-      { _id: userId }, // ✅ Safe query
+      { _id: userId },
       { 
         $set: { 
           aisleSettings: aisleSettings,
@@ -97,6 +95,14 @@ export async function PUT(request) {
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ success: false, error: 'User not found or ID mismatch' }, { status: 404 });
+    }
+
+    // Keep aisle.slug in sync with user's chosen aisleSettings.slug
+    if (aisleSettings?.slug) {
+      await db.collection('aisles').updateOne(
+        { userId: userId },
+        { $set: { slug: aisleSettings.slug, updatedAt: new Date() } }
+      );
     }
 
     return NextResponse.json({ success: true, message: 'Settings updated successfully' });
