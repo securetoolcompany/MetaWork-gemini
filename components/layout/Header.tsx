@@ -73,8 +73,8 @@ export default function Header({ title }: { title?: string }) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur w-full">
-      <div className="grid h-16 grid-cols-[1fr,auto] md:grid-cols-[256px,1fr,auto] items-center px-4 md:px-8 gap-4">
-        <div className="hidden md:block" />
+      <div className="grid h-16 grid-cols-[48px,1fr,auto] md:grid-cols-[256px,1fr,auto] items-center px-2 md:px-8 gap-2 md:gap-4">
+        <div />
 
         <div className="flex justify-center min-w-0">
           <div className="w-full max-w-xl min-w-0">
