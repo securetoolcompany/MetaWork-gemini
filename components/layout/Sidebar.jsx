@@ -9,7 +9,7 @@ import {
   Palette, LayoutGrid, Terminal, Menu, ChevronDown, Dumbbell,
   GraduationCap, Coffee, HeartHandshake, ShoppingCart,
   Wrench, FileText, DollarSignIcon, Wallet, Shield, Coins,
-  FolderOpen, Package, User
+  FolderOpen, Package, User, Hammer
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
@@ -217,8 +217,9 @@ export default function Sidebar() {
       label: 'MetaWork Overview',
       href: '/metawork-overview',
       subItems: [
-        { icon: Zap,   label: 'Asset Tokenization',  href: '/metawork-overview/minting-process' },
-        { icon: Box,   label: 'MetaManufacturing',   href: '/metawork-overview/product-creation' },
+        { icon: Shield,   label: 'IP Minting',  href: '/metawork-overview/minting-process' },
+        { icon: Coins,   label: 'Asset Tokenization',  href: '/metawork-overview/tokenization' },
+        { icon: Hammer,   label: 'MetaManufacturing',   href: '/metawork-overview/product-creation' },
         { icon: Store, label: 'MetaCommerce Engine', href: '/metawork-overview/selling' },
       ]
     },
