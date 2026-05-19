@@ -98,7 +98,7 @@ export default function GlobalSearch() {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search products, aisles, creators..."
+          placeholder=" "
           className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm text-black bg-white"
           aria-label="Global search"
           aria-expanded={isOpen}
