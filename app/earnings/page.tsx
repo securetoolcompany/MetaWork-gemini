@@ -138,6 +138,66 @@ export default function EarningsPage() {
     : '0.0';
   const isPositive = parseFloat(pctChange) >= 0;
 
+  function handleExport() {
+    if (!data) return;
+
+    const { overview, topProducts, topIpAssets, transactions } = data;
+
+    const overviewRows = [
+      ['Metric', 'Value'],
+      ['Total Earnings',  `$${overview.totalEarnings.toFixed(2)}`],
+      ['This Month',      `$${overview.thisMonth.toFixed(2)}`],
+      ['Last Month',      `$${overview.lastMonth.toFixed(2)}`],
+      ['Pending Payout',  `$${overview.pendingPayout.toFixed(2)}`],
+      ['IP Royalties',    `$${overview.ipRoyalties.toFixed(2)}`],
+      ['Product Revenue', `$${overview.productRevenue.toFixed(2)}`],
+    ];
+
+    const productRows = [
+      ['Rank', 'Product', 'Sales', 'Revenue', 'Avg Sale'],
+      ...topProducts.map((p, i) => [
+        i + 1, p.name, p.sales,
+        `$${p.revenue.toFixed(2)}`,
+        `$${(p.revenue / p.sales).toFixed(2)}`,
+      ]),
+    ];
+
+    const ipRows = [
+      ['Rank', 'Asset', 'Type', 'Uses', 'Royalties'],
+      ...topIpAssets.map((ip, i) => [
+        i + 1, ip.name, ip.type, ip.uses,
+        ip.royalties > 0 ? `$${ip.royalties.toFixed(2)}` : '—',
+      ]),
+    ];
+
+    const txRows = [
+      ['Date', 'Type', 'Description', 'Amount', 'Status'],
+      ...transactions.map(t => [
+        t.date, t.type, t.description,
+        `$${t.amount.toFixed(2)}`,
+        t.status,
+      ]),
+    ];
+
+    const toCSV = rows =>
+      rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+
+    const csv = [
+      '=== OVERVIEW ===',    toCSV(overviewRows),  '',
+      '=== TOP PRODUCTS ===', toCSV(productRows),  '',
+      '=== IP ASSETS ===',   toCSV(ipRows),        '',
+      '=== TRANSACTIONS ===', toCSV(txRows),
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `metawork-earnings-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="flex-1 flex flex-col min-h-screen">
       <div className="flex-1 p-4 md:p-8">
@@ -149,7 +209,7 @@ export default function EarningsPage() {
               <h1 className="text-3xl font-bold mb-1">Earnings & Analytics</h1>
               <p className="text-muted-foreground text-sm">Track your revenue and performance</p>
             </div>
-            <Button className="gap-2" disabled={loading}>
+            <Button className="gap-2" onClick={handleExport} disabled={loading || !data}>
               <Download className="w-4 h-4" /> Export Report
             </Button>
           </div>

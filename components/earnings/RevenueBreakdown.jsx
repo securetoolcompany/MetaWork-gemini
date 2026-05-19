@@ -52,10 +52,10 @@ export default function RevenueBreakdown({ data }) {
             <div className="relative w-48 h-48">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                 {items.map((item, idx) => {
-                  const percentage = (item.value / total) * 100;
-                  const prevPercentages = items.slice(0, idx).reduce((sum, i) => 
-                    sum + (i.value / total) * 100, 0
-                  );
+                  const percentage = total > 0 ? (item.value / total) * 100 : 0;
+                  const prevPercentages = total > 0
+                    ? items.slice(0, idx).reduce((sum, i) => sum + (i.value / total) * 100, 0)
+                    : 0;
                   const radius = 40;
                   const circumference = 2 * Math.PI * radius;
                   const strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`;
@@ -84,7 +84,7 @@ export default function RevenueBreakdown({ data }) {
           <div className="space-y-3">
             {items.map((item, idx) => {
               const Icon = item.icon;
-              const percentage = ((item.value / total) * 100).toFixed(1);
+              const percentage = total > 0 ? ((item.value / total) * 100).toFixed(1) : '0.0';
               
               return (
                 <div key={idx} className="flex items-center justify-between">
