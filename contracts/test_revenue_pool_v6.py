@@ -10,7 +10,7 @@ from algosdk.transaction import (
 )
 
 # ─── Configuration ────────────────────────────────────────────────────────────
-APP_ID            = int(os.getenv("APP_ID",            "762121971"))
+APP_ID            = int(os.getenv("APP_ID", "762797595"))
 ALGOD_ADDRESS     =     os.getenv("ALGOD_ADDRESS",     "https://testnet-api.algonode.cloud")
 ALGOD_TOKEN       =     os.getenv("ALGOD_TOKEN",       "")
 CREATOR_MNEMONIC  =     os.getenv("CREATOR_MNEMONIC",  "")
@@ -24,7 +24,7 @@ UNIT_NAME  = os.getenv("UNIT_NAME",  "MWREV").encode()
 
 STAKEHOLDERS = [
     (os.getenv("STK1_ADDR", "WNXGR6DCD4FWCK62JHWNI6OE37XMJGZFHO42FYFEGW5P3G4MYO4AJYJGTI"), 6000),
-    (os.getenv("STK2_ADDR", "REPLACE_ME_WITH_REAL_TESTNET_ADDRESS"),                          4000),
+    (os.getenv("STK2_ADDR", "COYJN7VFKE4FJO4BSUSYQA56GIE6CL6MUJLA5YY2HR47Z5RX2GH27TUOTE"), 4000),
 ]
 
 ROUND_PAYEES = [

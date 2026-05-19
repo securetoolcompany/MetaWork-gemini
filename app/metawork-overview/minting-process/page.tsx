@@ -1,223 +1,235 @@
+'use client';
+
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
-  Sparkles, FileSearch, Cpu, Settings, Rocket, Terminal, 
-  ArrowRight, Database, ShieldCheck, Zap, ChevronRight, CheckCircle2, Lock
+  Cpu, Settings, Rocket, Terminal, 
+  ArrowRight, Database, ShieldCheck, Zap, Lock, Box, Network
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function MintingProcess() {
-  const process = [
+  const processNodes = [
     { 
-      id: "01_INGESTION",
-      icon: <Database className="h-6 w-6 text-blue-400" />, 
-      title: "Data Ingestion", 
-      desc: "Convert physical revenue or digital IP into a blockchain-ready state. We encrypt your assets and securely pin the metadata to the decentralized IPFS network.",
-      log: "ASSET_HASH_GENERATED"
+      id: "NODE_01",
+      status: "INGESTION",
+      icon: <Database className="h-5 w-5 text-purple-400" />, 
+      title: "Data Payload Parsing", 
+      desc: "Raw intellectual property and commercial data are ingested, encrypted, and compiled into a secure metadata matrix.",
+      log: "[SYS] METADATA_COMPILED",
+      color: "border-purple-500/20 bg-purple-500/10 text-purple-400"
     },
     { 
-      id: "02_VERIFICATION",
-      icon: <FileSearch className="h-6 w-6 text-amber-400" />, 
-      title: "Rights Verification", 
-      desc: "Our automated and manual compliance nodes verify ownership rights, revenue models, and copyright data to ensure total network security and legal compliance.",
-      log: "COMPLIANCE_CHECK: PASSED"
+      id: "NODE_02",
+      status: "VERIFICATION",
+      icon: <ShieldCheck className="h-5 w-5 text-blue-400" />, 
+      title: "Consensus & Rights", 
+      desc: "System validation of ownership provenance. Automated compliance nodes execute cross-checks against global IP registries.",
+      log: "[SYS] PROVENANCE_VERIFIED",
+      color: "border-blue-500/20 bg-blue-500/10 text-blue-400"
     },
     { 
-      id: "03_EXECUTION",
-      icon: <Cpu className="h-6 w-6 text-purple-400" />, 
-      title: "On-Chain Minting", 
-      desc: "The asset is minted as an Algorand Standard Asset (ASA). This creates an immutable, cryptographically secure digital token representing absolute ownership.",
-      log: "TX_CONFIRMED_ON_ALGORAND"
+      id: "NODE_03",
+      status: "EXECUTION",
+      icon: <Cpu className="h-5 w-5 text-cyan-400" />, 
+      title: "On-Chain Deployment", 
+      desc: "The asset is formally minted onto the Algorand network, establishing an immutable, cryptographically permanent state.",
+      log: "[TXN] ASA_GENERATED",
+      color: "border-cyan-500/20 bg-cyan-500/10 text-cyan-400"
     },
     { 
-      id: "04_CONFIGURATION",
-      icon: <Settings className="h-6 w-6 text-rose-400" />, 
-      title: "Smart Contracts", 
-      desc: "You set the rules. Define licensing fees, revenue splits, and token supplies. These parameters are permanently locked into self-executing code.",
-      log: "ROYALTY_LOGIC_LOCKED"
+      id: "NODE_04",
+      status: "CONFIGURATION",
+      icon: <Settings className="h-5 w-5 text-zinc-400" />, 
+      title: "Contract Logic", 
+      desc: "Royalty routing, supply parameters, and distribution splits are permanently locked into the smart contract architecture.",
+      log: "[SYS] PARAMETERS_LOCKED",
+      color: "border-zinc-500/20 bg-zinc-500/10 text-zinc-400"
     },
     { 
-      id: "05_DEPLOYMENT",
-      icon: <Rocket className="h-6 w-6 text-emerald-400" />, 
-      title: "Live Yield", 
-      desc: "Your tokenized asset goes live in the MetaWork ecosystem. Smart contracts automatically route revenue to your wallet the exact millisecond a sale occurs.",
-      log: "ASSET_YIELDING: TRUE"
+      id: "NODE_05",
+      status: "LIVE_YIELD",
+      icon: <Rocket className="h-5 w-5 text-green-400" />, 
+      title: "Global Distribution", 
+      desc: "The fractionalized IP enters the MetaWork ecosystem. Smart contracts automatically execute yield routing upon market activity.",
+      log: "[SYS] ASSET_YIELDING: TRUE",
+      color: "border-green-500/20 bg-green-500/10 text-green-400"
     }
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-950 text-zinc-50 selection:bg-emerald-500/30">
+    <div className="min-h-screen bg-[#131722] text-white selection:bg-cyan-500/30 font-sans pb-24">
       
-      {/* HERO SECTION */}
-      <section className="relative px-8 pt-24 pb-16 max-w-7xl mx-auto w-full border-b border-zinc-800/50">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[400px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
-        
-        <div className="relative z-10 max-w-4xl">
-          <div className="inline-flex items-center rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-1 text-xs font-mono text-emerald-400 uppercase tracking-widest mb-8">
-            <Terminal className="mr-2 h-3.5 w-3.5" />
-            Asset Tokenization Protocol
+      {/* 1. PROTOCOL HEADER */}
+      <section className="px-6 pt-24 pb-16 max-w-[1600px] mx-auto w-full border-b border-white/5">
+        <div className="max-w-5xl">
+          <div className="flex items-center gap-3 mb-6">
+            <Terminal className="h-4 w-4 text-cyan-500" />
+            <span className="font-mono text-[10px] text-slate-500 uppercase tracking-[0.3em]">System Architecture // Core_Protocol</span>
           </div>
           
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter leading-[1.1] mb-6">
-            Convert reality <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500">into code.</span>
+          <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter uppercase mb-6 text-white">
+            Asset Tokenization <br />
+            <span className="text-cyan-400">Protocol.</span>
           </h1>
           
-          <p className="text-xl text-zinc-400 leading-relaxed font-light mb-8 max-w-2xl">
-            Minting is the process of converting your intellectual property or real-world revenue into secure, tradeable digital tokens. Welcome to the engine room of the decentralized economy.
+          <p className="text-sm text-slate-400 leading-relaxed font-mono max-w-3xl mb-10 uppercase tracking-widest">
+            Minting is the foundational infrastructure of the decentralized economy. Transition physical revenue streams and digital intellectual property into immutable, yield-bearing network assets.
           </p>
           
-          <div className="flex gap-4">
-            <Link href="/login">
-              <Button size="lg" className="h-12 px-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-none border border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-                Initialize Asset Vault
+          <div className="flex flex-col sm:flex-row gap-4">
+            <Link href="/upload-ip">
+              <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-none px-8 uppercase tracking-tighter shadow-lg shadow-blue-900/20">
+                Initialize Vault Protocol
                 <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/whitepaper">
+              <Button variant="outline" size="lg" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-none px-8 text-xs uppercase font-mono tracking-widest bg-transparent">
+                View Architecture Docs
               </Button>
             </Link>
           </div>
         </div>
       </section>
 
-      {/* CORE INFRASTRUCTURE */}
-      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
-        <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-6">
-          <Card className="bg-zinc-900/40 border-zinc-800 rounded-none border-t-2 border-t-emerald-500/50 hover:border-emerald-500/30 transition-colors">
-            <CardHeader>
-              <Zap className="h-8 w-8 text-emerald-400 mb-2" />
-              <CardTitle className="font-mono text-lg">Quantum-Proof Security</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                We mint exclusively on the Algorand blockchain. Featuring advanced cryptographic protocols, your assets are protected against future quantum-computing threats. Absolute permanence.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="bg-zinc-900/40 border-zinc-800 rounded-none border-t-2 border-t-emerald-500/50 hover:border-emerald-500/30 transition-colors">
-            <CardHeader>
-              <Database className="h-8 w-8 text-emerald-400 mb-2" />
-              <CardTitle className="font-mono text-lg">Decentralized Storage</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                Your high-resolution files aren't sitting on a fragile AWS server. They are hashed and pinned to IPFS (InterPlanetary File System), ensuring your source files can never be altered or deleted by a central authority.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="bg-zinc-900/40 border-zinc-800 rounded-none border-t-2 border-t-emerald-500/50 hover:border-emerald-500/30 transition-colors">
-            <CardHeader>
-              <Cpu className="h-8 w-8 text-emerald-400 mb-2" />
-              <CardTitle className="font-mono text-lg">Micro-Penny Economics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                Unlike Ethereum, which charges massive "gas fees" to mint assets, our architecture executes transactions for fractions of a penny in under 3 seconds. Scalability without financial friction.
-              </p>
-            </CardContent>
-          </Card>
+      {/* 2. CORE INFRASTRUCTURE BENTO GRID */}
+      <section className="px-6 py-16 max-w-[1600px] mx-auto">
+        <div className="mb-8">
+          <h2 className="text-2xl font-black italic uppercase tracking-tighter text-slate-300">Infrastructure Specs</h2>
         </div>
-      </section>
 
-      {/* THE PIPELINE (Horizontal Grid) */}
-      <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">The Execution Pipeline</h2>
-            <p className="text-zinc-400 text-lg leading-relaxed max-w-2xl">
-              Five automated phases to transition your real-world value onto the immutable ledger.
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-black border border-white/10 p-8 rounded-xl hover:border-cyan-500/50 transition-all group flex flex-col">
+            <div className="h-12 w-12 rounded-lg bg-[#131722] flex items-center justify-center mb-6 border border-white/5 group-hover:border-cyan-500/30 transition-colors">
+              <Network className="h-6 w-6 text-cyan-400" />
+            </div>
+            <h4 className="font-black text-sm uppercase tracking-widest mb-3 text-white">Algorand Mainnet</h4>
+            <p className="text-xs text-slate-400 leading-relaxed font-mono">
+              Engineered for quantum-proof permanence. Transactions execute in under 3 seconds with absolute finality, bypassing the network congestion and gas-fee volatility of legacy blockchains.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4 relative">
-            {process.map((item, idx) => (
-              <div key={idx} className="border border-zinc-800 bg-zinc-950 p-6 flex flex-col hover:border-zinc-600 transition-colors group relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
-                  <span className="text-8xl font-black">{idx + 1}</span>
-                </div>
-                
-                <div className="flex items-center gap-3 mb-6 relative z-10">
-                  <div className="h-10 w-10 rounded bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0">
-                    {item.icon}
-                  </div>
-                  <span className="font-mono text-[10px] text-zinc-500 bg-zinc-900 px-2 py-1 rounded border border-zinc-800">
-                    {item.id}
-                  </span>
-                </div>
-                
-                <h3 className="text-lg font-bold mb-3 relative z-10">{item.title}</h3>
-                <p className="text-xs text-zinc-400 leading-relaxed flex-1 relative z-10">
-                  {item.desc}
-                </p>
-                
-                <div className="mt-6 pt-4 border-t border-zinc-800/50 font-mono text-[10px] text-zinc-500 relative z-10">
-                  &gt; {item.log}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* SYSTEM TELEMETRY (Terminal Mockup) */}
-      <section className="px-8 py-24 bg-zinc-950 border-b border-zinc-800/50">
-        <div className="max-w-4xl mx-auto rounded-md border border-zinc-800 bg-zinc-900/50 overflow-hidden shadow-[0_0_40px_rgba(0,0,0,0.5)]">
-          <div className="bg-zinc-900 px-4 py-3 border-b border-zinc-800 flex justify-between items-center">
-            <div className="flex gap-2">
-              <div className="h-3 w-3 rounded-full bg-red-500/20 border border-red-500/50" />
-              <div className="h-3 w-3 rounded-full bg-yellow-500/20 border border-yellow-500/50" />
-              <div className="h-3 w-3 rounded-full bg-green-500/20 border border-green-500/50" />
+          <div className="bg-black border border-white/10 p-8 rounded-xl hover:border-purple-500/50 transition-all group flex flex-col">
+            <div className="h-12 w-12 rounded-lg bg-[#131722] flex items-center justify-center mb-6 border border-white/5 group-hover:border-purple-500/30 transition-colors">
+              <Database className="h-6 w-6 text-purple-400" />
             </div>
-            <span className="text-[10px] font-mono text-zinc-400">/sys/algorand-mint-node</span>
+            <h4 className="font-black text-sm uppercase tracking-widest mb-3 text-white">IPFS Ledger Storage</h4>
+            <p className="text-xs text-slate-400 leading-relaxed font-mono">
+              Metadata and high-resolution source files are cryptographically hashed and pinned to the InterPlanetary File System. Decentralized data redundancy immune to central server failures.
+            </p>
           </div>
-          
-          <div className="p-8 font-mono text-sm space-y-3 relative overflow-hidden h-[340px]">
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-zinc-900/90 z-10 pointer-events-none" />
-            
-            <p className="text-zinc-500">&gt; Authenticating user wallet signature...</p>
-            <p className="text-emerald-400">&gt; Signature valid: 0x8F9A...B32C</p>
-            <p className="text-zinc-500">&gt; Compiling asset metadata JSON...</p>
-            <p className="text-zinc-500">&gt; Uploading high-res payload to IPFS cluster...</p>
-            <p className="text-blue-400">&gt; IPFS CID Generated: QmXyZ1...9pLq</p>
-            <br />
-            <p className="text-zinc-500">&gt; Constructing Algorand Standard Asset (ASA) transaction...</p>
-            <p className="text-zinc-400 ml-4">Asset Name: "CYBER_PUNK_ILLUSTRATION_01"</p>
-            <p className="text-zinc-400 ml-4">Total Supply: 1 (Non-Fungible)</p>
-            <p className="text-zinc-400 ml-4">Clawback Address: ZERO</p>
-            <p className="text-zinc-400 ml-4">Freeze Address: ZERO</p>
-            <br />
-            <p className="text-zinc-500">&gt; Submitting payload to Algorand Mainnet...</p>
-            <p className="text-zinc-500">&gt; Awaiting block confirmation...</p>
-            <p className="text-emerald-400 font-bold">&gt; SUCCESS: ASSET MINTED.</p>
-            <p className="text-emerald-400 font-bold">&gt; SMART CONTRACT SPLITS CONFIGURED. READY FOR NETWORK LICENSING.</p>
-            <p className="text-zinc-500 animate-pulse">&gt; _</p>
+
+          <div className="bg-black border border-white/10 p-8 rounded-xl hover:border-green-500/50 transition-all group flex flex-col">
+            <div className="h-12 w-12 rounded-lg bg-[#131722] flex items-center justify-center mb-6 border border-white/5 group-hover:border-green-500/30 transition-colors">
+              <Zap className="h-6 w-6 text-green-400" />
+            </div>
+            <h4 className="font-black text-sm uppercase tracking-widest mb-3 text-white">Smart Contract Yield</h4>
+            <p className="text-xs text-slate-400 leading-relaxed font-mono">
+              Self-executing logic parameters dictate royalty routing. The exact millisecond commercial activity occurs within the Aisle, fractions of revenue are instantly deposited into stakeholder wallets.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* FINAL CTA */}
-      <section className="px-8 py-32 bg-zinc-950 relative overflow-hidden">
-        <div className="max-w-3xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center justify-center gap-2 mb-6">
-            <Lock className="h-5 w-5 text-emerald-500" />
-            <span className="font-mono text-emerald-500 tracking-widest text-sm">CRYPTOGRAPHY_READY</span>
+      {/* 3. THE EXECUTION PIPELINE */}
+      <section className="px-6 py-16 max-w-[1600px] mx-auto border-t border-white/5">
+        <div className="mb-12 flex items-center justify-between">
+          <h2 className="text-2xl font-black italic uppercase tracking-tighter text-slate-300">Execution Pipeline</h2>
+          <span className="px-3 py-1 rounded bg-white/5 border border-white/10 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+            System Sequence
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          {processNodes.map((node, idx) => (
+            <div key={idx} className="bg-black border border-white/10 rounded-xl p-6 flex flex-col relative overflow-hidden group hover:bg-zinc-900/80 transition-colors">
+              <div className="flex justify-between items-start mb-6">
+                <div className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider border ${node.color}`}>
+                  {node.status}
+                </div>
+                <span className="font-mono text-[10px] text-slate-600">{node.id}</span>
+              </div>
+              
+              <div className="mb-4">
+                {node.icon}
+              </div>
+              
+              <h3 className="text-sm font-black uppercase tracking-widest mb-2 text-white">{node.title}</h3>
+              <p className="text-xs text-slate-500 leading-relaxed flex-grow font-mono mb-6">
+                {node.desc}
+              </p>
+              
+              <div className="mt-auto pt-4 border-t border-white/5 font-mono text-[10px] text-slate-400">
+                {node.log}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* 4. SYSTEM TELEMETRY (TERMINAL) & CTA */}
+      <section className="px-6 py-16 max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        
+        {/* Terminal Log */}
+        <div className="bg-black border border-white/10 rounded-xl overflow-hidden h-[450px] flex flex-col shadow-2xl">
+          <div className="py-3 px-4 border-b border-white/5 bg-slate-950 flex justify-between items-center">
+            <CardTitle className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Live Telemetry // Node_Monitor</CardTitle>
+            <span className="flex items-center gap-2 text-[9px] font-mono text-green-400 uppercase">
+              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" /> Network Sync
+            </span>
+          </div>
+          <div className="p-6 font-mono text-[11px] text-slate-400 leading-relaxed flex-grow overflow-hidden relative">
+            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black pointer-events-none z-10" />
+            <p className="text-slate-500">Initializing secure connection to protocol node...</p>
+            <p className="text-cyan-400">[OK] Connection established.</p>
+            <p className="text-slate-500">Awaiting user asset payload...</p>
+            <p className="text-purple-400">Receiving: /ip/design/blueprint_v4.obj</p>
+            <p className="text-slate-500">Encrypting and hashing via SHA-256...</p>
+            <p className="text-slate-500">Pinning to IPFS cluster...</p>
+            <p className="text-cyan-400">[SYS] CID: QmYwAPJzv5CZsnA625s3Xf2sm5Dya</p>
+            <br />
+            <p className="text-slate-500">Constructing Asset Logic...</p>
+            <p className="text-slate-400 ml-4">&gt; Total Units: 10,000</p>
+            <p className="text-slate-400 ml-4">&gt; Base Yield: 8.5%</p>
+            <p className="text-slate-400 ml-4">&gt; Escrow Route: META.POOL.A</p>
+            <br />
+            <p className="text-slate-500">Broadcasting transaction to Algorand Mainnet...</p>
+            <p className="text-slate-500">Awaiting block validation...</p>
+            <p className="text-green-400 font-bold mt-2">[TXN] SUCCESS: ASSET ASA-8891 DEPLOYED.</p>
+            <p className="text-green-400 font-bold">[SYS] SYSTEM READY FOR YIELD GENERATION.</p>
+            <p className="text-slate-500 animate-pulse mt-2">_</p>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="space-y-6">
+          <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded">
+            <Lock className="h-3 w-3 text-purple-400" />
+            <span className="font-mono text-[9px] font-bold text-purple-400 uppercase tracking-widest">Cryptography Ready</span>
           </div>
           
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">
-            Lock in your legacy.
+          <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white">
+            Lock In Your <br />
+            <span className="text-purple-400">Legacy.</span>
           </h2>
           
-          <p className="text-zinc-400 text-lg mb-10 font-light max-w-xl mx-auto">
-            Whether it's the rights to a song, a brand logo, or the equity of a local business, the blockchain is the ultimate source of truth. Start minting today.
+          <p className="text-sm text-slate-400 leading-relaxed font-mono max-w-md">
+            The blockchain is the ultimate source of truth. Protect your intellectual property, establish immutable provenance, and begin routing global yield directly to your decentralized vault.
           </p>
           
-          <Link href="/login">
-            <Button size="lg" className="h-14 px-10 text-lg bg-emerald-600 hover:bg-emerald-700 text-white rounded-none border border-emerald-500 shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all hover:shadow-[0_0_50px_rgba(16,185,129,0.5)] font-mono">
-              <Terminal className="mr-3 h-5 w-5" />
-              Initialize Vault
-            </Button>
-          </Link>
+          <div className="pt-4">
+            <Link href="/upload-ip">
+              <Button size="lg" className="bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-none px-10 py-6 uppercase tracking-tighter shadow-lg shadow-purple-900/20 text-lg">
+                <Box className="mr-3 h-5 w-5" />
+                Initialize Asset Injection
+              </Button>
+            </Link>
+          </div>
         </div>
-      </section>
 
+      </section>
     </div>
   );
 }

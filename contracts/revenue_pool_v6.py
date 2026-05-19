@@ -186,7 +186,10 @@ def approval_program():
         Assert(Txn.sender() == Global.creator_address()),
         Assert(Len(Txn.application_args[2]) == Int(32)),
         sp_pkey.store(pool_key(ip_id)),
-        (lambda mv: Seq(mv, Assert(mv.hasValue())))(App.box_get(sp_pkey.load())),
+        (lambda mv: Seq(
+            mv,
+            Assert(mv.hasValue()),
+        ))(App.box_get(sp_pkey.load())),
         App.box_replace(sp_pkey.load(), PROXY_ADDR_OFFSET, Txn.application_args[2]),
         Approve(),
     )
@@ -629,10 +632,10 @@ def approval_program():
     cleanup_mbr      = ScratchVar(TealType.uint64)
 
     on_cleanup_round = Seq(
-        Assert(Txn.application_args.length() == Int(4)),
+        Assert(Txn.application_args.length() == Int(3)),   # was Int(4)
         Assert(Txn.sender() == Global.creator_address()),
         cleanup_round_id.store(Btoi(Txn.application_args[2])),
-        cleanup_mbr.store(Btoi(Txn.application_args[3])),
+        # no cleanup_mbr arg — drop the ScratchVar too
 
         cleanup_rkey.store(round_key(ip_id, cleanup_round_id.load())),
         (lambda mv: Seq(mv, Assert(mv.hasValue()), cleanup_rbox.store(mv.value())))(
@@ -655,9 +658,9 @@ def approval_program():
             cleanup_i.store(cleanup_i.load() + Int(1)),
         ),
 
-        Assert(
-            cleanup_mbr.load()
-            == Int(2500) + Int(400) * (
+        # Contract computes MBR itself — no assert needed, no caller arg
+        cleanup_mbr.store(
+            Int(2500) + Int(400) * (
                 Int(12) + Len(ip_id)
                 + Int(18) + (cleanup_n.load() * RND_ENTRY_SIZE)
             )

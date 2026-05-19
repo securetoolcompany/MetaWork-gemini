@@ -9,7 +9,7 @@ import {
   Home, LogIn, LogOut, UserPlus, Store, Palette, 
   LayoutGrid, Terminal, Menu, ChevronDown, Dumbbell, 
   GraduationCap, Coffee, HeartHandshake, ShoppingCart,
-  Wrench, FileText, DollarSignIcon, Wallet
+  Wrench, FileText, DollarSignIcon, Wallet, Shield, Coins
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
@@ -138,19 +138,32 @@ const NavContent = ({ isAuthenticated, menuItems, menuTitle, pathname, logout, r
     {/* 3. Actions */}
     <div className="p-6 border-t border-zinc-800/50 space-y-3 bg-zinc-950">
       {isAuthenticated ? (
-        <Button variant="ghost" onClick={() => { logout(); router.push('/'); }} className="w-full justify-start gap-3 text-slate-400 hover:text-red-400 hover:bg-red-500/10">
+        <Button
+          variant="ghost"
+          onClick={() => { logout(); router.push('/'); }}
+          className="w-full justify-start gap-3 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+        >
           <LogOut className="h-4 w-4" />
           <span className="font-mono text-xs">Terminate_Session</span>
         </Button>
       ) : (
         <>
-          <Button variant="ghost" onClick={() => router.push('/login')} className="w-full justify-start gap-3 text-slate-400 hover:bg-white/5 border border-zinc-800">
+          <Button
+            variant="ghost"
+            onClick={() => router.push('/login')}
+            className="w-full justify-start gap-3 text-slate-400 hover:bg-white/5 border border-zinc-800"
+          >
             <LogIn className="h-4 w-4" />
             <span className="font-mono text-xs">User_Auth</span>
           </Button>
-          <Button onClick={() => router.push('/login')} className="w-full justify-start gap-3 bg-blue-600 hover:bg-blue-700 rounded-none shadow-[0_0_20px_rgba(37,99,235,0.3)]">
+          <Button
+            onClick={() => router.push('/login')}
+            className="w-full justify-start gap-3 bg-blue-600 hover:bg-blue-700 rounded-none shadow-[0_0_20px_rgba(37,99,235,0.3)]"
+          >
             <UserPlus className="h-4 w-4" />
-            <span className="font-mono text-[11px] uppercase tracking-widest">Initialize_Acct</span>
+            <span className="font-mono text-[11px] uppercase tracking-widest">
+              Initialize_Acct
+            </span>
           </Button>
         </>
       )}
@@ -163,17 +176,35 @@ export default function Sidebar() {
   const router = useRouter();
   const { isAuthenticated, loading, logout } = useAuth();
 
+  // AUTHENTICATED CREATOR MENU
   const dashboardMenuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard Telemetry', href: '/dashboard' },
-    { icon: Database, label: 'Manage IP Assets', href: '/my-ip' },
-    { icon: ShoppingBag, label: 'Manage Products', href: '/my-products' },
+    // 1) Dashboard Telemetry
+    { icon: LayoutDashboard, label: 'Global Dashboard', href: '/dashboard' },
+
+    // 2 & 3) Manage IP Assets split
+    { icon: Shield, label: 'Minting Authentication', href: '/mint-authentication' },
+    { icon: Coins, label: 'Revenue Tokenization', href: '/revenue-tokenization' },
+
+    // 4) Create Products
     { icon: Palette, label: 'Create Products', href: '/products/creator' },
-    { icon: Store, label: 'Design Aisle', href: '/aisle-settings' },
+
+    // 5) Sales (Aisle Creator, Promotions, Analytics)
+    {
+      icon: Store,
+      label: 'Sales & Marketing',
+      href: '/sales',
+      subItems: [
+        { icon: Store, label: 'Aisle Creator', href: '/aisle-settings' },
+        { icon: Gift, label: 'Promotions & Marketing', href: '/promotions' },
+        { icon: TrendingUp, label: 'Earnings', href: '/earnings' },
+      ],
+    },
+
+    // 6) Account Management
     { icon: Settings, label: 'Account Management', href: '/profile-settings' },
-    { icon: Gift, label: 'Launch Promotions', href: '/promotions' },
-    { icon: LayoutGrid, label: 'View Showroom', href: '/showroom' },
   ];
 
+  // PUBLIC MENU (unchanged)
   const publicMenuItems = [
     { icon: Home, label: 'System Home', href: '/' },
     { 
@@ -225,7 +256,11 @@ export default function Sidebar() {
       <div className="md:hidden fixed top-4 left-4 z-[50]">
         <Sheet>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon" className="bg-zinc-950 border-zinc-800 text-blue-400 shadow-lg hover:bg-zinc-900">
+            <Button
+              variant="outline"
+              size="icon"
+              className="bg-zinc-950 border-zinc-800 text-blue-400 shadow-lg hover:bg-zinc-900"
+            >
               <Menu className="h-6 w-6" />
             </Button>
           </SheetTrigger>

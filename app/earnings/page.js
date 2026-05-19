@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import { 
   DollarSign, 
   TrendingUp, 
@@ -17,7 +18,9 @@ import {
   Download,
   Eye,
   MousePointerClick,
-  ArrowUpRight
+  ArrowUpRight,
+  Shield,
+  Coins
 } from 'lucide-react';
 import EarningsChart from '@/components/earnings/EarningsChart';
 import RevenueBreakdown from '@/components/earnings/RevenueBreakdown';
@@ -61,6 +64,14 @@ const earningsData = {
     { id: 4, name: 'Victory Tote', sales: 22, revenue: 373.78, image: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=400&h=400&fit=crop' },
     { id: 5, name: 'Fighter Stickers', sales: 48, revenue: 431.52, image: 'https://images.unsplash.com/photo-1611003228941-98852ba62227?w=400&h=400&fit=crop' },
   ],
+  // Mock IP assets — swap with real data when available
+  topIpAssets: [
+    { id: 1, name: 'Dragon Logo', type: 'tokenized', royalties: 312.50, uses: 18 },
+    { id: 2, name: 'Tiger Strike Design', type: 'tokenized', royalties: 228.25, uses: 12 },
+    { id: 3, name: 'Fighter Emblem', type: 'authenticated', royalties: 0, uses: 4 },
+    { id: 4, name: 'Victory Crest', type: 'tokenized', royalties: 145.00, uses: 9 },
+    { id: 5, name: 'Warrior Seal', type: 'authenticated', royalties: 0, uses: 3 },
+  ],
   transactions: [
     { id: 1, date: '2024-12-10', type: 'Product Sale', description: 'Dragon Fighter Tee - Size M', amount: 24.99, status: 'completed' },
     { id: 2, date: '2024-12-10', type: 'IP Royalty', description: 'Dragon Logo used in product', amount: 5.00, status: 'completed' },
@@ -77,18 +88,25 @@ const earningsData = {
 
 export default function EnhancedEarningsPage() {
   const [timeframe, setTimeframe] = useState('6months');
-  
-  const { overview, revenueBreakdown, monthlyData, adMetrics, topProducts, transactions } = earningsData;
-  
+  const [showProducts, setShowProducts] = useState(true);
+  const [showIp, setShowIp] = useState(true);
+
+  const { overview, revenueBreakdown, monthlyData, adMetrics, topProducts, topIpAssets, transactions } = earningsData;
+
   const percentageChange = ((overview.thisMonth - overview.lastMonth) / overview.lastMonth * 100).toFixed(1);
   const isPositive = percentageChange > 0;
 
+  const nothingSelected = !showProducts && !showIp;
+
+  // Determine grid cols: both = side-by-side; one only = full width
+  const comparisonCols = showProducts && showIp ? 'grid md:grid-cols-2 gap-4' : 'grid grid-cols-1';
+
   return (
     <div className="flex-1 flex flex-col min-h-screen">
-      
       <div className="flex-1 p-4 md:p-8">
         <div className="max-w-7xl mx-auto space-y-6">
-          {/* Header */}
+
+          {/* ── Header ── */}
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">Earnings & Analytics</h1>
@@ -100,7 +118,146 @@ export default function EnhancedEarningsPage() {
             </Button>
           </div>
 
-          {/* Overview Cards */}
+          {/* ── TOP GROSSING COMPARISON ── */}
+          <div className="space-y-3">
+            {/* filter row */}
+            <div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card px-4 py-3">
+              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Top Grossing
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowProducts(p => !p)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                    showProducts
+                      ? 'border-blue-500/40 bg-blue-500/10 text-blue-400'
+                      : 'border-zinc-700 bg-transparent text-slate-500 hover:bg-white/5'
+                  )}
+                >
+                  <ShoppingCart className="h-3 w-3" />
+                  Products
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowIp(p => !p)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                    showIp
+                      ? 'border-indigo-500/40 bg-indigo-500/10 text-indigo-400'
+                      : 'border-zinc-700 bg-transparent text-slate-500 hover:bg-white/5'
+                  )}
+                >
+                  <Coins className="h-3 w-3" />
+                  IP Assets
+                </button>
+              </div>
+              <p className="ml-auto text-[11px] text-muted-foreground hidden sm:block">
+                Toggle to compare revenue from products vs. tokenized IP side by side.
+              </p>
+            </div>
+
+            {/* comparison panels */}
+            {!nothingSelected ? (
+              <div className={comparisonCols}>
+                {/* Products panel */}
+                {showProducts && (
+                  <Card className="p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <ShoppingCart className="h-4 w-4 text-blue-400" />
+                        <h3 className="text-sm font-semibold">Top Grossing Products</h3>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">Last 30 days</span>
+                    </div>
+                    <div className="space-y-2">
+                      {topProducts.slice(0, 5).map((p, i) => (
+                        <div key={p.id} className="flex items-center gap-3">
+                          <span className="w-5 text-xs text-muted-foreground text-right shrink-0">
+                            #{i + 1}
+                          </span>
+                          <img
+                            src={p.image}
+                            alt={p.name}
+                            className="w-9 h-9 rounded-md object-cover shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{p.name}</p>
+                            <p className="text-xs text-muted-foreground">{p.sales} sales</p>
+                          </div>
+                          <span className="text-sm font-semibold text-green-500 shrink-0">
+                            ${p.revenue.toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+
+                {/* IP Assets panel */}
+                {showIp && (
+                  <Card className="p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Coins className="h-4 w-4 text-indigo-400" />
+                        <h3 className="text-sm font-semibold">Top Grossing IP Assets</h3>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground">Last 30 days</span>
+                    </div>
+                    <div className="space-y-2">
+                      {topIpAssets.slice(0, 5).map((ip, i) => (
+                        <div key={ip.id} className="flex items-center gap-3">
+                          <span className="w-5 text-xs text-muted-foreground text-right shrink-0">
+                            #{i + 1}
+                          </span>
+                          {/* icon placeholder where a product image would go */}
+                          <div className="w-9 h-9 rounded-md bg-zinc-800 flex items-center justify-center shrink-0">
+                            {ip.type === 'tokenized'
+                              ? <Coins className="h-4 w-4 text-indigo-400" />
+                              : <Shield className="h-4 w-4 text-slate-400" />
+                            }
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{ip.name}</p>
+                            <div className="flex items-center gap-1.5">
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  'text-[10px] px-1.5 py-0 h-4 border',
+                                  ip.type === 'tokenized'
+                                    ? 'border-indigo-500/30 text-indigo-400'
+                                    : 'border-slate-600 text-slate-400'
+                                )}
+                              >
+                                {ip.type === 'tokenized' ? 'Tokenized' : 'Authenticated'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">{ip.uses} uses</span>
+                            </div>
+                          </div>
+                          <span className={cn(
+                            'text-sm font-semibold shrink-0',
+                            ip.royalties > 0 ? 'text-green-500' : 'text-muted-foreground'
+                          )}>
+                            {ip.royalties > 0 ? `$${ip.royalties.toFixed(2)}` : '—'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-[11px] text-muted-foreground">
+                      Authenticated IP (non-revenue) shows usage count only. Tokenized IP earns royalties from every product use.
+                    </p>
+                  </Card>
+                )}
+              </div>
+            ) : (
+              <Card className="p-6 text-center text-sm text-muted-foreground">
+                Select at least one panel above to see top‑grossing data.
+              </Card>
+            )}
+          </div>
+
+          {/* ── Overview KPI Cards ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card className="p-6">
               <div className="flex items-center justify-between mb-2">
@@ -114,11 +271,10 @@ export default function EnhancedEarningsPage() {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm text-muted-foreground">This Month</span>
-                {isPositive ? (
-                  <TrendingUp className="w-5 h-5 text-green-500" />
-                ) : (
-                  <TrendingDown className="w-5 h-5 text-red-500" />
-                )}
+                {isPositive
+                  ? <TrendingUp className="w-5 h-5 text-green-500" />
+                  : <TrendingDown className="w-5 h-5 text-red-500" />
+                }
               </div>
               <div className="text-3xl font-bold mb-1">${overview.thisMonth.toFixed(2)}</div>
               <div className="flex items-center gap-1">
@@ -148,7 +304,7 @@ export default function EnhancedEarningsPage() {
             </Card>
           </div>
 
-          {/* Main Content Tabs */}
+          {/* ── Main Content Tabs ── */}
           <Tabs defaultValue="overview" className="space-y-6">
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -159,7 +315,6 @@ export default function EnhancedEarningsPage() {
 
             {/* Overview Tab */}
             <TabsContent value="overview" className="space-y-6">
-              {/* Earnings Chart */}
               <Card className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div>
@@ -180,13 +335,10 @@ export default function EnhancedEarningsPage() {
               </Card>
 
               <div className="grid lg:grid-cols-2 gap-6">
-                {/* Revenue Breakdown */}
                 <Card className="p-6">
                   <h3 className="text-xl font-bold mb-6">Revenue Breakdown</h3>
                   <RevenueBreakdown data={revenueBreakdown} />
                 </Card>
-
-                {/* Top Products */}
                 <Card className="p-6">
                   <h3 className="text-xl font-bold mb-6">Top Performing Products</h3>
                   <TopProducts products={topProducts.slice(0, 5)} />
@@ -255,89 +407,27 @@ export default function EnhancedEarningsPage() {
               <Card className="p-6">
                 <h3 className="text-xl font-bold mb-6">Ad Placement Performance</h3>
                 <div className="space-y-4">
-                  <div className="p-4 rounded-lg border">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h4 className="font-semibold mb-1">Header Banner</h4>
-                        <p className="text-sm text-muted-foreground">Prime visibility position</p>
+                  {[
+                    { label: 'Header Banner', desc: 'Prime visibility position', impressions: 18450, clicks: 742, ctr: '4.02%', revenue: '$198.34' },
+                    { label: 'Sidebar Ads', desc: 'Sticky placement', impressions: 14280, clicks: 571, ctr: '4.00%', revenue: '$153.51' },
+                    { label: 'In-Grid Ads', desc: 'Between products', impressions: 12500, clicks: 513, ctr: '4.10%', revenue: '$134.40' },
+                  ].map((ad) => (
+                    <div key={ad.label} className="p-4 rounded-lg border">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="font-semibold mb-1">{ad.label}</h4>
+                          <p className="text-sm text-muted-foreground">{ad.desc}</p>
+                        </div>
+                        <Badge>Active</Badge>
                       </div>
-                      <Badge>Active</Badge>
-                    </div>
-                    <div className="grid grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground mb-1">Impressions</p>
-                        <p className="font-semibold">18,450</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-1">Clicks</p>
-                        <p className="font-semibold">742</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-1">CTR</p>
-                        <p className="font-semibold">4.02%</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-1">Revenue</p>
-                        <p className="font-semibold text-green-600">$198.34</p>
+                      <div className="grid grid-cols-4 gap-4 text-sm">
+                        <div><p className="text-muted-foreground mb-1">Impressions</p><p className="font-semibold">{ad.impressions.toLocaleString()}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Clicks</p><p className="font-semibold">{ad.clicks.toLocaleString()}</p></div>
+                        <div><p className="text-muted-foreground mb-1">CTR</p><p className="font-semibold">{ad.ctr}</p></div>
+                        <div><p className="text-muted-foreground mb-1">Revenue</p><p className="font-semibold text-green-600">{ad.revenue}</p></div>
                       </div>
                     </div>
-                  </div>
-
-                  <div className="p-4 rounded-lg border">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h4 className="font-semibold mb-1">Sidebar Ads</h4>
-                        <p className="text-sm text-muted-foreground">Sticky placement</p>
-                      </div>
-                      <Badge>Active</Badge>
-                    </div>
-                    <div className="grid grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground mb-1">Impressions</p>
-                        <p className="font-semibold">14,280</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-1">Clicks</p>
-                        <p className="font-semibold">571</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-1">CTR</p>
-                        <p className="font-semibold">4.00%</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-1">Revenue</p>
-                        <p className="font-semibold text-green-600">$153.51</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-4 rounded-lg border">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h4 className="font-semibold mb-1">In-Grid Ads</h4>
-                        <p className="text-sm text-muted-foreground">Between products</p>
-                      </div>
-                      <Badge>Active</Badge>
-                    </div>
-                    <div className="grid grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <p className="text-muted-foreground mb-1">Impressions</p>
-                        <p className="font-semibold">12,500</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-1">Clicks</p>
-                        <p className="font-semibold">513</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-1">CTR</p>
-                        <p className="font-semibold">4.10%</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground mb-1">Revenue</p>
-                        <p className="font-semibold text-green-600">$134.40</p>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
                 <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
@@ -359,6 +449,7 @@ export default function EnhancedEarningsPage() {
               <TransactionsTable transactions={transactions} />
             </TabsContent>
           </Tabs>
+
         </div>
       </div>
     </div>

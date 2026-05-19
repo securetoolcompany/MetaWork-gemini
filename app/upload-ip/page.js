@@ -11,7 +11,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Upload, Info, Globe, Lock } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Header from '@/components/layout/Header';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import TutorialTooltip from '@/components/onboarding/TutorialTooltip';
@@ -208,7 +207,6 @@ function UploadIPInner() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Upload IP" />
       <div className="flex-1 p-4 md:p-8 flex items-center justify-center">
         <Card className="w-full max-w-2xl border-border bg-card">
           <CardHeader>

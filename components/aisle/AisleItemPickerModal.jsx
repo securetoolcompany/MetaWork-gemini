@@ -141,17 +141,17 @@ export default function AisleItemPickerModal({
         {/* Body / Tabs */}
         <Tabs defaultValue="products" value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
           <div className="px-6 pt-4 shrink-0">
-            <TabsList className="grid w-full grid-cols-4 bg-muted/50">
-              <TabsTrigger value="products" className="data-[state=active]:bg-background">
+            <TabsList className="flex w-full overflow-x-auto bg-muted/50 scrollbar-none">
+              <TabsTrigger value="products" className="flex-shrink-0 whitespace-nowrap data-[state=active]:bg-background">
                 <Package className="w-4 h-4 mr-2" /> My Products
               </TabsTrigger>
-              <TabsTrigger value="ip" className="data-[state=active]:bg-background">
+              <TabsTrigger value="ip" className="flex-shrink-0 whitespace-nowrap data-[state=active]:bg-background">
                 <FolderGit2 className="w-4 h-4 mr-2" /> My IP Vaults
               </TabsTrigger>
-              <TabsTrigger value="collections" className="data-[state=active]:bg-background">
+              <TabsTrigger value="collections" className="flex-shrink-0 whitespace-nowrap data-[state=active]:bg-background">
                 <Layers className="w-4 h-4 mr-2" /> Collections
               </TabsTrigger>
-              <TabsTrigger value="community" className="data-[state=active]:bg-background">
+              <TabsTrigger value="community" className="flex-shrink-0 whitespace-nowrap data-[state=active]:bg-background">
                 <Users className="w-4 h-4 mr-2" /> Community Fan Art
               </TabsTrigger>
             </TabsList>

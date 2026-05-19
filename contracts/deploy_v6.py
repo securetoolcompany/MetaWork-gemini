@@ -44,6 +44,12 @@ def deploy_contract():
         optimize=OptimizeOptions(scratch_slots=True)
     )
     
+    with open("contracts/approval.teal", "w") as f:
+        f.write(approval_teal)
+
+    with open("contracts/clear.teal", "w") as f:
+        f.write(clear_teal)
+
     # Safe substitution
     approval_teal = approval_teal.replace("TMPL_USDC_ASSET_ID", str(USDC_ASSET_ID))
     
