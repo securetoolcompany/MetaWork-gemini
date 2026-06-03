@@ -9,7 +9,7 @@ import {
   Palette, LayoutGrid, Terminal, Menu, ChevronDown, Dumbbell,
   GraduationCap, Coffee, HeartHandshake, ShoppingCart,
   Wrench, FileText, DollarSignIcon, Wallet, Shield, Coins,
-  FolderOpen, Package, User, Hammer
+  FolderOpen, Package, User, Factory, Swords
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
@@ -219,7 +219,7 @@ export default function Sidebar() {
       subItems: [
         { icon: Shield,   label: 'IP Minting',  href: '/metawork-overview/minting-process' },
         { icon: Coins,   label: 'Asset Tokenization',  href: '/metawork-overview/tokenization' },
-        { icon: Hammer,   label: 'MetaManufacturing',   href: '/metawork-overview/product-creation' },
+        { icon: Factory,   label: 'MetaManufacturing',   href: '/metawork-overview/product-creation' },
         { icon: Store, label: 'MetaCommerce Engine', href: '/metawork-overview/selling' },
       ]
     },
@@ -238,6 +238,7 @@ export default function Sidebar() {
       label: 'Industries We Serve',
       href: '/industries',
       subItems: [
+        { icon: Swords,        label: 'Fighters',        href: '/industries/fighters' },
         { icon: Dumbbell,      label: 'Gyms & Fitness',  href: '/industries/gyms-fitness' },
         { icon: GraduationCap, label: 'Education',       href: '/industries/education' },
         { icon: Coffee,        label: 'Food & Beverage', href: '/industries/food-beverage' },

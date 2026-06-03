@@ -439,6 +439,9 @@ function LoginInner() {
             <p className="text-xs">
               By signing in, you agree to our Terms of Service and Privacy Policy
             </p>
+            <a href="/forgot-password" className="text-sm text-muted-foreground hover:underline">
+              Forgot password?
+            </a>
           </div>
         </CardContent>
       </Card>

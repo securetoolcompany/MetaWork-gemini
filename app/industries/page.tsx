@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Terminal, Dumbbell, GraduationCap, Coffee, Palette, 
   ArrowRight, ShieldCheck, Gamepad2, ChevronRight, Store, 
-  Gift, HeartHandshake, Zap, Building2, Network
+  Gift, HeartHandshake, Zap, Building2, Network, Swords, Trophy, Star
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -44,6 +44,51 @@ export default function IndustriesPage() {
       {/* THE 7 INDUSTRIES FUNNEL (Bento Grid) */}
       <section className="px-8 py-24 bg-zinc-950">
         <div className="max-w-7xl mx-auto">
+
+          {/* FIGHTERS — Featured full-width card (NEW) */}
+          <Link href="/industries/fighters" className="block group mb-6">
+            <Card className="bg-zinc-900/40 border-zinc-800 group-hover:border-red-500/50 transition-all duration-300 rounded-none relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-orange-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute top-0 right-0 w-[400px] h-[300px] bg-red-500/5 blur-[80px] rounded-full pointer-events-none" />
+              <CardContent className="p-8 md:p-10 relative z-10">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                  
+                  {/* Left: Icon + heading + description */}
+                  <div className="flex items-start gap-6 flex-1">
+                    <div className="h-14 w-14 bg-red-500/10 border border-red-500/20 flex items-center justify-center rounded shrink-0 group-hover:scale-110 transition-transform">
+                      <Swords className="h-7 w-7 text-red-400" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Fighters</h2>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-mono rounded">
+                          NEW — FIGHTER_DEPLOYMENT_MODULE
+                        </span>
+                      </div>
+                      <p className="text-sm text-zinc-400 leading-relaxed max-w-2xl">
+                        The first platform built specifically for the individual competitor. Mint your IP, pay your whole team trustlessly on fight night, launch your Fighter Card to build a fanbase that pays you between fights, and sell merch with zero inventory risk.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right: Feature tags + arrow */}
+                  <div className="flex flex-col items-start md:items-end gap-4 shrink-0">
+                    <div className="flex flex-wrap gap-2 font-mono text-[10px]">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                        <Trophy className="h-3 w-3" /> FIGHTER_CARD_NFT
+                      </span>
+                      <span className="px-2 py-1 bg-zinc-950 border border-zinc-800 text-zinc-500">MERCH_SALES</span>
+                      <span className="px-2 py-1 bg-zinc-950 border border-zinc-800 text-zinc-500">IP_TOKENIZATION</span>
+                      <span className="px-2 py-1 bg-zinc-950 border border-zinc-800 text-zinc-500">PURSE_DISTRIBUTION</span>
+                      <span className="px-2 py-1 bg-zinc-950 border border-zinc-800 text-zinc-500">FIGHT_KITS</span>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-zinc-600 group-hover:text-red-400 transition-colors group-hover:translate-x-1" />
+                  </div>
+
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
           
           {/* Row 1: The Big 3 (Gyms, Education, Food) */}
           <div className="grid md:grid-cols-3 gap-6 mb-6">
