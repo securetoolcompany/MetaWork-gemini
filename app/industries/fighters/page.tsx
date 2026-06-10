@@ -14,7 +14,7 @@ export default function FightersPage() {
       {/* ============================================================
           HERO SECTION
           ============================================================ */}
-      <section className="relative px-8 pt-24 pb-16 max-w-7xl mx-auto w-full border-b border-zinc-800/50">
+      <section className="relative px-8 pt-4 pb-16 max-w-7xl mx-auto w-full border-b border-zinc-800/50">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[400px] bg-red-500/6 blur-[120px] rounded-full pointer-events-none" />
         
         {/* TWO COLUMN GRID */}
@@ -29,9 +29,9 @@ export default function FightersPage() {
             </div>
 
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter leading-[1.1] mb-6">
-              Built for fighters.<br />
+              Your talent.<br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-500">
-                Not for promoters.
+                Our tools.
               </span>
             </h1>
 
@@ -44,7 +44,7 @@ export default function FightersPage() {
               MetaWork changes that. Sell your merch. Own your highlights.
               Pay your whole team on fight night — automatically.
               Build a fanbase that pays you between fights.
-              <span className="text-red-400"> No promoter required.</span>
+              <span className="text-red-400"> Your career. Your terms.</span>
             </p>
 
             <div className="flex gap-4">

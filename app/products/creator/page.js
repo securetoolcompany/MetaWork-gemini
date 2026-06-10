@@ -21,6 +21,7 @@ import IPLibraryPanel from 'components/product-creator/IPLibraryPanel'
 import DesignPropertiesPanel from 'components/product-creator/DesignPropertiesPanel'
 import { useSearchParams } from 'next/navigation'
 import { useIsMobile } from '@/hooks/use-mobile'
+import BlankProductDetailsDialog from 'components/product-creator/BlankProductDetailsDialog'
 
 const CATEGORY_ID_MAP = {
   Activewear: ['leggings', 'sports bra', 'athletic', 'joggers', 'active'],
@@ -946,6 +947,25 @@ function ProductCreatorInner() {
           </div>
         </>
       )}
+                  {inspectingProduct && (
+            <BlankProductDetailsDialog
+              product={inspectingProduct}
+              open={!!inspectingProduct}
+              onClose={() => {
+                justClosedRef.current = true
+                setInspectingProduct(null)
+                setTimeout(() => { justClosedRef.current = false }, 100)
+              }}
+              onSelect={(prod) => {
+                justClosedRef.current = true
+                setInspectingProduct(null)
+                setSelectedBlank(prod)
+                setExternalProductId(uuidv4())
+                setStep('design')
+                setTimeout(() => { justClosedRef.current = false }, 100)
+              }}
+            />
+          )}
     </div>
   )
 }
