@@ -20,6 +20,20 @@ import { Upload, DollarSign, TrendingUp, Globe, Lock, Eye, EyeOff, Loader2, Tag,
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const CATEGORY_UI_MAP = {
   'accessories': { title: 'Accessories & Apparel', icon: '🎽' },
@@ -28,6 +42,48 @@ const CATEGORY_UI_MAP = {
   'default': { title: 'Other Categories', icon: '📦' }
 };
 
+function SortableThumbnail({ url, idx, previewIndex, setPreviewIndex, onRemove }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: url });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative group">
+      <button
+        type="button"
+        onClick={() => setPreviewIndex(idx)}
+        {...attributes}
+        {...listeners}
+        className={`w-16 h-16 rounded-md overflow-hidden border-2 transition-colors cursor-grab active:cursor-grabbing ${
+          idx === previewIndex ? 'border-primary' : 'border-border hover:border-primary/50'
+        }`}
+      >
+        <img src={url} alt={`Mockup ${idx + 1}`} className="object-cover w-full h-full" />
+      </button>
+
+      {/* Primary badge on first */}
+      {idx === 0 && (
+        <div className="absolute -top-1.5 -left-1.5 bg-primary text-primary-foreground rounded-full w-4 h-4 flex items-center justify-center text-[9px] font-bold">
+          1
+        </div>
+      )}
+
+      {/* Remove button */}
+      <button
+        type="button"
+        onClick={() => onRemove(idx)}
+        className="absolute -top-1.5 -right-1.5 bg-destructive text-destructive-foreground rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Remove mockup"
+      >
+        <X className="w-2.5 h-2.5" />
+      </button>
+    </div>
+  );
+}
 export default function ProductEditDialog({ product, open, onOpenChange, tutorialStep, onSaveSuccess }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -40,6 +96,7 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [previewIndex, setPreviewIndex] = useState(0);
   const fileInputRef = useRef(null);
   
   const [groupedCategories, setGroupedCategories] = useState({});
@@ -154,29 +211,54 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
     }));
   };
 
+  const sensors = useSensors(useSensor(PointerSensor));
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    setFormData(prev => {
+      const oldIndex = prev.mockups.indexOf(active.id);
+      const newIndex = prev.mockups.indexOf(over.id);
+      return { ...prev, mockups: arrayMove(prev.mockups, oldIndex, newIndex) };
+    });
+    setPreviewIndex(0);
+  };
+
   const handleMockupUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
 
     setIsUploading(true);
-    const tid = toast.loading("Uploading mockup...");
+    const tid = toast.loading(`Uploading ${files.length > 1 ? `${files.length} mockups` : 'mockup'}...`);
 
     try {
-      const formDataUpload = new FormData();
-      formDataUpload.append('file', file);
-      formDataUpload.append('folderContext', 'mockups');
+      const uploadedUrls = [];
 
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formDataUpload,
-      });
+      for (const file of files) {
+        const formDataUpload = new FormData();
+        formDataUpload.append('file', file);
+        formDataUpload.append('folderContext', 'mockups');
 
-      const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error || "Upload failed");
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formDataUpload,
+        });
 
-      const updatedMockups = [...(formData.mockups || []), data.url];
-      setFormData(prev => ({ ...prev, mockups: updatedMockups }));
-      toast.success("Mockup saved", { id: tid });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Upload failed');
+        uploadedUrls.push(data.url);
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        mockups: [...(prev.mockups || []), ...uploadedUrls],
+      }));
+
+      toast.success(
+        uploadedUrls.length === 1 ? 'Mockup uploaded' : `${uploadedUrls.length} mockups uploaded`,
+        { id: tid }
+      );
 
     } catch (err) {
       toast.error(err.message, { id: tid });
@@ -222,7 +304,7 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
           showroomListed: formData.isPublic,
           status: formData.isPublic ? 'live' : 'draft', 
           mockups: formData.mockups || [],
-          mockupUrl: formData.mockups?.length > 0 ? formData.mockups[formData.mockups.length - 1] : undefined
+          mockupUrl: formData.mockups?.length > 0 ? formData.mockups[0] : undefined
         })
       });
 
@@ -273,11 +355,12 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
             
             {/* 1. Product Preview */}
             <Card className="border-border bg-card">
-              <CardContent className="p-4">
-                <div className="aspect-square relative rounded-lg overflow-hidden bg-muted mb-3">
+              <CardContent className="p-4 space-y-3">
+                {/* Large preview */}
+                <div className="aspect-square relative rounded-lg overflow-hidden bg-muted">
                   <img
-                    src={formData.mockups?.length > 0 
-                      ? formData.mockups[formData.mockups.length - 1] 
+                    src={formData.mockups?.length > 0
+                      ? formData.mockups[previewIndex] ?? formData.mockups[0]
                       : (product.imageUrl || product.thumbnailUrl || product.mockupUrl || '/placeholder.png')}
                     alt={formData.name}
                     className="object-cover w-full h-full"
@@ -289,11 +372,41 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
                   )}
                 </div>
 
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleMockupUpload} />
+                {/* Thumbnail strip */}
+                {formData.mockups?.length > 0 && (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={formData.mockups} strategy={horizontalListSortingStrategy}>
+                    <div className="flex gap-2 flex-wrap">
+                      {formData.mockups.map((url, idx) => (
+                        <SortableThumbnail
+                          key={url}
+                          url={url}
+                          idx={idx}
+                          previewIndex={previewIndex}
+                          setPreviewIndex={setPreviewIndex}
+                          onRemove={(i) => {
+                            const updated = formData.mockups.filter((_, j) => j !== i);
+                            setFormData(prev => ({ ...prev, mockups: updated }));
+                            setPreviewIndex(prev => Math.max(0, prev >= i ? prev - 1 : prev));
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
+
+                <p className="text-xs text-muted-foreground">
+                  {formData.mockups?.length > 0
+                    ? `${formData.mockups.length} mockup${formData.mockups.length !== 1 ? 's' : ''} · First image is the storefront primary`
+                    : 'No mockups yet — upload one below'}
+                </p>
+
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleMockupUpload} />
 
                 <Button type="button" variant="outline" className="w-full" size="sm" disabled={isUploading} onClick={() => fileInputRef.current?.click()}>
                   {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                  Upload New Mockup
+                  {formData.mockups?.length > 0 ? 'Upload More Mockups' : 'Upload Mockup'}
                 </Button>
               </CardContent>
             </Card>

@@ -216,7 +216,8 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
   if (!open) return null;
 
   const displayImages = 
-    (product?.mockupImages?.length > 0 ? product.mockupImages : null) ||
+  (product?.mockups?.length > 0 ? product.mockups : null) ||  
+  (product?.mockupImages?.length > 0 ? product.mockupImages : null) ||
     (product?.images?.length > 0 ? product.images : null) ||
     (product?.thumbnailUrl ? [product.thumbnailUrl] : null) ||
     (product?.image ? [product.image] : null) ||

@@ -948,14 +948,16 @@ function ProductCreatorInner() {
         </>
       )}
                   {inspectingProduct && (
-            <BlankProductDetailsDialog
-              product={inspectingProduct}
-              open={!!inspectingProduct}
-              onClose={() => {
-                justClosedRef.current = true
-                setInspectingProduct(null)
-                setTimeout(() => { justClosedRef.current = false }, 100)
-              }}
+                  <BlankProductDetailsDialog
+                    product={inspectingProduct}
+                    open={!!inspectingProduct}
+                    onOpenChange={(isOpen) => {
+                      if (!isOpen) {
+                        justClosedRef.current = true
+                        setInspectingProduct(null)
+                        setTimeout(() => { justClosedRef.current = false }, 100)
+                      }
+                    }}
               onSelect={(prod) => {
                 justClosedRef.current = true
                 setInspectingProduct(null)
