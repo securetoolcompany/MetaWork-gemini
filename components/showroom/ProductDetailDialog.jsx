@@ -46,6 +46,7 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
   const [selectedSize, setSelectedSize] = useState(null);
   const [currentMockupIndex, setCurrentMockupIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [selectedColor, setSelectedColor] = useState(null);
 
   // Fulfillment state
   const [showShippingForm, setShowShippingForm] = useState(false);
@@ -73,6 +74,7 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
       setUserComment('');
       setSelectedVariation(null);
       setSelectedSize(null);
+      setSelectedColor(null);
     }
   }, [open, productId]);
 
@@ -227,24 +229,6 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
   const regularPrice = selectedVariation?.regular_price || product?.regularPrice;
   const hasDiscount = regularPrice && parseFloat(regularPrice) > parseFloat(productPrice);
 
-  const sizeOrder = ['xs', 's', 'm', 'l', 'xl', '2xl', '2xs', '3xl', '4xl', '5xl', '6xl'];
-  const availableSizes = product?.variations
-      ? Array.from(new Set(product.variations.map(v => {
-          // Look for the new attribute first, then fallback to name cleaning
-          const rawSize = v.attributes?.pa_size || v.name;
-          if (!rawSize) return null;
-          
-          // Handle "AlphaBJJ / XS" vs "XS"
-          return rawSize.includes(' / ') ? rawSize.split(' / ')[1] : rawSize;
-        }).filter(Boolean)))
-        .sort((a, b) => {
-          const aIndex = sizeOrder.indexOf(a.toLowerCase());
-          const bIndex = sizeOrder.indexOf(b.toLowerCase());
-          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-          return a.localeCompare(b);
-        })
-      : [];
-
   const averageRating = reviews.length > 0
     ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
     : 0;
@@ -325,16 +309,92 @@ export default function ProductDetailDialog({ open, onOpenChange, productId }) {
 
                 <ShareButton url={`${window.location.origin}/products/${product.id}`} title={`Buy ${product.name}`} variant="secondary" />
 
-                {availableSizes.length > 0 && (
-                  <div>
-                    <h3 className="font-bold mb-3 flex items-center gap-2"><Ruler className="w-5 h-5 text-emerald-500" /> Size: <span className="text-emerald-400">{selectedSize?.toUpperCase()}</span></h3>
-                    <div className="flex flex-wrap gap-2">
-                      {availableSizes.map((size) => (
-                        <button key={size} onClick={() => handleSizeChange(size)} className={`px-4 py-2 rounded-lg border-2 uppercase text-sm transition-all ${selectedSize === size ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400' : 'border-white/20 hover:border-white/40'}`}>{size}</button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {(() => {
+                  const availableColors = Array.from(new Set(
+                    (product?.variations || []).map(v => v.attributes?.pa_color).filter(Boolean)
+                  ));
+                  
+                  const availableSizes = Array.from(new Set(
+                    (product?.variations || [])
+                      .filter(v => !selectedColor || v.attributes?.pa_color === selectedColor)
+                      .map(v => {
+                        const raw = v.attributes?.pa_size || v.name;
+                        if (!raw) return null;
+                        return raw.includes(' / ') ? raw.split(' / ')[1] : raw;
+                      })
+                      .filter(Boolean)
+                  )).sort((a, b) => {
+                    const order = ['xs','s','m','l','xl','2xl','3xl','4xl','5xl','6xl'];
+                    const ai = order.indexOf(a.toLowerCase()), bi = order.indexOf(b.toLowerCase());
+                    if (ai !== -1 && bi !== -1) return ai - bi;
+                    return a.localeCompare(b);
+                  });
+
+                  return (
+                    <>
+                      {availableColors.length > 0 && (
+                        <div>
+                          <h3 className="font-bold mb-3 flex items-center gap-2">
+                            <span className="w-4 h-4 rounded-full border border-white/30 inline-block" style={{ background: selectedColor || '#fff' }} />
+                            Color: <span className="text-emerald-400">{selectedColor || 'Select'}</span>
+                          </h3>
+                          <div className="flex flex-wrap gap-2">
+                            {availableColors.map(color => (
+                              <button
+                                key={color}
+                                onClick={() => {
+                                  setSelectedColor(color);
+                                  setSelectedSize(null);
+                                  setSelectedVariation(null);
+                                }}
+                                className={`px-4 py-2 rounded-lg border-2 text-sm transition-all ${
+                                  selectedColor === color
+                                    ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400'
+                                    : 'border-white/20 hover:border-white/40'
+                                }`}
+                              >
+                                {color}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {availableSizes.length > 0 && (
+                        <div>
+                          <h3 className="font-bold mb-3 flex items-center gap-2">
+                            <Ruler className="w-5 h-5 text-emerald-500" />
+                            Size: <span className="text-emerald-400">{selectedSize?.toUpperCase() || 'Select'}</span>
+                          </h3>
+                          <div className="flex flex-wrap gap-2">
+                            {availableSizes.map(size => (
+                              <button
+                                key={size}
+                                onClick={() => {
+                                  setSelectedSize(size);
+                                  const match = product.variations?.find(v => {
+                                    const vColor = v.attributes?.pa_color;
+                                    const vSize = v.attributes?.pa_size || v.name;
+                                    const sizeMatch = vSize?.toLowerCase().includes(size.toLowerCase());
+                                    return selectedColor ? (vColor === selectedColor && sizeMatch) : sizeMatch;
+                                  });
+                                  if (match) setSelectedVariation(match);
+                                }}
+                                className={`px-4 py-2 rounded-lg border-2 uppercase text-sm transition-all ${
+                                  selectedSize === size
+                                    ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400'
+                                    : 'border-white/20 hover:border-white/40'
+                                }`}
+                              >
+                                {size}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {/* Fulfillment Logic Toggle */}
                 <div className="space-y-4 pt-6 border-t border-white/10">

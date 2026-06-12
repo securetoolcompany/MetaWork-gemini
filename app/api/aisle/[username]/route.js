@@ -28,13 +28,22 @@ export async function GET(request, { params }) {
       idList.push(creator.id);
     }
 
+    if (creator.username) {
+      idList.push(creator.username);
+    }
+
+    const ownerQuery = {
+      $or: [{ creatorId: { $in: idList } }, { userId: { $in: idList } }]
+    };
+
     const [products, ipAssets] = await Promise.all([
       db.collection('products').find({
-        $and: [
-          { $or: [{ creatorId: { $in: idList } }, { userId: { $in: idList } }] },
-          { isDraft: false },
+        ...ownerQuery,
+        $or: [
           { isPublic: true },
-          { status: { $in: ['active', 'live'] } } // ✅ Now accepts 'active' products!
+          { isVisible: true },
+          { showroomListed: true },
+          { status: 'live' }
         ]
       }).toArray(),
       db.collection('ip_assets').find({
