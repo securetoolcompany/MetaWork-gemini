@@ -7,8 +7,8 @@
 const { MongoClient } = require('mongodb');
 require('dotenv').config({ path: '.env.local' });
 
-const TARGET_EMAIL  = 'ekehcherechi3@gmail.com';
-const CREDITS_TO_ADD = 100;
+const TARGET_EMAIL  = 'drpavlatos@gmail.com';
+const CREDITS_TO_ADD = 150;
 
 async function grantCredits() {
   const client = new MongoClient(process.env.MONGO_URL);
