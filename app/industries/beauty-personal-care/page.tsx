@@ -54,8 +54,8 @@ export default function BeautyPersonalCarePage() {
               </div>
               <h2 className="text-3xl font-bold tracking-tight mb-4">The Epoch of <br />Skin-in-the-Game.</h2>
               <p className="text-zinc-500 font-mono text-sm leading-relaxed">
-                > Standardize cryptographic equity. <br />
-                > Eliminate shelf-space gatekeepers.
+                '&gt;' Standardize cryptographic equity. <br />
+                '&gt;' Eliminate shelf-space gatekeepers.
               </p>
             </div>
             
@@ -170,9 +170,9 @@ export default function BeautyPersonalCarePage() {
                     <span className="text-fuchsia-500">INITIALIZED</span>
                   </div>
                   <div className="mt-8 text-[10px] leading-relaxed">
-                    > Initialize smart contract #BEAUTY-772<br />
-                    > Verifying community cap table...<br />
-                    > Network ready for genesis sale.
+                    '&gt;' Initialize smart contract #BEAUTY-772<br />
+                    '&gt;' Verifying community cap table...<br />
+                    '&gt;' Network ready for genesis sale.
                   </div>
                 </div>
               </div>
@@ -216,7 +216,7 @@ export default function BeautyPersonalCarePage() {
               </div>
             </div>
             <div className="text-zinc-600 text-[10px] space-y-1">
-              <div>SMART_CONTRACT_LOG ></div>
+              <div>SMART_CONTRACT_LOG '&gt;'</div>
               <div className="flex gap-4">
                 <span className="text-zinc-800">[14:22:01]</span>
                 <span>Batch processing 12,450 micro-royalty triggers...</span>
