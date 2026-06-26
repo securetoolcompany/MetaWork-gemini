@@ -9,7 +9,7 @@ import {
   Palette, LayoutGrid, Terminal, Menu, ChevronDown, Dumbbell,
   GraduationCap, Coffee, HeartHandshake, ShoppingCart,
   Wrench, FileText, DollarSignIcon, Wallet, Shield, Coins,
-  FolderOpen, Package, User, Factory, Swords
+  FolderOpen, Package, User, Factory, Swords, Music, Star, Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
@@ -238,15 +238,19 @@ export default function Sidebar() {
       label: 'Industries We Serve',
       href: '/industries',
       subItems: [
-        { icon: Swords,        label: 'Fighters',        href: '/industries/fighters' },
-        { icon: Dumbbell,      label: 'Gyms & Fitness',  href: '/industries/gyms-fitness' },
-        { icon: GraduationCap, label: 'Education',       href: '/industries/education' },
-        { icon: Coffee,        label: 'Food & Beverage', href: '/industries/food-beverage' },
-        { icon: Palette,       label: 'Creators & IP',   href: '/industries/creators' },
-        { icon: Gift,          label: 'B2B & Promo',     href: '/industries/gifts-promo' },
-        { icon: ShoppingCart,  label: 'Retailers & LGS', href: '/industries/retailers' },
-        { icon: HeartHandshake, label: 'Non-Profits',    href: '/industries/non-profits' },
-      ]
+      { icon: Swords,         label: 'Fighters',                href: '/industries/fighters' },
+      { icon: Zap,            label: 'Extreme Athletes',        href: '/industries/extreme-athletes' },
+      { icon: Dumbbell,       label: 'Gyms & Fitness',          href: '/industries/gyms-fitness' },
+      { icon: Music,          label: 'Musicians',               href: '/industries/musicians' },
+      { icon: Star,           label: 'Influencers',             href: '/industries/influencers' },
+      { icon: Palette,        label: 'Creators & IP',           href: '/industries/creators' },
+      { icon: GraduationCap,  label: 'Education',               href: '/industries/education' },
+      { icon: HeartHandshake, label: 'Non-Profits',             href: '/industries/non-profits' },
+      { icon: Coffee,         label: 'Food & Beverage',         href: '/industries/food-beverage' },
+      { icon: Sparkles,       label: 'Beauty & Personal Care',  href: '/industries/beauty-personal-care' },
+      { icon: ShoppingCart,   label: 'Retailers & LGS',         href: '/industries/retailers' },
+      { icon: Gift,           label: 'B2B & Promo',             href: '/industries/gifts-promo' },
+    ]
     },
     { icon: LayoutGrid, label: 'Global Showroom', href: '/showroom' },
     { icon: Info,       label: 'About Us',        href: '/about-us' },
