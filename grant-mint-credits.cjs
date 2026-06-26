@@ -3,11 +3,13 @@
 // Usage: node grant-mint-credits.cjs
 //
 // Requires: MONGO_URL (and optionally DB_NAME) in .env.local
+const dns = require("node:dns");
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 const { MongoClient } = require('mongodb');
 require('dotenv').config({ path: '.env.local' });
 
-const TARGET_EMAIL  = 'drpavlatos@gmail.com';
+const TARGET_EMAIL  = 'udoh.mfon07@gmail.com';
 const CREDITS_TO_ADD = 150;
 
 async function grantCredits() {

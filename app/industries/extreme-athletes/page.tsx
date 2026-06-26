@@ -259,7 +259,7 @@ export default function ExtremeAthletesPage() {
                     style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(56,189,248,0.07) 0%, transparent 70%)' }}
                   />
                   <img
-                    src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExZmJpYWp3YzU3ajltMmo2cmJjaG1lNXJqN3RrODlmYjdmaXZrdGU1aSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/Wwq5EGUUZLq9i/giphy.gif"
+                    src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExMmcwaG9samducHNsNTM1YWsxMjIzdG5rMzBxeXRnb3A4ZmR5bXF4NyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/6zCUmWcX3uFpelK4h8/giphy.gif"
                     alt="Extreme athlete in action"
                     width={260}
                     height={260}
