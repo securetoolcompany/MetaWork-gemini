@@ -9,7 +9,8 @@ import {
   Palette, LayoutGrid, Terminal, Menu, ChevronDown, Dumbbell,
   GraduationCap, Coffee, HeartHandshake, ShoppingCart,
   Wrench, FileText, DollarSignIcon, Wallet, Shield, Coins,
-  FolderOpen, Package, User, Factory, Swords, Music, Star, Sparkles
+  FolderOpen, Package, User, Factory, Swords, Music, Star, Sparkles,
+  Ticket
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
@@ -238,6 +239,7 @@ export default function Sidebar() {
       label: 'Industries We Serve',
       href: '/industries',
       subItems: [
+      { icon: Ticket,         label: 'Promotions & Events',     href: '/industries/promotions' },
       { icon: Swords,         label: 'Fighters',                href: '/industries/fighters' },
       { icon: Zap,            label: 'Extreme Athletes',        href: '/industries/extreme-athletes' },
       { icon: Dumbbell,       label: 'Gyms & Fitness',          href: '/industries/gyms-fitness' },

@@ -38,12 +38,21 @@ export async function GET(request, { params }) {
 
     const [products, ipAssets] = await Promise.all([
       db.collection('products').find({
-        ...ownerQuery,
-        $or: [
-          { isPublic: true },
-          { isVisible: true },
-          { showroomListed: true },
-          { status: 'live' }
+        $and: [
+          {
+            $or: [
+              { creatorId: { $in: idList } },
+              { userId: { $in: idList } }
+            ]
+          },
+          {
+            $or: [
+              { isPublic: true },
+              { isVisible: true },
+              { showroomListed: true },
+              { status: 'live' }
+            ]
+          }
         ]
       }).toArray(),
       db.collection('ip_assets').find({

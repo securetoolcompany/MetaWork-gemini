@@ -499,9 +499,9 @@ export default function PromotionsPage() {
                 Set Up Your Promotion Aisle
               </Button>
             </Link>
-            <Link href="/showroom">
+            <Link href="/how-it-works/promotions">
               <Button size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-none font-mono">
-                View Active Events <ChevronRight className="ml-2 h-4 w-4" />
+                See How It Works <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
           </div>
