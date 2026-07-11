@@ -37,7 +37,7 @@ export default function FightersPage() {
 
             <p className="text-xl text-zinc-400 leading-relaxed font-light mb-4 max-w-2xl">
               You train twice a day. You cut weight. You take the fights nobody else will take.
-              And at the end of the night, someone else walks away with most of the money.
+              And at the end of the night, the rewards don’t always reflect the work you’ve put in.
             </p>
 
             <p className="text-xl text-zinc-200 leading-relaxed font-semibold mb-8 max-w-2xl">

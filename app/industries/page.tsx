@@ -45,7 +45,7 @@ export default function IndustriesPage() {
       <section className="px-8 py-24 bg-zinc-950">
         <div className="max-w-7xl mx-auto">
 
-          {/* FIGHTERS — Featured full-width card (NEW) */}
+                    {/* FIGHTERS — Featured full-width card (NEW) */}
           <Link href="/industries/fighters" className="block group mb-6">
             <Card className="bg-zinc-900/40 border-zinc-800 group-hover:border-red-500/50 transition-all duration-300 rounded-none relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-orange-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

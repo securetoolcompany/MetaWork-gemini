@@ -55,7 +55,7 @@ TOKEN_UNIT  = b"SMK"
 # For a smoke test both can be the same address.
 STAKEHOLDERS = [
     (CREATOR_ADDRESS, 7000),
-    (CREATOR_ADDRESS, 3000),   # replace with a second address if available
+    ("COYJN7VFKE4FJO4BSUSYQA56GIE6CL6MUJLA5YY2HR47Z5RX2GH27TUOTE", 3000),   # replace with a second address if available
 ]
 
 # ---------------------------------------------------------------------------

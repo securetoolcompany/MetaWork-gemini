@@ -37,7 +37,7 @@
     ".next/dev/types/**/*.ts",
     "**/*.js",
     "**/*.jsx"
-, "categoryExtractor.cjs", "seed_vYzion.cjs", "lib/update-collections.cjs", "seed-storefronts.cjs"  ],
+, "categoryExtractor.cjs", "seed_vYzion.cjs", "lib/update-collections.cjs", "seed-storefronts.cjs", "fix-legacy-descriptions.cjs"  ],
   "exclude": [
     "node_modules"
   ]

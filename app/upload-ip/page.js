@@ -71,8 +71,8 @@ function UploadIPInner() {
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
-    if (selectedFile.size > 10 * 1024 * 1024) {
-      toast.error('File too large', { description: 'Maximum file size is 10MB' });
+    if (selectedFile.size > 50 * 1024 * 1024) {
+      toast.error('File too large', { description: 'Maximum file size is 50MB' });
       return;
     }
     setFile(selectedFile);
@@ -101,25 +101,43 @@ function UploadIPInner() {
       return;
     }
 
+    const authHeaders = getAuthHeader();
+    
     setIsLoading(true);
     const toastId = toast.loading('Starting IP creation...');
     try {
+      toast.loading('Preparing upload...', { id: toastId });
+      const keyRes = await fetch('/api/ipfs/key', {
+        method: 'POST',
+        headers: authHeaders,
+      });
+      let keyJson;
+      try { keyJson = await keyRes.json(); } catch { throw new Error('Failed to get upload key'); }
+      if (!keyRes.ok) throw new Error(keyJson.error || 'Key generation failed');
+
       toast.loading('Uploading to IPFS...', { id: toastId });
       const pinataData = new FormData();
       pinataData.append('file', file);
-      const pinataRes = await fetch('/api/ipfs/upload', { method: 'POST', body: pinataData });
-      const pinataJson = await pinataRes.json();
-      if (!pinataJson.success) throw new Error('IPFS upload failed');
+      const pinataRes = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${keyJson.JWT}` },
+        body: pinataData,
+      });
+      let pinataJson;
+      try { pinataJson = await pinataRes.json(); } catch { throw new Error(`Upload failed (${pinataRes.status})`); }
+      if (!pinataRes.ok || !pinataJson.IpfsHash) throw new Error(pinataJson.error || 'IPFS upload failed');
+
+      const ipfsHash = pinataJson.IpfsHash;
 
       const mintPayload = {
         walletAddress: accountAddress,
         name: formData.name,
         description: formData.description,
-        category: formData.category.join(','),   // store as comma-string for API compat
+        category: formData.category.join(','),
         licensable: formData.isPublic,
         licenseFeeUsd: formData.licensingFee,
         isPublic: formData.isPublic,
-        image: pinataJson.ipfsHash,
+        image: ipfsHash,
         stakeholders: [{ address: accountAddress, percentage: 80, name: 'Creator' }],
       };
 
@@ -133,7 +151,7 @@ function UploadIPInner() {
       if (!res1.ok) throw new Error(step1.error || 'Deployment failed');
 
       toast.loading('Sign NFT Mint Transaction...', { id: toastId });
-      const signedNft = await signTransactionGroup([[new Uint8Array(Buffer.from(step1.transaction, 'base64'))]]);
+      const signedNft = await signTransactionGroup([new Uint8Array(Buffer.from(step1.transaction, 'base64'))]);
       if (!signedNft || signedNft.length === 0) throw new Error('NFT signing cancelled');
 
       toast.loading('Confirming NFT on chain...', { id: toastId });
@@ -147,7 +165,7 @@ function UploadIPInner() {
 
       toast.loading(`Sign ${step2.transactions.length} transactions to launch pool...`, { id: toastId });
       const poolTxns = step2.transactions.map(t => new Uint8Array(Buffer.from(t, 'base64')));
-      const signedPool = await signTransactionGroup([poolTxns]);
+      const signedPool = await signTransactionGroup(poolTxns);
       if (!signedPool || signedPool.length === 0) throw new Error('Pool setup signing cancelled');
 
       toast.loading('Finalizing Revenue Pool...', { id: toastId });

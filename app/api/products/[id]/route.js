@@ -121,6 +121,40 @@ let creator = null;
   }
 }
 
+// Increment viewCount on product page load
+export async function POST(request, { params }) {
+  try {
+    const { id } = await params;
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Product ID is required' }, { status: 400 });
+    }
+
+    const { db } = await connectToDatabase();
+
+    const filter = isValidObjectId(id)
+      ? { $or: [{ _id: new ObjectId(id) }, { id: id }] }
+      : { id: id };
+
+    const result = await db.collection('products').updateOne(
+      filter,
+      {
+        $inc: { viewCount: 1 },
+        $set: { updatedAt: new Date() },
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('❌ POST viewCount Error:', error);
+    return NextResponse.json({ success: false, error: 'Server Error' }, { status: 500 });
+  }
+}
+
 
 export async function PATCH(request, { params }) {
   try {

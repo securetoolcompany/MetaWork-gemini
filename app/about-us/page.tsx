@@ -50,7 +50,7 @@ export default function AboutUsPage() {
       <section className="px-8 py-24 bg-zinc-900/20 border-b border-zinc-800/50">
         <div className="max-w-7xl mx-auto">
           <div className="mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">The Universal Access Platform</h2>
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">The Universal Access Protocol</h2>
             <p className="text-zinc-500 font-mono text-sm uppercase tracking-widest">Executing systemic inclusion directives.</p>
           </div>
 
@@ -80,7 +80,7 @@ export default function AboutUsPage() {
                 <Cpu className="h-8 w-8 text-blue-400 mb-6 group-hover:scale-110 transition-transform" />
                 <h3 className="text-xl font-bold mb-3">Access to Tools</h3>
                 <p className="text-sm text-zinc-400 leading-relaxed">
-                  A smartphone is the only hardware required. We provide a full suite of business tools, from on, demand global manufacturing to automated smart contracts, democratizing enterprise-grade infrastructure.
+                  A smartphone is the only hardware required. We provide a full suite of business tools—from on-demand global manufacturing to automated smart contracts—democratizing enterprise-grade infrastructure.
                 </p>
               </CardContent>
             </Card>

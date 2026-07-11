@@ -465,7 +465,7 @@ export default function CityHighPresentation() {
           <div className="flex flex-col items-center space-y-8 bg-zinc-900/50 p-8 md:p-12 rounded-[40px] border border-zinc-800 backdrop-blur-sm w-full max-w-sm shadow-[0_0_50px_rgba(74,222,128,0.2)]">
             <div className="bg-white p-4 rounded-2xl shadow-2xl w-full aspect-square">
               <img 
-                src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://securemetawork.com/cityhighschool" 
+                src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://securemetawork.com/login" 
                 alt="QR Code" 
                 className="w-full h-full object-contain"
               />
@@ -568,4 +568,4 @@ export default function CityHighPresentation() {
       </div>
     </div>
   );
-}
+} 

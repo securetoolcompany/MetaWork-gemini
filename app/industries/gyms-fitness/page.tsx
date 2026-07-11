@@ -28,7 +28,7 @@ export default function GymsFitnessPage() {
             You built the community. Now capture the value. Use MetaWork to launch premium gear, crowdfund your fight team, and sell digital event tickets—all automated through the blockchain, with zero upfront costs.
           </p>
           <div className="flex gap-4">
-            <Link href="/register">
+            <Link href="/login">
               <Button size="lg" className="h-12 px-8 bg-rose-600 hover:bg-rose-700 text-white rounded-none font-mono shadow-[0_0_20px_rgba(225,29,72,0.2)]">
                 <Terminal className="mr-2 h-4 w-4" /> Initialize Gym Aisle
               </Button>

@@ -70,7 +70,7 @@ export default function CommerceProcessPage() {
           </p>
           
           <div className="flex gap-4">
-            <Link href="/register">
+            <Link href="/login">
               <Button size="lg" className="h-12 px-8 bg-amber-600 hover:bg-amber-700 text-white rounded-none border border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)] font-mono">
                 Initialize Aisle
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -315,7 +315,7 @@ export default function CommerceProcessPage() {
             </div>
           </div>
 
-          <Link href="/platform-architecture">
+          <Link href="/selling/architecture">
             <Button size="lg" variant="outline" className="h-14 px-10 text-lg border-amber-500 text-amber-400 hover:bg-amber-500 hover:text-zinc-950 rounded-none font-mono transition-all">
               <Terminal className="mr-3 h-5 w-5" /> View Full Protocol Specs
             </Button>
@@ -461,7 +461,7 @@ export default function CommerceProcessPage() {
             You don't need a massive marketing budget. You just need an audience and a link. Set up your Aisle and start turning your community's attention into real-world value.
           </p>
           
-          <Link href="/register">
+          <Link href="/login">
             <Button size="lg" className="h-14 px-10 text-lg bg-amber-600 hover:bg-amber-700 text-white rounded-none border border-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.3)] transition-all hover:shadow-[0_0_50px_rgba(245,158,11,0.5)] font-mono">
               <Store className="mr-3 h-5 w-5" />
               Initialize Storefront

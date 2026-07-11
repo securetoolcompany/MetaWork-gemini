@@ -1,9 +1,12 @@
+const dns = require('node:dns');
+dns.setServers(['1.1.1.1', '8.8.8.8']);
+
 require('dotenv').config({ path: '.env.local' });
 const { MongoClient } = require('mongodb');
 const bcrypt = require('bcryptjs');
 
 // --- CHANGE THESE VARIABLES TO RESET SOMEONE ---
-const TARGET_USERNAME_OR_EMAIL = "nova"; 
+const TARGET_USERNAME_OR_EMAIL = "nikkok@gmail.com"; 
 const NEW_PASSWORD = "Password123!";
 // ---------------------------------------------
 

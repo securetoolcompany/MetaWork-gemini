@@ -241,7 +241,13 @@ function LoginInner() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
+                  {/* ↓ Only change: label row becomes flex justify-between */}
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="login-password">Password</Label>
+                    <a href="/forgot-password" className="text-sm text-primary hover:underline">
+                      Forgot password?
+                    </a>
+                  </div>
                   <div className="relative">
                     <Input
                       id="login-password"
@@ -439,9 +445,6 @@ function LoginInner() {
             <p className="text-xs">
               By signing in, you agree to our Terms of Service and Privacy Policy
             </p>
-            <a href="/forgot-password" className="text-sm text-muted-foreground hover:underline">
-              Forgot password?
-            </a>
           </div>
         </CardContent>
       </Card>

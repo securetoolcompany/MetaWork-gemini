@@ -21,7 +21,7 @@ export default function HowItWorksPromotionsPage() {
         </div>
 
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-          Running a MetaWork promotion,<br />
+          Monetizing an Event with MetaWork,<br />
           <span className="text-amber-500">step by step.</span>
         </h1>
         <p className="text-lg text-zinc-500 dark:text-zinc-400 max-w-2xl leading-relaxed">

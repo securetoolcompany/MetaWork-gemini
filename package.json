@@ -3,10 +3,10 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
-        "dev": "next dev --hostname 0.0.0.0 --port 3000",
-        "build": "next build",
-        "start": "next start --port 3000",
-        "migrate-images": "node scripts/migrate-product-images-to-cloudinary.mjs"
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next dev --hostname 0.0.0.0 --port 3000",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next build",
+    "start": "next start --port 3000",
+    "migrate-images": "node scripts/migrate-product-images-to-cloudinary.mjs"
     },
     "dependencies": {
         "@agoralabs-sh/avm-web-provider": "^1.7.0",
@@ -63,6 +63,7 @@
         "cloudinary": "^2.9.0",
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
+        "cross-env": "^10.1.0",
         "csv-parse": "^6.2.1",
         "csv-parser": "^3.2.0",
         "date-fns": "^4.1.0",

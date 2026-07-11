@@ -73,7 +73,7 @@ export async function GET(request) {
   }
 }
 
-// --- POST: Testnet mint → quarantine state ---
+// --- POST: Save New IP to DB after Blockchain Success ---
 export async function POST(request) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -84,66 +84,37 @@ export async function POST(request) {
     if (!decoded?.userId) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 
     const body = await request.json();
-    const { ipData, shareholders } = body;
+    const { signedTxns, ipData } = body;
 
-    if (!ipData) {
-      return NextResponse.json({ error: 'Missing IP data' }, { status: 400 });
+    if (!signedTxns || !ipData) {
+      return NextResponse.json({ error: 'Missing signed transactions or IP data' }, { status: 400 });
     }
 
-    // ── 1. Build mint manifest ────────────────────────────────────────────
-    const mintManifest = {
-      assetName:        ipData.title || ipData.name,
-      unitName:         ipData.unitName || 'MWIP',
-      metadataUri:      ipData.metadataUri || null,
-      imageUri:         ipData.image || ipData.imageUrl || null,
-      ipIdentifier:     ipData.ipIdentifier || ipData.id || null,
-      shareholders:     shareholders || [],
-      poolKey:          ipData.poolKey || null,
-      poolCreationParams: ipData.poolCreationParams || null,
-    };
+    // 1. Submit Signed Transactions to Algorand
+    const binaryTxs = signedTxns.map(tx => new Uint8Array(Buffer.from(tx, 'base64')));
+    const { txId } = await algodClient.sendRawTransaction(binaryTxs).do();
 
-    // ── 2. Testnet mint (stub — wire up revenue_pool_v6 here) ─────────────
-    // TODO: call mintIpAsset({ network: 'testnet', manifest: mintManifest })
-    // For now we record the quarantine state without a live testnet mint
-    // so the DB flow can be tested end-to-end independently.
-    const testnetAssetId = null;  // replace with real result when wired up
-    const testnetAppId   = process.env.NEXT_PUBLIC_REVENUE_POOL_APP_ID || null;
+    // Wait for confirmation
+    await algosdk.waitForConfirmation(algodClient, txId, 4);
 
-    // ── 3. Persist quarantine record ──────────────────────────────────────
+    // 2. Prepare the Asset Document for MongoDB
     const { db } = await connectToDatabase();
-    const clearsAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
-
     const newAsset = {
       ...ipData,
-      imageUrl:           ipData.image || ipData.imageUrl,
-      ownerId:            decoded.userId,
-      createdAt:          new Date().toISOString(),
-
-      // lifecycle fields
-      status:             'quarantine',
-      clearsAt:           clearsAt,
-      testnetAssetId:     testnetAssetId,
-      testnetAppId:       testnetAppId ? String(testnetAppId) : null,
-      mainnetAssetId:     null,
-      mainnetAppId:       null,
-      mintManifest:       mintManifest,
-      promotionAttempts:  0,
-      lastPromotionError: null,
+      imageUrl: ipData.image,
+      ownerId: decoded.userId,
+      createdAt: new Date().toISOString(),
+      status: 'active'
     };
 
+    // 3. ACTUAL WRITE TO DATABASE
     const result = await db.collection('ip_assets').insertOne(newAsset);
 
-    // ── 4. Return public-safe response ────────────────────────────────────
-    return NextResponse.json({
-      success:  true,
-      id:       result.insertedId,
-      status:   'quarantine',
-      clearsAt: clearsAt.toISOString(),
-      name:     mintManifest.assetName,
-      image:    mintManifest.imageUri,
-      message:  'Asset is pending verification. It will go live within 48 hours.',
-    }, { status: 201 });
-
+    return NextResponse.json({ 
+      success: true, 
+      id: result.insertedId,
+      txId 
+    });
   } catch (error) {
     console.error('IP POST Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

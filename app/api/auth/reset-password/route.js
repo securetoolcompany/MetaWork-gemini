@@ -1,53 +1,44 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
+import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
+import { ObjectId } from 'mongodb';
 
-export async function POST(request) {
+export async function POST(req) {
+  const { token, password } = await req.json();
+
+  if (!token || !password) {
+    return NextResponse.json({ error: 'Token and password are required.' }, { status: 400 });
+  }
+
   try {
-    const { token, email, newPassword } = await request.json();
-
-    if (!token || !email || !newPassword) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    if (newPassword.length < 8) {
-      return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
-    }
-
+    const { userId } = jwt.verify(token, process.env.NEXTAUTH_SECRET);
     const { db } = await connectToDatabase();
 
-    // Hash the incoming token to compare against stored hash
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    const objectId = new ObjectId(String(userId));
 
     const user = await db.collection('users').findOne({
-      email: email.toLowerCase().trim(),
-      resetToken: hashedToken,
-      resetTokenExpiry: { $gt: new Date() }, // must not be expired
+      _id: objectId,
+      passwordResetToken: token,
+      passwordResetExpires: { $gt: new Date() }
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Reset link is invalid or has expired. Please request a new one.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid or expired reset link.' }, { status: 400 });
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Save new password and clear the reset token in one shot
     await db.collection('users').updateOne(
-      { _id: user._id },
+      { _id: objectId },
       {
-        $set:   { password: hashedPassword, updatedAt: new Date() },
-        $unset: { resetToken: '', resetTokenExpiry: '' },
+        $set: { password: hashedPassword, updatedAt: new Date() },
+        $unset: { passwordResetToken: '', passwordResetExpires: '' }
       }
     );
 
-    return NextResponse.json({ success: true });
-
-  } catch (error) {
-    console.error('reset-password error:', error);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return NextResponse.json({ message: 'Password reset successfully.' });
+  } catch {
+    return NextResponse.json({ error: 'Invalid or expired reset link.' }, { status: 400 });
   }
 }

@@ -28,7 +28,7 @@ export default function CreatorsPage() {
             Stop posting your art to social media for free. Mint your designs as secure IP assets, license them globally, and earn automated royalties every time your art moves physical merchandise across the network.
           </p>
           <div className="flex gap-4">
-            <Link href="/register">
+            <Link href="/login">
               <Button size="lg" className="h-12 px-8 bg-purple-600 hover:bg-purple-700 text-white rounded-none font-mono">
                 <Terminal className="mr-2 h-4 w-4" /> Deploy IP Asset
               </Button>

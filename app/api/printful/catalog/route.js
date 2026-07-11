@@ -34,7 +34,7 @@ export async function GET(request) {
       });
 
       if (!response.ok) {
-        throw new Error(`Catalog API Error: ${response.status}`);
+        throw new Error(`Printful API Error: ${response.status}`);
       }
 
       const data = await response.json();
@@ -54,7 +54,7 @@ export async function GET(request) {
     if (!response.ok) {
       const errorText = await response.text();
       return NextResponse.json(
-        { error: 'Failed to fetch catalog', details: errorText },
+        { error: 'Failed to fetch Printful catalog', details: errorText },
         { status: response.status }
       );
     }

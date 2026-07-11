@@ -49,8 +49,7 @@ export async function GET(request, { params }) {
     if (token) {
       try {
         const decoded = verifyToken(token);
-        if (decoded?.userId && ipAsset.ownerId &&
-            String(decoded.userId) === String(ipAsset.ownerId)) {
+        if (decoded?.userId === ipAsset.ownerId) {
           isOwner = true;
         }
       } catch (e) { /* Invalid token, proceed as guest */ }
@@ -99,10 +98,6 @@ const avgPrice =
     : 0;
 ipAsset.avgProductPrice = avgPrice;
 
-// Get view count (placeholder)
-ipAsset.viewCount =
-  ipAsset.viewCount || Math.floor(products.length * 12.5);
-
     return NextResponse.json({
       success: true,
       ipAsset,
@@ -117,19 +112,44 @@ ipAsset.viewCount =
   }
 }
 
+export async function POST(request, { params }) {
+  try {
+    const { id } = await params;
+    const { db } = await connectToDatabase();
+
+    const matchQuery = {
+      $or: [{ id: id }, { revenueTokenAssetId: parseInt(id) || -1 }]
+    };
+    if (ObjectId.isValid(id)) {
+      matchQuery.$or.push({ _id: new ObjectId(id) });
+    }
+
+    const result = await db.collection('ip_assets').updateOne(
+      matchQuery,
+      {
+        $inc: { viewCount: 1 },
+        $set: { updatedAt: new Date() },
+      }
+    );
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ success: false, error: 'IP asset not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('❌ POST viewCount Error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
 // PUT - Update IP asset
 export async function PUT(request, { params }) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.substring(7);
+    const token = request.cookies.get('auth_token')?.value;
     if (!token) return NextResponse.json({ error: 'Auth required' }, { status: 401 });
-
-    let decoded;
-    try {
-      decoded = verifyToken(token);
-    } catch (e) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    
+    const decoded = verifyToken(token);
     if (!decoded?.userId) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     
     const { id } = await params;
@@ -143,7 +163,7 @@ export async function PUT(request, { params }) {
         { id: id },
         { revenueTokenAssetId: parseInt(id) || -1 }
       ],
-      ownerId: String(decoded.userId)
+      ownerId: decoded.userId
     };
     
     // Try ObjectId format if it's a valid ObjectId string

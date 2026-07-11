@@ -13,7 +13,7 @@ import { ArrowLeft, ShoppingCart, Star, TrendingUp, Heart, Share2, Check, Loader
 import { toast } from 'sonner';
 import AisleAdPlacement from '@/components/aisle-public/AisleAdPlacement';
 import ShowroomNav from '@/components/showroom/ShowroomNav';
-import { useCart } from '@/contexts/CartContext';
+import { useCart } from '@/lib/CartContext';
 
 const productSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
 const productColors = [
@@ -58,11 +58,7 @@ export default function ProductDetailPage() {
         const data = await response.json();
         
         if (data.success) {
-          fetch(`/api/products/${productId}`, { method: 'POST' }).catch(() => {});  // Fire-and-forget: increment viewCount in DB
           setProduct(data.product);
-            if (data.product?.variations?.length > 0) {
-              setSelectedSize(data.product.variations[0]?.attributes?.pa_size || 'M');
-            }
           setCreator(data.creator);
           setRelatedProducts(data.relatedProducts || []);
         } else {
@@ -81,30 +77,13 @@ export default function ProductDetailPage() {
     }
   }, [productId]);
 
-  const handleAddToCart = async () => {
-    if (!product?._id) {
-      toast.error('Product not found');
-      return;
-    }
-
-    const selectedVariant =
-      (product?.variations || []).find(
-        (v) => v?.attributes?.pa_size === selectedSize
-      ) || null;
-
-    if ((product?.variations || []).length > 0 && !selectedVariant?.id) {
-      toast.error('Please select a size');
-      return;
-    }
-
-    const variationId = selectedVariant?.id?.toString() || null;
-    const result = await addToCart(product._id, variationId, quantity);
-
-    if (result?.success) {
-      toast.success('Added to cart');
-    } else {
-      toast.error(result?.error || 'Failed to add to cart');
-    }
+  const handleAddToCart = () => {
+    if (!product) return;
+    addToCart(product, {
+      size: selectedSize,
+      color: selectedColor,
+      quantity: quantity,
+    });
   };
 
   const handleShare = () => {
@@ -122,8 +101,8 @@ export default function ProductDetailPage() {
   };
 
     // Simple derived value instead of useMemo
-  const uniqueSizes = (product?.variations || [])
-    .map((v) => v?.attributes?.pa_size)
+  const uniqueSizes = (product?.variants || [])
+    .map((v) => v.size)
     .filter(Boolean)
     .filter((value, index, self) => self.indexOf(value) === index);
 
@@ -160,21 +139,10 @@ export default function ProductDetailPage() {
 
   // Get product display values
   const productName = product.title || product.name || 'Product';
-  const selectedVariant =
-    (product?.variations || []).find((v) => {
-      const sizeMatch = v?.attributes?.pa_size === selectedSize;
-      const colorName = selectedColor?.name || selectedColor || null;
-      const colorMatch = !v?.attributes?.pa_color || !colorName || v?.attributes?.pa_color === colorName;
-      return sizeMatch && colorMatch;
-    }) || null;
-  const productPrice = Number(selectedVariant?.price || product.price || 0);
+  const productPrice = product.price || 0;
   const productImage = product.imageUrl || '/placeholder.png';
   const productDescription = product.description || 'This unique design combines style and comfort. Perfect for everyday wear or special occasions.';
-  const productBaseType =
-    product.baseProduct?.catalogProductName ||
-    product.baseProduct?.name ||
-    product.catalogProductName ||
-    'Product';
+  const productBaseType = product.baseProduct || product.catalogProductName || 'Product';
   const salesCount = product.salesCount || 0;
   const creatorSlug = creator?.username || creator?.id || 'unknown';
 
