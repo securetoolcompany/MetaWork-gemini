@@ -38,12 +38,20 @@ import ShippingAddressForm from '@/components/cart/ShippingAddressForm';
 function normalizeProduct(rawProduct) {
   if (!rawProduct) return null;
 
-  const existingVariations = Array.isArray(rawProduct.variations) ? rawProduct.variations : [];
+  // FIX: Look for 'variants' first, then fall back to 'variations'
+  const existingVariations = rawProduct.variants?.length > 0 
+    ? rawProduct.variants 
+    : (Array.isArray(rawProduct.variations) ? rawProduct.variations : []);
+    
   const baseVariants = Array.isArray(rawProduct.baseProduct?.variants) ? rawProduct.baseProduct.variants : [];
 
   const normalizedVariations =
     existingVariations.length > 0
-      ? existingVariations
+      ? existingVariations.map(v => ({
+          ...v,
+          // FIX: Ensure we use the explicitly set custom price
+          price: v.price || v.retail_price || rawProduct.price
+        }))
       : baseVariants.map((v) => ({
           id: String(v.id),
           printfulVariantId: v.id,

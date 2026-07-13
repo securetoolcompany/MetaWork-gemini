@@ -142,7 +142,8 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
         tags: Array.isArray(product.tags) ? product.tags.join(', ') : (product.tags || ''),
         categories: Array.isArray(product.categories) ? product.categories : [],
         isPublic: isProductLive,
-        mockups: product.mockups || [] 
+        mockups: product.mockups || [],
+        variants: product.variants?.length ? product.variants : (product.variations?.length ? product.variations : (product.sync_variants || []))
       });
     }
   }, [product]);
@@ -188,7 +189,31 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   const profit = (formData.price - totalProductionCost).toFixed(2);
   const profitMargin = formData.price > 0 ? (((formData.price - totalProductionCost) / formData.price) * 100).toFixed(1) : 0;
 
-  // Category Selection Handlers
+  const handleVariantPriceChange = (variantId, newRetailPriceStr) => {
+    const newRetailPrice = parseFloat(newRetailPriceStr);
+    if (isNaN(newRetailPrice)) return;
+
+    setFormData(prev => {
+      const editedVariant = prev.variants.find(v => v.id === variantId || v.printful_id === variantId);
+      if (!editedVariant) return prev;
+
+      const markup = newRetailPrice - parseFloat(editedVariant.cost || 0);
+
+      const updatedVariants = prev.variants.map(variant => {
+        const calcPrice = parseFloat((parseFloat(variant.cost || 0) + markup).toFixed(2));
+        return {
+          ...variant,
+          retail_price: calcPrice,
+          price: calcPrice
+        };
+      });
+
+      const newBasePrice = updatedVariants.length > 0 ? updatedVariants[0].price : newRetailPrice;
+
+      return { ...prev, variants: updatedVariants, price: newBasePrice };
+    });
+  };
+
   const handleSelectCategory = (categoryName) => {
     setFormData(prev => {
       const current = prev.categories || [];
@@ -296,9 +321,10 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
           title: formData.name,
           name: formData.name, 
           description: formData.description,
-          price: parseFloat(formData.price),
+          price: formData.variants?.length > 0 ? formData.variants[0].retail_price : parseFloat(formData.price),
+          variants: formData.variants,
           tags: tagsArray,
-          categories: formData.categories, // Now saving the exact strings from the Showroom
+          categories: formData.categories, 
           isPublic: formData.isPublic,
           isVisible: formData.isPublic, 
           showroomListed: formData.isPublic,
@@ -555,12 +581,33 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
             <Card className="border-border bg-card" id="product-pricing">
               <CardHeader><CardTitle className="text-lg flex items-center gap-2"><DollarSign className="h-5 w-5 text-primary" /> Pricing</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2" id="product-price-field">
-                  <Label htmlFor="price">Retail Price *</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                    <Input id="price" type="number" step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} className="pl-7 bg-background border-border" disabled={isLoading} />
-                  </div>
+                <div className="space-y-4" id="product-price-field">
+                  <Label>Variant Pricing *</Label>
+                  {formData.variants && formData.variants.length > 0 ? (
+                    formData.variants.map((variant, index) => (
+                      <div key={variant.id || index} className="flex items-center justify-between gap-4">
+                        <span className="text-sm font-medium">
+                          {variant.size || variant.name} <span className="text-muted-foreground text-xs">(Cost: ${variant.cost})</span>
+                        </span>
+                        <div className="relative w-32">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <Input 
+                            type="number" 
+                            step="0.01" 
+                            value={variant.retail_price || 0} 
+                            onChange={(e) => handleVariantPriceChange(variant.id || variant.printful_id, e.target.value)} 
+                            className="pl-7 bg-background border-border" 
+                            disabled={isLoading} 
+                          />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                      <Input id="price" type="number" step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} className="pl-7 bg-background border-border" disabled={isLoading} />
+                    </div>
+                  )}
                 </div>
                 <div className="p-3 bg-muted/50 rounded-lg space-y-2">
                   <div className="flex items-center justify-between text-sm">

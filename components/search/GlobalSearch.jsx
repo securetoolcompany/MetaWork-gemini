@@ -134,29 +134,6 @@ export default function GlobalSearch() {
           {!isSearching && hasResults && (
             <div className="py-2">
 
-              {results.products.length > 0 && (
-                <SearchSection
-                  title="Products"
-                  icon={Package}
-                  items={results.products}
-                  renderItem={(product) => (
-                    <Link
-                      key={product._id}
-                      href={`/products/${product.id || product._id}`}
-                      onClick={handleResultClick}
-                      className="group flex items-center gap-3 px-4 py-2 hover:bg-slate-800 transition-colors"
-                    >
-                      <Package className="h-4 w-4 text-slate-300 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate text-slate-100 group-hover:text-white">
-                          {product.name}
-                        </p>
-                      </div>
-                    </Link>
-                  )}
-                />
-              )}
-
               {results.aisles.length > 0 && (
                 <SearchSection
                   title="Aisles"
@@ -183,6 +160,29 @@ export default function GlobalSearch() {
                       </Link>
                     );
                   }}
+                />
+              )}
+              
+              {results.products.length > 0 && (
+                <SearchSection
+                  title="Products"
+                  icon={Package}
+                  items={results.products}
+                  renderItem={(product) => (
+                    <Link
+                      key={product._id}
+                      href={`/products/${product.id || product._id}`}
+                      onClick={handleResultClick}
+                      className="group flex items-center gap-3 px-4 py-2 hover:bg-slate-800 transition-colors"
+                    >
+                      <Package className="h-4 w-4 text-slate-300 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate text-slate-100 group-hover:text-white">
+                          {product.name}
+                        </p>
+                      </div>
+                    </Link>
+                  )}
                 />
               )}
 

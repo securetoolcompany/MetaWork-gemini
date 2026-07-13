@@ -40,7 +40,9 @@ const nextConfig = {
 
   serverExternalPackages: ['mongodb'],
 
-  turbopack: {},
+  turbopack: {
+    root: '.',
+  },
 
   async headers() {
     return [

@@ -2,6 +2,28 @@ import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/lib/mongodb';
 
+async function generatePrintfulMockup(productId, templateId) {
+  const res = await fetch('https://api.printful.com/mockup-generator', {
+    method: 'POST',
+    headers: { 
+      'Authorization': `Bearer ${process.env.PRINTFUL_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      product_id: productId.split('-')[0],  // Extract Printful catalog ID
+      template: templateId,
+      format: 'jpg'
+    })
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Printful failed: ${res.status}`);
+  }
+  
+  const data = await res.json();
+  return data.result?.url;
+}
+
 export const dynamic = 'force-dynamic';
 
 function normalizeImageUrl(url) {
@@ -13,7 +35,6 @@ function normalizeImageUrl(url) {
 }
 
 function getProductImageUrl(product) {
-  // FIX: Add mockupUrl to the top of the priority list
   if (product.mockupUrl) return normalizeImageUrl(product.mockupUrl);
   if (product.thumbnailUrl) return normalizeImageUrl(product.thumbnailUrl);
   if (product.mockupImages && product.mockupImages.length > 0 && product.mockupImages[0]) return normalizeImageUrl(product.mockupImages[0]);
@@ -56,7 +77,7 @@ export async function GET(request, { params }) {
     let allImages = [];
     if (Array.isArray(product.images)) allImages.push(...product.images);
     if (Array.isArray(product.mockupImages)) allImages.push(...product.mockupImages);
-    if (Array.isArray(product.mockupUrls)) allImages.push(...product.mockupUrls); // ✅ Catches the newly linked mockups!
+    if (Array.isArray(product.mockupUrls)) allImages.push(...product.mockupUrls); 
     if (product.mockupUrl) allImages.push(product.mockupUrl);
     if (product.imageUrl) allImages.push(product.imageUrl);
     if (product.thumbnailUrl) allImages.push(product.thumbnailUrl);
@@ -72,7 +93,7 @@ export async function GET(request, { params }) {
         mockupUrl: uniqueImages[0] || null
     };
 
-let creator = null;
+    let creator = null;
     const creatorId = product.userId || product.creatorId;
     if (creatorId) {
       creator = await db.collection('users').findOne({ id: creatorId }, { projection: { password: 0 } });
@@ -155,7 +176,6 @@ export async function POST(request, { params }) {
   }
 }
 
-
 export async function PATCH(request, { params }) {
   try {
     const { id } = await params;
@@ -165,6 +185,27 @@ export async function PATCH(request, { params }) {
     if (!id) {
       return NextResponse.json({ success: false, error: 'ID required' }, { status: 400 });
     }
+
+    // --- ENFORCE PRICING LOGIC HERE ---
+    if (updates.variants && updates.variants.length > 0) {
+      const baseVariant = updates.variants.reduce((min, v) => 
+        ((v.cost || 0) < (min.cost || 0)) ? v : min, updates.variants[0]
+      );
+      
+      const markup = parseFloat(baseVariant.retail_price || baseVariant.price || 0) - parseFloat(baseVariant.cost || 0);
+
+      updates.variants = updates.variants.map(variant => {
+        const calculatedPrice = parseFloat((parseFloat(variant.cost || 0) + markup).toFixed(2));
+        return {
+          ...variant,
+          retail_price: calculatedPrice,
+          price: calculatedPrice
+        };
+      });
+
+      updates.price = updates.variants[0].price;
+    }
+    // ----------------------------------
 
     const filter = isValidObjectId(id) 
       ? { $or: [{ _id: new ObjectId(id) }, { id: id }] }
@@ -187,7 +228,7 @@ export async function PATCH(request, { params }) {
     if (updates.printfulTemplateId) {
       try {
         const mockupUrl = await generatePrintfulMockup(id, updates.printfulTemplateId);
-        await db.collection('products').updateOne(  // ← COMPLETE THIS
+        await db.collection('products').updateOne(
           filter,
           { $set: { mockupUrl } }
         );

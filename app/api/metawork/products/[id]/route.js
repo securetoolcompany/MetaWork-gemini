@@ -23,7 +23,6 @@ async function generatePrintfulMockup(productId, templateId) {
   return data.result?.url;
 }
 
-
 export const dynamic = 'force-dynamic'; 
 
 export async function GET(request, { params }) {
@@ -31,68 +30,46 @@ export async function GET(request, { params }) {
 
   try {
     const { id } = await params;
-    console.log('[METAWORK DEBUG] Resolved ID:', id);
-
     if (!id || id === 'undefined') {
       return NextResponse.json({ success: false, error: 'Invalid or missing ID' }, { status: 400 });
     }
 
     const { db } = await connectToDatabase();
-
-    // 1) Always resolve local product first by MetaWork id
     const localProduct = await db.collection('products').findOne({ id });
 
     if (!localProduct) {
-      // optional: still try treating id as a raw Printful product id
       const pfRes = await fetch(`https://api.printful.com/products/${id}`, {
-        headers: {
-          Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`, 'Content-Type': 'application/json' },
         next: { revalidate: 0 },
       });
 
-      if (!pfRes.ok) {
-        console.error('[METAWORK DEBUG] Local + Printful Not Found');
-        return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
-      }
+      if (!pfRes.ok) return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
 
       const pfData = await pfRes.json();
       return NextResponse.json({
         success: true,
         product: {
           ...pfData.result.product,
-          variants: pfData.result.variants ?? [],
+          variants: pfData.result.variants ?? pfData.result.sync_variants ?? [],
           lastUpdated: new Date().toISOString(),
         },
       });
     }
 
-    // 2) We have a local product: optionally enrich with Printful using catalogProductId
     let pfData = null;
     if (localProduct.catalogProductId) {
-      const pfRes = await fetch(
-        `https://api.printful.com/products/${localProduct.catalogProductId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          next: { revalidate: 0 },
-        }
-      );
-
-      if (pfRes.ok) {
-        pfData = await pfRes.json();
-      } else {
-        console.warn('[METAWORK DEBUG] Printful Not Found for catalogProductId', localProduct.catalogProductId);
-      }
+      const pfRes = await fetch(`https://api.printful.com/products/${localProduct.catalogProductId}`, {
+        headers: { Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`, 'Content-Type': 'application/json' },
+        next: { revalidate: 0 },
+      });
+      if (pfRes.ok) pfData = await pfRes.json();
     }
 
     const mergedProduct = {
-      ...(pfData?.result?.product ?? {}), // Printful data (lowest priority)
-      ...localProduct,                    // Local DB data (overwrites Printful)
-      variants: pfData?.result?.variants ?? [],
+      ...(pfData?.result?.product ?? {}), 
+      ...localProduct,                    
+      // FIX: Check local variants first, then fall back to Printful (Checking both variants and sync_variants)
+      variants: localProduct.variants || localProduct.variations || pfData?.result?.variants || pfData?.result?.sync_variants || [],
       lastUpdated: new Date().toISOString(),
     };
 
@@ -102,7 +79,6 @@ export async function GET(request, { params }) {
 
     return NextResponse.json({ success: true, product: mergedProduct });
   } catch (e) {
-    console.error('[METAWORK DEBUG] Route Error:', e.message);
     return NextResponse.json({ success: false, error: e.message }, { status: 500 });
   }
 }
@@ -119,6 +95,28 @@ export async function PUT(request, { params }) {
 
     console.log(`[METAWORK DEBUG] Updating product ${id} with:`, updates);
 
+    // --- ENFORCE PRICING LOGIC HERE ---
+    // Recalculate variants before it hits the database
+    if (updates.variants && updates.variants.length > 0) {
+      // Find the variant with the lowest cost to act as the baseline anchor
+      const baseVariant = updates.variants.reduce((min, v) => 
+        ((v.cost || 0) < (min.cost || 0)) ? v : min, updates.variants[0]
+      );
+      
+      // Calculate the intended flat markup
+      const markup = (baseVariant.retail_price || 0) - (baseVariant.cost || 0);
+
+      // Override all variant prices to guarantee cost differences are mathematically maintained
+      updates.variants = updates.variants.map(variant => ({
+        ...variant,
+        retail_price: parseFloat(((variant.cost || 0) + markup).toFixed(2))
+      }));
+
+      // Ensure the top-level product price matches the baseline
+      updates.price = baseVariant.retail_price;
+    }
+    // ----------------------------------
+
     // Filter to find the product by custom 'id' or Mongo '_id'
     const filter = {
       $or: [
@@ -127,6 +125,7 @@ export async function PUT(request, { params }) {
       ]
     };
 
+    // Because we modified `updates` above, the corrected prices are injected here
     const result = await db.collection('products').updateOne(
       filter,
       { 
