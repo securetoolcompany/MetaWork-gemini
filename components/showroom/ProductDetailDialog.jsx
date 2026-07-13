@@ -274,7 +274,7 @@ export default function ProductDetailDialog({
     [];
 
   const productName = product?.name || product?.title || 'Product';
-  const productPrice = product?.price || selectedVariation?.price || 0;
+  const productPrice = selectedVariation?.price || product?.price || 0;
   const productDescription = product?.description || '';
   const regularPrice = selectedVariation?.regular_price || product?.regularPrice;
   const hasDiscount = regularPrice && parseFloat(regularPrice) > parseFloat(productPrice);

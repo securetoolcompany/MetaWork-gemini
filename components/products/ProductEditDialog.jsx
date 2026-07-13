@@ -132,21 +132,56 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   }, [open]);
   
   useEffect(() => {
-    if (product) {
-      const isProductLive = product.isPublic ?? product.isVisible ?? (product.status === 'live') ?? true;
+    if (open && product) {
+      const targetId = product.id || product._id;
       
-      setFormData({
-        name: product.name || product.title || '',
-        description: product.description || 'A custom designed product featuring unique artwork',
-        price: product.price || 0,
-        tags: Array.isArray(product.tags) ? product.tags.join(', ') : (product.tags || ''),
-        categories: Array.isArray(product.categories) ? product.categories : [],
-        isPublic: isProductLive,
-        mockups: product.mockups || [],
-        variants: product.variants?.length ? product.variants : (product.variations?.length ? product.variations : (product.sync_variants || []))
-      });
+      // 1. Fetch the full, deep product object (identical to your curl command)
+      fetch(`/api/products/${targetId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.product) {
+            const fullProduct = data.product;
+            const isProductLive = fullProduct.isPublic ?? fullProduct.isVisible ?? (fullProduct.status === 'live') ?? true;
+
+            const existingVariants = fullProduct.variants?.length ? fullProduct.variants 
+                                   : fullProduct.variations?.length ? fullProduct.variations 
+                                   : fullProduct.sync_variants?.length ? fullProduct.sync_variants 
+                                   : [];
+
+            const baseVariants = fullProduct.baseProduct?.variants || [];
+
+            // 2. Map variants, fix the "undefined" ID bug, and capture variantId
+            const mappedVariants = existingVariants.length > 0 
+              ? existingVariants.map((v, i) => ({
+                  ...v,
+                  // Clean up the literal "undefined" strings saved from previous bugs
+                  id: v.id === "undefined" ? String(v.printful_id !== "undefined" ? v.printful_id : `var_${i}`) : v.id
+                }))
+              : baseVariants.map(v => ({
+                  id: String(v.variantId || v.id), // FIX: Use variantId from Printful
+                  printful_id: v.variantId || v.id,
+                  name: v.name || '',
+                  size: v.size || v.attributes?.pa_size || 'Default',
+                  cost: parseFloat(v.price || v.cost || 0), 
+                  retail_price: parseFloat(fullProduct.price || v.price || 0) 
+                }));
+
+            setFormData(prev => ({
+              ...prev,
+              name: fullProduct.name || fullProduct.title || '',
+              description: fullProduct.description || 'A custom designed product featuring unique artwork',
+              price: fullProduct.price || 0,
+              tags: Array.isArray(fullProduct.tags) ? fullProduct.tags.join(', ') : (fullProduct.tags || ''),
+              categories: Array.isArray(fullProduct.categories) ? fullProduct.categories : prev.categories,
+              isPublic: isProductLive,
+              mockups: fullProduct.mockups || prev.mockups,
+              variants: mappedVariants // The sizes are now fully loaded and injected
+            }));
+          }
+        })
+        .catch(err => console.error("Failed to fetch full product details:", err));
     }
-  }, [product]);
+  }, [open, product]);
 
   const baseProductCost = parseFloat(
     product?.baseProductCost ??
@@ -189,26 +224,88 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   const profit = (formData.price - totalProductionCost).toFixed(2);
   const profitMargin = formData.price > 0 ? (((formData.price - totalProductionCost) / formData.price) * 100).toFixed(1) : 0;
 
-  const handleVariantPriceChange = (variantId, newRetailPriceStr) => {
-    const newRetailPrice = parseFloat(newRetailPriceStr);
-    if (isNaN(newRetailPrice)) return;
+  // Derive unique sizes for the pricing UI
+ // --- REPLACEMENT BLOCK START ---
+  // 1. Safely deduplicate sizes
+  const uniqueSizeVariants = [];
+  const seenSizes = new Set();
+  
+  (formData.variants || []).forEach(variant => {
+    let rawSize = variant.size || variant.name || 'Default';
+    if (rawSize.includes(' / ')) rawSize = rawSize.split(' / ')[1]; 
+    if (rawSize.includes(' - ')) rawSize = rawSize.split(' - ')[1]; 
+    rawSize = rawSize.trim();
 
+    if (!seenSizes.has(rawSize)) {
+      seenSizes.add(rawSize);
+      uniqueSizeVariants.push({ 
+        ...variant, 
+        displaySize: rawSize, 
+        cleanCost: parseFloat(variant.cost || variant.price || 0) 
+      });
+    }
+  });
+
+  const sizeOrder = ['xs', 's', 'm', 'l', 'xl', '2xl', '3xl', '4xl', '5xl', '6xl'];
+  uniqueSizeVariants.sort((a, b) => {
+    const ai = sizeOrder.indexOf(a.displaySize.toLowerCase());
+    const bi = sizeOrder.indexOf(b.displaySize.toLowerCase());
+    if (ai !== -1 && bi !== -1) return ai - bi;
+    return a.displaySize.localeCompare(b.displaySize);
+  });
+
+  // 2. Safely handle price changes without cursor jumping or NaN crashes
+  const handleVariantPriceChange = (sizeName, newRetailPriceStr) => {
     setFormData(prev => {
-      const editedVariant = prev.variants.find(v => v.id === variantId || v.printful_id === variantId);
+      // Find the variant the user is actively typing in
+      const editedVariant = prev.variants.find(v => {
+        let s = v.size || v.name || 'Default';
+        if (s.includes(' / ')) s = s.split(' / ')[1];
+        if (s.includes(' - ')) s = s.split(' - ')[1];
+        return s.trim() === sizeName;
+      });
+
       if (!editedVariant) return prev;
 
-      const markup = newRetailPrice - parseFloat(editedVariant.cost || 0);
+      const numericPrice = parseFloat(newRetailPriceStr);
+      
+      // If the box is cleared (empty string), don't do math, just clear the targeted sizes
+      if (isNaN(numericPrice)) {
+         const clearedVariants = prev.variants.map(v => {
+           let s = v.size || v.name || 'Default';
+           if (s.includes(' / ')) s = s.split(' / ')[1];
+           if (s.includes(' - ')) s = s.split(' - ')[1];
+           if (s.trim() === sizeName) {
+             return { ...v, retail_price: newRetailPriceStr };
+           }
+           return v;
+         });
+         return { ...prev, variants: clearedVariants };
+      }
+
+      const baseCost = parseFloat(editedVariant.cost || editedVariant.price || 0);
+      const markup = numericPrice - baseCost;
 
       const updatedVariants = prev.variants.map(variant => {
-        const calcPrice = parseFloat((parseFloat(variant.cost || 0) + markup).toFixed(2));
+        let s = variant.size || variant.name || 'Default';
+        if (s.includes(' / ')) s = s.split(' / ')[1];
+        if (s.includes(' - ')) s = s.split(' - ')[1];
+        s = s.trim();
+
+        // Exactly preserve the string for the size being typed in (prevents cursor jump)
+        if (s === sizeName) {
+          return { ...variant, retail_price: newRetailPriceStr };
+        }
+
+        // Apply synchronized math to all other sizes
+        const vCost = parseFloat(variant.cost || variant.price || 0);
         return {
           ...variant,
-          retail_price: calcPrice,
-          price: calcPrice
+          retail_price: parseFloat((vCost + markup).toFixed(2))
         };
       });
 
-      const newBasePrice = updatedVariants.length > 0 ? updatedVariants[0].price : newRetailPrice;
+      const newBasePrice = updatedVariants.length > 0 ? (parseFloat(updatedVariants[0].retail_price) || 0) : numericPrice;
 
       return { ...prev, variants: updatedVariants, price: newBasePrice };
     });
@@ -583,19 +680,19 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
               <CardContent className="space-y-4">
                 <div className="space-y-4" id="product-price-field">
                   <Label>Variant Pricing *</Label>
-                  {formData.variants && formData.variants.length > 0 ? (
-                    formData.variants.map((variant, index) => (
-                      <div key={variant.id || index} className="flex items-center justify-between gap-4">
+                  {uniqueSizeVariants.length > 0 ? (
+                    uniqueSizeVariants.map((variant, index) => (
+                      <div key={variant.displaySize || index} className="flex items-center justify-between gap-4">
                         <span className="text-sm font-medium">
-                          {variant.size || variant.name} <span className="text-muted-foreground text-xs">(Cost: ${variant.cost})</span>
+                          {variant.displaySize.toUpperCase()} <span className="text-muted-foreground text-xs">(Cost: ${variant.cleanCost})</span>
                         </span>
                         <div className="relative w-32">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                           <Input 
                             type="number" 
                             step="0.01" 
-                            value={variant.retail_price || 0} 
-                            onChange={(e) => handleVariantPriceChange(variant.id || variant.printful_id, e.target.value)} 
+                            value={variant.retail_price ?? ''} 
+                            onChange={(e) => handleVariantPriceChange(variant.displaySize, e.target.value)} 
                             className="pl-7 bg-background border-border" 
                             disabled={isLoading} 
                           />
@@ -605,7 +702,7 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
                   ) : (
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                      <Input id="price" type="number" step="0.01" value={formData.price} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} className="pl-7 bg-background border-border" disabled={isLoading} />
+                      <Input id="price" type="number" step="0.01" value={formData.price ?? ''} onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })} className="pl-7 bg-background border-border" disabled={isLoading} />
                     </div>
                   )}
                 </div>
