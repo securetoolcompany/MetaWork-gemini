@@ -262,18 +262,24 @@ function PaymentStep({ onBack }) {
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState(null);
+  const [isElementReady, setIsElementReady] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!stripe || !elements) return;
+
+    if (!stripe || !elements || !isElementReady) {
+      setPaymentError('Payment form is still loading. Please wait a moment and try again.');
+      return;
+    }
 
     setIsProcessing(true);
     setPaymentError(null);
 
-    // This return_url is key: It sends them back to THIS page with ?success=true
     const { error } = await stripe.confirmPayment({
       elements,
-      confirmParams: { return_url: `${window.location.origin}/showroom/checkout?success=true` },
+      confirmParams: {
+        return_url: `${window.location.origin}/showroom/checkout?success=true`,
+      },
     });
 
     if (error) {
@@ -288,17 +294,47 @@ function PaymentStep({ onBack }) {
         <Check className="w-6 h-6 text-green-500" />
         Secure Payment
       </h2>
-      {paymentError && <div className="mb-6 p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/20 text-sm font-medium">{paymentError}</div>}
+
+      {paymentError && (
+        <div className="mb-6 p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/20 text-sm font-medium">
+          {paymentError}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit}>
         <div className="p-4 border rounded-lg bg-muted/30 mb-6">
-          <PaymentElement />
+          <PaymentElement
+            onReady={() => setIsElementReady(true)}
+            onLoadError={() => {
+              setPaymentError('Failed to load payment form.');
+              setIsElementReady(false);
+            }}
+          />
         </div>
+
         <div className="flex gap-3">
-          <Button type="button" variant="outline" className="flex-1 h-12" onClick={onBack} disabled={isProcessing}>
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1 h-12"
+            onClick={onBack}
+            disabled={isProcessing}
+          >
             <ArrowLeft className="w-4 h-4 mr-2" /> Back
           </Button>
-          <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white h-12 text-base" disabled={!stripe || isProcessing}>
-            {isProcessing ? <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...</> : `Confirm & Pay`}
+
+          <Button
+            type="submit"
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white h-12 text-base"
+            disabled={!stripe || !elements || !isElementReady || isProcessing}
+          >
+            {isProcessing ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
+              </>
+            ) : (
+              'Confirm & Pay'
+            )}
           </Button>
         </div>
       </form>
