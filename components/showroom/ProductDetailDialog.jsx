@@ -38,29 +38,35 @@ import ShippingAddressForm from '@/components/cart/ShippingAddressForm';
 function normalizeProduct(rawProduct) {
   if (!rawProduct) return null;
 
-  // FIX: Look for 'variants' first, then fall back to 'variations'
-  const existingVariations = rawProduct.variants?.length > 0 
-    ? rawProduct.variants 
-    : (Array.isArray(rawProduct.variations) ? rawProduct.variations : []);
-    
+  const existingVariations = Array.isArray(rawProduct.variations) ? rawProduct.variations : [];
+  const creatorVariants = Array.isArray(rawProduct.variants) ? rawProduct.variants : [];
   const baseVariants = Array.isArray(rawProduct.baseProduct?.variants) ? rawProduct.baseProduct.variants : [];
 
   const normalizedVariations =
     existingVariations.length > 0
-      ? existingVariations.map(v => ({
-          ...v,
-          // FIX: Ensure we use the explicitly set custom price
-          price: v.price || v.retail_price || rawProduct.price
-        }))
-      : baseVariants.map((v) => ({
-          id: String(v.id),
-          printfulVariantId: v.id,
-          price: v.price,
-          image: v.image,
-          name: v.name,
+      ? existingVariations
+      : creatorVariants.length > 0
+      ? creatorVariants.map((v, index) => ({
+          id: String(v.id || v.variantId || `creator-${index}`),
+          printfulVariantId: v.variantId || v.printfulVariantId || null,
+          price: Number(v.retail_price ?? v.price ?? 0),
+          image: v.image || null,
+          name: v.name || '',
           attributes: {
-            pa_color: v.color,
-            pa_size: v.size,
+            pa_color: v.color || null,
+            pa_size: v.size || null,
+          },
+          in_stock: v.inStock ?? v.in_stock ?? true,
+        }))
+      : baseVariants.map((v, index) => ({
+          id: String(v.id || `base-${index}`),
+          printfulVariantId: v.id || null,
+          price: Number(v.price ?? 0),
+          image: v.image || null,
+          name: v.name || '',
+          attributes: {
+            pa_color: v.color || null,
+            pa_size: v.size || null,
           },
           in_stock: v.in_stock ?? true,
         }));

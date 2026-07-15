@@ -90,7 +90,8 @@ export async function GET(request, { params }) {
         name: product.title || product.name,
         images: uniqueImages, 
         imageUrl: uniqueImages[0] || null,
-        mockupUrl: uniqueImages[0] || null
+        mockupUrl: uniqueImages[0] || null,
+        variations: Array.isArray(product.variations) ? product.variations : [],
     };
 
     let creator = null;
