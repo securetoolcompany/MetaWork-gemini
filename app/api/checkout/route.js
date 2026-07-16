@@ -70,15 +70,22 @@ export async function POST(req) {
     const enrichedItems = await Promise.all(items.map(async (cartItem) => {
       const dbProduct = await db.collection('products').findOne({ _id: new ObjectId(cartItem.productId) });
       
-      const dbVariation = dbProduct?.variations?.find(v => 
-        v.id.toString() === cartItem.variationId?.toString() || 
-        v.printfulVariantId?.toString() === cartItem.variationId?.toString()
+      const candidateVariants = [
+        ...(dbProduct?.variants || []),
+        ...(dbProduct?.variations || []),
+        ...(dbProduct?.baseProduct?.variants || []),
+      ];
+
+      const dbVariation = candidateVariants.find(v =>
+        String(v?.id || v?.variantId || v?.printful_id || '') === String(cartItem.variationId || '') ||
+        String(v?.sync_variant_id || v?.printfulVariantId || '') === String(cartItem.variationId || '') ||
+        String(v?.printful_id || '') === String(cartItem.variationId || '')
       );
 
       return {
         ...cartItem,
-        // THIS IS THE KEY: ensure the 10-digit ID is attached to the item
         sync_variant_id: dbVariation?.sync_variant_id || dbVariation?.printfulVariantId || null,
+        printfulVariantId: dbVariation?.sync_variant_id || dbVariation?.printfulVariantId || null,
         title: dbProduct?.name || cartItem.title
       };
     }));

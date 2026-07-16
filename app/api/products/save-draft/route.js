@@ -161,6 +161,11 @@ export async function POST(request) {
     const now = new Date();
 
     // 4) Upsert draft for this user
+    const existingProduct = await products.findOne({
+      userId: decoded.userId,
+      externalProductId,
+    });
+
     const result = await products.findOneAndUpdate(
       {
         userId: decoded.userId,
@@ -176,7 +181,7 @@ export async function POST(request) {
           name: name || baseProduct?.name || 'Untitled Design',
           costAnalysis: costAnalysis || null,
           status: 'draft',
-          printfulSyncProductId: null,
+          printfulSyncProductId: existingProduct?.printfulSyncProductId || null,
           updatedAt: now,
         },
         $setOnInsert: {

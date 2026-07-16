@@ -3,6 +3,26 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
 import { ensurePrintfulSyncProduct } from '@/lib/printful-sync-product';
 
+function mergeVariantMappings(existingVariants = [], variantMappings = []) {
+  const mappingByVariantId = new Map(
+    (variantMappings || []).map((m) => [String(m.variant_id), m])
+  );
+
+  return (existingVariants || []).map((variant) => {
+    const key = String(variant?.printful_id || variant?.variantId || variant?.id || '');
+    const match = mappingByVariantId.get(key);
+
+    if (!match) return variant;
+
+    return {
+      ...variant,
+      sync_variant_id: match.sync_variant_id,
+      printfulVariantId: match.sync_variant_id,
+      external_id: match.external_id || variant.external_id || null,
+    };
+  });
+}
+
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
@@ -62,14 +82,27 @@ export async function POST(request) {
 
     const printfulSyncProductId = syncResult?.printfulSyncProductId;
     const mockupUrl = productDoc.mockupUrl || syncResult?.mockupUrl || null;
+    const variantMappings = syncResult?.variantMappings || [];
 
-    if (printfulSyncProductId || mockupUrl) {
+    const mergedTopLevelVariants = mergeVariantMappings(
+      productDoc.variants || [],
+      variantMappings
+    );
+
+    const mergedBaseProductVariants = mergeVariantMappings(
+      productDoc.baseProduct?.variants || [],
+      variantMappings
+    );
+
+    if (printfulSyncProductId || mockupUrl || variantMappings.length > 0) {
       await products.updateOne(
         { _id: productDoc._id },
         {
           $set: {
             printfulSyncProductId: printfulSyncProductId || null,
             mockupUrl: mockupUrl || null,
+            variants: mergedTopLevelVariants,
+            'baseProduct.variants': mergedBaseProductVariants,
             updatedAt: new Date(),
           },
         }
@@ -81,6 +114,7 @@ export async function POST(request) {
         success: true,
         printfulSyncProductId: printfulSyncProductId || null,
         mockupUrl: mockupUrl || null,
+        syncedVariantCount: variantMappings.length,
       },
       { status: 200 }
     );

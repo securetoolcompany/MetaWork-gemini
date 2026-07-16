@@ -152,11 +152,20 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
 
             // 2. Map variants, fix the "undefined" ID bug, and capture variantId
             const mappedVariants = existingVariants.length > 0 
-              ? existingVariants.map((v, i) => ({
-                  ...v,
-                  // Clean up the literal "undefined" strings saved from previous bugs
-                  id: v.id === "undefined" ? String(v.printful_id !== "undefined" ? v.printful_id : `var_${i}`) : v.id
-                }))
+              ? existingVariants.map((v, i) => {
+                  const fallbackVariantId = baseVariants[i]?.variantId || baseVariants[i]?.id || null;
+                  const cleanPrintfulId = (v.printful_id && v.printful_id !== "undefined")
+                    ? v.printful_id
+                    : fallbackVariantId;
+
+                  return {
+                    ...v,
+                    printful_id: cleanPrintfulId,
+                    id: (v.id === "undefined" || !v.id)
+                      ? String(cleanPrintfulId || `var_${i}`)
+                      : v.id,
+                  };
+                })
               : baseVariants.map(v => ({
                   id: String(v.variantId || v.id), // FIX: Use variantId from Printful
                   printful_id: v.variantId || v.id,

@@ -144,21 +144,21 @@ export async function POST(req) {
 
     const printfulItems = (orderData.items || [])
       .map((item) => {
-        // We need to find the ACTUAL 10-digit Printful ID from our variations array
-        // because the 'variationId' in the cart might still be the old 6-digit legacy ID.
         const syncId = item.sync_variant_id || item.printfulVariantId;
 
         if (!syncId) {
-          console.error(`[Order ${order_id}] Item ${item.productId} is missing a Sync ID!`);
+          console.error(
+            `[Order ${order_id}] Item ${item.productId} / variation ${item.variationId} is missing a sync_variant_id`
+          );
           return null;
         }
 
-      return {
-        sync_variant_id: Number(syncId), // Printful expects a Number, not a String
-        quantity: item.quantity,
-      };
-    })
-    .filter(Boolean);
+        return {
+          sync_variant_id: Number(syncId),
+          quantity: item.quantity,
+        };
+      })
+      .filter(Boolean);
 
     let printfulOrderId = null;
     let fulfillmentStatus = 'failed';

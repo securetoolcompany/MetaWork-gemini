@@ -117,6 +117,56 @@ export async function PUT(request, { params }) {
     }
     // ----------------------------------
 
+        // --- ENSURE PRINTFUL SYNC ---
+    if (updates.variants && updates.variants.length > 0) {
+      try {
+        const { ensurePrintfulSyncProduct } = require('@/lib/printful-sync-product');
+        const filterForLookup = {
+          $or: [
+            { id: id },
+            { _id: /^[a-fA-F0-9]{24}$/.test(id) ? new (require('mongodb').ObjectId)(id) : id }
+          ]
+        };
+        const existingProduct = await db.collection('products').findOne(filterForLookup);
+
+        const needsSync =
+          !existingProduct?.printfulSyncProductId ||
+          (existingProduct?.variants || []).some(v => !v.sync_variant_id);
+
+        console.log('[SYNC DEBUG] needsSync:', needsSync, 'existing printfulSyncProductId:', existingProduct?.printfulSyncProductId);
+        console.log('[SYNC DEBUG] printfulTemplateId:', existingProduct?.printfulTemplateId ?? updates.printfulTemplateId);
+        console.log('[SYNC DEBUG] baseProduct.variants count:', (existingProduct?.baseProduct?.variants || []).length);
+
+        if (needsSync) {
+          const productForSync = { ...existingProduct, ...updates, _id: existingProduct?._id };
+          console.log('[SYNC DEBUG] Calling ensurePrintfulSyncProduct...');
+          const syncResult = await ensurePrintfulSyncProduct(productForSync, { skipMockup: true });
+          console.log('[SYNC DEBUG] syncResult:', JSON.stringify(syncResult));
+
+          if (syncResult?.printfulSyncProductId) {
+            updates.printfulSyncProductId = syncResult.printfulSyncProductId;
+          }
+
+          if (Array.isArray(syncResult?.variantMappings) && syncResult.variantMappings.length > 0) {
+            const syncMap = new Map(
+              syncResult.variantMappings.map(m => [String(m.variant_id), m.sync_variant_id])
+            );
+            updates.variants = updates.variants.map(v => ({
+              ...v,
+              sync_variant_id: syncMap.get(String(v.printful_id)) ?? v.sync_variant_id ?? null
+            }));
+          } else {
+            console.warn('[SYNC DEBUG] No variantMappings returned — sync likely failed silently upstream');
+          }
+        } else {
+          console.log('[SYNC DEBUG] Skipped — product already fully synced');
+        }
+      } catch (syncErr) {
+        console.error('[METAWORK] Printful sync failed:', syncErr.message, syncErr.stack);
+      }
+    }
+    // ----------------------------------
+
     // Filter to find the product by custom 'id' or Mongo '_id'
     const filter = {
       $or: [
