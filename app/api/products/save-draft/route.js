@@ -4,7 +4,7 @@ import { verifyToken } from '@/lib/auth';
 
 async function generatePrintfulMockup(productId, templateId) {
   const token = process.env.PRINTFUL_API_KEY;
-  const storeId = process.env.PRINTFUL_STORE_ID || 15804358;
+  const storeId = process.env.PRINTFUL_STORE_ID || 18472468;
   const headers = {
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
@@ -21,37 +21,39 @@ async function generatePrintfulMockup(productId, templateId) {
 
   const realProductId = template.productid;
   const availableVariants = template.available_variant_ids || [];
-  const variantId = availableVariants[0] || 7984;
-  const catalogId = realProductId || 221;
+  if (!realProductId) throw new Error('Template missing productid');
+  if (!availableVariants.length) throw new Error('Template has no available_variant_ids');
+  const catalogId = realProductId;
+  const variantId = availableVariants[0];
 
   // 2. Get product from DB - PRIORITIZE selectedIPs image data
   const product = await db.collection('products').findOne({ externalProductId: productId });
   
-  // CRITICAL FIX: Handle selectedIPs structure properly
-  let imageUrl = null;
-  
-  // Try Printful template layers first (auto-uploaded images)
-  const templateLayers = template.templates?.flatMap(t => 
-    t.placements?.flatMap(p => p.layers || [])
-  ) || [];
-  const printfulImageUrl = templateLayers.find(layer => layer.type === 'image')?.url;
-  
-  // Fallback to selectedIPs - check multiple possible URL fields
-  if (!printfulImageUrl && product?.selectedIPs?.[0]) {
+  // Build placement configs directly from the EDM template (preserves ALL placements)
+  const templatePlacements = (template.templates || []).flatMap(t => t.placements || []);
+  const placementConfigs = templatePlacements
+    .map(p => ({
+      placement: p.placement,
+      technique: p.technique || 'dtg',
+      layers: (p.layers || [])
+        .filter(l => l.type === 'image' && (l.image_url || l.url))
+        .map(l => ({ type: 'file', url: l.image_url || l.url })),
+    }))
+    .filter(p => p.layers.length > 0);
+
+  // Fallback ONLY if EDM template had zero image layers anywhere (legacy/manual path)
+  if (placementConfigs.length === 0 && product?.selectedIPs?.[0]) {
     const ip = product.selectedIPs[0];
-    imageUrl = ip.publicUrl || 
-               ip.thumbnailUrl || 
-               ip.url ||          // Add this common field
-               ip.imageUrl ||     // Add this common field
-               null;
-  } else {
-    imageUrl = printfulImageUrl;
+    const fallbackUrl = ip.publicUrl || ip.thumbnailUrl || ip.url || ip.imageUrl || null;
+    if (fallbackUrl) {
+      placementConfigs.push({ placement: 'front', technique: 'dtg', layers: [{ type: 'file', url: fallbackUrl }] });
+    }
   }
 
-  console.log('IMAGE DEBUG:', { printfulImageUrl, selectedIPs: product?.selectedIPs?.[0], imageUrl });
+  console.log('PLACEMENT DEBUG:', { placementConfigs, selectedIPs: product?.selectedIPs?.[0] });
 
-  if (!imageUrl) {
-    console.warn('❌ No valid image URL found in template layers OR selectedIPs');
+  if (placementConfigs.length === 0) {
+    console.warn('❌ No placements with images found in template OR selectedIPs');
     return null;
   }
 
@@ -62,16 +64,7 @@ async function generatePrintfulMockup(productId, templateId) {
   ];
   const stitchColor = allOptions.find(opt => opt.id === "stitch_color")?.value || "white";
 
-  // 4. Get catalog placement info
-  const catalogRes = await fetch(`https://api.printful.com/v2/catalog-products/${catalogId}`, { headers });
-  const catalogData = await catalogRes.json();
-  if (!catalogRes.ok) throw new Error(`Catalog fetch failed: ${catalogId}`);
-  
-  const firstPlacement = catalogData.data?.placements?.[0];
-  const placementKey = firstPlacement?.placement || "front";
-  const techniqueKey = firstPlacement?.technique || "dtg";
-
-  // 5. CRITICAL FIX: Only create task if we have image + valid placement
+    // 5. CRITICAL FIX: Only create task if we have image + valid placement
   const body = {
     format: "png",
     products: [{
@@ -79,11 +72,7 @@ async function generatePrintfulMockup(productId, templateId) {
       catalog_product_id: catalogId,
       catalog_variant_ids: [variantId],
       product_options: [{ name: "stitch_color", value: stitchColor }],
-      placements: [{     // NEVER empty - only proceed if image exists
-        placement: placementKey,
-        technique: techniqueKey,
-        layers: [{ type: "file", url: imageUrl }]
-      }]
+      placements: placementConfigs,
     }]
   };
 
@@ -103,7 +92,7 @@ async function generatePrintfulMockup(productId, templateId) {
     const statusData = await statusRes.json();
     
     if (statusData.result.status === 'completed') {
-      return statusData.result.catalog_variant_mockups[0].mockup_url;
+      return { mockupUrl: statusData.result.catalog_variant_mockups[0].mockup_url, placementConfigs };
     }
   }
   throw new Error('Mockup generation timeout (3min)');
@@ -202,12 +191,12 @@ export async function POST(request) {
           templateId: printfulTemplateId,
           userId: decoded.userId
         });
-        const mockupUrl = await generatePrintfulMockup(externalProductId, printfulTemplateId);
+        const mockupResult = await generatePrintfulMockup(externalProductId, printfulTemplateId);
         await products.updateOne(
           { externalProductId },
-          { $set: { mockupUrl } }
+          { $set: { mockupUrl: mockupResult?.mockupUrl, printfulPlacementConfigs: mockupResult?.placementConfigs || [] } }
         );
-        console.log('✅ Mockup generated:', mockupUrl);
+        console.log('✅ Mockup generated:', mockupResult?.mockupUrl);
       } catch (e) {
         console.warn('Mockup failed:', e.message);
       }
