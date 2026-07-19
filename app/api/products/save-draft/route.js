@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
 
+// Refactored to fire-and-forget or execute rapidly without polling bottlenecks
 async function generatePrintfulMockup(productId, templateId) {
   const token = process.env.PRINTFUL_API_KEY;
   const storeId = process.env.PRINTFUL_STORE_ID || 18472468;
@@ -13,33 +14,11 @@ async function generatePrintfulMockup(productId, templateId) {
 
   const { db } = await connectToDatabase();
 
-  // 1. Get template FIRST
+  // 1. Get template FIRST (Fast GET request)
   const templateRes = await fetch(`https://api.printful.com/product-templates/${templateId}`, { headers });
   const templateData = await templateRes.json();
   if (!templateRes.ok) throw new Error(`Template fetch failed: ${JSON.stringify(templateData)}`);
   const template = templateData.result;
-
-// ADD THIS LOG BLOCK HERE
-console.log('[save-draft][template-shape]', {
-  templateId,
-  templateKeys: template ? Object.keys(template) : null,
-  productid: template?.productid ?? null,
-  product_id: template?.product_id ?? null,
-  product: template?.product ?? null,
-  available_variant_ids: template?.available_variant_ids ?? null,
-  templatesCount: Array.isArray(template?.templates) ? template.templates.length : null,
-  firstTemplateKeys: template?.templates?.[0] ? Object.keys(template.templates[0]) : null,
-  firstPlacementsCount: Array.isArray(template?.templates?.[0]?.placements)
-    ? template.templates[0].placements.length
-    : null,
-  firstPlacementSample: template?.templates?.[0]?.placements?.[0] ?? null,
-  placementsCount: Array.isArray(template?.placements) ? template.placements.length : null,
-firstPlacementKeys: template?.placements?.[0] ? Object.keys(template.placements[0]) : null,
-firstPlacementLayerKeys: template?.placements?.[0]?.layers?.[0]
-  ? Object.keys(template.placements[0].layers[0])
-  : null,
-firstPlacementSampleTopLevel: template?.placements?.[0] ?? null,
-});
 
   const realProductId = template.product_id || template.productid || null;
   const availableVariants = template.available_variant_ids || [];
@@ -48,79 +27,107 @@ firstPlacementSampleTopLevel: template?.placements?.[0] ?? null,
   const catalogId = realProductId;
   const variantId = availableVariants[0];
 
-  // 2. Get product from DB - PRIORITIZE selectedIPs image data
+  // 2. Get product from DB
   const product = await db.collection('products').findOne({ externalProductId: productId });
   
-  // Build placement configs directly from the EDM template (preserves ALL placements)
   const templatePlacements = Array.isArray(template.placements)
     ? template.placements
     : (template.templates || []).flatMap(t => t.placements || []);
-    const placementConfigs = templatePlacements
-    .map(p => ({
-      placement: p.placement,
-      technique: p.technique || 'dtg',
-      layers: (p.layers || [])
-        .filter(l => l.image_url || l.url)
-        .map(l => ({ type: 'file', url: l.image_url || l.url })),
-    }))
+
+  const placementConfigs = templatePlacements
+    .map(p => {
+      let rawLayers = p.layers || [];
+      if (!rawLayers.length && p.options) {
+        const fileOption = p.options.find(o => o.value && (String(o.value).includes('http') || o.id === 'item_url'));
+        if (fileOption) rawLayers = [{ image_url: fileOption.value }];
+      }
+
+      const validLayers = rawLayers
+        .filter(l => l && (l.image_url || l.url || l.item_url))
+        .map(l => ({ 
+          type: 'file', 
+          url: l.image_url || l.url || l.item_url 
+        }));
+
+      let determinedTechnique = p.technique_key || p.technique;
+      if (!determinedTechnique) {
+        const displayName = String(p.display_name || '').toLowerCase();
+        const techniqueDisplay = String(p.technique_display_name || '').toLowerCase();
+        if (displayName.includes('embroidery') || techniqueDisplay.includes('embroider')) {
+          determinedTechnique = 'EMBROIDERY';
+        } else if (techniqueDisplay.includes('all-over') || techniqueDisplay.includes('sublimation')) {
+          determinedTechnique = 'CUT-SEW';
+        } else {
+          determinedTechnique = 'dtg';
+        }
+      }
+
+      return {
+        placement: p.placement,
+        technique: determinedTechnique,
+        layers: validLayers,
+      };
+    })
     .filter(p => p.layers.length > 0);
 
-    // ADD THIS LOG BLOCK HERE
-console.log('[save-draft][placements-derived]', {
-  templateId,
-  templatePlacementsCount: templatePlacements.length,
-  placementConfigsCount: placementConfigs.length,
-  placementNames: placementConfigs.map(p => p.placement),
-  firstPlacementConfig: placementConfigs[0] || null,
-});
-
-  // Fallback ONLY if EDM template had zero image layers anywhere (legacy/manual path)
+  // Fallback ONLY if EDM template had zero image layers anywhere
   if (placementConfigs.length === 0 && product?.selectedIPs?.[0]) {
     const ip = product.selectedIPs[0];
     const fallbackUrl = ip.publicUrl || ip.thumbnailUrl || ip.url || ip.imageUrl || null;
+    
     if (fallbackUrl) {
-      placementConfigs.push({ placement: 'front', technique: 'dtg', layers: [{ type: 'file', url: fallbackUrl }] });
+      let baseTemplateTechnique = templatePlacements[0]?.technique_key || templatePlacements[0]?.technique;
+      if (!baseTemplateTechnique && templatePlacements[0]) {
+        const techniqueDisplay = String(templatePlacements[0].technique_display_name || '').toLowerCase();
+        if (techniqueDisplay.includes('all-over') || techniqueDisplay.includes('sublimation')) {
+          baseTemplateTechnique = 'CUT-SEW';
+        } else if (techniqueDisplay.includes('embroider')) {
+          baseTemplateTechnique = 'EMBROIDERY';
+        }
+      }
+      if (!baseTemplateTechnique) baseTemplateTechnique = 'dtg';
+
+      const placementTargets = templatePlacements.length > 0 
+        ? templatePlacements.map(tp => tp.placement)
+        : ['front', 'back'];
+
+      placementTargets.forEach(placementName => {
+        placementConfigs.push({
+          placement: placementName,
+          technique: baseTemplateTechnique,
+          layers: [{ type: 'file', url: fallbackUrl }]
+        });
+      });
     }
   }
 
-  console.log('PLACEMENT DEBUG:', { placementConfigs, selectedIPs: product?.selectedIPs?.[0] });
-
   if (placementConfigs.length === 0) {
     console.warn('❌ No placements with images found in template OR selectedIPs');
-    return null;
+    return { mockupUrl: null, placementConfigs: [] };
   }
 
-  // 3. Build product options from template
+  // Build options blueprint
+  const allowedProductOptions = Array.isArray(template.product?.options)
+    ? template.product.options.map(o => String(o.id || o.name).toLowerCase())
+    : [];
+
   const rawOptions = [
-    ...(template.product_options || []).map(opt => ({
-      id: opt.id || opt.name,
-      value: opt.value,
-    })),
-    ...(Array.isArray(template.option_data?.[0])
-      ? template.option_data[0]
-      : template.option_data || []),
+    ...(template.product_options || []).map(opt => ({ id: opt.id || opt.name, value: opt.value })),
+    ...(Array.isArray(template.option_data?.[0]) ? template.option_data[0] : template.option_data || []),
   ];
 
   const productOptions = rawOptions
-    .map((opt) => ({
-      name: opt?.id || opt?.name,
-      value: opt?.value,
-    }))
-    .filter(
-      (opt) =>
-        opt.name &&
-        opt.value !== undefined &&
-        opt.value !== null &&
-        opt.value !== ""
-    );
+    .map((opt) => ({ name: opt?.id || opt?.name, value: opt?.value }))
+    .filter((opt) => {
+      if (!opt.name || opt.value === undefined || opt.value === null || opt.value === "") return false;
+      if (allowedProductOptions.length === 0) {
+        const isEmbroideryTech = placementConfigs.some(p => p.technique === 'EMBROIDERY');
+        if (!isEmbroideryTech && (opt.name.includes('thread') || opt.name.includes('stitch'))) return false;
+        return true;
+      }
+      return allowedProductOptions.includes(String(opt.name).toLowerCase());
+    });
 
-  console.log('[save-draft][product-options-derived]', {
-    templateId,
-    rawOptions,
-    productOptions,
-  });
-
-    // 5. CRITICAL FIX: Only create task if we have image + valid placement
   const body = {
     format: "png",
     products: [{
@@ -132,61 +139,34 @@ console.log('[save-draft][placements-derived]', {
     }]
   };
 
-  // 6. Create + poll task
-  const taskRes = await fetch('https://api.printful.com/v2/mockup-tasks', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body)
-  });
-  const taskData = await taskRes.json();
-  if (!taskRes.ok) throw new Error(`Task creation failed: ${JSON.stringify(taskData)}`);
-
-  // Poll for completion
-  for (let i = 0; i < 12; i++) {
-    await new Promise(r => setTimeout(r, 15000));
-    const statusRes = await fetch(`https://api.printful.com/v2/mockup-tasks?id=${taskData.result.id}`, { headers });
-    const statusData = await statusRes.json();
-    
-    if (statusData.result.status === 'completed') {
-      const mockupUrl =
-        statusData?.result?.catalog_variant_mockups?.[0]?.mockup_url ||
-        statusData?.result?.mockups?.[0]?.url ||
-        null;
-
-      return { mockupUrl, placementConfigs };
-    }
+  // Dispatch the generation task asynchronously, but DO NOT poll it synchronously
+  try {
+    fetch('https://api.printful.com/v2/mockup-tasks', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    }).catch(err => console.error('Background mockup task error:', err));
+  } catch (err) {
+    console.error('Failed to dispatch async mockup task:', err);
   }
-  throw new Error('Mockup generation timeout (3min)');
+
+  // Return parsed configurations immediately so the database can update instantly
+  return { mockupUrl: template.mockup_file_url || null, placementConfigs };
 }
 
 const ENSURE_SYNC_PATH = '/api/products/ensure-sync';
-
 export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   try {
-    // 1) Auth like your other routes
     const authHeader = request.headers.get('authorization');
-    const token =
-      authHeader?.substring(7) ||
-      request.cookies.get('auth_token')?.value;
+    const token = authHeader?.substring(7) || request.cookies.get('auth_token')?.value;
 
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const decoded = verifyToken(token);
-    if (!decoded || !decoded.userId) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      );
-    }
+    if (!decoded || !decoded.userId) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
 
-    // 2) Body from client
     const body = await request.json();
     const {
       externalProductId,
@@ -198,29 +178,20 @@ export async function POST(request) {
     } = body;
 
     if (!externalProductId || !baseProduct) {
-      return NextResponse.json(
-        { error: 'externalProductId and baseProduct are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'externalProductId and baseProduct are required' }, { status: 400 });
     }
 
-    // 3) DB connection
     const { db } = await connectToDatabase();
     const products = db.collection('products');
-
     const now = new Date();
 
-    // 4) Upsert draft for this user
     const existingProduct = await products.findOne({
       userId: decoded.userId,
       externalProductId,
     });
 
     const result = await products.findOneAndUpdate(
-      {
-        userId: decoded.userId,
-        externalProductId,
-      },
+      { userId: decoded.userId, externalProductId },
       {
         $set: {
           userId: decoded.userId,
@@ -234,29 +205,16 @@ export async function POST(request) {
           printfulSyncProductId: existingProduct?.printfulSyncProductId || null,
           updatedAt: now,
         },
-        $setOnInsert: {
-          createdAt: now,
-        },
+        $setOnInsert: { createdAt: now },
       },
-      {
-        upsert: true,
-        returnDocument: 'after',
-      }
+      { upsert: true, returnDocument: 'after' }
     );
 
-    // Generate mockup if template provided
+    // Process layouts instantly without executing 3-minute polling delays
     if (printfulTemplateId) {
       try {
-        console.log('🔍 Generating mockup...', {
-          externalProductId,
-          templateId: printfulTemplateId,
-          userId: decoded.userId
-        });
-
-        const mockupResult = await generatePrintfulMockup(
-          externalProductId,
-          printfulTemplateId
-        );
+        console.log('🔍 Processing configurations instantly...', { externalProductId, templateId: printfulTemplateId });
+        const mockupResult = await generatePrintfulMockup(externalProductId, printfulTemplateId);
 
         if (mockupResult) {
           await products.updateOne(
@@ -269,47 +227,21 @@ export async function POST(request) {
             }
           );
         }
-
-        const updatedProduct = await products.findOne(
-          { externalProductId },
-          {
-            projection: {
-              externalProductId: 1,
-              printfulTemplateId: 1,
-              printfulPlacementConfigs: 1,
-            },
-          }
-        );
-
-        console.log('[save-draft][db-after-mockup-update]', {
-          externalProductId,
-          printfulTemplateId: updatedProduct?.printfulTemplateId ?? null,
-          placementConfigsCount: updatedProduct?.printfulPlacementConfigs?.length ?? 0,
-          firstPlacementConfig: updatedProduct?.printfulPlacementConfigs?.[0] ?? null,
-        });
-
-        console.log('✅ Mockup generated:', mockupResult?.mockupUrl);
       } catch (e) {
-        console.warn('Mockup failed:', e.message);
+        console.warn('Configuration extraction warning:', e.message);
       }
-    } else {
-      console.log('⚠️ Skipping mockup – no printfulTemplateId');
     }
 
-    // Fire-and-forget: trigger sync product + mockup generation
+    // Background push to sync endpoints
     try {
       const vercelUrl = process.env.VERCEL_URL;
       const publicBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-
-      const baseUrl =
-        publicBaseUrl ||
-        (vercelUrl ? `https://${vercelUrl}` : 'http://localhost:3000');
+      const baseUrl = publicBaseUrl || (vercelUrl ? `https://${vercelUrl}` : 'http://localhost:3000');
 
       fetch(`${baseUrl}${ENSURE_SYNC_PATH}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Reuse the same auth token so the route can identify the user
           'Authorization': authHeader || `Bearer ${token}`,
         },
         body: JSON.stringify({ externalProductId }),
@@ -330,9 +262,6 @@ export async function POST(request) {
     );
   } catch (err) {
     console.error('❌ save-draft error:', err);
-    return NextResponse.json(
-      { error: err.message || 'Failed to save draft' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err.message || 'Failed to save draft' }, { status: 500 });
   }
 }
