@@ -19,7 +19,29 @@ async function generatePrintfulMockup(productId, templateId) {
   if (!templateRes.ok) throw new Error(`Template fetch failed: ${JSON.stringify(templateData)}`);
   const template = templateData.result;
 
-  const realProductId = template.productid;
+// ADD THIS LOG BLOCK HERE
+console.log('[save-draft][template-shape]', {
+  templateId,
+  templateKeys: template ? Object.keys(template) : null,
+  productid: template?.productid ?? null,
+  product_id: template?.product_id ?? null,
+  product: template?.product ?? null,
+  available_variant_ids: template?.available_variant_ids ?? null,
+  templatesCount: Array.isArray(template?.templates) ? template.templates.length : null,
+  firstTemplateKeys: template?.templates?.[0] ? Object.keys(template.templates[0]) : null,
+  firstPlacementsCount: Array.isArray(template?.templates?.[0]?.placements)
+    ? template.templates[0].placements.length
+    : null,
+  firstPlacementSample: template?.templates?.[0]?.placements?.[0] ?? null,
+  placementsCount: Array.isArray(template?.placements) ? template.placements.length : null,
+firstPlacementKeys: template?.placements?.[0] ? Object.keys(template.placements[0]) : null,
+firstPlacementLayerKeys: template?.placements?.[0]?.layers?.[0]
+  ? Object.keys(template.placements[0].layers[0])
+  : null,
+firstPlacementSampleTopLevel: template?.placements?.[0] ?? null,
+});
+
+  const realProductId = template.product_id || template.productid || null;
   const availableVariants = template.available_variant_ids || [];
   if (!realProductId) throw new Error('Template missing productid');
   if (!availableVariants.length) throw new Error('Template has no available_variant_ids');
@@ -30,16 +52,27 @@ async function generatePrintfulMockup(productId, templateId) {
   const product = await db.collection('products').findOne({ externalProductId: productId });
   
   // Build placement configs directly from the EDM template (preserves ALL placements)
-  const templatePlacements = (template.templates || []).flatMap(t => t.placements || []);
-  const placementConfigs = templatePlacements
+  const templatePlacements = Array.isArray(template.placements)
+    ? template.placements
+    : (template.templates || []).flatMap(t => t.placements || []);
+    const placementConfigs = templatePlacements
     .map(p => ({
       placement: p.placement,
       technique: p.technique || 'dtg',
       layers: (p.layers || [])
-        .filter(l => l.type === 'image' && (l.image_url || l.url))
+        .filter(l => l.image_url || l.url)
         .map(l => ({ type: 'file', url: l.image_url || l.url })),
     }))
     .filter(p => p.layers.length > 0);
+
+    // ADD THIS LOG BLOCK HERE
+console.log('[save-draft][placements-derived]', {
+  templateId,
+  templatePlacementsCount: templatePlacements.length,
+  placementConfigsCount: placementConfigs.length,
+  placementNames: placementConfigs.map(p => p.placement),
+  firstPlacementConfig: placementConfigs[0] || null,
+});
 
   // Fallback ONLY if EDM template had zero image layers anywhere (legacy/manual path)
   if (placementConfigs.length === 0 && product?.selectedIPs?.[0]) {
@@ -58,11 +91,34 @@ async function generatePrintfulMockup(productId, templateId) {
   }
 
   // 3. Build product options from template
-  const allOptions = [
-    ...(template.product_options || []).map(opt => ({ id: opt.id || opt.name, value: opt.value })),
-    ...(Array.isArray(template.option_data?.[0]) ? template.option_data[0] : template.option_data || [])
+  const rawOptions = [
+    ...(template.product_options || []).map(opt => ({
+      id: opt.id || opt.name,
+      value: opt.value,
+    })),
+    ...(Array.isArray(template.option_data?.[0])
+      ? template.option_data[0]
+      : template.option_data || []),
   ];
-  const stitchColor = allOptions.find(opt => opt.id === "stitch_color")?.value || "white";
+
+  const productOptions = rawOptions
+    .map((opt) => ({
+      name: opt?.id || opt?.name,
+      value: opt?.value,
+    }))
+    .filter(
+      (opt) =>
+        opt.name &&
+        opt.value !== undefined &&
+        opt.value !== null &&
+        opt.value !== ""
+    );
+
+  console.log('[save-draft][product-options-derived]', {
+    templateId,
+    rawOptions,
+    productOptions,
+  });
 
     // 5. CRITICAL FIX: Only create task if we have image + valid placement
   const body = {
@@ -71,7 +127,7 @@ async function generatePrintfulMockup(productId, templateId) {
       source: "catalog",
       catalog_product_id: catalogId,
       catalog_variant_ids: [variantId],
-      product_options: [{ name: "stitch_color", value: stitchColor }],
+      product_options: productOptions,
       placements: placementConfigs,
     }]
   };
@@ -92,7 +148,12 @@ async function generatePrintfulMockup(productId, templateId) {
     const statusData = await statusRes.json();
     
     if (statusData.result.status === 'completed') {
-      return { mockupUrl: statusData.result.catalog_variant_mockups[0].mockup_url, placementConfigs };
+      const mockupUrl =
+        statusData?.result?.catalog_variant_mockups?.[0]?.mockup_url ||
+        statusData?.result?.mockups?.[0]?.url ||
+        null;
+
+      return { mockupUrl, placementConfigs };
     }
   }
   throw new Error('Mockup generation timeout (3min)');
@@ -191,11 +252,42 @@ export async function POST(request) {
           templateId: printfulTemplateId,
           userId: decoded.userId
         });
-        const mockupResult = await generatePrintfulMockup(externalProductId, printfulTemplateId);
-        await products.updateOne(
-          { externalProductId },
-          { $set: { mockupUrl: mockupResult?.mockupUrl, printfulPlacementConfigs: mockupResult?.placementConfigs || [] } }
+
+        const mockupResult = await generatePrintfulMockup(
+          externalProductId,
+          printfulTemplateId
         );
+
+        if (mockupResult) {
+          await products.updateOne(
+            { externalProductId },
+            {
+              $set: {
+                mockupUrl: mockupResult.mockupUrl || null,
+                printfulPlacementConfigs: mockupResult.placementConfigs || [],
+              },
+            }
+          );
+        }
+
+        const updatedProduct = await products.findOne(
+          { externalProductId },
+          {
+            projection: {
+              externalProductId: 1,
+              printfulTemplateId: 1,
+              printfulPlacementConfigs: 1,
+            },
+          }
+        );
+
+        console.log('[save-draft][db-after-mockup-update]', {
+          externalProductId,
+          printfulTemplateId: updatedProduct?.printfulTemplateId ?? null,
+          placementConfigsCount: updatedProduct?.printfulPlacementConfigs?.length ?? 0,
+          firstPlacementConfig: updatedProduct?.printfulPlacementConfigs?.[0] ?? null,
+        });
+
         console.log('✅ Mockup generated:', mockupResult?.mockupUrl);
       } catch (e) {
         console.warn('Mockup failed:', e.message);

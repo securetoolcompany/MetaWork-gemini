@@ -390,20 +390,25 @@ function ProductCreatorInner() {
             setEdmLoading(false)
           },
 
-          onTemplateSaved: async (templateId) => {
+          onTemplateSaved: (templateId) => {
             if (edmSaveTimeoutRef.current) {
-              clearTimeout(edmSaveTimeoutRef.current)
-              edmSaveTimeoutRef.current = null
+              clearTimeout(edmSaveTimeoutRef.current);
+              edmSaveTimeoutRef.current = null;
             }
 
-            setPrintfulTemplateId(templateId)
+            setPrintfulTemplateId(templateId);
 
             if (edmSaveResolveRef.current) {
-              edmSaveResolveRef.current.resolve(templateId)
-              edmSaveResolveRef.current = null
+              edmSaveResolveRef.current.resolve(templateId);
+              edmSaveResolveRef.current = null;
             }
 
-            toast.success('Design saved!')
+            if (saveErrorListenerRef.current) {
+              window.removeEventListener('message', saveErrorListenerRef.current);
+              saveErrorListenerRef.current = null;
+            }
+
+            toast.success('Design saved!');
           },
         }
 
@@ -454,69 +459,47 @@ function ProductCreatorInner() {
     ]
   )
 
-  const triggerEdmSave = useCallback(async () => {
-    const instance = pfDesignMakerRef.current
-    if (!instance) return printfulTemplateId
+  const triggerEdmSave = useCallback(() => {
+    const instance = pfDesignMakerRef.current;
+    if (!instance) {
+      return Promise.reject(new Error('Designer not ready'));
+    }
 
     return new Promise((resolve, reject) => {
-      edmSaveResolveRef.current = { resolve, reject }
+      if (edmSaveTimeoutRef.current) {
+        clearTimeout(edmSaveTimeoutRef.current);
+        edmSaveTimeoutRef.current = null;
+      }
+
+      edmSaveResolveRef.current = {
+        resolve: (templateId) => {
+          resolve({
+            templateId,
+          });
+        },
+        reject,
+      };
 
       edmSaveTimeoutRef.current = setTimeout(() => {
         if (edmSaveResolveRef.current) {
-          if (printfulTemplateId) {
-            edmSaveResolveRef.current.resolve(printfulTemplateId)
-          } else {
-            edmSaveResolveRef.current.reject(new Error('Save timeout'))
-          }
-          edmSaveResolveRef.current = null
+          edmSaveResolveRef.current.reject(new Error('Save timeout'));
+          edmSaveResolveRef.current = null;
         }
-      }, 5000)
+        edmSaveTimeoutRef.current = null;
+      }, 15000);
 
       try {
-        instance.sendMessage({ event: 'saveDesign' })
+        instance.sendMessage({ event: 'saveDesign' });
       } catch (err) {
         if (edmSaveTimeoutRef.current) {
-          clearTimeout(edmSaveTimeoutRef.current)
-          edmSaveTimeoutRef.current = null
+          clearTimeout(edmSaveTimeoutRef.current);
+          edmSaveTimeoutRef.current = null;
         }
-        edmSaveResolveRef.current = null
-        reject(err)
-        return
+        edmSaveResolveRef.current = null;
+        reject(err);
       }
-
-      const handleSaveError = (event) => {
-        if (!event.data || typeof event.data !== 'object') return
-        const data = event.data.data || event.data
-
-        if (data.event === 'rpcError' || data.event === 'saveDesignFailed') {
-          if (edmSaveTimeoutRef.current) {
-            clearTimeout(edmSaveTimeoutRef.current)
-            edmSaveTimeoutRef.current = null
-          }
-
-          if (printfulTemplateId) {
-            resolve(printfulTemplateId)
-          } else {
-            reject(new Error('Save failed: ' + (data.error || 'Unknown error')))
-          }
-
-          edmSaveResolveRef.current = null
-
-          if (saveErrorListenerRef.current) {
-            window.removeEventListener('message', saveErrorListenerRef.current)
-            saveErrorListenerRef.current = null
-          }
-        }
-      }
-
-      if (saveErrorListenerRef.current) {
-        window.removeEventListener('message', saveErrorListenerRef.current)
-      }
-
-      saveErrorListenerRef.current = handleSaveError
-      window.addEventListener('message', handleSaveError)
-    })
-  }, [printfulTemplateId])
+    });
+  }, []);
 
   const removeIP = useCallback((id) => {
     setSelectedIPs((prev) => prev.filter((ip) => ip.id !== id))
