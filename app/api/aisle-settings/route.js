@@ -99,9 +99,29 @@ export async function PUT(request) {
 
     // Keep aisle.slug in sync with user's chosen aisleSettings.slug
     if (aisleSettings?.slug) {
+      const aisleQuery = {
+        $or: [
+          { userId: decoded.userId },
+          { userId: userId }  // getSafeId() version — covers ObjectId-based users
+        ]
+      };
+
       await db.collection('aisles').updateOne(
-        { userId: userId },
-        { $set: { slug: aisleSettings.slug, updatedAt: new Date() } }
+        aisleQuery,
+        { 
+          $set: { 
+            slug: aisleSettings.slug,
+            title: aisleSettings.title || 'My Aisle',
+            updatedAt: new Date() 
+          },
+          $setOnInsert: {
+            userId: decoded.userId,
+            title: aisleSettings.title || 'My Aisle',
+            isActive: true,
+            createdAt: new Date()
+          }
+        },
+        { upsert: true }
       );
     }
 

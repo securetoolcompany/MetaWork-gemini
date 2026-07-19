@@ -24,7 +24,7 @@ export async function GET(request) {
         return {
           id: user.id,
           slug: user.username,
-          title: user.profile?.displayName || user.name || user.username,
+          title: user.aisleSettings?.title || user.profile?.displayName || user.name || user.username,
           description: user.aisleSettings?.description || user.bio || '',
           headerImage: user.aisleSettings?.bannerImage || user.banner,
           totalProducts: productCount,

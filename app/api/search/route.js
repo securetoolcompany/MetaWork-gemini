@@ -48,6 +48,7 @@ export async function GET(request) {
             { displayName: searchRegex },
             { email: searchRegex },
           ],
+          profileSetup: true,  // only show users who've saved a name
         })
         .limit(10)
         .project({ _id: 1, username: 1, displayName: 1, slug: 1, email: 1 })
@@ -55,15 +56,20 @@ export async function GET(request) {
     ]);
 
     // Resolve the public URL slug for each aisle via userId -> user.aisleSettings.slug || user.username
-    const userIds = rawAisles
-      .map(a => {
-        try { return new ObjectId(a.userId); } catch { return null; }
-      })
+    const userIds = rawAisles.map(a => a.userId).filter(Boolean);
+
+    const objectIds = userIds
+      .map(id => { try { return new ObjectId(id); } catch { return null; } })
       .filter(Boolean);
 
     const aisleUsers = userIds.length
       ? await db.collection('users')
-          .find({ _id: { $in: userIds } })
+          .find({
+            $or: [
+              ...(objectIds.length ? [{ _id: { $in: objectIds } }] : []),
+              { _id: { $in: userIds } },
+            ]
+          })
           .project({ _id: 1, username: 1, 'aisleSettings.slug': 1 })
           .toArray()
       : [];

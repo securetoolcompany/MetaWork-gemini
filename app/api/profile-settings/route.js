@@ -31,6 +31,10 @@ export async function POST(request) {
         }
       });
     }
+
+    if (updateFields.name || updateFields.displayName) {
+      updateFields.profileSetup = true;
+    }
     
     updateFields.updatedAt = new Date();
     
