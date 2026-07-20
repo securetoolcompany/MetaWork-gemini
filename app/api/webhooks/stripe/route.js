@@ -142,23 +142,58 @@ export async function POST(req) {
       return NextResponse.json({ received: true });
     }
 
-    const printfulItems = (orderData.items || [])
-      .map((item) => {
-        const syncId = item.sync_variant_id || item.printfulVariantId;
+    const resolvedItems = await Promise.all(
+      (orderData.items || []).map(async (item) => {
+        if (!item.productId || !ObjectId.isValid(item.productId)) {
+          console.error(`[Order ${order_id}] Invalid productId on item:`, item.productId);
+          return null;
+        }
 
-        if (!syncId) {
+        const product = await db.collection('products').findOne({
+          _id: new ObjectId(item.productId),
+        });
+
+        if (!product) {
+          console.error(`[Order ${order_id}] Product not found: ${item.productId}`);
+          return null;
+        }
+
+        const variantCandidates = [
+          ...(product.variants || []),
+          ...(product.variations || []),
+          ...(product.baseProduct?.variants || []),
+        ];
+
+        const matchedVariant =
+          variantCandidates.find((v) => String(v?.id ?? '') === String(item.variationId ?? '')) ||
+          variantCandidates.find((v) => String(v?.variantId ?? '') === String(item.variationId ?? '')) ||
+          variantCandidates.find((v) => String(v?.printfulId ?? '') === String(item.variationId ?? '')) ||
+          variantCandidates.find((v) => String(v?.printful_id ?? '') === String(item.variationId ?? ''));
+
+        const variantId =
+          matchedVariant?.printfulId ??
+          matchedVariant?.printful_id ??
+          matchedVariant?.variantId ??
+          matchedVariant?.id ??
+          item.printfulVariantId ??
+          item.sync_variant_id ??
+          null;
+
+        if (!variantId) {
           console.error(
-            `[Order ${order_id}] Item ${item.productId} / variation ${item.variationId} is missing a sync_variant_id`
+            `[Order ${order_id}] Could not resolve Printful variant for product ${item.productId} variation ${item.variationId}`
           );
           return null;
         }
 
         return {
-          sync_variant_id: Number(syncId),
-          quantity: item.quantity,
+          variant_id: Number(variantId),
+          quantity: Number(item.quantity || 1),
         };
       })
-      .filter(Boolean);
+    );
+
+    const printfulItems = resolvedItems.filter(Boolean);
 
     let printfulOrderId = null;
     let fulfillmentStatus = 'failed';
@@ -166,7 +201,7 @@ export async function POST(req) {
 
     // 3. Send to Printful
     if (printfulItems.length === 0) {
-      printfulError = 'Order paid, but no valid Printful sync_variant_id values were found.';
+      printfulError = 'Order paid, but no valid Printful variant_id values were found.';
       console.error(`[Order ${order_id}] ${printfulError}`);
     } else {
       const printfulPayload = {

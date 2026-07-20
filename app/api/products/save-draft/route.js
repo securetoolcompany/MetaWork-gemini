@@ -2,6 +2,21 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
 
+function normalizePrintFileUrl(input) {
+  if (!input) return input;
+  const value = String(input).trim();
+
+  if (/^https?:\/\//i.test(value)) {
+    return value.replace('/ipfs/ipfs/', '/ipfs/');
+  }
+
+  const cleaned = value
+    .replace(/^ipfs:\/\//i, '')
+    .replace(/^ipfs\//i, '');
+
+  return `https://gateway.pinata.cloud/ipfs/${cleaned}`;
+}
+
 // Refactored to fire-and-forget or execute rapidly without polling bottlenecks
 async function generatePrintfulMockup(productId, templateId) {
   const token = process.env.PRINTFUL_API_KEY;
@@ -9,7 +24,7 @@ async function generatePrintfulMockup(productId, templateId) {
   const headers = {
     'Authorization': `Bearer ${token}`,
     'Content-Type': 'application/json',
-    'X-PF-Store-ID': storeId,
+    'X-PF-Store-Id': String(storeId),
   };
 
   const { db } = await connectToDatabase();
@@ -29,76 +44,115 @@ async function generatePrintfulMockup(productId, templateId) {
 
   // 2. Get product from DB
   const product = await db.collection('products').findOne({ externalProductId: productId });
-  
+
   const templatePlacements = Array.isArray(template.placements)
     ? template.placements
     : (template.templates || []).flatMap(t => t.placements || []);
 
   const placementConfigs = templatePlacements
-    .map(p => {
+    .map((p) => {
       let rawLayers = p.layers || [];
+
       if (!rawLayers.length && p.options) {
-        const fileOption = p.options.find(o => o.value && (String(o.value).includes('http') || o.id === 'item_url'));
-        if (fileOption) rawLayers = [{ image_url: fileOption.value }];
+        const fileOption = p.options.find(
+          (o) => o.value && (String(o.value).includes('http') || o.id === 'item_url')
+        );
+        if (fileOption) {
+          rawLayers = [{ image_url: fileOption.value }];
+        }
       }
 
       const validLayers = rawLayers
-        .filter(l => l && (l.image_url || l.url || l.item_url))
-        .map(l => ({ 
-          type: 'file', 
-          url: l.image_url || l.url || l.item_url 
-        }));
+        .filter((l) => l && (l.image_url || l.url || l.item_url))
+        .map((l) => ({
+          type: 'file',
+          url: normalizePrintFileUrl(l.image_url || l.url || l.item_url),
+        }))
+        .filter((l) => l.url);
 
       let determinedTechnique = p.technique_key || p.technique;
+
       if (!determinedTechnique) {
         const displayName = String(p.display_name || '').toLowerCase();
         const techniqueDisplay = String(p.technique_display_name || '').toLowerCase();
+
         if (displayName.includes('embroidery') || techniqueDisplay.includes('embroider')) {
           determinedTechnique = 'EMBROIDERY';
-        } else if (techniqueDisplay.includes('all-over') || techniqueDisplay.includes('sublimation')) {
+        } else if (
+          techniqueDisplay.includes('all-over') ||
+          techniqueDisplay.includes('sublimation')
+        ) {
           determinedTechnique = 'CUT-SEW';
-        } else {
-          determinedTechnique = 'dtg';
         }
       }
 
-      return {
+      const placementConfig = {
         placement: p.placement,
-        technique: determinedTechnique,
         layers: validLayers,
       };
-    })
-    .filter(p => p.layers.length > 0);
 
-  // Fallback ONLY if EDM template had zero image layers anywhere
-  if (placementConfigs.length === 0 && product?.selectedIPs?.[0]) {
-    const ip = product.selectedIPs[0];
-    const fallbackUrl = ip.publicUrl || ip.thumbnailUrl || ip.url || ip.imageUrl || null;
-    
-    if (fallbackUrl) {
-      let baseTemplateTechnique = templatePlacements[0]?.technique_key || templatePlacements[0]?.technique;
-      if (!baseTemplateTechnique && templatePlacements[0]) {
-        const techniqueDisplay = String(templatePlacements[0].technique_display_name || '').toLowerCase();
-        if (techniqueDisplay.includes('all-over') || techniqueDisplay.includes('sublimation')) {
-          baseTemplateTechnique = 'CUT-SEW';
-        } else if (techniqueDisplay.includes('embroider')) {
-          baseTemplateTechnique = 'EMBROIDERY';
-        }
+      if (determinedTechnique) {
+        placementConfig.technique = determinedTechnique;
       }
-      if (!baseTemplateTechnique) baseTemplateTechnique = 'dtg';
 
-      const placementTargets = templatePlacements.length > 0 
-        ? templatePlacements.map(tp => tp.placement)
-        : ['front', 'back'];
+      return placementConfig;
+    })
+    .filter((p) => p.layers.length > 0);
 
-      placementTargets.forEach(placementName => {
-        placementConfigs.push({
-          placement: placementName,
-          technique: baseTemplateTechnique,
-          layers: [{ type: 'file', url: fallbackUrl }]
-        });
-      });
+  // Decide if we should ignore template placements and fall back to selectedIPs
+  const uniquePlacementUrls = new Set(
+    placementConfigs.flatMap((p) => (p.layers || []).map((l) => l.url)).filter(Boolean)
+  );
+
+  const shouldUseSelectedIPsFallback =
+    placementConfigs.length === 0 || uniquePlacementUrls.size <= 1;
+
+  // Fallback when EDM template has zero useful image layers OR all placements share the same image
+  if (shouldUseSelectedIPsFallback && product?.selectedIPs?.[0]) {
+    // clear any same-image template configs before rebuilding from selectedIPs
+    placementConfigs.length = 0;
+
+    let baseTemplateTechnique =
+      templatePlacements[0]?.technique_key || templatePlacements[0]?.technique;
+    if (!baseTemplateTechnique && templatePlacements[0]) {
+      const techniqueDisplay = String(
+        templatePlacements[0].technique_display_name || ''
+      ).toLowerCase();
+      if (techniqueDisplay.includes('all-over') || techniqueDisplay.includes('sublimation')) {
+        baseTemplateTechnique = 'CUT-SEW';
+      } else if (techniqueDisplay.includes('embroider')) {
+        baseTemplateTechnique = 'EMBROIDERY';
+      }
     }
+
+    const placementTargets = templatePlacements.length > 0
+      ? templatePlacements.map(tp => tp.placement)
+      : ['front', 'back'];
+
+    placementTargets.forEach((placementName, index) => {
+      const ip = product.selectedIPs[index] || product.selectedIPs[0];
+      const fallbackUrl = normalizePrintFileUrl(
+        ip?.publicUrl || ip?.thumbnailUrl || ip?.url || ip?.imageUrl || null
+      );
+
+      if (!fallbackUrl) return;
+
+      const placementConfig = {
+        placement: placementName,
+        layers: [
+          {
+            type: 'file',
+            url: fallbackUrl,
+          },
+        ],
+      };
+
+      if (baseTemplateTechnique) {
+        placementConfig.technique = baseTemplateTechnique;
+      }
+
+      placementConfigs.push(placementConfig);
+    });
   }
 
   if (placementConfigs.length === 0) {
@@ -190,6 +244,14 @@ export async function POST(request) {
       externalProductId,
     });
 
+    const normalizedSelectedIPs = (selectedIPs || []).map((ip) => ({
+      ...ip,
+      imageUrl: normalizePrintFileUrl(ip.imageUrl),
+      thumbnailUrl: normalizePrintFileUrl(ip.thumbnailUrl),
+      publicUrl: normalizePrintFileUrl(ip.publicUrl),
+      url: normalizePrintFileUrl(ip.url),
+    }));
+
     const result = await products.findOneAndUpdate(
       { userId: decoded.userId, externalProductId },
       {
@@ -197,7 +259,7 @@ export async function POST(request) {
           userId: decoded.userId,
           externalProductId,
           printfulTemplateId: printfulTemplateId || null,
-          selectedIPs: selectedIPs || [],
+          selectedIPs: normalizedSelectedIPs,
           baseProduct,
           name: name || baseProduct?.name || 'Untitled Design',
           costAnalysis: costAnalysis || null,

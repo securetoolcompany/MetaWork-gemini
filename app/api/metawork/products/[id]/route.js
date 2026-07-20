@@ -87,6 +87,9 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const updates = await request.json();
+    const shouldSyncPrintful = updates.syncToPrintful === true;
+    delete updates.syncToPrintful;
+
     const { db } = await connectToDatabase();
 
     if (!id || id === 'undefined') {
@@ -96,50 +99,63 @@ export async function PUT(request, { params }) {
     console.log(`[METAWORK DEBUG] Updating product ${id} with:`, updates);
 
     // --- ENFORCE PRICING LOGIC HERE ---
-    // Recalculate variants before it hits the database
     if (updates.variants && updates.variants.length > 0) {
-      // Find the variant with the lowest cost to act as the baseline anchor
-      const baseVariant = updates.variants.reduce((min, v) => 
-        ((v.cost || 0) < (min.cost || 0)) ? v : min, updates.variants[0]
+      const baseVariant = updates.variants.reduce(
+        (min, v) => ((v.cost || 0) < (min.cost || 0) ? v : min),
+        updates.variants[0]
       );
-      
-      // Calculate the intended flat markup
+
       const markup = (baseVariant.retail_price || 0) - (baseVariant.cost || 0);
 
-      // Override all variant prices to guarantee cost differences are mathematically maintained
-      updates.variants = updates.variants.map(variant => ({
+      updates.variants = updates.variants.map((variant) => ({
         ...variant,
-        retail_price: parseFloat(((variant.cost || 0) + markup).toFixed(2))
+        retail_price: parseFloat(((variant.cost || 0) + markup).toFixed(2)),
       }));
 
-      // Ensure the top-level product price matches the baseline
       updates.price = baseVariant.retail_price;
     }
     // ----------------------------------
 
-        // --- ENSURE PRINTFUL SYNC ---
-    if (updates.variants && updates.variants.length > 0) {
+    // --- ENSURE PRINTFUL SYNC ONLY WHEN EXPLICITLY REQUESTED ---
+    if (shouldSyncPrintful && updates.variants && updates.variants.length > 0) {
       try {
         const { ensurePrintfulSyncProduct } = require('@/lib/printful-sync-product');
+        const { ObjectId } = require('mongodb');
+
         const filterForLookup = {
           $or: [
             { id: id },
-            { _id: /^[a-fA-F0-9]{24}$/.test(id) ? new (require('mongodb').ObjectId)(id) : id }
+            { _id: /^[a-fA-F0-9]{24}$/.test(id) ? new ObjectId(id) : id }
           ]
         };
+
         const existingProduct = await db.collection('products').findOne(filterForLookup);
 
         const needsSync =
           !existingProduct?.printfulSyncProductId ||
-          (existingProduct?.variants || []).some(v => !v.sync_variant_id);
+          (existingProduct?.variants || []).some((v) => !v.sync_variant_id);
 
-        console.log('[SYNC DEBUG] needsSync:', needsSync, 'existing printfulSyncProductId:', existingProduct?.printfulSyncProductId);
-        console.log('[SYNC DEBUG] printfulTemplateId:', existingProduct?.printfulTemplateId ?? updates.printfulTemplateId);
-        console.log('[SYNC DEBUG] baseProduct.variants count:', (existingProduct?.baseProduct?.variants || []).length);
+        console.log(
+          '[SYNC DEBUG] needsSync:',
+          needsSync,
+          'existing printfulSyncProductId:',
+          existingProduct?.printfulSyncProductId
+        );
+
+        console.log(
+          '[SYNC DEBUG] printfulTemplateId:',
+          existingProduct?.printfulTemplateId ?? updates.printfulTemplateId
+        );
+
+        console.log(
+          '[SYNC DEBUG] baseProduct.variants count:',
+          (existingProduct?.baseProduct?.variants || []).length
+        );
 
         if (needsSync) {
           const productForSync = { ...existingProduct, ...updates, _id: existingProduct?._id };
           console.log('[SYNC DEBUG] Calling ensurePrintfulSyncProduct...');
+
           const syncResult = await ensurePrintfulSyncProduct(productForSync, { skipMockup: true });
           console.log('[SYNC DEBUG] syncResult:', JSON.stringify(syncResult));
 
@@ -149,11 +165,12 @@ export async function PUT(request, { params }) {
 
           if (Array.isArray(syncResult?.variantMappings) && syncResult.variantMappings.length > 0) {
             const syncMap = new Map(
-              syncResult.variantMappings.map(m => [String(m.variant_id), m.sync_variant_id])
+              syncResult.variantMappings.map((m) => [String(m.variant_id), m.sync_variant_id])
             );
-            updates.variants = updates.variants.map(v => ({
+
+            updates.variants = updates.variants.map((v) => ({
               ...v,
-              sync_variant_id: syncMap.get(String(v.printful_id)) ?? v.sync_variant_id ?? null
+              sync_variant_id: syncMap.get(String(v.printful_id)) ?? v.sync_variant_id ?? null,
             }));
           } else {
             console.warn('[SYNC DEBUG] No variantMappings returned — sync likely failed silently upstream');
@@ -167,22 +184,21 @@ export async function PUT(request, { params }) {
     }
     // ----------------------------------
 
-    // Filter to find the product by custom 'id' or Mongo '_id'
+    const { ObjectId } = require('mongodb');
     const filter = {
       $or: [
         { id: id },
-        { _id: /^[a-fA-F0-9]{24}$/.test(id) ? new (require('mongodb').ObjectId)(id) : id }
+        { _id: /^[a-fA-F0-9]{24}$/.test(id) ? new ObjectId(id) : id }
       ]
     };
 
-    // Because we modified `updates` above, the corrected prices are injected here
     const result = await db.collection('products').updateOne(
       filter,
-      { 
-        $set: { 
-          ...updates, 
-          updatedAt: new Date().toISOString() 
-        } 
+      {
+        $set: {
+          ...updates,
+          updatedAt: new Date().toISOString(),
+        },
       }
     );
 
@@ -199,20 +215,17 @@ export async function PUT(request, { params }) {
         console.log('[METAWORK] Mockup generated:', mockupUrl);
       } catch (mockupErr) {
         console.warn('[METAWORK] Mockup failed:', mockupErr.message);
-        // Don't fail save—mockup optional
       }
     }
 
-    // THIS IS THE CRITICAL JSON RETURN
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Product synced to database' 
+    return NextResponse.json({
+      success: true,
+      message: 'Product synced to database'
     });
-
   } catch (error) {
     console.error('[METAWORK DEBUG] PUT Error:', error.message);
     return NextResponse.json(
-      { success: false, error: error.message }, 
+      { success: false, error: error.message },
       { status: 500 }
     );
   }
