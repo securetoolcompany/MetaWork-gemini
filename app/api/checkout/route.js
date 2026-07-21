@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
+import { validateShippingCodes } from '@/lib/addressCodes';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -9,6 +10,32 @@ export async function POST(req) {
     const { ObjectId } = await import('mongodb');
     const body = await req.json();
     const { items, shippingInfo, shippingCost, promoCode } = body;
+
+    if (
+      !shippingInfo?.email ||
+      !shippingInfo?.name ||
+      !shippingInfo?.phone ||
+      !shippingInfo?.address1 ||
+      !shippingInfo?.city ||
+      !shippingInfo?.zip ||
+      !shippingInfo?.country_code
+    ) {
+      return NextResponse.json({ error: 'Missing required shipping information' }, { status: 400 });
+    }
+
+    const { country, state } = validateShippingCodes(shippingInfo);
+
+    const normalizedShippingInfo = {
+      ...shippingInfo,
+      email: String(shippingInfo.email).trim().toLowerCase(),
+      name: String(shippingInfo.name).trim(),
+      phone: String(shippingInfo.phone).trim(),
+      address1: String(shippingInfo.address1).trim(),
+      city: String(shippingInfo.city).trim(),
+      zip: String(shippingInfo.zip).trim(),
+      country_code: country,
+      state_code: state || '',
+    };
 
     if (!items || items.length === 0) {
       return NextResponse.json({ error: "No items in cart" }, { status: 400 });
@@ -46,11 +73,11 @@ export async function POST(req) {
       currency: 'usd',
       customer_details: {
         address: {
-          line1: shippingInfo.address1,
-          city: shippingInfo.city,
-          state: shippingInfo.state_code,
-          postal_code: shippingInfo.zip,
-          country: shippingInfo.country_code,
+          line1: normalizedShippingInfo.address1,
+          city: normalizedShippingInfo.city,
+          state: normalizedShippingInfo.state_code,
+          postal_code: normalizedShippingInfo.zip,
+          country: normalizedShippingInfo.country_code,
         },
         address_source: 'shipping',
       },
@@ -94,8 +121,8 @@ export async function POST(req) {
     
     const pendingOrder = {
       orderNumber: generatedOrderNumber,
-      email: shippingInfo.email.toLowerCase().trim(),
-      shippingInfo: shippingInfo,
+      email: normalizedShippingInfo.email,
+      shippingInfo: normalizedShippingInfo,
       items: enrichedItems, // SAVE THE ENRICHED ITEMS INSTEAD
       subtotal: itemsSubtotal,
       discount: discountAmount,
@@ -115,10 +142,10 @@ export async function POST(req) {
       currency: 'usd',
       automatic_payment_methods: { enabled: true },
       metadata: {
-        customer_email: shippingInfo.email,
-        customer_name: shippingInfo.name,
+        customer_email: normalizedShippingInfo.email,
+        customer_name: normalizedShippingInfo.name,
+        shipping_country: normalizedShippingInfo.country_code,
         order_id: orderId, 
-        shipping_country: shippingInfo.country_code,
         applied_promo: promoCode || 'none',
         discount_amount: discountAmount.toFixed(2),
         stripe_tax_calculation_id: taxCalculation.id, 

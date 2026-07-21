@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
+import { validateShippingCodes } from '@/lib/addressCodes';
 //import { ObjectId } from 'mongodb';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -136,21 +137,37 @@ export async function POST(req) {
       throw new Error('Order not found in database');
     }
 
-    // Secondary guard in case order was already finalized by another path
-    if (orderData.status === 'paid') {
-      console.log(`Order ${order_id} already marked paid. Skipping.`);
+    if (orderData.printfulOrderId) {
+      console.log(`[Order ${order_id}] Already sent to Printful as ${orderData.printfulOrderId}`);
       return NextResponse.json({ received: true });
     }
 
+    await db.collection('orders').updateOne(
+      { _id: new ObjectId(order_id) },
+      {
+        $set: {
+          status: 'paid',
+          fulfillmentStatus: 'submitting_to_printful',
+          stripePaymentId: paymentIntent.id,
+          stripeTaxCalculationId: paymentIntent.metadata?.stripe_tax_calculation_id || null,
+          paidAt: new Date(),
+        },
+        $unset: {
+          printfulError: '',
+        },
+      }
+    );
+
     const resolvedItems = await Promise.all(
       (orderData.items || []).map(async (item) => {
-        if (!item.productId || !ObjectId.isValid(item.productId)) {
+        const productId = String(item.productId || '');
+        if (!ObjectId.isValid(productId) || String(new ObjectId(productId)) !== productId) {
           console.error(`[Order ${order_id}] Invalid productId on item:`, item.productId);
           return null;
         }
 
         const product = await db.collection('products').findOne({
-          _id: new ObjectId(item.productId),
+          _id: new ObjectId(productId),
         });
 
         if (!product) {
@@ -164,17 +181,34 @@ export async function POST(req) {
           ...(product.baseProduct?.variants || []),
         ];
 
-        const matchedVariant =
-          variantCandidates.find((v) => String(v?.id ?? '') === String(item.variationId ?? '')) ||
-          variantCandidates.find((v) => String(v?.variantId ?? '') === String(item.variationId ?? '')) ||
-          variantCandidates.find((v) => String(v?.printfulId ?? '') === String(item.variationId ?? '')) ||
-          variantCandidates.find((v) => String(v?.printful_id ?? '') === String(item.variationId ?? ''));
+        const hasUsableVariationId =
+          item.variationId &&
+          item.variationId !== 'undefined' &&
+          item.variationId !== 'null';
+
+        const matchedVariant = hasUsableVariationId
+          ? (
+              variantCandidates.find((v) => String(v?.id ?? '') === String(item.variationId)) ||
+              variantCandidates.find((v) => String(v?.variantId ?? '') === String(item.variationId)) ||
+              variantCandidates.find((v) => String(v?.printfulId ?? '') === String(item.variationId)) ||
+              variantCandidates.find((v) => String(v?.printful_id ?? '') === String(item.variationId))
+            )
+          : null;
+
+        const singleCandidate =
+          variantCandidates.length === 1 ? variantCandidates[0] : null;
 
         const variantId =
           matchedVariant?.printfulId ??
           matchedVariant?.printful_id ??
           matchedVariant?.variantId ??
           matchedVariant?.id ??
+          singleCandidate?.printfulId ??
+          singleCandidate?.printful_id ??
+          singleCandidate?.variantId ??
+          singleCandidate?.id ??
+          product.printfulVariantId ??
+          product.printful_variant_id ??
           item.printfulVariantId ??
           item.sync_variant_id ??
           null;
@@ -186,12 +220,42 @@ export async function POST(req) {
           return null;
         }
 
+        console.log('[Resolver] Order', order_id, 'item', item);
+
+        console.log('[Resolver] product', product?._id, 'variantCandidates length', variantCandidates.length);
+
+        console.log('[Resolver] matchedVariant', matchedVariant);
+        console.log('[Resolver] singleCandidate', singleCandidate);
+        console.log('[Resolver] chosen variantId', variantId);
+
+        console.log(`[Order ${order_id}] resolvedItems raw:`, resolvedItems);
+        const printfulItems = resolvedItems.filter(Boolean);
+        console.log(`[Order ${order_id}] printfulItems filtered:`, printfulItems);
+
         return {
           variant_id: Number(variantId),
           quantity: Number(item.quantity || 1),
+          retail_price: Number(item.priceSnapshot || item.unitPrice || 0).toFixed(2),
+          name: item.title,
+          external_id: String(item.productId),
         };
       })
     );
+
+    if (!orderData.shippingInfo?.name ||
+        !orderData.shippingInfo?.address1 ||
+        !orderData.shippingInfo?.phone ||
+        !orderData.shippingInfo?.city ||
+        !orderData.shippingInfo?.state_code ||
+        !orderData.shippingInfo?.zip ||
+        !orderData.shippingInfo?.country_code) {
+      throw new Error(`Order ${order_id} is missing required shipping info`);
+    }
+
+    const { country, state } = validateShippingCodes(orderData.shippingInfo);
+
+    console.log(`[Order ${order_id}] Resolved items:`, resolvedItems);
+    console.log(`[Order ${order_id}] Printful items:`, printfulItems);
 
     const printfulItems = resolvedItems.filter(Boolean);
 
@@ -199,23 +263,29 @@ export async function POST(req) {
     let fulfillmentStatus = 'failed';
     let printfulError = null;
 
+    console.log(`[Order ${order_id}] Sending ${printfulItems.length} items to Printful`);
+
     // 3. Send to Printful
     if (printfulItems.length === 0) {
       printfulError = 'Order paid, but no valid Printful variant_id values were found.';
       console.error(`[Order ${order_id}] ${printfulError}`);
     } else {
       const printfulPayload = {
-        //confirm: true, 
+        //confirm: true,
+        external_id: String(orderData.orderNumber || orderData._id),
         recipient: {
           name: orderData.shippingInfo?.name,
-          email: orderData.email,
+          email: orderData.shippingInfo?.email || orderData.email,
           address1: orderData.shippingInfo?.address1,
+          address2: orderData.shippingInfo?.address2 || undefined,
           city: orderData.shippingInfo?.city,
-          state_code: orderData.shippingInfo?.state_code,
-          country_code: orderData.shippingInfo?.country_code,
+          state_code: state || undefined,
+          country_code: country,
           zip: orderData.shippingInfo?.zip,
+          phone: orderData.shippingInfo?.phone || undefined,
         },
         items: printfulItems,
+        confirm: false,
       };
 
       try {
@@ -233,7 +303,6 @@ export async function POST(req) {
           headers: {
             'Content-Type': headers['Content-Type'],
             'X-PF-Store-Id': headers['X-PF-Store-Id'] || null,
-            // Do NOT log Authorization value
           },
         }, null, 2));
 
@@ -242,6 +311,8 @@ export async function POST(req) {
           headers,
           body: JSON.stringify(printfulPayload),
         });
+
+        console.log(`[Order ${order_id}] Printful HTTP status:`, pfRes.status, pfRes.statusText);
 
         if (pfRes.ok) {
           const pfData = await pfRes.json();
@@ -259,18 +330,13 @@ export async function POST(req) {
       }
     }
 
-    // 4. Update MongoDB with payment and fulfillment status
     await db.collection('orders').updateOne(
       { _id: new ObjectId(order_id) },
       {
         $set: {
-          status: 'paid',
           fulfillmentStatus,
-          printfulError,
-          stripePaymentId: paymentIntent.id,
-          stripeTaxCalculationId: paymentIntent.metadata?.stripe_tax_calculation_id || null,
           printfulOrderId,
-          paidAt: new Date(),
+          printfulError,
         },
       }
     );
@@ -283,6 +349,12 @@ export async function POST(req) {
           reference: order_id, 
         });
         
+        console.log(`[Order ${order_id}] Final fulfillment result`, {
+          fulfillmentStatus,
+          printfulOrderId,
+          printfulError,
+        });
+
         await db.collection('orders').updateOne(
           { _id: new ObjectId(order_id) },
           {
@@ -309,7 +381,24 @@ export async function POST(req) {
     }
 
   } catch (error) {
-    console.error('WEBHOOK FULFILLMENT ERROR:', error);
+    console.error(`[Order ${order_id}] WEBHOOK FULFILLMENT ERROR:`, error);
+
+    try {
+      if (order_id) {
+        const { db } = await connectToDatabase();
+        await db.collection('orders').updateOne(
+          { _id: new ObjectId(order_id) },
+          {
+            $set: {
+              fulfillmentStatus: 'failed',
+              printfulError: error?.message || 'Unknown fulfillment error',
+            },
+          }
+        );
+      }
+    } catch (persistErr) {
+      console.error(`[Order ${order_id}] Failed to persist fulfillment error:`, persistErr);
+    }
   }
 
   return NextResponse.json({ received: true });

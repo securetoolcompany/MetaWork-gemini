@@ -12,7 +12,13 @@ import { AlertCircle, ArrowLeft, Truck, Check, Loader2, Tag, ShoppingBag } from 
 import Image from 'next/image';
 import Link from 'next/link';
 import confetti from 'canvas-confetti';
-import countries from '@/data/countries.json';
+import {
+  COUNTRIES,
+  getRegionsForCountry,
+  countryRequiresRegion,
+} from '@/lib/addressCodes';
+
+console.log('COUNTRIES length', COUNTRIES.length);
 
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
@@ -31,7 +37,14 @@ function CheckoutContent() {
   const [appliedPromo, setAppliedPromo] = useState('');
 
   const [shippingInfo, setShippingInfo] = useState({
-    email: '', name: '', address1: '', city: '', state_code: '', zip: '', country_code: 'US' 
+    email: '',
+    name: '',
+    phone: '',
+    address1: '',
+    city: '',
+    state_code: '',
+    zip: '',
+    country_code: 'US',
   });
 
   const subtotal = totalPrice || 0;
@@ -203,54 +216,173 @@ export default function CheckoutPage() {
 }
 
 function ShippingStep({ shippingInfo, setShippingInfo, onSubmit }) {
+  const regions = getRegionsForCountry(shippingInfo.country_code);
+  const requiresRegion = countryRequiresRegion(shippingInfo.country_code);
+
+  const updateField = (field, value) => {
+    setShippingInfo((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleCountryChange = (e) => {
+    const nextCountry = e.target.value;
+    setShippingInfo((prev) => ({
+      ...prev,
+      country_code: nextCountry,
+      state_code: '',
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    if (!shippingInfo.country_code) return;
+    if (requiresRegion && !shippingInfo.state_code) return;
+    if (!shippingInfo.phone?.trim()) return;
+
+    onSubmit(e);
+  };
+
   return (
     <Card className="p-6 border-muted/60 shadow-sm">
       <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
         <Truck className="w-6 h-6 text-primary" />
         Shipping Information
       </h2>
-      <form onSubmit={onSubmit} className="space-y-5">
+
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid md:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="name">Full Name</Label>
-            <Input id="name" required value={shippingInfo.name} onChange={(e) => setShippingInfo({ ...shippingInfo, name: e.target.value })} placeholder="John Doe" className="mt-1.5" />
+            <Input
+              id="name"
+              required
+              value={shippingInfo.name}
+              onChange={(e) => updateField('name', e.target.value)}
+              placeholder="John Doe"
+              className="mt-1.5"
+            />
           </div>
+
           <div>
             <Label htmlFor="email">Email Address</Label>
-            <Input id="email" type="email" required value={shippingInfo.email} onChange={(e) => setShippingInfo({ ...shippingInfo, email: e.target.value })} placeholder="john@example.com" className="mt-1.5" />
+            <Input
+              id="email"
+              type="email"
+              required
+              value={shippingInfo.email}
+              onChange={(e) => updateField('email', e.target.value)}
+              placeholder="john@example.com"
+              className="mt-1.5"
+            />
           </div>
         </div>
+
+        <div>
+          <Label htmlFor="phone">Phone Number</Label>
+          <Input
+            id="phone"
+            type="tel"
+            required
+            value={shippingInfo.phone}
+            onChange={(e) => updateField('phone', e.target.value)}
+            placeholder="+1 555 555 5555"
+            className="mt-1.5"
+          />
+        </div>
+
         <div>
           <Label htmlFor="address1">Street Address</Label>
-          <Input id="address1" required value={shippingInfo.address1} onChange={(e) => setShippingInfo({ ...shippingInfo, address1: e.target.value })} placeholder="123 Main St" className="mt-1.5" />
+          <Input
+            id="address1"
+            required
+            value={shippingInfo.address1}
+            onChange={(e) => updateField('address1', e.target.value)}
+            placeholder="123 Main St"
+            className="mt-1.5"
+          />
         </div>
+
+        <div>
+          <Label htmlFor="country">Country</Label>
+          <select
+            id="country"
+            required
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1.5"
+            value={shippingInfo.country_code}
+            onChange={handleCountryChange}
+          >
+            <option value="">Select country</option>
+            {COUNTRIES.map((country) => (
+              <option key={country.code} value={country.code}>
+                {country.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div className="col-span-2 md:col-span-1">
             <Label htmlFor="city">City</Label>
-            <Input id="city" required value={shippingInfo.city} onChange={(e) => setShippingInfo({ ...shippingInfo, city: e.target.value })} className="mt-1.5" />
+            <Input
+              id="city"
+              required
+              value={shippingInfo.city}
+              onChange={(e) => updateField('city', e.target.value)}
+              className="mt-1.5"
+            />
           </div>
+
           <div>
-            <Label htmlFor="state_code">State / Province</Label>
-            <Input id="state_code" required value={shippingInfo.state_code} onChange={(e) => setShippingInfo({ ...shippingInfo, state_code: e.target.value })} placeholder="NY" className="mt-1.5" />
+            <Label htmlFor="state_code">
+              {regions.length > 0 ? 'State / Province' : 'State / Region'}
+            </Label>
+
+            {regions.length > 0 ? (
+              <select
+                id="state_code"
+                required={requiresRegion}
+                value={shippingInfo.state_code}
+                onChange={(e) => updateField('state_code', e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1.5"
+              >
+                <option value="">Select state / province</option>
+                {regions.map((region) => (
+                  <option key={region.code} value={region.code}>
+                    {region.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <Input
+                id="state_code"
+                required
+                value={shippingInfo.state_code}
+                onChange={(e) => updateField('state_code', e.target.value.trim().toUpperCase())}
+                placeholder="Region code"
+                className="mt-1.5"
+              />
+            )}
           </div>
+
           <div>
             <Label htmlFor="zip">Postal Code</Label>
-            <Input id="zip" required value={shippingInfo.zip} onChange={(e) => setShippingInfo({ ...shippingInfo, zip: e.target.value })} className="mt-1.5" />
+            <Input
+              id="zip"
+              required
+              value={shippingInfo.zip}
+              onChange={(e) => updateField('zip', e.target.value)}
+              className="mt-1.5"
+            />
           </div>
         </div>
-        <div>
-          <Label htmlFor="country">Country</Label>
-          <select 
-            id="country"
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1.5"
-            value={shippingInfo.country_code} 
-            onChange={(e) => setShippingInfo({...shippingInfo, country_code: e.target.value})}
-          >
-            {countries.map(c => <option key={c.code} value={c.code}>{c.name}</option>)}
-          </select>
-        </div>
+
         <div className="pt-4">
-          <Button type="submit" className="w-full h-12 text-base">Continue to Payment</Button>
+          <Button type="submit" className="w-full h-12 text-base">
+            Continue to Payment
+          </Button>
         </div>
       </form>
     </Card>
