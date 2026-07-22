@@ -687,6 +687,8 @@ function ProductCreatorInner() {
     urlExternalProductId,
   ])
 
+    const [originalPlacementAssets, setOriginalPlacementAssets] = useState([])
+
   useEffect(() => {
     const handleDesignStatus = (event) => {
       if (
@@ -700,6 +702,30 @@ function ProductCreatorInner() {
       const usedPlacements =
         event.data?.data?.response?.usedPlacements || []
       const layerCount = usedPlacements.length
+
+      // NEW: capture raw per-placement asset data for fulfillment/licensing,
+      // independent of the selectedIPs UI state below
+      const assets = usedPlacements.map((placement, idx) => {
+        const placementUrl = placement.url || placement.imageUrl
+        const matchedIP = (selectedIPs || []).find((ip) => {
+          if (!ip.imageUrl || !placementUrl) return false
+          const normalize = (u) => u.replace(/\/ipfs\/ipfs\//, '/ipfs/')
+          return normalize(placementUrl).includes(normalize(ip.imageUrl))
+        })
+
+        return {
+          edmPlacementId: placement.id || `edm-${Date.now()}-${idx}`,
+          placementName: placement.placement || placement.name || null,
+          originalUrl: placementUrl,
+          technique: placement.technique || placement.techniqueKey || null,
+          ipId: matchedIP?.ipId || matchedIP?.id || null,
+          licensingFee: matchedIP?.licensingFee || 0,
+          ownerId: matchedIP?.ownerId || null,
+          ownerName: matchedIP?.ownerName || null,
+        }
+      })
+
+      setOriginalPlacementAssets(assets)
 
       setSelectedIPs((prev) => {
         if (layerCount < prev.length) return prev.slice(0, layerCount)
@@ -724,7 +750,7 @@ function ProductCreatorInner() {
 
     window.addEventListener('message', handleDesignStatus)
     return () => window.removeEventListener('message', handleDesignStatus)
-  }, [])
+  }, [selectedIPs])
 
   const handleExitToCatalog = () => {
     setStep('catalog')
@@ -896,6 +922,7 @@ function ProductCreatorInner() {
                   printfulTemplateId={printfulTemplateId}
                   onTriggerEdmSave={triggerEdmSave}
                   refreshNonce={refreshNonce}
+                  originalPlacementAssets={originalPlacementAssets}
                 />
               </div>
             )}
@@ -923,6 +950,7 @@ function ProductCreatorInner() {
                 printfulTemplateId={printfulTemplateId}
                 onTriggerEdmSave={triggerEdmSave}
                 refreshNonce={refreshNonce}
+                originalPlacementAssets={originalPlacementAssets}
                 isExpanded={isExpanded}
                 setIsExpanded={setIsExpanded}
               />

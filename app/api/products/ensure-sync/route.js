@@ -76,9 +76,10 @@ export async function POST(request) {
       externalProductId,
       templateId: productDoc.printfulTemplateId,
       catalogId:
-        productDoc.catalogProductId ||
-        productDoc.baseProduct?.catalogProductId ||
-        productDoc.baseProduct?.printfulId ||
+        productDoc.baseProduct?.product_id ??
+        productDoc.baseProduct?.printfulProductId ??
+        productDoc.catalogProductId ??
+        productDoc.baseProduct?.catalogProductId ??
         null,
     });
     const syncResult = await ensurePrintfulSyncProduct(productDoc);

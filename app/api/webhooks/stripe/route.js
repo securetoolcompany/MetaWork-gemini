@@ -287,7 +287,6 @@ export async function POST(req) {
           product.printfulVariantId ??
           product.printful_variant_id ??
           item.printfulVariantId ??
-          item.sync_variant_id ??
           null;
 
         console.log('[Resolver] Order', order_id, 'item', item);
@@ -300,6 +299,32 @@ export async function POST(req) {
         console.log('[Resolver] matchedVariant', matchedVariant);
         console.log('[Resolver] singleCandidate', singleCandidate);
         console.log('[Resolver] chosen variantId', variantId);
+
+        const syncVariantId =
+          item.sync_variant_id ??
+          item.syncVariantId ??
+          matchedVariant?.sync_variant_id ??
+          matchedVariant?.syncVariantId ??
+          product?.sync_variant_id ??
+          product?.syncVariantId ??
+          null;
+
+        if (syncVariantId) {
+            console.log('[Resolver] using sync_variant_id', {
+              order_id,
+              productId: item.productId,
+              syncVariantId,
+            });
+          return {
+            sync_variant_id: Number(syncVariantId),
+            quantity: Number(item.quantity || 1),
+            retail_price: Number(
+              item.priceSnapshot || item.unitPrice || 0
+            ).toFixed(2),
+            name: item.title || matchedVariant?.name || product?.title || 'Item',
+            external_id: String(item.productId),
+          };
+        }
 
         if (!variantId) {
           console.error(

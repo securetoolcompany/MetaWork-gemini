@@ -15,17 +15,27 @@ export async function GET() {
 
     const getCountryCodes = (originStr) => {
       if (!originStr) return [];
-      const parts = originStr.toLowerCase().split(/and|,|&/).map(s => s.trim());
-      return parts.map(part => {
-        const normalizedPart = String(part || '').toLowerCase().trim();
+      const parts = String(originStr || '')
+        .toLowerCase()
+        .split(/and|,|&/)
+        .map((s) => s.trim())
+        .filter(Boolean);
 
-      const match = countries.find((c) => {
-        const name = String(c?.name || '').toLowerCase().trim();
-        const code = String(c?.code || '').toLowerCase().trim();
-        return name === normalizedPart || code === normalizedPart;
-      });
-        return match ? match.code.toLowerCase() : null;
-      }).filter(Boolean);
+      return parts
+        .map((part) => {
+          const normalizedPart = String(part || '').toLowerCase().trim();
+          if (!normalizedPart) return null;
+
+          const match = countries.find((c) => {
+            const name = String(c?.name || '').toLowerCase().trim();
+            const code = String(c?.code || '').toLowerCase().trim();
+            return name === normalizedPart || code === normalizedPart;
+          });
+
+          if (!match || !match.code) return null;
+          return String(match.code).toLowerCase();
+        })
+        .filter(Boolean);
     };
 
     const products = rawProducts.map((p) => {

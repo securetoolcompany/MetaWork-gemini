@@ -246,6 +246,7 @@ export async function POST(request) {
       baseProduct,
       name,
       costAnalysis,
+      originalPlacementAssets, // raw EDM placement data from client
     } = body;
 
     if (!externalProductId || !baseProduct) {
@@ -263,11 +264,43 @@ export async function POST(request) {
 
     const normalizedSelectedIPs = (selectedIPs || []).map((ip) => ({
       ...ip,
+      ipId: ip.ipId || ip.id || null,
+      licensingFee: Number(ip.licensingFee || 0),
+      ownerId: ip.ownerId || null,
+      ownerName: ip.ownerName || null,
       imageUrl: normalizePrintFileUrl(ip.imageUrl),
       thumbnailUrl: normalizePrintFileUrl(ip.thumbnailUrl),
       publicUrl: normalizePrintFileUrl(ip.publicUrl),
       url: normalizePrintFileUrl(ip.url),
     }));
+
+    // licensed IPs are only those with a real library ipId (not synthetic uploads)
+    const licensedIPs = normalizedSelectedIPs.filter((ip) => ip.ipId);
+
+    // normalize and persist raw per-placement EDM assets independently of selectedIPs
+    const normalizedPlacementAssets = (originalPlacementAssets || [])
+      .map((asset) => {
+        const normalizedUrl = normalizePrintFileUrl(asset.originalUrl);
+        if (!normalizedUrl) return null;
+
+        // try to match this placement back to a licensed IP by URL
+        const matchedIP = licensedIPs.find(
+          (ip) => ip.imageUrl && normalizedUrl.includes(ip.imageUrl)
+        );
+
+        return {
+          edmPlacementId: asset.edmPlacementId || null,
+          placementName: asset.placementName || null,
+          originalUrl: asset.originalUrl,
+          normalizedUrl,
+          technique: asset.technique || null,
+          ipId: matchedIP?.ipId || asset.ipId || null,
+          licensingFee: matchedIP?.licensingFee ?? asset.licensingFee ?? 0,
+          ownerId: matchedIP?.ownerId || asset.ownerId || null,
+          ownerName: matchedIP?.ownerName || asset.ownerName || null,
+        };
+      })
+      .filter(Boolean);
 
     const result = await products.findOneAndUpdate(
       { userId: decoded.userId, externalProductId },
@@ -275,9 +308,17 @@ export async function POST(request) {
         $set: {
           userId: decoded.userId,
           externalProductId,
-          catalogProductId: baseProduct?.catalogProductId || null,
+          catalogProductId:
+            typeof baseProduct?.product_id === 'number'
+              ? baseProduct.product_id
+              : typeof baseProduct?.printfulProductId === 'number'
+                ? baseProduct.printfulProductId
+                : null,
           printfulTemplateId: printfulTemplateId || null,
           selectedIPs: normalizedSelectedIPs,
+          licensedIPs, // explicit licensing summary for this product
+          originalPlacementAssets: normalizedPlacementAssets, // NEW: first-party fulfillment source
+          designStateVersion: 'edm-v1', // mark this as a raw EDM snapshot
           baseProduct,
           name: name || baseProduct?.name || 'Untitled Design',
           costAnalysis: costAnalysis || null,
@@ -318,15 +359,20 @@ export async function POST(request) {
       const publicBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
       const baseUrl = publicBaseUrl || (vercelUrl ? `https://${vercelUrl}` : 'http://localhost:3000');
 
-      fetch(`${baseUrl}${ENSURE_SYNC_PATH}`, {
+      const ensureSyncRes = await fetch(`${baseUrl}${ENSURE_SYNC_PATH}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': authHeader || `Bearer ${token}`,
         },
         body: JSON.stringify({ externalProductId }),
-      }).catch((err) => {
-        console.error('Failed to trigger ensure-sync:', err);
+      });
+
+      const ensureSyncData = await ensureSyncRes.json();
+      console.log('ensure-sync response', {
+        status: ensureSyncRes.status,
+        ok: ensureSyncRes.ok,
+        data: ensureSyncData,
       });
     } catch (err) {
       console.error('Error scheduling ensure-sync:', err);

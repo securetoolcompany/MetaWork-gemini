@@ -33,6 +33,7 @@ export default function DesignPropertiesPanel({
   printfulTemplateId,
   onTriggerEdmSave,
   refreshNonce, // currently unused but kept for API compatibility
+  originalPlacementAssets, // raw EDM placement data from ProductCreatorInner
   isExpanded,
   setIsExpanded,
 }) {
@@ -101,6 +102,7 @@ export default function DesignPropertiesPanel({
             externalProductId,
             printfulTemplateId: finalTemplateId,
             selectedIPs,
+            originalPlacementAssets, // send EDM placement data to backend
             baseProduct: {
               ...product,
               selectedVariantId,
