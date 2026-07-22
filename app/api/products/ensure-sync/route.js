@@ -72,10 +72,14 @@ export async function POST(request) {
       );
     }
 
-    console.log('🔍 Sync debug:', { 
-      externalProductId, 
+    console.log('🔍 Sync debug:', {
+      externalProductId,
       templateId: productDoc.printfulTemplateId,
-      catalogId: productDoc.baseProduct?.printfulId 
+      catalogId:
+        productDoc.catalogProductId ||
+        productDoc.baseProduct?.catalogProductId ||
+        productDoc.baseProduct?.printfulId ||
+        null,
     });
     const syncResult = await ensurePrintfulSyncProduct(productDoc);
     console.log('🔍 Sync result:', syncResult);

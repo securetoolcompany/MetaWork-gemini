@@ -17,10 +17,13 @@ export async function GET() {
       if (!originStr) return [];
       const parts = originStr.toLowerCase().split(/and|,|&/).map(s => s.trim());
       return parts.map(part => {
-        const match = countries.find(c => 
-          c.name.toLowerCase().trim() === part || 
-          c.code.toLowerCase().trim() === part
-        );
+        const normalizedPart = String(part || '').toLowerCase().trim();
+
+      const match = countries.find((c) => {
+        const name = String(c?.name || '').toLowerCase().trim();
+        const code = String(c?.code || '').toLowerCase().trim();
+        return name === normalizedPart || code === normalizedPart;
+      });
         return match ? match.code.toLowerCase() : null;
       }).filter(Boolean);
     };

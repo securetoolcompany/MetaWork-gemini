@@ -35,6 +35,23 @@ async function generatePrintfulMockup(productId, templateId) {
   if (!templateRes.ok) throw new Error(`Template fetch failed: ${JSON.stringify(templateData)}`);
   const template = templateData.result;
 
+  console.log(
+  'PRINTFUL TEMPLATE DEBUG',
+  JSON.stringify(
+    {
+      templateId,
+      product_id: template.product_id,
+      available_variant_ids: template.available_variant_ids,
+      placements: template.placements,
+      templates: template.templates,
+      product_options: template.product_options,
+      option_data: template.option_data,
+    },
+    null,
+    2
+  )
+);
+
   const realProductId = template.product_id || template.productid || null;
   const availableVariants = template.available_variant_ids || [];
   if (!realProductId) throw new Error('Template missing productid');
@@ -258,6 +275,7 @@ export async function POST(request) {
         $set: {
           userId: decoded.userId,
           externalProductId,
+          catalogProductId: baseProduct?.catalogProductId || null,
           printfulTemplateId: printfulTemplateId || null,
           selectedIPs: normalizedSelectedIPs,
           baseProduct,
