@@ -65,24 +65,78 @@ export default function DesignPropertiesPanel({
     }
 
     // 2. Determine which placements are used in this design
-    const placementConfigs =
-      product?.printfulPlacementConfigs || [];
+      
 
-    const usedPlacements = new Set(
-      placementConfigs.map((p) => p.placement).filter(Boolean)
-    );
+  const EDM_TO_PRINTFUL_PLACEMENT = {
+    front: ["front", "default", "dtg_front", "embroidery_front"],
+    back: ["back", "dtg_back", "embroidery_back"],
+    sleeve_right: [
+      "sleeve_right",
+      "right_sleeve",
+      "embroidery_right",
+      "front_sleeve_right",
+    ],
+    sleeve_left: [
+      "sleeve_left",
+      "left_sleeve",
+      "embroidery_left",
+      "front_sleeve_left",
+    ],
+  };
 
-    // 3. Compute placementCost from baseProduct.printFiles additional_price
-    const printFiles =
-      product?.baseProduct?.printFiles ||
-      product?.printFiles ||
-      [];
+  const placementConfigs = product?.printfulPlacementConfigs || [];
 
-    const placementCost = printFiles.reduce((sum, pf) => {
-      if (!usedPlacements.has(pf.type)) return sum;
-      const extra = Number(pf.additional_price || 0);
-      return sum + (Number.isFinite(extra) ? extra : 0);
-    }, 0);
+  const printFiles =
+    product?.baseProduct?.printFiles ||
+    product?.printFiles ||
+    [];
+
+      // DEBUG: inspect what EDM and catalog are actually sending
+  if (process.env.NODE_ENV !== "production") {
+    // eslint-disable-next-line no-console
+    console.log("[DesignPropertiesPanel] placementConfigs", placementConfigs);
+    // eslint-disable-next-line no-console
+    console.log("[DesignPropertiesPanel] printFiles", printFiles);
+  }
+
+  // If EDM hasn't reported any placements being used yet,
+  // placement cost should be $0.00.
+  if (!placementConfigs.length) {
+    return {
+      printfulBase,
+      placementCost: 0,
+      platformBase: printfulBase * 1.2 + 2,
+      ip: selectedIPs.reduce(
+        (sum, ip) => sum + (Number(ip.licensingFee) || 0),
+        0
+      ),
+      total:
+        printfulBase * 1.2 +
+        2 +
+        selectedIPs.reduce(
+          (sum, ip) => sum + (Number(ip.licensingFee) || 0),
+          0
+        ),
+      size: selectedSize,
+    };
+  }
+
+  // Otherwise, expand EDM placement keys into file types and charge per used area.
+  const usedPlacementTypes = new Set();
+  placementConfigs
+    .map((p) => p.placement)
+    .filter(Boolean)
+    .forEach((edmKey) => {
+      const mappedTypes = EDM_TO_PRINTFUL_PLACEMENT[edmKey] || [];
+      mappedTypes.forEach((t) => usedPlacementTypes.add(t));
+    });
+
+  const placementCost = printFiles.reduce((sum, pf) => {
+    if (pf.type === "mockup") return sum;
+    if (!usedPlacementTypes.has(pf.type)) return sum;
+    const extra = Number(pf.additional_price || 0);
+    return sum + (Number.isFinite(extra) ? extra : 0);
+  }, 0);
 
     // 4. IP licensing fees (user-configured per IP)
     const ipFees = selectedIPs.reduce(

@@ -687,8 +687,8 @@ function ProductCreatorInner() {
     urlExternalProductId,
   ])
 
-    const [originalPlacementAssets, setOriginalPlacementAssets] = useState([])
-
+  const [originalPlacementAssets, setOriginalPlacementAssets] = useState({});
+  
   useEffect(() => {
     const handleDesignStatus = (event) => {
       if (
@@ -699,33 +699,40 @@ function ProductCreatorInner() {
         return
       }
 
-      const usedPlacements =
-        event.data?.data?.response?.usedPlacements || []
-      const layerCount = usedPlacements.length
+            const usedPlacements =
+        event.data?.data?.response?.usedPlacements || [];
+      const layerCount = usedPlacements.length;
 
-      // NEW: capture raw per-placement asset data for fulfillment/licensing,
-      // independent of the selectedIPs UI state below
-      const assets = usedPlacements.map((placement, idx) => {
-        const placementUrl = placement.url || placement.imageUrl
-        const matchedIP = (selectedIPs || []).find((ip) => {
-          if (!ip.imageUrl || !placementUrl) return false
-          const normalize = (u) => u.replace(/\/ipfs\/ipfs\//, '/ipfs/')
-          return normalize(placementUrl).includes(normalize(ip.imageUrl))
-        })
+      console.log("[ProductCreatorInner] usedPlacements", usedPlacements);
 
-        return {
-          edmPlacementId: placement.id || `edm-${Date.now()}-${idx}`,
-          placementName: placement.placement || placement.name || null,
-          originalUrl: placementUrl,
-          technique: placement.technique || placement.techniqueKey || null,
-          ipId: matchedIP?.ipId || matchedIP?.id || null,
-          licensingFee: matchedIP?.licensingFee || 0,
-          ownerId: matchedIP?.ownerId || null,
-          ownerName: matchedIP?.ownerName || null,
-        }
-      })
+      const groupedAssets = {};
+usedPlacements.forEach((placementKey, idx) => {
+  // Since usedPlacements is like ['front', 'sleeve_right'], use it directly.
+  const placementUrl = undefined; // EDM isn’t giving URLs here in usedPlacements.
 
-      setOriginalPlacementAssets(assets)
+  const assetRecord = {
+    edmPlacementId: `edm-${Date.now()}-${idx}`,
+    placementName: placementKey,
+    originalUrl: placementUrl,
+    technique: null,
+    ipId: null,
+    licensingFee: 0,
+    ownerId: null,
+    ownerName: null,
+  };
+
+  if (!groupedAssets[placementKey]) {
+    groupedAssets[placementKey] = [];
+  }
+  groupedAssets[placementKey].push(assetRecord);
+});
+
+      console.log(
+        "[ProductCreatorInner] originalPlacementAssets (grouped)",
+        groupedAssets
+      );
+
+      setOriginalPlacementAssets(groupedAssets);
 
       setSelectedIPs((prev) => {
         if (layerCount < prev.length) return prev.slice(0, layerCount)
@@ -759,6 +766,33 @@ function ProductCreatorInner() {
     hasAppliedShowroomIPRef.current = false
     clearGlobalInteractionLocks()
   }
+
+    // Map EDM placement names to MetaWork placement keys used in pricing panel.
+  const normalizePlacementKey = (raw) => {
+    if (!raw) return null;
+    const key = String(raw).toLowerCase();
+
+    if (key.includes('front')) return 'front';
+    if (key.includes('back')) return 'back';
+    if (key.includes('right') && key.includes('sleeve')) return 'sleeve_right';
+    if (key.includes('left') && key.includes('sleeve')) return 'sleeve_left';
+
+    return null;
+  };
+
+  const enrichedProduct = useMemo(() => {
+    if (!selectedBlank) return null;
+
+    const placementConfigs = Object.keys(originalPlacementAssets || {})
+      .map((rawKey) => normalizePlacementKey(rawKey))
+      .filter(Boolean)
+      .map((placementKey) => ({ placement: placementKey }));
+
+    return {
+      ...selectedBlank,
+      printfulPlacementConfigs: placementConfigs,
+    };
+  }, [selectedBlank, originalPlacementAssets]);
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden font-sans relative">
@@ -916,7 +950,7 @@ function ProductCreatorInner() {
                 <DesignPropertiesPanel
                   selectedIPs={selectedIPs}
                   onRemoveIP={removeIP}
-                  product={selectedBlank}
+                  product={enrichedProduct}
                   baseProductPrice={selectedBlank?.variants?.[0]?.price || 0}
                   externalProductId={externalProductId}
                   printfulTemplateId={printfulTemplateId}
@@ -944,7 +978,7 @@ function ProductCreatorInner() {
               <DesignPropertiesPanel
                 selectedIPs={selectedIPs}
                 onRemoveIP={removeIP}
-                product={selectedBlank}
+                product={enrichedProduct}
                 baseProductPrice={selectedBlank?.variants?.[0]?.price || 0}
                 externalProductId={externalProductId}
                 printfulTemplateId={printfulTemplateId}
