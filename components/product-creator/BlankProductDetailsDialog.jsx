@@ -178,15 +178,15 @@ export default function BlankProductDetailsDialog({ open, onOpenChange, product,
                 </DialogHeader>
 
         {/* Main content: left image fixed, right details scroll */}
-        <div className="flex-1">
+        <div className="flex-1 overflow-hidden">
           {!product ? null : !report ? (
             <div className="flex items-center justify-center h-64">
               <Loader2 className="animate-spin h-6 w-6 text-slate-500" />
             </div>
           ) : (
-            <div className="grid md:grid-cols-12 h-full">
+            <div className="grid md:grid-cols-12 h-full overflow-hidden">
               {/* Left — image, always visible */}
-              <div className="md:col-span-5 bg-white p-8 border-r border-slate-800/50 flex items-center justify-center">
+              <div className="md:col-span-5 bg-white p-8 border-r border-slate-800/50 flex items-center justify-center overflow-hidden">
                 <img
                   src={activeProduct.image || product?.thumbnailUrl}
                   alt={product?.name}
@@ -412,7 +412,23 @@ export default function BlankProductDetailsDialog({ open, onOpenChange, product,
             </div>
           )}
         </div>
-
+        <DialogFooter className="p-6 border-t border-slate-800 bg-slate-900/50 flex-shrink-0">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="border-slate-700 text-slate-300 hover:bg-slate-800"
+          >
+            Close
+          </Button>
+          <Button
+            onClick={() => onSelect(activeProduct)}
+            disabled={loading || !report || report.stockStatus.isOutOfStock}
+            className="bg-blue-600 hover:bg-blue-500 text-white min-w-[140px]"
+          >
+            <Paintbrush className="w-4 h-4 mr-2" />
+            Use this blank
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
