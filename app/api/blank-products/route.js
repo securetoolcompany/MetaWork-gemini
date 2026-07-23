@@ -89,10 +89,37 @@ const processedVariants = variants.map(v => {
   };
 });
 
-      // 2. Use the NEW processedVariants for img and colors
-      const img = p.printfulImage || p.printfulThumbnail || processedVariants[0]?.files?.[0]?.preview_url || '';
-      const colors = p.availableColors?.length ? p.availableColors : [...new Set(processedVariants.map(v => v.color).filter(Boolean))];
-      
+            // 2. Use the NEW processedVariants for img and colors
+      const img =
+        p.printfulImage ||
+        p.printfulThumbnail ||
+        processedVariants[0]?.files?.[0]?.preview_url ||
+        '';
+      const colors = p.availableColors?.length
+        ? p.availableColors
+        : [...new Set(processedVariants.map((v) => v.color).filter(Boolean))];
+
+      // 3. Compute MetaWork platform base price for catalog display
+      // Pick a default variant (M, L, or first) for "starting at" price
+      const defaultVariant =
+        processedVariants.find((v) => v.size === 'M') ||
+        processedVariants.find((v) => v.size === 'L') ||
+        processedVariants[0];
+
+      const printfulBase = Number(defaultVariant?.price || 0);
+
+      // For catalog, assume a simple default design (e.g. front-only)
+      const printFiles = p.printFiles || [];
+      const placementCostForCatalog = printFiles.reduce((sum, pf) => {
+        // Skip mockup entries
+        if (pf.type === 'mockup') return sum;
+        const extra = Number(pf.additional_price || 0);
+        return sum + (Number.isFinite(extra) ? extra : 0);
+      }, 0);
+
+      // MetaWork markup: apply only to printfulBase, pass placement cost through
+      const platformBase = printfulBase * 1.2 + 2 + placementCostForCatalog;
+
       return {
         ...p,
         variants: processedVariants, // CRITICAL: This overwrites the old variants with the ones containing colorCode
@@ -101,7 +128,8 @@ const processedVariants = variants.map(v => {
         description: description,
         availableColors: colors,
         producedIn: finalOriginStr,
-        originFlags: flags
+        originFlags: flags,
+        platformBase, // NEW: MetaWork base price for catalog & creator flow
       };
     });
 

@@ -86,13 +86,35 @@ export default function BlankProductDetailsDialog({ open, onOpenChange, product,
       return true;
     });
 
+        // Compute MetaWork platform price per size variant
+    const printFiles =
+      activeProduct.baseProduct?.printFiles ||
+      activeProduct.printFiles ||
+      [];
+
     const prices = new Map();
     const priceSeen = new Set();
+
     deduped.forEach((v) => {
-      const p = Number(v.retail_price || v.price || 0).toFixed(2);
+      const printfulBase = Number(v.retail_price || v.price || 0);
+      if (!Number.isFinite(printfulBase) || printfulBase <= 0) return;
+
       const sizeLabel = v.size || 'One size';
+
+      // Placement cost for a "base" design:
+      // any non-mockup printFiles with additional_price
+      const placementCost = printFiles.reduce((sum, pf) => {
+        if (pf.type === 'mockup') return sum;
+        const extra = Number(pf.additional_price || 0);
+        return sum + (Number.isFinite(extra) ? extra : 0);
+      }, 0);
+
+      // MetaWork platform price: markup only on printfulBase, placement at cost
+      const platformPrice = printfulBase * 1.2 + 2 + placementCost;
+      const p = platformPrice.toFixed(2);
+
       const priceKey = `${p}|${sizeLabel}`;
-      if (Number(p) > 0 && !priceSeen.has(priceKey)) {
+      if (!priceSeen.has(priceKey)) {
         if (!prices.has(p)) prices.set(p, new Set());
         prices.get(p).add(sizeLabel);
         priceSeen.add(priceKey);
@@ -100,10 +122,22 @@ export default function BlankProductDetailsDialog({ open, onOpenChange, product,
     });
 
     const priceTable = Array.from(prices.entries())
-      .map(([price, optSet]) => ({ price, options: Array.from(optSet).join(', ') }))
+      .map(([price, optSet]) => ({
+        price,
+        options: Array.from(optSet).join(', '),
+      }))
       .sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
 
-    // Always produce an array of plain strings
+    const printAreas = printFiles.map((pf) => {
+      const label = pf.title || pf.type;
+      const extra = Number(pf.additional_price || 0);
+      return {
+        label,
+        extra: Number.isFinite(extra) ? extra : 0,
+      };
+    });
+    
+      // Always produce an array of plain strings
     const techniques = activeProduct.printTechniques?.length
       ? activeProduct.printTechniques.map(techniqueLabel)
       : [techniqueLabel(activeProduct.preferredTechnique || activeProduct.technique || 'Standard Print')];
@@ -120,8 +154,11 @@ export default function BlankProductDetailsDialog({ open, onOpenChange, product,
       techniques,
       originCountry,
       stockStatus: {
-        isOutOfStock: rawVariants.length > 0 && rawVariants.every((v) => !v.in_stock),
+        isOutOfStock:
+          rawVariants.length > 0 &&
+          rawVariants.every((v) => !v.in_stock),
       },
+      printAreas, // NEW: per-print-area cost data
     };
   }, [activeProduct]);
 
@@ -138,131 +175,243 @@ export default function BlankProductDetailsDialog({ open, onOpenChange, product,
               <span className="text-slate-200 font-medium">{report.originCountry}</span>
             </p>
           )}
-        </DialogHeader>
+                </DialogHeader>
 
-        <ScrollArea className="flex-1">
+        {/* Main content: left image fixed, right details scroll */}
+        <div className="flex-1">
           {!product ? null : !report ? (
             <div className="flex items-center justify-center h-64">
               <Loader2 className="animate-spin h-6 w-6 text-slate-500" />
             </div>
           ) : (
-            <div className="grid md:grid-cols-12 min-h-full">
-
-              {/* Left — image */}
+            <div className="grid md:grid-cols-12 h-full">
+              {/* Left — image, always visible */}
               <div className="md:col-span-5 bg-white p-8 border-r border-slate-800/50 flex items-center justify-center">
                 <img
                   src={activeProduct.image || product?.thumbnailUrl}
                   alt={product?.name}
-                  className="max-h-full object-contain"
+                  className="max-h-full max-w-full object-contain"
                 />
               </div>
 
-              {/* Right — all details */}
-              <div className="md:col-span-7 p-6 space-y-6 bg-slate-950/50">
-
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</h3>
-                  <p className="text-sm text-slate-400 leading-relaxed">
-                    {activeProduct.description || 'No description available.'}
-                  </p>
-                </div>
-
-                <Separator className="bg-slate-800" />
-
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5" /> Print Method
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {report.techniques.map((t, i) => (
-                      <Badge key={i} variant="outline" className="text-indigo-300 border-indigo-800 bg-indigo-950/40">
-                        {t}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                <Separator className="bg-slate-800" />
-
-                {report.colors.length > 0 && (
+              {/* Right — all details, scrollable */}
+              <div className="md:col-span-7 h-full bg-slate-950/50 overflow-y-auto">
+                <div className="p-6 space-y-6">
+                  {/* Description */}
                   <div className="space-y-2">
                     <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                      {aop ? 'Base Fabric Colors (print covers garment)' : 'Available Colors'}
+                      Description
                     </h3>
-                    {aop && (
-                      <p className="text-xs text-amber-400/80">
-                        This is an all-over print product — your artwork covers the entire garment.
-                        The color below is the base fabric, only visible at seams.
+                    {activeProduct.description ? (
+                      (() => {
+                        const lines = activeProduct.description
+                          .split('\n')
+                          .map((line) => line.trim())
+                          .filter(Boolean);
+
+                        const importantIndex = lines.findIndex((line) =>
+                          line.startsWith('Important:')
+                        );
+                        const disclaimersIndex = lines.findIndex((line) =>
+                          line.startsWith('Disclaimers:')
+                        );
+
+                        const introLine = lines.find((line, idx) => {
+                          const isBullet = line.startsWith('•');
+                          const isSection =
+                            line.startsWith('Important:') ||
+                            line.startsWith('Disclaimers:');
+                          const isBeforeImportant =
+                            importantIndex === -1 || idx < importantIndex;
+                          return !isBullet && !isSection && isBeforeImportant;
+                        });
+
+                        const featureLines = lines.filter((line, idx) => {
+                          if (
+                            idx === importantIndex ||
+                            idx === disclaimersIndex
+                          )
+                            return false;
+                          const isAfterSection =
+                            (importantIndex !== -1 && idx > importantIndex) ||
+                            (disclaimersIndex !== -1 && idx > disclaimersIndex);
+                          if (isAfterSection) return false;
+                          return line.startsWith('•');
+                        });
+
+                        const importantLines =
+                          importantIndex >= 0
+                            ? lines
+                                .slice(importantIndex + 1)
+                                .filter(
+                                  (line) => !line.startsWith('Disclaimers:')
+                                )
+                            : [];
+
+                        const disclaimersLines =
+                          disclaimersIndex >= 0
+                            ? lines.slice(disclaimersIndex + 1)
+                            : [];
+
+                        return (
+                          <div className="space-y-3 text-sm text-slate-400 leading-relaxed">
+                            {introLine && <p>{introLine}</p>}
+
+                            {featureLines.length > 0 && (
+                              <ul className="space-y-1 list-disc list-inside">
+                                {featureLines.map((line, idx) => (
+                                  <li key={idx}>
+                                    {line.replace(/^•\s*/, '')}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+
+                            {importantIndex >= 0 && (
+                              <div className="space-y-1">
+                                <p className="font-semibold text-slate-300">
+                                  Important:
+                                </p>
+                                {importantLines.length > 0 && (
+                                  <ul className="space-y-1 list-disc list-inside">
+                                    {importantLines.map((line, idx) => (
+                                      <li key={idx}>
+                                        {line.replace(/^•\s*/, '')}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            )}
+
+                            {disclaimersIndex >= 0 && (
+                              <div className="space-y-1">
+                                <p className="font-semibold text-slate-300">
+                                  Disclaimers:
+                                </p>
+                                {disclaimersLines.length > 0 && (
+                                  <ul className="space-y-1 list-disc list-inside">
+                                    {disclaimersLines.map((line, idx) => (
+                                      <li key={idx}>
+                                        {line.replace(/^•\s*/, '')}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <p className="text-sm text-slate-400">
+                        No description available.
                       </p>
                     )}
-                    <div className="flex flex-wrap gap-2">
-                      {report.colors.map((c, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-900 border border-slate-700 rounded-full px-2 py-1"
-                        >
-                          <span
-                            className="w-3.5 h-3.5 rounded-full border border-slate-600 inline-block flex-shrink-0"
-                            style={{ backgroundColor: c.hex }}
-                          />
-                          {c.name}
-                        </div>
-                      ))}
-                    </div>
                   </div>
-                )}
 
-                <Separator className="bg-slate-800" />
+                  <Separator className="bg-slate-800" />
 
-                <div className="space-y-2">
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <DollarSign className="w-3.5 h-3.5 text-green-500" /> Your Cost by Size
-                  </h3>
-                  <div className="rounded-md border border-slate-800 overflow-hidden text-sm bg-slate-900/50">
-                    <div className="grid grid-cols-12 px-3 py-2 bg-slate-900 border-b border-slate-800 font-medium text-slate-400 text-xs uppercase tracking-wider">
-                      <div className="col-span-8">Size(s)</div>
-                      <div className="col-span-4 text-right">Cost</div>
-                    </div>
-                    {loading ? (
-                      <div className="p-4 flex justify-center">
-                        <Loader2 className="animate-spin h-5 w-5 text-slate-500" />
+                  {/* Print Area Costs */}
+                  {report.printAreas && report.printAreas.length > 0 && (
+                    <div className="space-y-2">
+                      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5" /> Print Area Costs
+                      </h3>
+                      <div className="space-y-1 text-[11px] text-slate-400 font-mono">
+                        {report.printAreas.map((area, idx) => (
+                          <div
+                            key={idx}
+                            className="flex justify-between"
+                          >
+                            <span>{area.label}</span>
+                            <span>
+                              {area.extra > 0
+                                ? `+$${area.extra.toFixed(2)} per item`
+                                : 'Included'}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ) : report.priceTable.length === 0 ? (
-                      <div className="px-3 py-4 text-slate-500 text-sm">No pricing data available.</div>
-                    ) : (
-                      report.priceTable.map((row, idx) => (
-                        <div key={idx} className="grid grid-cols-12 px-3 py-2 border-b border-slate-800/50 last:border-0 hover:bg-slate-900/30">
-                          <div className="col-span-8 text-slate-300">{row.options}</div>
-                          <div className="col-span-4 text-right text-green-400 font-mono font-bold">${row.price}</div>
+                    </div>
+                  )}
+
+                  <Separator className="bg-slate-800" />
+
+                  {/* Colors */}
+                  {report.colors.length > 0 && (
+                    <div className="space-y-2">
+                      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        {aop
+                          ? 'Base Fabric Colors (print covers garment)'
+                          : 'Available Colors'}
+                      </h3>
+                      {aop && (
+                        <p className="text-xs text-amber-400/80">
+                          This is an all-over print product — your artwork
+                          covers the entire garment. The color below is the base
+                          fabric, only visible at seams.
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {report.colors.map((c, i) => (
+                          <div
+                            key={i}
+                            className="flex items-center gap-1.5 text-xs text-slate-300 bg-slate-900 border border-slate-700 rounded-full px-2 py-1"
+                          >
+                            <span
+                              className="w-3.5 h-3.5 rounded-full border border-slate-600 inline-block flex-shrink-0"
+                              style={{ backgroundColor: c.hex }}
+                            />
+                            {c.name}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <Separator className="bg-slate-800" />
+
+                  {/* Base Product Cost by Size */}
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <DollarSign className="w-3.5 h-3.5 text-green-500" /> Base Product Cost by Size
+                    </h3>
+                    <div className="rounded-md border border-slate-800 overflow-hidden text-sm bg-slate-900/50">
+                      <div className="grid grid-cols-12 px-3 py-2 bg-slate-900 border-b border-slate-800 font-medium text-slate-400 text-xs uppercase tracking-wider">
+                        <div className="col-span-8">Size(s)</div>
+                        <div className="col-span-4 text-right">Cost</div>
+                      </div>
+                      {loading ? (
+                        <div className="p-4 flex justify-center">
+                          <Loader2 className="animate-spin h-5 w-5 text-slate-500" />
                         </div>
-                      ))
-                    )}
+                      ) : report.priceTable.length === 0 ? (
+                        <div className="px-3 py-4 text-slate-500 text-sm">
+                          No pricing data available.
+                        </div>
+                      ) : (
+                        report.priceTable.map((row, idx) => (
+                          <div
+                            key={idx}
+                            className="grid grid-cols-12 px-3 py-2 border-b border-slate-800/50 last:border-0 hover:bg-slate-900/30"
+                          >
+                            <div className="col-span-8 text-slate-300">
+                              {row.options}
+                            </div>
+                            <div className="col-span-4 text-right text-green-400 font-mono font-bold">
+                              ${row.price}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
                 </div>
-
               </div>
             </div>
           )}
-        </ScrollArea>
-
-        <DialogFooter className="p-6 border-t border-slate-800 bg-slate-900/50 flex-shrink-0">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="border-slate-700 text-slate-300 hover:bg-slate-800"
-          >
-            Close
-          </Button>
-          <Button
-            onClick={() => onSelect(activeProduct)}
-            disabled={loading || !report || report.stockStatus.isOutOfStock}
-            className="bg-blue-600 hover:bg-blue-500 text-white min-w-[140px]"
-          >
-            {loading
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <><Paintbrush className="w-4 h-4 mr-2" />Design Product</>}
-          </Button>
-        </DialogFooter>
+        </div>
 
       </DialogContent>
     </Dialog>

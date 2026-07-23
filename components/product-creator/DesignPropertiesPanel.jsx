@@ -49,31 +49,62 @@ export default function DesignPropertiesPanel({
   const isMobile = useIsMobile();
 
   const costAnalysis = useMemo(() => {
-    let currentBasePrice = Number(baseProductPrice || 0);
+    // 1. Raw Printful base cost from the selected variant
+    let printfulBase = Number(baseProductPrice || 0);
     let selectedSize = "Standard";
 
     if (variants.length > 0 && selectedVariantId) {
       const v = variants.find(
-        (i) => (i.id || i.variant_id) === selectedVariantId
+        (i) =>
+          (i.id || i.variant_id || i.variantId) === selectedVariantId
       );
       if (v) {
-        currentBasePrice = Number(v.retail_price || v.price || 0);
-        selectedSize = v.size;
+        printfulBase = Number(v.retail_price || v.price || 0);
+        selectedSize = v.size || selectedSize;
       }
     }
 
+    // 2. Determine which placements are used in this design
+    const placementConfigs =
+      product?.printfulPlacementConfigs || [];
+
+    const usedPlacements = new Set(
+      placementConfigs.map((p) => p.placement).filter(Boolean)
+    );
+
+    // 3. Compute placementCost from baseProduct.printFiles additional_price
+    const printFiles =
+      product?.baseProduct?.printFiles ||
+      product?.printFiles ||
+      [];
+
+    const placementCost = printFiles.reduce((sum, pf) => {
+      if (!usedPlacements.has(pf.type)) return sum;
+      const extra = Number(pf.additional_price || 0);
+      return sum + (Number.isFinite(extra) ? extra : 0);
+    }, 0);
+
+    // 4. IP licensing fees (user-configured per IP)
     const ipFees = selectedIPs.reduce(
-      (sum, ip) => sum + (Number(ip.licensingFee) || 2.0),
+      (sum, ip) => sum + (Number(ip.licensingFee) || 0),
       0
     );
 
+    // 5. MetaWork markup: only on printfulBase, placementCost is passed through
+    const platformBase = printfulBase * 1.2 + 2 + placementCost;
+
+    const userPrice = platformBase + ipFees;
+
     return {
-      base: currentBasePrice,
+      // internal fields (printfulBase) not rendered directly
+      printfulBase,
+      placementCost,
+      platformBase,
       ip: ipFees,
-      total: currentBasePrice + ipFees,
+      total: userPrice,
       size: selectedSize,
     };
-  }, [baseProductPrice, variants, selectedVariantId, selectedIPs]);
+  }, [baseProductPrice, variants, selectedVariantId, selectedIPs, product]);
 
   const handleConfirmSave = useCallback(
     async ({ titleOverride, resolvedTemplateId: resolvedTemplateIdArg } = {}) => {
@@ -303,6 +334,7 @@ export default function DesignPropertiesPanel({
         {/* Pricing & Actions */}
         <div className="p-4 border-t border-slate-800 bg-slate-900/80 space-y-4">
           <div className="space-y-2">
+            {/* Size / Variant selector, showing MetaWork base (platformBase) implicitly */}
             <div className="flex justify-between items-center text-xs">
               <span className="text-slate-400">Size/Variant</span>
               {loadingVariants ? (
@@ -322,19 +354,27 @@ export default function DesignPropertiesPanel({
                         value={String(v.id || v.variant_id || i)}
                         className="text-[10px]"
                       >
-                        {v.size} - $
-                        {Number(v.retail_price || v.price).toFixed(2)}
+                        {v.size} {/* omit raw Printful price here */}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               ) : (
                 <span className="font-mono text-slate-300">
-                  ${costAnalysis.base.toFixed(2)}
+                  ${costAnalysis.platformBase.toFixed(2)}
                 </span>
               )}
             </div>
 
+            {/* NEW: Placement cost line */}
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400">Placement cost</span>
+              <span className="font-mono text-slate-300">
+                ${costAnalysis.placementCost.toFixed(2)}
+              </span>
+            </div>
+
+            {/* Est. Total (userPrice) */}
             <div className="flex justify-between items-center text-xs">
               <span className="text-slate-400">Est. Total</span>
               <span className="text-sm font-bold text-blue-400 font-mono">

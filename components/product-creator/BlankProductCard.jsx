@@ -3,9 +3,11 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 export function BlankProductCard({ product, onSelect, onInspect, isPublicView = false, hideButtons = false }) {
-  // Safely extract the starting price from the variants array or fallback to a default prop
-  const basePrice = product.price || product.variants?.[0]?.price;
-  const formattedPrice = basePrice ? `$${Number(basePrice).toFixed(2)}` : 'TBD';
+  // Use MetaWork platform base instead of raw Printful cost
+  const platformBase = product.platformBase;
+  const formattedPrice = Number.isFinite(Number(platformBase))
+    ? `$${Number(platformBase).toFixed(2)}`
+    : 'TBD';
 
   return (
     <div className="border rounded-xl p-4 shadow-sm bg-zinc-950 border-zinc-800 transition-all hover:border-zinc-700 flex flex-col h-full relative group">
