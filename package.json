@@ -3,10 +3,10 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next dev --hostname 0.0.0.0 --port 3000",
-    "build": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next build",
-    "start": "next start --port 3000",
-    "migrate-images": "node scripts/migrate-product-images-to-cloudinary.mjs"
+        "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next dev --hostname 0.0.0.0 --port 3000",
+        "build": "cross-env NODE_OPTIONS=--max-old-space-size=8192 next build",
+        "start": "next start --port 3000",
+        "migrate-images": "node scripts/migrate-product-images-to-cloudinary.mjs"
     },
     "dependencies": {
         "@agoralabs-sh/avm-web-provider": "^1.7.0",
@@ -54,7 +54,7 @@
         "@walletconnect/sign-client": "^2.23.1",
         "adm-zip": "^0.5.16",
         "algosdk": "^3.5.2",
-        "axios": "^1.15.0",
+        "axios": "^1.18.1",
         "bcrypt": "^6.0.0",
         "bcryptjs": "^3.0.3",
         "canvas-confetti": "^1.9.4",
