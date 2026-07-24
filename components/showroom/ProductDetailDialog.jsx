@@ -271,13 +271,34 @@ export default function ProductDetailDialog({
 
   if (!open && !asPage) return null;
 
-  const displayImages =
-    (product?.mockups?.length > 0 ? product.mockups : null) ||
-    (product?.mockupImages?.length > 0 ? product.mockupImages : null) ||
-    (product?.thumbnailUrl ? [product.thumbnailUrl] : null) ||
-    (product?.images?.length > 0 ? product.images : null) ||
-    (product?.image ? [product.image] : null) ||
-    [];
+  const normalizeImageUrl = (url) => {
+  if (!url) return null;
+  if (typeof url === 'object') url = url.secure_url || url.url;
+  if (!url || typeof url !== 'string') return null;
+
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (trimmed === 'https://files.cdn.printful.com/') return null;
+  if (trimmed.includes('/undefined')) return null;
+  if (trimmed.includes('null')) return null;
+
+  return trimmed.startsWith('//') ? `https:${trimmed}` : trimmed;
+};
+
+  const imageCandidates = [
+    ...(Array.isArray(product?.mockups) ? product.mockups : []),
+    ...(product?.imageUrl ? [product.imageUrl] : []),
+    ...(product?.thumbnailUrl ? [product.thumbnailUrl] : []),
+    ...(product?.mockupUrl ? [product.mockupUrl] : []),
+    ...(Array.isArray(product?.mockupImages) ? product.mockupImages : []),
+    ...(Array.isArray(product?.images) ? product.images : []),
+    ...(product?.image ? [product.image] : []),
+  ]
+    .map(normalizeImageUrl)
+    .filter(Boolean);
+
+  const galleryImages = [...new Set(imageCandidates)];
+  const safeGalleryImages = galleryImages.length > 0 ? galleryImages : ['/placeholder.png'];
 
   const productName = product?.name || product?.title || 'Product';
   const productPrice = selectedVariation?.price || product?.price || 0;
@@ -319,20 +340,20 @@ export default function ProductDetailDialog({
         {/* Left Column - Gallery */}
         <div className="space-y-4 lg:sticky lg:top-0 h-fit">
           <div className="relative aspect-square bg-white rounded-xl overflow-hidden border border-white/10">
-            {displayImages.length > 0 ? (
+            {safeGalleryImages.length > 0 ? (
               <>
                 <Image
-                  src={displayImages[currentMockupIndex]}
+                  src={safeGalleryImages[currentMockupIndex] || safeGalleryImages[0] || '/placeholder.png'}
                   alt={productName}
                   fill
                   className="object-cover"
                 />
-                {displayImages.length > 1 && (
+                {safeGalleryImages.length > 1 && (
                   <>
                     <button
                       onClick={() =>
                         setCurrentMockupIndex((prev) =>
-                          prev === 0 ? displayImages.length - 1 : prev - 1
+                          prev === 0 ? safeGalleryImages.length - 1 : prev - 1
                         )
                       }
                       className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/60 p-2 rounded-full"
@@ -342,7 +363,7 @@ export default function ProductDetailDialog({
                     <button
                       onClick={() =>
                         setCurrentMockupIndex((prev) =>
-                          prev === displayImages.length - 1 ? 0 : prev + 1
+                          prev === safeGalleryImages.length - 1 ? 0 : prev + 1
                         )
                       }
                       className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/60 p-2 rounded-full"
@@ -359,9 +380,9 @@ export default function ProductDetailDialog({
             )}
           </div>
 
-          {displayImages.length > 1 && (
+          {safeGalleryImages.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
-              {displayImages.map((image, idx) => (
+              {safeGalleryImages.map((image, idx) => (
                 <button
                   key={idx}
                   onClick={() => setCurrentMockupIndex(idx)}
@@ -369,7 +390,14 @@ export default function ProductDetailDialog({
                     currentMockupIndex === idx ? 'border-emerald-500' : 'border-white/20'
                   }`}
                 >
-                  <Image src={image} alt="View" fill className="object-cover" />
+                  <img
+                    src={safeGalleryImages[currentMockupIndex] || safeGalleryImages[0] || '/placeholder.png'}
+                    alt={productName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.src = '/placeholder.png';
+                    }}
+                  />
                 </button>
               ))}
             </div>

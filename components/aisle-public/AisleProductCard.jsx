@@ -24,13 +24,13 @@ export default function AisleProductCard({
   };
 
 
-  // 3. Image Priority Logic (Restored all fallbacks)
-  const rawImageSrc = 
-    product.mockupImages?.[0] ||   // ← move these TWO up first
-    product.images?.[0] ||         // ← these are populated
-    product.mockupUrl ||
-    product.thumbnailUrl ||
+  // 3. Image Priority Logic
+  const rawImageSrc =
     product.imageUrl ||
+    product.thumbnailUrl ||
+    product.mockupUrl ||
+    product.mockupImages?.[0] ||
+    product.images?.[0] ||
     product.image;
 
     console.log('product image fields:', {

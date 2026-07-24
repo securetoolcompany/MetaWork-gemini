@@ -20,6 +20,31 @@ const cleanUrl = (url) => {
   return fixedUrl;
 };
 
+function normalizeProductImageFields(product) {
+  const allImages = [
+    product.thumbnailUrl,
+    product.mockupUrl,
+    ...(Array.isArray(product.mockupImages) ? product.mockupImages : []),
+    product.imageUrl,
+    product.image,
+    ...(Array.isArray(product.images) ? product.images : []),
+  ]
+    .filter(Boolean)
+    .map(cleanUrl)
+    .filter((url) => url && url !== "/placeholder.png");
+
+  const uniqueImages = [...new Set(allImages)];
+  const primaryImage = uniqueImages[0] || "/placeholder.png";
+
+  return {
+    ...product,
+    name: product.name || product.title,
+    thumbnailUrl: primaryImage,
+    imageUrl: primaryImage,
+    images: uniqueImages.length > 0 ? uniqueImages : [primaryImage],
+  };
+}
+
 export async function GET() {
   try {
     const { db } = await connectToDatabase();
@@ -71,7 +96,10 @@ export async function GET() {
     }).filter(aisle => aisle.totalProducts > 0 || aisle.totalIPAssets > 0);
 
     const normalizedData = [
-      ...normalizeIds(products).map(p => ({ ...p, type: 'product' })),
+      ...normalizeIds(products).map(p => ({
+        ...normalizeProductImageFields(p),
+        type: 'product'
+      })),
       ...formattedUserAisles,
       ...normalizeIds(ipAssets).map(i => ({ ...i, type: 'ip' }))
     ];

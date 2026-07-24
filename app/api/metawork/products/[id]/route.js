@@ -35,7 +35,16 @@ export async function GET(request, { params }) {
     }
 
     const { db } = await connectToDatabase();
-    const localProduct = await db.collection('products').findOne({ id });
+    const { ObjectId } = require('mongodb');
+
+    const filter = {
+      $or: [
+        { id: id },
+        { _id: /^[a-fA-F0-9]{24}$/.test(id) ? new ObjectId(id) : id }
+      ]
+    };
+
+    const localProduct = await db.collection('products').findOne(filter);
 
     if (!localProduct) {
       const pfRes = await fetch(`https://api.printful.com/products/${id}`, {
@@ -224,6 +233,58 @@ export async function PUT(request, { params }) {
     });
   } catch (error) {
     console.error('[METAWORK DEBUG] PUT Error:', error.message);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request, { params }) {
+  try {
+    const { id } = await params;
+
+    if (!id || id === 'undefined') {
+      return NextResponse.json(
+        { success: false, error: 'Invalid ID' },
+        { status: 400 }
+      );
+    }
+
+    const { db } = await connectToDatabase();
+    const { ObjectId } = require('mongodb');
+
+    const filter = {
+      $or: [
+        { id: id },
+        { _id: /^[a-fA-F0-9]{24}$/.test(id) ? new ObjectId(id) : id }
+      ]
+    };
+
+    const existingProduct = await db.collection('products').findOne(filter);
+
+    if (!existingProduct) {
+      return NextResponse.json(
+        { success: false, error: 'Product not found' },
+        { status: 404 }
+      );
+    }
+
+    const result = await db.collection('products').deleteOne(filter);
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to delete product' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Product deleted successfully'
+    });
+  } catch (error) {
+    console.error('[METAWORK DEBUG] DELETE Error:', error.message);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

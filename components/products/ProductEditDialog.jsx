@@ -16,8 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, DollarSign, TrendingUp, Globe, Lock, Eye, EyeOff, Loader2, Tag, X, Info } from 'lucide-react';
-import { toast } from 'sonner';
+import { Upload, DollarSign, TrendingUp, Globe, Lock, Eye, EyeOff, Loader2, Tag, X, Info, Trash2 } from 'lucide-react';import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -95,6 +94,7 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   });
   
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
   const fileInputRef = useRef(null);
@@ -463,6 +463,45 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
     }
   };
 
+  const handleDelete = async () => {
+    const targetId = product.id || product._id;
+    const confirmed = window.confirm(
+      'Are you sure you want to permanently delete this product? This cannot be undone.'
+    );
+
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+
+    try {
+      const response = await fetch(`/api/metawork/products/${targetId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${document.cookie.split('auth_token=')[1]?.split(';')[0] || ''}`
+        },
+        credentials: 'include',
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete product');
+      }
+
+      toast.success('Product deleted');
+      onOpenChange(false);
+      if (onSaveSuccess) onSaveSuccess();
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete product', {
+        description: error.message || 'Please try again'
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (!product) return null;
 
   return (
@@ -815,9 +854,48 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-border">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1" disabled={isLoading}>Cancel</Button>
-          <Button onClick={handleSave} className="flex-1 bg-primary" id="product-save-button" disabled={isLoading}>
-            {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save Changes'}
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            className="sm:w-auto"
+            disabled={isLoading || isDeleting}
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Deleting...
+              </>
+            ) : (
+              <>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Product
+              </>
+            )}
+          </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="flex-1"
+            disabled={isLoading || isDeleting}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            onClick={handleSave}
+            className="flex-1 bg-primary"
+            id="product-save-button"
+            disabled={isLoading || isDeleting}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Changes'
+            )}
           </Button>
         </div>
       </DialogContent>
