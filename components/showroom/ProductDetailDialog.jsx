@@ -274,8 +274,8 @@ export default function ProductDetailDialog({
   const displayImages =
     (product?.mockups?.length > 0 ? product.mockups : null) ||
     (product?.mockupImages?.length > 0 ? product.mockupImages : null) ||
-    (product?.images?.length > 0 ? product.images : null) ||
     (product?.thumbnailUrl ? [product.thumbnailUrl] : null) ||
+    (product?.images?.length > 0 ? product.images : null) ||
     (product?.image ? [product.image] : null) ||
     [];
 

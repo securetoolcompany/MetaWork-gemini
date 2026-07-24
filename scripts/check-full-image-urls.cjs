@@ -1,7 +1,12 @@
-require('dotenv').config({ path: '.env.local' });
-require('dotenv').config({ path: '.env' });
+const path = require('path');
+const dns = require('dns');
+const dotenv = require('dotenv');
+dotenv.config({ path: path.join(__dirname, '..', '.env.local') });
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+const { MongoClient, ObjectId } = require('mongodb');
 
-const { MongoClient } = require('mongodb');
+// Force DNS (Atlas SRV compatibility)
+dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1']);
 
 async function checkImageUrls() {
   if (!process.env.MONGODB_URI) {
@@ -12,9 +17,11 @@ async function checkImageUrls() {
   const client = await MongoClient.connect(process.env.MONGODB_URI);
   const db = client.db('metawork_db');
   
-  const product = await db.collection('products').findOne({
-    title: "Slim Fit Polo"
-  });
+ const productId = process.argv[2];
+
+const product = await db.collection('products').findOne({
+  _id: new ObjectId(productId)
+});
   
   if (!product) {
     console.log('❌ Product not found');
@@ -46,6 +53,13 @@ async function checkImageUrls() {
     console.log(product.imageUrl);
     console.log('');
   }
+
+  console.log('thumbnailUrl:', product.thumbnailUrl || '(none)');
+console.log('imageUrl:', product.imageUrl || '(none)');
+console.log('mockupUrl:', product.mockupUrl || '(none)');
+console.log('images:', product.images || []);
+console.log('mockupImages:', product.mockupImages || []);
+console.log('raw product keys:', Object.keys(product));
   
   await client.close();
 }

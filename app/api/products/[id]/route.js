@@ -68,30 +68,36 @@ export async function GET(request, { params }) {
       return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
     }
 
-    let rawImages = product.mockupImages || product.images || [];
-    if (rawImages.length === 0) {
-      const fallbackImg = product.mockupUrl || product.imageUrl || product.thumbnailUrl;
-      if (fallbackImg) rawImages = [fallbackImg];
-    }
+    let rawImages =
+  (Array.isArray(product.mockupImages) && product.mockupImages.length > 0 && product.mockupImages) ||
+  (product.thumbnailUrl ? [product.thumbnailUrl] : null) ||
+  (product.mockupUrl ? [product.mockupUrl] : null) ||
+  (product.imageUrl ? [product.imageUrl] : null) ||
+  (Array.isArray(product.images) && product.images.length > 0 && product.images) ||
+  [];
 
-    let allImages = [];
-    if (Array.isArray(product.images)) allImages.push(...product.images);
-    if (Array.isArray(product.mockupImages)) allImages.push(...product.mockupImages);
-    if (Array.isArray(product.mockupUrls)) allImages.push(...product.mockupUrls); 
-    if (product.mockupUrl) allImages.push(product.mockupUrl);
-    if (product.imageUrl) allImages.push(product.imageUrl);
-    if (product.thumbnailUrl) allImages.push(product.thumbnailUrl);
+    const allImages = [
+  product.thumbnailUrl,
+  product.mockupUrl,
+  ...(Array.isArray(product.mockupImages) ? product.mockupImages : []),
+  product.imageUrl,
+  ...(Array.isArray(product.mockupUrls) ? product.mockupUrls : []),
+  ...(Array.isArray(product.images) ? product.images : []),
+]
+  .map(normalizeImageUrl)
+  .filter(Boolean);
 
-    const uniqueImages = [...new Set(allImages.filter(Boolean))];
+const uniqueImages = [...new Set(allImages)];
 
     const normalizedProduct = {
-        ...product,
-        id: product._id.toString(),
-        name: product.title || product.name,
-        images: uniqueImages, 
-        imageUrl: uniqueImages[0] || null,
-        mockupUrl: uniqueImages[0] || null,
-        variations: Array.isArray(product.variations) ? product.variations : [],
+      ...product,
+      id: product._id.toString(),
+      name: product.title || product.name,
+      thumbnailUrl: normalizeImageUrl(product.thumbnailUrl),
+      images: uniqueImages,
+      imageUrl: uniqueImages[0] || null,
+      mockupUrl: uniqueImages[0] || null,
+      variations: Array.isArray(product.variations) ? product.variations : [],
     };
 
     let creator = null;
