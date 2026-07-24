@@ -17,10 +17,16 @@ export default function AisleProductCard({
   // 2. URL Normalization (fixes //res.cloudinary URLs)
   const normalizeUrl = (url) => {
     if (!url) return null;
-    // Unwrap Cloudinary object { secure_url, url }
     if (typeof url === 'object') url = url.secure_url || url.url;
     if (!url || typeof url !== 'string') return null;
-    return url.startsWith('//') ? `https:${url}` : url;
+
+    const trimmed = url.trim();
+    if (!trimmed) return null;
+    if (trimmed === 'https://files.cdn.printful.com/') return null;
+    if (trimmed.includes('/undefined')) return null;
+    if (trimmed.includes('null')) return null;
+
+    return trimmed.startsWith('//') ? `https:${trimmed}` : trimmed;
   };
 
 

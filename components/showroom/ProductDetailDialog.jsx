@@ -285,20 +285,24 @@ export default function ProductDetailDialog({
   return trimmed.startsWith('//') ? `https:${trimmed}` : trimmed;
 };
 
-  const imageCandidates = [
-    ...(Array.isArray(product?.mockups) ? product.mockups : []),
-    ...(product?.imageUrl ? [product.imageUrl] : []),
-    ...(product?.thumbnailUrl ? [product.thumbnailUrl] : []),
-    ...(product?.mockupUrl ? [product.mockupUrl] : []),
-    ...(Array.isArray(product?.mockupImages) ? product.mockupImages : []),
-    ...(Array.isArray(product?.images) ? product.images : []),
-    ...(product?.image ? [product.image] : []),
-  ]
-    .map(normalizeImageUrl)
-    .filter(Boolean);
+  const preferredImageSet =
+    (Array.isArray(product?.mockups) && product.mockups.length > 0 ? product.mockups : null) ||
+    (Array.isArray(product?.mockupImages) && product.mockupImages.length > 0 ? product.mockupImages : null) ||
+    (Array.isArray(product?.images) && product.images.length > 0 ? product.images : null) ||
+    (product?.imageUrl ? [product.imageUrl] : null) ||
+    (product?.thumbnailUrl ? [product.thumbnailUrl] : null) ||
+    (product?.mockupUrl ? [product.mockupUrl] : null) ||
+    (product?.image ? [product.image] : null) ||
+    [];
 
-  const galleryImages = [...new Set(imageCandidates)];
+  const galleryImages = [...new Set(preferredImageSet.map(normalizeImageUrl).filter(Boolean))];
   const safeGalleryImages = galleryImages.length > 0 ? galleryImages : ['/placeholder.png'];
+
+    useEffect(() => {
+      if (currentMockupIndex >= safeGalleryImages.length) {
+        setCurrentMockupIndex(0);
+      }
+    }, [safeGalleryImages.length, currentMockupIndex]);
 
   const productName = product?.name || product?.title || 'Product';
   const productPrice = selectedVariation?.price || product?.price || 0;
@@ -342,11 +346,14 @@ export default function ProductDetailDialog({
           <div className="relative aspect-square bg-white rounded-xl overflow-hidden border border-white/10">
             {safeGalleryImages.length > 0 ? (
               <>
-                <Image
+                <img
                   src={safeGalleryImages[currentMockupIndex] || safeGalleryImages[0] || '/placeholder.png'}
                   alt={productName}
-                  fill
-                  className="object-cover"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.onerror = null;
+                    e.currentTarget.src = '/placeholder.png';
+                  }}
                 />
                 {safeGalleryImages.length > 1 && (
                   <>
@@ -386,16 +393,16 @@ export default function ProductDetailDialog({
                 <button
                   key={idx}
                   onClick={() => setCurrentMockupIndex(idx)}
-                  className={`relative w-20 h-20 flex-shrink-0 rounded-lg border-2 ${
+                  className={`relative w-20 h-20 flex-shrink-0 rounded-lg border-2 overflow-hidden ${
                     currentMockupIndex === idx ? 'border-emerald-500' : 'border-white/20'
                   }`}
                 >
                   <img
-                    src={safeGalleryImages[currentMockupIndex] || safeGalleryImages[0] || '/placeholder.png'}
-                    alt={productName}
-                    className="w-full h-full object-cover"
+                    src={image || '/placeholder.png'}
+                    alt={`View ${idx + 1}`}
+                    className="w-full h-full object-cover rounded-lg"
                     onError={(e) => {
-                      e.currentTarget.src = '/placeholder.png';
+                      e.currentTarget.style.display = 'none';
                     }}
                   />
                 </button>

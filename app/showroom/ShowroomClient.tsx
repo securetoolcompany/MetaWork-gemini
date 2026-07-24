@@ -109,16 +109,9 @@ export default function ShowroomClient() {
         const allItems = Array.isArray(rawData) ? rawData : [];
         
         setData({
-          products: allItems.filter(item => 
-            item.type === 'product' || item.id?.startsWith('prod_')
-          ),
-          aisles: allItems.filter(item => 
-            // Accept either the explicit type tag OR the ID prefix
-            item.type === 'aisle' || item.id?.startsWith('aisle_') || item.aisleSettings
-          ),
-          ipAssets: allItems.filter(item => 
-            item.type === 'ip' || item.id?.startsWith('ip_')
-          ),
+          products: allItems.filter(item => item.type === 'product'),
+          aisles: allItems.filter(item => item.type === 'aisle'),
+          ipAssets: allItems.filter(item => item.type === 'ip'),
         });
       } catch (error) {
         console.error('❌ SHOWROOM_FETCH_ERROR:', error);

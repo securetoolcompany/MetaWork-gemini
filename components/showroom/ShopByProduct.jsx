@@ -73,32 +73,33 @@ export default function ShopByProduct({
   const sessionSeed = useMemo(() => Math.floor(Math.random() * 10000), []);
 
   const filteredItems = useMemo(() => {
-    // 1. First, filter out the "garbage" (Empty data and broken patterns)
-    const validItems = items.filter(product => {
-      const rawImage = product.mockupUrl || product.imageUrl || product.thumbnailUrl || product.image;
-      
-      // Strict image data check: must exist and be long enough to be a URL
-      if (!rawImage || typeof rawImage !== 'string' || rawImage.length < 5) return false;
-      
-      const lower = rawImage.toLowerCase();
-      // Block common "broken" strings
-      if (lower.includes('placeholder') || lower.includes('null') || lower.includes('undefined')) return false;
+    const validItems = items.filter((product) => {
+      const rawPrice = product.price ?? product.basePrice ?? 0;
+      const numericPrice =
+        typeof rawPrice === 'object'
+          ? Number(rawPrice.$numberDecimal || rawPrice.toString?.() || 0)
+          : Number(rawPrice);
 
-      // Filter by Search
-      const matchesSearch = !searchQuery || 
-        `${product.name} ${product.description}`.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      // Filter by Category - Fixed reference here (no more 'props.')
-      const matchesCategory = activeCategories.length === 0 || 
-        (product.categories && product.categories.some(cat => activeCategories.includes(cat)));
-      
+      if (!Number.isFinite(numericPrice) || numericPrice <= 0) return false;
+
+      const matchesSearch =
+        !searchQuery ||
+        `${product.name || ''} ${product.title || ''} ${product.description || ''}`
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase());
+
+      const productCategories = Array.isArray(product.categories)
+        ? product.categories
+        : [];
+
+      const matchesCategory =
+        activeCategories.length === 0 ||
+        productCategories.some((cat) => activeCategories.includes(cat));
+
       return matchesSearch && matchesCategory;
     });
 
-    // 2. SHUFFLE the valid items using our session seed
-    // This fixes the 'Aardvark' problem and ensures Page 1 is randomized
     return shuffleWithSeed([...validItems], sessionSeed);
-    
   }, [items, searchQuery, activeCategories, sessionSeed]);
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
