@@ -106,19 +106,31 @@ export default function ShowroomClient() {
       try {
         const response = await fetch('/api/showroom');
         const rawData = await response.json();
-        const allItems = Array.isArray(rawData) ? rawData : [];
-        
-        setData({
-          products: allItems.filter(item => item.type === 'product'),
-          aisles: allItems.filter(item => item.type === 'aisle'),
-          ipAssets: allItems.filter(item => item.type === 'ip'),
-        });
+
+        console.log('[SHOWROOM] rawData:', rawData);
+
+        let products: any[] = [];
+        let aisles: any[] = [];
+        let ipAssets: any[] = [];
+
+        if (Array.isArray(rawData)) {
+          products = rawData.filter((item) => item.type === 'product');
+          aisles = rawData.filter((item) => item.type === 'aisle');
+          ipAssets = rawData.filter((item) => item.type === 'ip');
+        } else if (rawData && typeof rawData === 'object') {
+          products = Array.isArray(rawData.products) ? rawData.products : [];
+          aisles = Array.isArray(rawData.aisles) ? rawData.aisles : [];
+          ipAssets = Array.isArray(rawData.ipAssets) ? rawData.ipAssets : [];
+        }
+
+        setData({ products, aisles, ipAssets });
       } catch (error) {
         console.error('❌ SHOWROOM_FETCH_ERROR:', error);
       } finally {
         setLoading(false);
       }
     };
+
     fetchShowroomData();
   }, []);
 
