@@ -65,103 +65,110 @@ export default function DesignPropertiesPanel({
     }
 
     // 2. Determine which placements are used in this design
-      
+    const EDM_TO_PRINTFUL_PLACEMENT = {
+      front: ["front", "default", "dtg_front", "embroidery_front"],
+      back: ["back", "dtg_back", "embroidery_back"],
+      sleeve_right: [
+        "sleeve_right",
+        "right_sleeve",
+        "embroidery_right",
+        "front_sleeve_right",
+      ],
+      sleeve_left: [
+        "sleeve_left",
+        "left_sleeve",
+        "embroidery_left",
+        "front_sleeve_left",
+      ],
+    };
 
-  const EDM_TO_PRINTFUL_PLACEMENT = {
-    front: ["front", "default", "dtg_front", "embroidery_front"],
-    back: ["back", "dtg_back", "embroidery_back"],
-    sleeve_right: [
-      "sleeve_right",
-      "right_sleeve",
-      "embroidery_right",
-      "front_sleeve_right",
-    ],
-    sleeve_left: [
-      "sleeve_left",
-      "left_sleeve",
-      "embroidery_left",
-      "front_sleeve_left",
-    ],
-  };
+    const placementConfigs = product?.printfulPlacementConfigs || [];
 
-  const placementConfigs = product?.printfulPlacementConfigs || [];
+    const printFiles =
+      product?.baseProduct?.printFiles ||
+      product?.printFiles ||
+      [];
 
-  const printFiles =
-    product?.baseProduct?.printFiles ||
-    product?.printFiles ||
-    [];
+    // DEBUG: inspect what EDM and catalog are actually sending
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[DesignPropertiesPanel] placementConfigs", placementConfigs);
+      console.log("[DesignPropertiesPanel] printFiles", printFiles);
+    }
 
-      // DEBUG: inspect what EDM and catalog are actually sending
-  if (process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
-    console.log("[DesignPropertiesPanel] placementConfigs", placementConfigs);
-    // eslint-disable-next-line no-console
-    console.log("[DesignPropertiesPanel] printFiles", printFiles);
-  }
-
-  // If EDM hasn't reported any placements being used yet,
-  // placement cost should be $0.00.
-  if (!placementConfigs.length) {
-    return {
-      printfulBase,
-      placementCost: 0,
-      platformBase: printfulBase * 1.2 + 2,
-      ip: selectedIPs.reduce(
+    // If EDM hasn't reported any placements being used yet,
+    // placement cost should be $0.00.
+    if (!placementConfigs.length) {
+      const ipFees = selectedIPs.reduce(
         (sum, ip) => sum + (Number(ip.licensingFee) || 0),
         0
-      ),
-      total:
-        printfulBase * 1.2 +
-        2 +
-        selectedIPs.reduce(
-          (sum, ip) => sum + (Number(ip.licensingFee) || 0),
-          0
-        ),
-      size: selectedSize,
-    };
-  }
+      );
+      const platformBase = printfulBase * 1.2 + 2;
 
-  // Otherwise, expand EDM placement keys into file types and charge per used area.
-  const usedPlacementTypes = new Set();
-  placementConfigs
-    .map((p) => p.placement)
-    .filter(Boolean)
-    .forEach((edmKey) => {
-      const mappedTypes = EDM_TO_PRINTFUL_PLACEMENT[edmKey] || [];
-      mappedTypes.forEach((t) => usedPlacementTypes.add(t));
-    });
+      return {
+        printfulBase,
+        placementCost: 0,
+        platformBase,
+        ip: ipFees,
+        total: platformBase + ipFees,
+        size: selectedSize,
+        hasEdmPlacements: false,
+      };
+    }
 
-  const placementCost = printFiles.reduce((sum, pf) => {
-    if (pf.type === "mockup") return sum;
-    if (!usedPlacementTypes.has(pf.type)) return sum;
-    const extra = Number(pf.additional_price || 0);
-    return sum + (Number.isFinite(extra) ? extra : 0);
-  }, 0);
+    // Otherwise, expand EDM placement keys into file types and charge per used area.
+    const usedPlacementTypes = new Set();
+    placementConfigs
+      .map((p) => p.placement)
+      .filter(Boolean)
+      .forEach((edmKey) => {
+        const mappedTypes = EDM_TO_PRINTFUL_PLACEMENT[edmKey] || [];
+        mappedTypes.forEach((t) => usedPlacementTypes.add(t));
+      });
 
-    // 4. IP licensing fees (user-configured per IP)
+    const placementCost = printFiles.reduce((sum, pf) => {
+      if (pf.type === "mockup") return sum;
+      if (!usedPlacementTypes.has(pf.type)) return sum;
+      const extra = Number(pf.additional_price || 0);
+      return sum + (Number.isFinite(extra) ? extra : 0);
+    }, 0);
+
     const ipFees = selectedIPs.reduce(
       (sum, ip) => sum + (Number(ip.licensingFee) || 0),
       0
     );
 
-    // 5. MetaWork markup: only on printfulBase, placementCost is passed through
     const platformBase = printfulBase * 1.2 + 2 + placementCost;
-
     const userPrice = platformBase + ipFees;
 
     return {
-      // internal fields (printfulBase) not rendered directly
       printfulBase,
       placementCost,
       platformBase,
       ip: ipFees,
       total: userPrice,
       size: selectedSize,
+      hasEdmPlacements: true,
     };
   }, [baseProductPrice, variants, selectedVariantId, selectedIPs, product]);
 
+  // --- Unified asset flags for Save gating ---
+
+  const hasLibraryIPs = (selectedIPs ?? []).length > 0;
+
+  const designAssets =
+    product?.designAssets ??
+    product?.originalPlacementAssets ??
+    [];
+
+  const hasEdmAssets =
+    Array.isArray(designAssets) && designAssets.length > 0;
+
+  const hasEdmPlacements = !!costAnalysis.hasEdmPlacements;
+
   const handleConfirmSave = useCallback(
-    async ({ titleOverride, resolvedTemplateId: resolvedTemplateIdArg } = {}) => {
+    async (options = {}) => {
+      const { titleOverride, resolvedTemplateId: resolvedTemplateIdArg } =
+        options;
       const title = titleOverride || pendingTitle.trim();
       if (!title) {
         toast.error("Please enter a working title");
@@ -208,7 +215,9 @@ export default function DesignPropertiesPanel({
         setPendingTitle(title);
         setShowNameDialog(false);
       } catch (error) {
-        toast.error(error.message || "Draft save database synchronization failed");
+        toast.error(
+          error?.message || "Draft save database synchronization failed"
+        );
       }
     },
     [
@@ -221,17 +230,32 @@ export default function DesignPropertiesPanel({
       selectedVariantId,
       costAnalysis,
       router,
+      originalPlacementAssets,
     ]
   );
 
-  // Removed debounce wrapper entirely to make the async execution fully awaitable
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[DesignPropertiesPanel] product", product);
+      console.log("[DesignPropertiesPanel] designAssets", designAssets);
+      console.log("[DesignPropertiesPanel] hasLibraryIPs", hasLibraryIPs);
+      console.log("[DesignPropertiesPanel] hasEdmAssets", hasEdmAssets);
+      console.log("[DesignPropertiesPanel] hasEdmPlacements", hasEdmPlacements);
+    }
+  }, [product, designAssets, hasLibraryIPs, hasEdmAssets, hasEdmPlacements]);
+
   const handleSaveDraft = useCallback(async () => {
-    if (saving || !onTriggerEdmSave || selectedIPs.length === 0) return;
+    if (
+      saving ||
+      !onTriggerEdmSave ||
+      (!hasLibraryIPs && !hasEdmAssets && !hasEdmPlacements)
+    ) {
+      return;
+    }
 
     setSaving(true);
 
     try {
-      // Correctly block execution until the iframe postMessage callback resolves with a template ID
       const edmResult = await onTriggerEdmSave();
       const freshTemplateId =
         typeof edmResult === "string"
@@ -247,11 +271,11 @@ export default function DesignPropertiesPanel({
       setResolvedTemplateId(freshTemplateId);
       setShowNameDialog(true);
     } catch (error) {
-      toast.error(error.message || "Design save failed");
+      toast.error(error?.message || "Design save failed");
     } finally {
       setSaving(false);
     }
-  }, [saving, onTriggerEdmSave, selectedIPs.length]);
+  }, [saving, onTriggerEdmSave, hasLibraryIPs, hasEdmAssets, hasEdmPlacements]);
 
   useEffect(() => {
     setResolvedTemplateId(null);
@@ -314,7 +338,8 @@ export default function DesignPropertiesPanel({
       {/* Header / Mobile Toggle Handle */}
       <div
         className="p-4 border-b border-slate-800 flex justify-between items-center cursor-pointer md:cursor-default"
-        onClick={() => isMobile && setIsExpanded(!isExpanded)}      >
+        onClick={() => isMobile && setIsExpanded(!isExpanded)}
+      >
         <div className="min-w-0 flex-1 flex items-center gap-2">
           <Layers className="w-4 h-4 text-slate-400" />
           <h2 className="font-semibold text-sm uppercase tracking-wider text-slate-400">
@@ -388,7 +413,7 @@ export default function DesignPropertiesPanel({
         {/* Pricing & Actions */}
         <div className="p-4 border-t border-slate-800 bg-slate-900/80 space-y-4">
           <div className="space-y-2">
-            {/* Size / Variant selector, showing MetaWork base (platformBase) implicitly */}
+            {/* Size / Variant selector */}
             <div className="flex justify-between items-center text-xs">
               <span className="text-slate-400">Size/Variant</span>
               {loadingVariants ? (
@@ -408,7 +433,7 @@ export default function DesignPropertiesPanel({
                         value={String(v.id || v.variant_id || i)}
                         className="text-[10px]"
                       >
-                        {v.size} {/* omit raw Printful price here */}
+                        {v.size}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -420,7 +445,7 @@ export default function DesignPropertiesPanel({
               )}
             </div>
 
-            {/* NEW: Placement cost line */}
+            {/* Placement cost line */}
             <div className="flex justify-between items-center text-xs">
               <span className="text-slate-400">Placement cost</span>
               <span className="font-mono text-slate-300">
@@ -428,7 +453,7 @@ export default function DesignPropertiesPanel({
               </span>
             </div>
 
-            {/* Est. Total (userPrice) */}
+            {/* Est. Total */}
             <div className="flex justify-between items-center text-xs">
               <span className="text-slate-400">Est. Total</span>
               <span className="text-sm font-bold text-blue-400 font-mono">
@@ -441,7 +466,9 @@ export default function DesignPropertiesPanel({
             size={isMobile ? "default" : "lg"}
             className="w-full shadow-lg bg-blue-600 hover:bg-blue-700"
             onClick={handleSaveDraft}
-            disabled={saving || !selectedIPs.length}
+            disabled={
+              saving || (!hasLibraryIPs && !hasEdmAssets && !hasEdmPlacements)
+            }
           >
             {saving ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

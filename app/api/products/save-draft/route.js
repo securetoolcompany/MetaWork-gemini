@@ -246,8 +246,10 @@ export async function POST(request) {
       baseProduct,
       name,
       costAnalysis,
-      originalPlacementAssets, // raw EDM placement data from client
+      originalPlacementAssets,
     } = body;
+
+    console.log("[save-draft] incoming originalPlacementAssets", originalPlacementAssets);
 
     if (!externalProductId || !baseProduct) {
       return NextResponse.json({ error: 'externalProductId and baseProduct are required' }, { status: 400 });
@@ -274,10 +276,10 @@ export async function POST(request) {
       url: normalizePrintFileUrl(ip.url),
     }));
 
-    // licensed IPs are only those with a real library ipId (not synthetic uploads)
+        // licensed IPs are only those with a real library ipId (not synthetic uploads)
     const licensedIPs = normalizedSelectedIPs.filter((ip) => ip.ipId);
 
-        // normalize and persist raw per-placement EDM assets independently of selectedIPs
+    // normalize and persist per-placement EDM assets as unified designAssets
     // Support both old array shape and new object keyed by placement name.
     let placementAssetsArray = [];
 
@@ -291,11 +293,21 @@ export async function POST(request) {
       placementAssetsArray = Object.values(originalPlacementAssets).flat();
     }
 
-    const normalizedPlacementAssets = placementAssetsArray
+    // designAssets = library IP layers + EDM uploads
+    const designAssets = placementAssetsArray
       .map((asset) => {
         if (!asset) return null;
 
-        const normalizedUrl = normalizePrintFileUrl(asset.originalUrl);
+        // Prefer asset.originalUrl if present, otherwise fall back to any URL-ish field
+        const rawUrl =
+          asset.originalUrl ||
+          asset.normalizedUrl ||
+          asset.url ||
+          asset.imageUrl ||
+          asset.item_url ||
+          null;
+
+        const normalizedUrl = normalizePrintFileUrl(rawUrl);
         if (!normalizedUrl) return null;
 
         // try to match this placement back to a licensed IP by URL
@@ -303,19 +315,41 @@ export async function POST(request) {
           (ip) => ip.imageUrl && normalizedUrl.includes(ip.imageUrl)
         );
 
-        return {
-          edmPlacementId: asset.edmPlacementId || null,
-          placementName: asset.placementName || null,
-          originalUrl: asset.originalUrl,
+        const base = {
+          edmPlacementId: asset.edmPlacementId || asset.placementId || null,
+          placementName: asset.placementName || asset.placement || null,
+          originalUrl: rawUrl,
           normalizedUrl,
           technique: asset.technique || null,
-          ipId: matchedIP?.ipId || asset.ipId || null,
-          licensingFee: matchedIP?.licensingFee ?? asset.licensingFee ?? 0,
-          ownerId: matchedIP?.ownerId || asset.ownerId || null,
-          ownerName: matchedIP?.ownerName || asset.ownerName || null,
+        };
+
+        if (matchedIP) {
+          // Library IP layer
+          return {
+            ...base,
+            kind: 'library_ip',
+            sourceType: 'meta_library',
+            ipId: matchedIP.ipId || matchedIP.id || null,
+            licensingFee: matchedIP.licensingFee ?? asset.licensingFee ?? 0,
+            ownerId: matchedIP.ownerId || asset.ownerId || null,
+            ownerName: matchedIP.ownerName || asset.ownerName || null,
+          };
+        }
+
+        // EDM upload (no library IP match)
+        return {
+          ...base,
+          kind: 'upload',
+          sourceType: 'edm',
+          ipId: asset.ipId || null,
+          licensingFee: asset.licensingFee ?? 0,
+          ownerId: asset.ownerId || null,
+          ownerName: asset.ownerName || null,
         };
       })
       .filter(Boolean);
+
+          console.log("[save-draft] computed designAssets", designAssets);
 
     const result = await products.findOneAndUpdate(
       { userId: decoded.userId, externalProductId },
@@ -332,8 +366,17 @@ export async function POST(request) {
           printfulTemplateId: printfulTemplateId || null,
           selectedIPs: normalizedSelectedIPs,
           licensedIPs, // explicit licensing summary for this product
-          originalPlacementAssets: normalizedPlacementAssets, // NEW: first-party fulfillment source
-          designStateVersion: 'edm-v1', // mark this as a raw EDM snapshot
+
+          // Unified design assets: library IPs + EDM uploads
+          designAssets,
+
+          // Overwrite originalPlacementAssets with normalized designAssets
+          // so older readers still get a flat, consistent shape
+          originalPlacementAssets: designAssets,
+
+          // Mark this as the unified EDM v2 snapshot
+          designStateVersion: 'edm-v2',
+
           baseProduct,
           name: name || baseProduct?.name || 'Untitled Design',
           costAnalysis: costAnalysis || null,
