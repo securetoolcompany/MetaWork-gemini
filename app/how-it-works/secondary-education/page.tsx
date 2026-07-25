@@ -319,7 +319,7 @@ export default function HowItWorksSecondaryEducationPage() {
                   Most schools can run the standard setup once it&apos;s configured,
                   but the option is there if you want lighter internal lift.{' '}
                   <Link
-                    href="mailto:scott.holbrook@metawork.tools?subject=Managed%20School%20Program%20Inquiry"
+                    href="mailto:your@email.com?subject=Managed%20School%20Program%20Inquiry"
                     className="text-amber-500 hover:text-amber-400 underline underline-offset-2 transition-colors"
                   >
                     Ask us about managed support →

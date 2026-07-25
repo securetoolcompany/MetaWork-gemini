@@ -10,7 +10,7 @@ export default function AppShell({ children }) {
   const { isAuthenticated, loading } = useAuth(); // Get auth state
   
   const isLogin = pathname === '/login';
-  const isRegister = pathname === '/register';
+  const isRegister = pathname === '/login';
 
   // LOGIC: 
   // 1. If we are still loading auth state, we usually show the sidebar to prevent layout shift

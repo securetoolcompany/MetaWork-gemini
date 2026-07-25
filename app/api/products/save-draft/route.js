@@ -277,9 +277,24 @@ export async function POST(request) {
     // licensed IPs are only those with a real library ipId (not synthetic uploads)
     const licensedIPs = normalizedSelectedIPs.filter((ip) => ip.ipId);
 
-    // normalize and persist raw per-placement EDM assets independently of selectedIPs
-    const normalizedPlacementAssets = (originalPlacementAssets || [])
+        // normalize and persist raw per-placement EDM assets independently of selectedIPs
+    // Support both old array shape and new object keyed by placement name.
+    let placementAssetsArray = [];
+
+    if (Array.isArray(originalPlacementAssets)) {
+      placementAssetsArray = originalPlacementAssets;
+    } else if (
+      originalPlacementAssets &&
+      typeof originalPlacementAssets === 'object'
+    ) {
+      // e.g. { default: [asset,...], front: [asset,...] }
+      placementAssetsArray = Object.values(originalPlacementAssets).flat();
+    }
+
+    const normalizedPlacementAssets = placementAssetsArray
       .map((asset) => {
+        if (!asset) return null;
+
         const normalizedUrl = normalizePrintFileUrl(asset.originalUrl);
         if (!normalizedUrl) return null;
 

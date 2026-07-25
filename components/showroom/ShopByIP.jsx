@@ -45,11 +45,26 @@ const IP_FILTER_GROUPS = [
   },
 ];
 
-export default function ShopByIP({ 
-  items = [], 
-  filters = { type: [], style: [], usage: [], theme: [] }, 
-  onToggleFilter, 
-  onClearAll 
+const normalizeListField = (value) => {
+  if (Array.isArray(value)) {
+    return value.map(v => String(v).trim()).filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(',')
+      .map(v => v.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+export default function ShopByIP({
+  items = [],
+  filters = { type: [], style: [], usage: [], theme: [] },
+  onToggleFilter,
+  onClearAll
 }) {
   const [page, setPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,46 +85,54 @@ export default function ShopByIP({
 
   const sessionSeed = useMemo(() => Math.floor(Math.random() * 10000), []);
 
-  // Filter Logic
   const filteredItems = useMemo(() => {
-      // A. Filter out garbage data and apply search/categories
-      const validItems = items.filter(item => {
-        // Get image path
-        const rawImage = item.imageUrl || item.thumbnailUrl || item.image;
-        
-        // Strict Check: Remove if no data or known broken patterns
-        if (!rawImage || typeof rawImage !== 'string' || rawImage.length < 5) return false;
-        const lower = rawImage.toLowerCase();
-        if (lower.includes('placeholder') || lower.includes('null') || lower.includes('undefined')) return false;
+    const validItems = items.filter(item => {
+      const rawImage = item.imageUrl || item.thumbnailUrl || item.image || '';
+      const lowerImage = String(rawImage).toLowerCase();
 
-        // Search Logic
-        const matchesSearch = !searchQuery || 
-          `${item.title} ${item.name} ${item.description}`.toLowerCase().includes(searchQuery.toLowerCase());
-        
-        if (!matchesSearch) return false;
+      if (lowerImage.includes('null') || lowerImage.includes('undefined')) return false;
 
-        // Filter Groups Logic (Categories)
-        const matchesFilters = Object.keys(filters).every(groupId => {
-          if (!filters[groupId] || filters[groupId].length === 0) return true;
-          // Adjust this depending on your IP Asset data structure (tags vs categories)
-          const itemValues = [...(item.categories || []), ...(item.tags || [])];
-          return filters[groupId].some(val => itemValues.includes(val));
-        });
+      const searchBlob = [
+        item.title || '',
+        item.name || '',
+        item.description || '',
+        item.category || '',
+        item.tags || ''
+      ].join(' ').toLowerCase();
 
-        return matchesFilters;
+      const matchesSearch =
+        !searchQuery || searchBlob.includes(searchQuery.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      const normalizedCategories = [
+        ...normalizeListField(item.category),
+        ...normalizeListField(item.categories),
+      ];
+
+      const normalizedTags = normalizeListField(item.tags);
+
+      const itemValues = [...new Set([...normalizedCategories, ...normalizedTags])];
+
+      const matchesFilters = Object.keys(filters).every(groupId => {
+        if (!filters[groupId] || filters[groupId].length === 0) return true;
+        return filters[groupId].some(val => itemValues.includes(val));
       });
 
-      return shuffleWithSeed([...validItems], sessionSeed);
+      return matchesFilters;
+    });
 
-    }, [items, searchQuery, filters, sessionSeed]);
+    return shuffleWithSeed([...validItems], sessionSeed);
+  }, [items, searchQuery, filters, sessionSeed]);
 
   const hasActiveFilters = Object.values(filters).some(group => group && group.length > 0);
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / ITEMS_PER_PAGE));
-  const pageItems = filteredItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);  
-  
-  useEffect(() => { setPage(1); }, [filters, searchQuery]);
+  const pageItems = filteredItems.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
-  // Scroll to top of results when page changes
+  useEffect(() => {
+    setPage(1);
+  }, [filters, searchQuery]);
+
   const handlePageChange = (newPage) => {
     setPage(newPage);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -128,6 +151,7 @@ export default function ShopByIP({
             {Object.keys(filters).map((groupId) => {
               const activeValues = filters[groupId];
               if (!activeValues?.length) return null;
+
               return (
                 <div key={groupId} className="space-y-1">
                   <div className="text-[9px] font-medium text-slate-500 uppercase">
@@ -135,9 +159,15 @@ export default function ShopByIP({
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {activeValues.map((val) => (
-                      <span key={`${groupId}-${val}`} className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 rounded text-[10px] text-blue-200 border border-blue-500/20">
+                      <span
+                        key={`${groupId}-${val}`}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/10 rounded text-[10px] text-blue-200 border border-blue-500/20"
+                      >
                         {val}
-                        <button onClick={() => onToggleFilter(groupId, val)} className="hover:text-white hover:bg-blue-500/30 rounded-full p-0.5 transition-colors ml-1">
+                        <button
+                          onClick={() => onToggleFilter(groupId, val)}
+                          className="hover:text-white hover:bg-blue-500/30 rounded-full p-0.5 transition-colors ml-1"
+                        >
                           <X className="w-3 h-3" />
                         </button>
                       </span>
@@ -146,7 +176,10 @@ export default function ShopByIP({
                 </div>
               );
             })}
-            <button onClick={onClearAll} className="w-full py-1.5 mt-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded text-[11px] font-bold uppercase transition-all">
+            <button
+              onClick={onClearAll}
+              className="w-full py-1.5 mt-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded text-[11px] font-bold uppercase transition-all"
+            >
               Reset All Filters
             </button>
           </div>
@@ -155,7 +188,7 @@ export default function ShopByIP({
 
       {IP_FILTER_GROUPS.map((group) => (
         <div key={group.id} className="bg-[#0f172a] rounded-lg border border-white/10 overflow-hidden">
-          <button 
+          <button
             onClick={() => toggleGroup(group.id)}
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors"
           >
@@ -165,7 +198,7 @@ export default function ShopByIP({
             </div>
             <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${expandedGroups[group.id] ? 'rotate-180' : ''}`} />
           </button>
-          
+
           {expandedGroups[group.id] && (
             <div className="px-2 pb-2 space-y-1">
               {group.options.map(opt => {
@@ -175,9 +208,9 @@ export default function ShopByIP({
                     key={opt}
                     onClick={() => onToggleFilter(group.id, opt)}
                     className={`w-full text-left px-3 py-1.5 rounded-md text-sm transition-all ${
-                      isActive 
-                      ? 'bg-blue-600 text-white font-semibold' 
-                      : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                      isActive
+                        ? 'bg-blue-600 text-white font-semibold'
+                        : 'text-slate-400 hover:bg-white/5 hover:text-white'
                     }`}
                   >
                     {opt}
@@ -193,7 +226,6 @@ export default function ShopByIP({
 
   return (
     <div className="flex flex-col md:flex-row gap-6 relative px-4 md:px-0" ref={gridRef}>
-      
       {isMobile && (
         <button
           onClick={() => setIsFilterDrawerOpen(true)}
@@ -235,7 +267,10 @@ export default function ShopByIP({
             <h3 className="text-lg font-medium text-white">No IP assets found</h3>
             <p className="text-slate-500 text-sm">Try adjusting your search or resetting filters</p>
             {hasActiveFilters && (
-              <button onClick={onClearAll} className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-semibold transition-colors">
+              <button
+                onClick={onClearAll}
+                className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 rounded-full text-sm font-semibold transition-colors"
+              >
                 Clear all filters
               </button>
             )}
@@ -244,10 +279,10 @@ export default function ShopByIP({
           <div className="pb-32">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {pageItems.map((item) => (
-                <AisleIPAssetCard 
-                  key={item.id || item._id} 
-                  item={item}  // CHANGED FROM asset={item}
-                  accentColor="#3b82f6" 
+                <AisleIPAssetCard
+                  key={item.id || item._id}
+                  item={item}
+                  accentColor="#3b82f6"
                 />
               ))}
             </div>
@@ -257,14 +292,20 @@ export default function ShopByIP({
 
       {isMobile && isFilterDrawerOpen && (
         <div className="fixed inset-0 z-[60] flex justify-end">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsFilterDrawerOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setIsFilterDrawerOpen(false)}
+          />
           <div className="relative w-80 bg-[#020617] h-full shadow-2xl flex flex-col border-l border-white/10 animate-in slide-in-from-right duration-300">
             <div className="p-4 border-b border-white/10 flex items-center justify-between bg-slate-900/50">
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-blue-400" />
                 <h2 className="text-sm font-bold uppercase tracking-widest text-white">IP Filters</h2>
               </div>
-              <button onClick={() => setIsFilterDrawerOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+              <button
+                onClick={() => setIsFilterDrawerOpen(false)}
+                className="p-2 hover:bg-white/10 rounded-full transition-colors"
+              >
                 <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
@@ -272,7 +313,10 @@ export default function ShopByIP({
               <FilterContent />
             </div>
             <div className="absolute bottom-0 left-0 right-0 p-4 bg-[#020617] border-t border-white/10">
-              <button onClick={() => setIsFilterDrawerOpen(false)} className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold uppercase text-xs hover:bg-blue-500 transition-colors">
+              <button
+                onClick={() => setIsFilterDrawerOpen(false)}
+                className="w-full py-3 bg-blue-600 text-white rounded-lg font-bold uppercase text-xs hover:bg-blue-500 transition-colors"
+              >
                 Show {filteredItems.length} Assets
               </button>
             </div>
@@ -280,7 +324,6 @@ export default function ShopByIP({
         </div>
       )}
 
-      {/* Pagination Bar */}
       {totalPages > 1 && (
         <div className="fixed bottom-0 left-0 right-0 bg-[#020617] border-t border-white/10 py-4 z-20">
           <div className="container mx-auto px-6 md:ml-64 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
@@ -299,19 +342,21 @@ export default function ShopByIP({
               <div className="flex items-center gap-1">
                 {[...Array(totalPages)].map((_, i) => {
                   const pageNum = i + 1;
-                  // Show current page, edges, and nearby pages
+
                   if (totalPages > 5 && Math.abs(pageNum - page) > 1 && pageNum !== 1 && pageNum !== totalPages) {
-                    if (Math.abs(pageNum - page) === 2) return <span key={pageNum} className="text-slate-600 px-1">...</span>;
+                    if (Math.abs(pageNum - page) === 2) {
+                      return <span key={pageNum} className="text-slate-600 px-1">...</span>;
+                    }
                     return null;
                   }
-                  
+
                   return (
                     <button
                       key={pageNum}
                       onClick={() => handlePageChange(pageNum)}
                       className={`w-8 h-8 rounded-md border transition-all ${
-                        page === pageNum 
-                          ? 'bg-blue-600 border-blue-500 text-white' 
+                        page === pageNum
+                          ? 'bg-blue-600 border-blue-500 text-white'
                           : 'border-white/10 text-gray-400 hover:bg-white/5'
                       }`}
                     >

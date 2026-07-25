@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Package, Sparkles, Quote, Eye, ShoppingBag, Zap } from 'lucide-react';
 import { useProductDialog } from '@/app/providers/ProductDialogProvider'; 
 
@@ -57,6 +57,27 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
     }
     return '/placeholder.png';
   };
+
+  const [liveViewCount, setLiveViewCount] = useState(featuredItem?.viewCount ?? 0);
+
+  useEffect(() => {
+    if (!featuredItem) return;
+    const id = safeId(featuredItem);
+    if (!id) return;
+
+    const isIP = featuredType === 'ip';
+    const endpoint = isIP ? `/api/ip-assets/${id}` : `/api/products/${id}`;
+
+    fetch(endpoint, { method: 'POST' })
+      .then(r => r.json())
+      .then(() => fetch(endpoint))
+      .then(r => r.json())
+      .then(data => {
+        if (data?.product?.viewCount !== undefined) setLiveViewCount(data.product.viewCount);
+        if (data?.ipAsset?.viewCount !== undefined) setLiveViewCount(data.ipAsset.viewCount);
+      })
+      .catch(() => {});
+  }, [safeId(featuredItem)]);
 
   return (
     <div className="mt-4 md:mt-8 space-y-16 md:space-y-32">
@@ -116,19 +137,19 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
 
                 <div className="flex flex-col space-y-6 md:space-y-8 px-2 md:px-4">
                   <div className="flex flex-wrap justify-center md:justify-start gap-2 md:gap-4">
-                    <div className="px-3 py-2 md:px-6 md:py-3 rounded-xl md:rounded-2xl bg-white/[0.03] border border-white/5 flex items-center gap-2 md:gap-3">
+                    {/*<div className="px-3 py-2 md:px-6 md:py-3 rounded-xl md:rounded-2xl bg-white/[0.03] border border-white/5 flex items-center gap-2 md:gap-3">
                         {isProduct ? <ShoppingBag className="w-3 h-3 md:w-4 md:h-4 text-emerald-400" /> : <Zap className="w-3 h-3 md:w-4 md:h-4 text-amber-400" />}
                         <span className="text-[9px] md:text-[11px] font-black text-white uppercase tracking-wider md:tracking-widest">
-                          {formatStat(featuredItem.salesCount || 14)} {isProduct ? 'Units' : 'Mints'}
+                          {formatStat(featuredItem.salesCount)} {isProduct ? 'Units' : 'Mints'}
                         </span>
-                    </div>
+                    </div>*/}
                     <div className="px-3 py-2 md:px-6 md:py-3 rounded-xl md:rounded-2xl bg-white/[0.03] border border-white/5 flex items-center gap-2 md:gap-3">
                         <div className="relative">
                           <div className="absolute -top-0.5 -right-0.5 w-1 h-1 bg-red-500 rounded-full animate-ping" />
                           <Eye className="w-3 h-3 md:w-4 md:h-4 text-sky-400" />
                         </div>
                         <span className="text-[9px] md:text-[11px] font-black text-white uppercase tracking-wider md:tracking-widest">
-                          {formatStat(featuredItem.viewCount || 1240)} Views
+                          {formatStat(liveViewCount)} Views
                         </span>
                     </div>
                   </div>

@@ -687,77 +687,68 @@ function ProductCreatorInner() {
     urlExternalProductId,
   ])
 
-  const [originalPlacementAssets, setOriginalPlacementAssets] = useState({});
-  
-  useEffect(() => {
-    const handleDesignStatus = (event) => {
-      if (
-        !event.data ||
-        typeof event.data !== 'object' ||
-        event.data.event !== 'designStatus'
-      ) {
-        return
-      }
+    const [originalPlacementAssets, setOriginalPlacementAssets] = useState({});
 
-            const usedPlacements =
-        event.data?.data?.response?.usedPlacements || [];
-      const layerCount = usedPlacements.length;
-
-      console.log("[ProductCreatorInner] usedPlacements", usedPlacements);
-
-      const groupedAssets = {};
-usedPlacements.forEach((placementKey, idx) => {
-  // Since usedPlacements is like ['front', 'sleeve_right'], use it directly.
-  const placementUrl = undefined; // EDM isn’t giving URLs here in usedPlacements.
-
-  const assetRecord = {
-    edmPlacementId: `edm-${Date.now()}-${idx}`,
-    placementName: placementKey,
-    originalUrl: placementUrl,
-    technique: null,
-    ipId: null,
-    licensingFee: 0,
-    ownerId: null,
-    ownerName: null,
-  };
-
-  if (!groupedAssets[placementKey]) {
-    groupedAssets[placementKey] = [];
-  }
-  groupedAssets[placementKey].push(assetRecord);
-});
-
-      console.log(
-        "[ProductCreatorInner] originalPlacementAssets (grouped)",
-        groupedAssets
-      );
-
-      setOriginalPlacementAssets(groupedAssets);
-
-      setSelectedIPs((prev) => {
-        if (layerCount < prev.length) return prev.slice(0, layerCount)
-
-        if (layerCount > prev.length) {
-          const newLayers = usedPlacements.slice(prev.length)
-          const mockIPs = newLayers.map((placement, idx) => ({
-            id: placement.id || `upload-${Date.now()}-${idx}`,
-            name: 'Uploaded Image',
-            title: 'Uploaded Design',
-            imageUrl: placement.url || placement.imageUrl,
-            thumbnailUrl: placement.url || placement.imageUrl,
-            licensingFee: 0,
-            category: 'Upload',
-          }))
-          return [...prev, ...mockIPs]
+    useEffect(() => {
+      const handleDesignStatus = (event) => {
+        if (
+          !event.data ||
+          typeof event.data !== 'object' ||
+          event.data.event !== 'designStatus'
+        ) {
+          return;
         }
 
-        return prev
-      })
-    }
+        // Printful EDM sends usedPlacements as an array of strings, e.g. ["default"] or ["front", "back"].
+        const usedPlacements =
+          event.data?.data?.response?.usedPlacements || [];
 
-    window.addEventListener('message', handleDesignStatus)
-    return () => window.removeEventListener('message', handleDesignStatus)
-  }, [selectedIPs])
+        if (!Array.isArray(usedPlacements) || usedPlacements.length === 0) {
+          return;
+        }
+
+        console.log('[ProductCreatorInner] usedPlacements', usedPlacements);
+
+        // Build a grouped structure keyed by raw placement name.
+        const groupedAssets = {};
+
+        usedPlacements.forEach((placementKey, idx) => {
+          const safeKey = String(placementKey || '').trim();
+          if (!safeKey) return;
+
+          const assetRecord = {
+            edmPlacementId: `edm-${Date.now()}-${idx}`,
+            placementName: safeKey,
+            originalUrl: null, // EDM doesn't give us URLs here yet
+            technique: null,
+            ipId: null,
+            licensingFee: 0,
+            ownerId: null,
+            ownerName: null,
+          };
+
+          if (!Array.isArray(groupedAssets[safeKey])) {
+            groupedAssets[safeKey] = [];
+          }
+          groupedAssets[safeKey].push(assetRecord);
+        });
+
+        console.log(
+          '[ProductCreatorInner] originalPlacementAssets (grouped)',
+          groupedAssets
+        );
+
+        setOriginalPlacementAssets(groupedAssets);
+
+        // IMPORTANT:
+        // Do NOT try to derive selectedIPs from usedPlacements.
+        // IPs are already managed via addIPToDesign and the IP library.
+        // Keeping this logic out avoids brittle .map usage on string arrays.
+      };
+
+      window.addEventListener('message', handleDesignStatus);
+      return () => window.removeEventListener('message', handleDesignStatus);
+    }, []);
 
   const handleExitToCatalog = () => {
     setStep('catalog')

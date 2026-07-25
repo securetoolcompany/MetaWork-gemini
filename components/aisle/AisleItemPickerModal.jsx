@@ -143,16 +143,16 @@ export default function AisleItemPickerModal({
           <div className="px-6 pt-4 shrink-0">
             <TabsList className="flex w-full overflow-x-auto bg-muted/50 scrollbar-none">
               <TabsTrigger value="products" className="flex-shrink-0 whitespace-nowrap data-[state=active]:bg-background">
-                <Package className="w-4 h-4 mr-2" /> My Products
+                <Package className="w-4 h-4 mr-2" /> Products
               </TabsTrigger>
               <TabsTrigger value="ip" className="flex-shrink-0 whitespace-nowrap data-[state=active]:bg-background">
-                <FolderGit2 className="w-4 h-4 mr-2" /> My IP Vaults
+                <FolderGit2 className="w-4 h-4 mr-2" /> IP Assets
               </TabsTrigger>
               <TabsTrigger value="collections" className="flex-shrink-0 whitespace-nowrap data-[state=active]:bg-background">
                 <Layers className="w-4 h-4 mr-2" /> Collections
               </TabsTrigger>
               <TabsTrigger value="community" className="flex-shrink-0 whitespace-nowrap data-[state=active]:bg-background">
-                <Users className="w-4 h-4 mr-2" /> Community Fan Art
+                <Users className="w-4 h-4 mr-2" /> Community-made Assets
               </TabsTrigger>
             </TabsList>
           </div>
