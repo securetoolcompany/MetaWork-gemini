@@ -192,20 +192,36 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
     }
   }, [open, product]);
 
-  const baseProductCost = parseFloat(
+      // EDM‑aware costAnalysis: printfulBase + placementCost + platformBase
+  const costAnalysis = product?.costAnalysis || {};
+
+  const printfulBase = parseFloat(costAnalysis.printfulBase ?? 0) || 0;
+  const placementCost = parseFloat(costAnalysis.placementCost ?? 0) || 0;
+  const platformBase = parseFloat(costAnalysis.platformBase ?? 0) || 0;
+
+  // Legacy fallback for older products that only have a single base cost
+  const legacyBaseCost = parseFloat(
     product?.baseProductCost ??
-    product?.costAnalysis?.base
+    costAnalysis.base ??
+    0
   ) || 0;
 
+  // Effective base production cost used in the breakdown:
+  // printful base + placement + platform overhead (if present),
+  // otherwise fall back to legacyBaseCost.
+  const baseProductCost =
+    printfulBase > 0 || platformBase > 0
+      ? printfulBase + placementCost + (platformBase > 0 ? (platformBase - printfulBase) : 0)
+      : legacyBaseCost;
+
   console.log('[ProductEditDialog] cost fields:', {
-  baseProductCost: product?.baseProductCost,
-  retailCost: product?.retailCost,
-  baseCost: product?.baseCost,
-  cost: product?.cost,
-  printfulRetailPrice: product?.printfulRetailPrice,
-  basePrice: product?.basePrice,
-  resolved: baseProductCost,
-});
+    printfulBase,
+    placementCost,
+    platformBase,
+    legacyBaseCost,
+    baseProductCost,
+    costAnalysis,
+  });
 
   const ipCosts = (() => {
     if (product?.ipUsages && Array.isArray(product.ipUsages)) {
@@ -231,11 +247,12 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   const totalProductionCost = baseProductCost + totalIPCost;
   const suggestedPrice = (totalProductionCost * 2.5).toFixed(2); 
   const profit = (formData.price - totalProductionCost).toFixed(2);
-  const profitMargin = formData.price > 0 ? (((formData.price - totalProductionCost) / formData.price) * 100).toFixed(1) : 0;
+  const profitMargin = formData.price > 0
+    ? (((formData.price - totalProductionCost) / formData.price) * 100).toFixed(1)
+    : 0;
 
   // Derive unique sizes for the pricing UI
- // --- REPLACEMENT BLOCK START ---
-  // 1. Safely deduplicate sizes
+  // --- REPLACEMENT BLOCK START ---
   const uniqueSizeVariants = [];
   const seenSizes = new Set();
   
@@ -247,10 +264,19 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
 
     if (!seenSizes.has(rawSize)) {
       seenSizes.add(rawSize);
-      uniqueSizeVariants.push({ 
-        ...variant, 
-        displaySize: rawSize, 
-        cleanCost: parseFloat(variant.cost || variant.price || 0) 
+
+      const baseVariantCost = parseFloat(variant.cost || variant.price || 0) || 0;
+      const extraFromPlatform =
+        platformBase > 0 && printfulBase > 0
+          ? platformBase - printfulBase
+          : 0;
+
+      uniqueSizeVariants.push({
+        ...variant,
+        displaySize: rawSize,
+        baseVariantCost,
+        // Effective production cost including placements + platform overhead
+        cleanCost: baseVariantCost + placementCost + extraFromPlatform,
       });
     }
   });
@@ -280,16 +306,16 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
       
       // If the box is cleared (empty string), don't do math, just clear the targeted sizes
       if (isNaN(numericPrice)) {
-         const clearedVariants = prev.variants.map(v => {
-           let s = v.size || v.name || 'Default';
-           if (s.includes(' / ')) s = s.split(' / ')[1];
-           if (s.includes(' - ')) s = s.split(' - ')[1];
-           if (s.trim() === sizeName) {
-             return { ...v, retail_price: newRetailPriceStr };
-           }
-           return v;
-         });
-         return { ...prev, variants: clearedVariants };
+        const clearedVariants = prev.variants.map(v => {
+          let s = v.size || v.name || 'Default';
+          if (s.includes(' / ')) s = s.split(' / ')[1];
+          if (s.includes(' - ')) s = s.split(' - ')[1];
+          if (s.trim() === sizeName) {
+            return { ...v, retail_price: newRetailPriceStr };
+          }
+          return v;
+        });
+        return { ...prev, variants: clearedVariants };
       }
 
       const baseCost = parseFloat(editedVariant.cost || editedVariant.price || 0);
@@ -310,15 +336,18 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
         const vCost = parseFloat(variant.cost || variant.price || 0);
         return {
           ...variant,
-          retail_price: parseFloat((vCost + markup).toFixed(2))
+          retail_price: parseFloat((vCost + markup).toFixed(2)),
         };
       });
 
-      const newBasePrice = updatedVariants.length > 0 ? (parseFloat(updatedVariants[0].retail_price) || 0) : numericPrice;
+      const newBasePrice = updatedVariants.length > 0
+        ? (parseFloat(updatedVariants[0].retail_price) || 0)
+        : numericPrice;
 
       return { ...prev, variants: updatedVariants, price: newBasePrice };
     });
   };
+  // --- REPLACEMENT BLOCK END ---
 
   const handleSelectCategory = (categoryName) => {
     setFormData(prev => {

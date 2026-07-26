@@ -82,12 +82,41 @@ export default function DesignPropertiesPanel({
       ],
     };
 
-    const placementConfigs = product?.printfulPlacementConfigs || [];
+    const placementConfigs =
+      product?.printfulPlacementConfigs?.length
+        ? product.printfulPlacementConfigs
+        : product?.baseProduct?.printfulPlacementConfigs || [];
 
     const printFiles =
       product?.baseProduct?.printFiles ||
       product?.printFiles ||
       [];
+
+    const hasPrintFiles = Array.isArray(printFiles) && printFiles.length > 0;
+
+    // If we have placements but no printFiles, fall back to persisted cost.
+    if (!hasPrintFiles && placementConfigs.length > 0) {
+      const ipFees = selectedIPs.reduce(
+        (sum, ip) => sum + (Number(ip.licensingFee) || 0),
+        0
+      );
+
+      const fallbackPlacementCost =
+        Number(product?.costAnalysis?.placementCost) || 0;
+
+      const platformBase = printfulBase * 1.2 + 2 + fallbackPlacementCost;
+      const userPrice = platformBase + ipFees;
+
+      return {
+        printfulBase,
+        placementCost: fallbackPlacementCost,
+        platformBase,
+        ip: ipFees,
+        total: userPrice,
+        size: selectedSize,
+        hasEdmPlacements: true,
+      };
+    }
 
     // DEBUG: inspect what EDM and catalog are actually sending
     if (process.env.NODE_ENV !== "production") {
