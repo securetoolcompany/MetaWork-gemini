@@ -110,7 +110,7 @@ export default function BlankProductDetailsDialog({ open, onOpenChange, product,
       }, 0);
 
       // MetaWork platform price: markup only on printfulBase, placement at cost
-      const platformPrice = printfulBase * 1.2 + 2 + placementCost;
+      const platformPrice = printfulBase * 1.2 + 2;
       const p = platformPrice.toFixed(2);
 
       const priceKey = `${p}|${sizeLabel}`;

@@ -3,10 +3,14 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 export function BlankProductCard({ product, onSelect, onInspect, isPublicView = false, hideButtons = false }) {
-  // Use MetaWork platform base instead of raw Printful cost
-  const platformBase = product.platformBase;
-  const formattedPrice = Number.isFinite(Number(platformBase))
-    ? `$${Number(platformBase).toFixed(2)}`
+  // Pick the lowest variant price as base
+  const minVariantPrice = Array.isArray(product.variants)
+    ? Math.min(...product.variants.map((v) => Number(v.price || 0)))
+    : 0;
+
+  const platformBase = minVariantPrice * 1.2 + 2;
+  const formattedPrice = Number.isFinite(platformBase)
+    ? `$${platformBase.toFixed(2)}`
     : 'TBD';
 
   return (
