@@ -338,6 +338,28 @@ export default function BlankProductDetailsDialog({ open, onOpenChange, product,
 
                   <Separator className="bg-slate-800" />
 
+                  {/* Manufacturing / origin block */}
+                  {product.producedIn && (
+                    <div>
+                      <h3 className="text-xs font-semibold text-zinc-500 tracking-wide uppercase mb-1">
+                        Manufacturing Location
+                      </h3>
+                      <p className="text-sm text-zinc-300">
+                        {product.producedIn}
+                      </p>
+                      {Array.isArray(product.originFlags) && product.originFlags.length > 0 && (
+                        <p className="text-xs text-zinc-500 mt-1">
+                          Origin flags:{' '}
+                          {product.originFlags
+                            .map(code => String(code).toUpperCase())
+                            .join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+            
+                  <Separator className="bg-slate-800" />
+
                   {/* Colors */}
                   {report.colors.length > 0 && (
                     <div className="space-y-2">

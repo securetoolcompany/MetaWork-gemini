@@ -574,6 +574,27 @@ function ProductCreatorInner() {
           }
         })
 
+        if (process.env.NODE_ENV !== "production") {
+          console.log(
+            "[ProductCreatorInner] catalog polo pricing",
+            mappedProducts
+              .filter((p) =>
+                (p.name || "").toLowerCase().includes("adidas space-dyed polo shirt")
+              )
+              .map((p) => ({
+                id: p.id || p.catalogProductId,
+                name: p.name,
+                variants: (p.variants || []).map((v) => ({
+                  id: v.id || v.variantId,
+                  size: v.size,
+                  color: v.color,
+                  price: v.price,
+                  retail_price: v.retail_price,
+                })),
+              }))
+          );
+        }
+
         setCatalogProducts(mappedProducts)
       } catch (e) {
         toast.error(e.message)

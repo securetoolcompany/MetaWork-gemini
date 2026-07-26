@@ -89,11 +89,17 @@ const processedVariants = variants.map(v => {
   };
 });
 
-            // 2. Use the NEW processedVariants for img and colors
+    // 2. Use the NEW processedVariants for img and colors
+      const firstFile = processedVariants[0]?.files?.[0] || {};
+      const variantPreview =
+        firstFile.previewUrl ||
+        firstFile.preview_url ||
+        null;
+
       const img =
         p.printfulImage ||
         p.printfulThumbnail ||
-        processedVariants[0]?.files?.[0]?.preview_url ||
+        variantPreview ||
         '';
       const colors = p.availableColors?.length
         ? p.availableColors

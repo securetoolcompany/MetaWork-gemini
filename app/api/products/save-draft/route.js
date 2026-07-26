@@ -1,18 +1,18 @@
-import { NextResponse } from 'next/server';
-import { connectToDatabase } from '@/lib/mongodb';
-import { verifyToken } from '@/lib/auth';
+import { NextResponse } from "next/server";
+import { connectToDatabase } from "@/lib/mongodb";
+import { verifyToken } from "@/lib/auth";
 
 function normalizePrintFileUrl(input) {
   if (!input) return input;
   const value = String(input).trim();
 
   if (/^https?:\/\//i.test(value)) {
-    return value.replace('/ipfs/ipfs/', '/ipfs/');
+    return value.replace("/ipfs/ipfs/", "/ipfs/");
   }
 
   const cleaned = value
-    .replace(/^ipfs:\/\//i, '')
-    .replace(/^ipfs\//i, '');
+    .replace(/^ipfs:\/\//i, "")
+    .replace(/^ipfs\//i, "");
 
   return `https://gateway.pinata.cloud/ipfs/${cleaned}`;
 }
@@ -22,49 +22,61 @@ async function generatePrintfulMockup(productId, templateId) {
   const token = process.env.PRINTFUL_API_KEY;
   const storeId = process.env.PRINTFUL_STORE_ID || 18472468;
   const headers = {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json',
-    'X-PF-Store-Id': String(storeId),
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+    "X-PF-Store-Id": String(storeId),
   };
 
   const { db } = await connectToDatabase();
 
   // 1. Get template FIRST (Fast GET request)
-  const templateRes = await fetch(`https://api.printful.com/product-templates/${templateId}`, { headers });
+  const templateRes = await fetch(
+    `https://api.printful.com/product-templates/${templateId}`,
+    { headers }
+  );
   const templateData = await templateRes.json();
-  if (!templateRes.ok) throw new Error(`Template fetch failed: ${JSON.stringify(templateData)}`);
+  if (!templateRes.ok) {
+    throw new Error(`Template fetch failed: ${JSON.stringify(templateData)}`);
+  }
   const template = templateData.result;
 
   console.log(
-  'PRINTFUL TEMPLATE DEBUG',
-  JSON.stringify(
-    {
-      templateId,
-      product_id: template.product_id,
-      available_variant_ids: template.available_variant_ids,
-      placements: template.placements,
-      templates: template.templates,
-      product_options: template.product_options,
-      option_data: template.option_data,
-    },
-    null,
-    2
-  )
-);
+    "PRINTFUL TEMPLATE DEBUG",
+    JSON.stringify(
+      {
+        templateId,
+        product_id: template.product_id,
+        available_variant_ids: template.available_variant_ids,
+        placements: template.placements,
+        templates: template.templates,
+        product_options: template.product_options,
+        option_data: template.option_data,
+      },
+      null,
+      2
+    )
+  );
 
   const realProductId = template.product_id || template.productid || null;
   const availableVariants = template.available_variant_ids || [];
-  if (!realProductId) throw new Error('Template missing productid');
-  if (!availableVariants.length) throw new Error('Template has no available_variant_ids');
+  if (!realProductId) throw new Error("Template missing productid");
+  if (!availableVariants.length)
+    throw new Error("Template has no available_variant_ids");
   const catalogId = realProductId;
   const variantId = availableVariants[0];
 
   // 2. Get product from DB
-  const product = await db.collection('products').findOne({ externalProductId: productId });
+  const product = await db
+    .collection("products")
+    .findOne({ externalProductId: productId });
+
+  const designAssets = Array.isArray(product?.designAssets)
+    ? product.designAssets
+    : [];
 
   const templatePlacements = Array.isArray(template.placements)
     ? template.placements
-    : (template.templates || []).flatMap(t => t.placements || []);
+    : (template.templates || []).flatMap((t) => t.placements || []);
 
   const placementConfigs = templatePlacements
     .map((p) => {
@@ -72,7 +84,9 @@ async function generatePrintfulMockup(productId, templateId) {
 
       if (!rawLayers.length && p.options) {
         const fileOption = p.options.find(
-          (o) => o.value && (String(o.value).includes('http') || o.id === 'item_url')
+          (o) =>
+            o.value &&
+            (String(o.value).includes("http") || o.id === "item_url")
         );
         if (fileOption) {
           rawLayers = [{ image_url: fileOption.value }];
@@ -82,24 +96,31 @@ async function generatePrintfulMockup(productId, templateId) {
       const validLayers = rawLayers
         .filter((l) => l && (l.image_url || l.url || l.item_url))
         .map((l) => ({
-          type: 'file',
-          url: normalizePrintFileUrl(l.image_url || l.url || l.item_url),
+          type: "file",
+          url: normalizePrintFileUrl(
+            l.image_url || l.url || l.item_url
+          ),
         }))
         .filter((l) => l.url);
 
       let determinedTechnique = p.technique_key || p.technique;
 
       if (!determinedTechnique) {
-        const displayName = String(p.display_name || '').toLowerCase();
-        const techniqueDisplay = String(p.technique_display_name || '').toLowerCase();
+        const displayName = String(p.display_name || "").toLowerCase();
+        const techniqueDisplay = String(
+          p.technique_display_name || ""
+        ).toLowerCase();
 
-        if (displayName.includes('embroidery') || techniqueDisplay.includes('embroider')) {
-          determinedTechnique = 'EMBROIDERY';
-        } else if (
-          techniqueDisplay.includes('all-over') ||
-          techniqueDisplay.includes('sublimation')
+        if (
+          displayName.includes("embroidery") ||
+          techniqueDisplay.includes("embroider")
         ) {
-          determinedTechnique = 'CUT-SEW';
+          determinedTechnique = "EMBROIDERY";
+        } else if (
+          techniqueDisplay.includes("all-over") ||
+          techniqueDisplay.includes("sublimation")
+        ) {
+          determinedTechnique = "CUT-SEW";
         }
       }
 
@@ -118,7 +139,9 @@ async function generatePrintfulMockup(productId, templateId) {
 
   // Decide if we should ignore template placements and fall back to selectedIPs
   const uniquePlacementUrls = new Set(
-    placementConfigs.flatMap((p) => (p.layers || []).map((l) => l.url)).filter(Boolean)
+    placementConfigs
+      .flatMap((p) => (p.layers || []).map((l) => l.url))
+      .filter(Boolean)
   );
 
   const shouldUseSelectedIPsFallback =
@@ -130,26 +153,36 @@ async function generatePrintfulMockup(productId, templateId) {
     placementConfigs.length = 0;
 
     let baseTemplateTechnique =
-      templatePlacements[0]?.technique_key || templatePlacements[0]?.technique;
+      templatePlacements[0]?.technique_key ||
+      templatePlacements[0]?.technique;
     if (!baseTemplateTechnique && templatePlacements[0]) {
       const techniqueDisplay = String(
-        templatePlacements[0].technique_display_name || ''
+        templatePlacements[0].technique_display_name || ""
       ).toLowerCase();
-      if (techniqueDisplay.includes('all-over') || techniqueDisplay.includes('sublimation')) {
-        baseTemplateTechnique = 'CUT-SEW';
-      } else if (techniqueDisplay.includes('embroider')) {
-        baseTemplateTechnique = 'EMBROIDERY';
+      if (
+        techniqueDisplay.includes("all-over") ||
+        techniqueDisplay.includes("sublimation")
+      ) {
+        baseTemplateTechnique = "CUT-SEW";
+      } else if (techniqueDisplay.includes("embroider")) {
+        baseTemplateTechnique = "EMBROIDERY";
       }
     }
 
-    const placementTargets = templatePlacements.length > 0
-      ? templatePlacements.map(tp => tp.placement)
-      : ['front', 'back'];
+    const placementTargets =
+      templatePlacements.length > 0
+        ? templatePlacements.map((tp) => tp.placement)
+        : ["front", "back"];
 
     placementTargets.forEach((placementName, index) => {
-      const ip = product.selectedIPs[index] || product.selectedIPs[0];
+      const ip =
+        product.selectedIPs[index] || product.selectedIPs[0];
       const fallbackUrl = normalizePrintFileUrl(
-        ip?.publicUrl || ip?.thumbnailUrl || ip?.url || ip?.imageUrl || null
+        ip?.publicUrl ||
+          ip?.thumbnailUrl ||
+          ip?.url ||
+          ip?.imageUrl ||
+          null
       );
 
       if (!fallbackUrl) return;
@@ -158,7 +191,7 @@ async function generatePrintfulMockup(productId, templateId) {
         placement: placementName,
         layers: [
           {
-            type: 'file',
+            type: "file",
             url: fallbackUrl,
           },
         ],
@@ -172,71 +205,177 @@ async function generatePrintfulMockup(productId, templateId) {
     });
   }
 
+  // Fallback 2: use designAssets when template + selectedIPs provide no usable images
+  if (placementConfigs.length === 0 && designAssets.length > 0) {
+    const byPlacement = designAssets.reduce((map, asset) => {
+      const key =
+        asset.placementName || asset.placement || "front";
+      if (!map[key]) map[key] = [];
+      map[key].push(asset);
+      return map;
+    }, {});
+
+    const placementTargets =
+      templatePlacements.length > 0
+        ? templatePlacements.map((tp) => tp.placement)
+        : Object.keys(byPlacement);
+
+    placementTargets.forEach((placementName) => {
+      const placementAssets =
+        byPlacement[placementName] || byPlacement["front"] || [];
+      if (!placementAssets.length) return;
+
+      const layers = placementAssets
+        .map((asset) => {
+          const url = normalizePrintFileUrl(
+            asset.normalizedUrl ||
+              asset.originalUrl ||
+              asset.url ||
+              asset.imageUrl ||
+              null
+          );
+          if (!url) return null;
+          return { type: "file", url };
+        })
+        .filter(Boolean);
+
+      if (!layers.length) return;
+
+      const anyAsset = placementAssets[0];
+      let technique =
+        templatePlacements.find(
+          (tp) => tp.placement === placementName
+        )?.technique_key ||
+        templatePlacements.find(
+          (tp) => tp.placement === placementName
+        )?.technique ||
+        anyAsset?.technique ||
+        null;
+
+      const placementConfig = {
+        placement: placementName,
+        layers,
+      };
+
+      if (technique) {
+        placementConfig.technique = technique;
+      }
+
+      placementConfigs.push(placementConfig);
+    });
+  }
+
   if (placementConfigs.length === 0) {
-    console.warn('❌ No placements with images found in template OR selectedIPs');
+    console.warn(
+      "❌ No placements with images found in template OR selectedIPs OR designAssets"
+    );
     return { mockupUrl: null, placementConfigs: [] };
   }
 
   // Build options blueprint
   const allowedProductOptions = Array.isArray(template.product?.options)
-    ? template.product.options.map(o => String(o.id || o.name).toLowerCase())
+    ? template.product.options.map((o) =>
+        String(o.id || o.name).toLowerCase()
+      )
     : [];
 
   const rawOptions = [
-    ...(template.product_options || []).map(opt => ({ id: opt.id || opt.name, value: opt.value })),
-    ...(Array.isArray(template.option_data?.[0]) ? template.option_data[0] : template.option_data || []),
+    ...(template.product_options || []).map((opt) => ({
+      id: opt.id || opt.name,
+      value: opt.value,
+    })),
+    ...(Array.isArray(template.option_data?.[0])
+      ? template.option_data[0]
+      : template.option_data || []),
   ];
 
   const productOptions = rawOptions
-    .map((opt) => ({ name: opt?.id || opt?.name, value: opt?.value }))
+    .map((opt) => ({
+      name: opt?.id || opt?.name,
+      value: opt?.value,
+    }))
     .filter((opt) => {
-      if (!opt.name || opt.value === undefined || opt.value === null || opt.value === "") return false;
+      if (
+        !opt.name ||
+        opt.value === undefined ||
+        opt.value === null ||
+        opt.value === ""
+      )
+        return false;
       if (allowedProductOptions.length === 0) {
-        const isEmbroideryTech = placementConfigs.some(p => p.technique === 'EMBROIDERY');
-        if (!isEmbroideryTech && (opt.name.includes('thread') || opt.name.includes('stitch'))) return false;
+        const isEmbroideryTech = placementConfigs.some(
+          (p) => p.technique === "EMBROIDERY"
+        );
+        if (
+          !isEmbroideryTech &&
+          (opt.name.includes("thread") ||
+            opt.name.includes("stitch"))
+        )
+          return false;
         return true;
       }
-      return allowedProductOptions.includes(String(opt.name).toLowerCase());
+      return allowedProductOptions.includes(
+        String(opt.name).toLowerCase()
+      );
     });
 
   const body = {
     format: "png",
-    products: [{
-      source: "catalog",
-      catalog_product_id: catalogId,
-      catalog_variant_ids: [variantId],
-      product_options: productOptions,
-      placements: placementConfigs,
-    }]
+    products: [
+      {
+        source: "catalog",
+        catalog_product_id: catalogId,
+        catalog_variant_ids: [variantId],
+        product_options: productOptions,
+        placements: placementConfigs,
+      },
+    ],
   };
 
   // Dispatch the generation task asynchronously, but DO NOT poll it synchronously
   try {
-    fetch('https://api.printful.com/v2/mockup-tasks', {
-      method: 'POST',
+    fetch("https://api.printful.com/v2/mockup-tasks", {
+      method: "POST",
       headers,
-      body: JSON.stringify(body)
-    }).catch(err => console.error('Background mockup task error:', err));
+      body: JSON.stringify(body),
+    }).catch((err) =>
+      console.error("Background mockup task error:", err)
+    );
   } catch (err) {
-    console.error('Failed to dispatch async mockup task:', err);
+    console.error("Failed to dispatch async mockup task:", err);
   }
 
   // Return parsed configurations immediately so the database can update instantly
-  return { mockupUrl: template.mockup_file_url || null, placementConfigs };
+  return {
+    mockupUrl: template.mockup_file_url || null,
+    placementConfigs,
+  };
 }
 
-const ENSURE_SYNC_PATH = '/api/products/ensure-sync';
-export const dynamic = 'force-dynamic';
+const ENSURE_SYNC_PATH = "/api/products/ensure-sync";
+export const dynamic = "force-dynamic";
 
 export async function POST(request) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.substring(7) || request.cookies.get('auth_token')?.value;
+    const authHeader = request.headers.get("authorization");
+    const cookieHeader = request.headers.get("cookie");
+    const authCookie =
+      cookieHeader?.match(/auth_token=([^;]+)/)?.[1] || null;
+    const token =
+      authHeader?.substring(7) || authCookie;
 
-    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!token)
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
 
     const decoded = verifyToken(token);
-    if (!decoded || !decoded.userId) return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    if (!decoded || !decoded.userId)
+      return NextResponse.json(
+        { error: "Invalid token" },
+        { status: 401 }
+      );
 
     const body = await request.json();
     const {
@@ -249,14 +388,20 @@ export async function POST(request) {
       originalPlacementAssets,
     } = body;
 
-    console.log("[save-draft] incoming originalPlacementAssets", originalPlacementAssets);
+    console.log(
+      "[save-draft] incoming originalPlacementAssets",
+      originalPlacementAssets
+    );
 
     if (!externalProductId || !baseProduct) {
-      return NextResponse.json({ error: 'externalProductId and baseProduct are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "externalProductId and baseProduct are required" },
+        { status: 400 }
+      );
     }
 
     const { db } = await connectToDatabase();
-    const products = db.collection('products');
+    const products = db.collection("products");
     const now = new Date();
 
     const existingProduct = await products.findOne({
@@ -276,8 +421,10 @@ export async function POST(request) {
       url: normalizePrintFileUrl(ip.url),
     }));
 
-        // licensed IPs are only those with a real library ipId (not synthetic uploads)
-    const licensedIPs = normalizedSelectedIPs.filter((ip) => ip.ipId);
+    // licensed IPs are only those with a real library ipId (not synthetic uploads)
+    const licensedIPs = normalizedSelectedIPs.filter(
+      (ip) => ip.ipId
+    );
 
     // normalize and persist per-placement EDM assets as unified designAssets
     // Support both old array shape and new object keyed by placement name.
@@ -287,7 +434,7 @@ export async function POST(request) {
       placementAssetsArray = originalPlacementAssets;
     } else if (
       originalPlacementAssets &&
-      typeof originalPlacementAssets === 'object'
+      typeof originalPlacementAssets === "object"
     ) {
       // e.g. { default: [asset,...], front: [asset,...] }
       placementAssetsArray = Object.values(originalPlacementAssets).flat();
@@ -311,12 +458,20 @@ export async function POST(request) {
         if (!normalizedUrl) return null;
 
         // try to match this placement back to a licensed IP by URL
-        const matchedIP = licensedIPs.find(
-          (ip) => ip.imageUrl && normalizedUrl.includes(ip.imageUrl)
-        );
+        const matchedIP = licensedIPs.find((ip) => {
+          const ipUrl =
+            ip.imageUrl ||
+            ip.thumbnailUrl ||
+            ip.publicUrl ||
+            ip.url;
+          if (!ipUrl) return false;
+          const normIpUrl = normalizePrintFileUrl(ipUrl);
+          return normIpUrl === normalizedUrl;
+        });
 
         const base = {
-          edmPlacementId: asset.edmPlacementId || asset.placementId || null,
+          edmPlacementId:
+            asset.edmPlacementId || asset.placementId || null,
           placementName: asset.placementName || asset.placement || null,
           originalUrl: rawUrl,
           normalizedUrl,
@@ -327,20 +482,24 @@ export async function POST(request) {
           // Library IP layer
           return {
             ...base,
-            kind: 'library_ip',
-            sourceType: 'meta_library',
+            kind: "library_ip",
+            sourceType: "meta_library",
             ipId: matchedIP.ipId || matchedIP.id || null,
-            licensingFee: matchedIP.licensingFee ?? asset.licensingFee ?? 0,
+            licensingFee:
+              matchedIP.licensingFee ??
+              asset.licensingFee ??
+              0,
             ownerId: matchedIP.ownerId || asset.ownerId || null,
-            ownerName: matchedIP.ownerName || asset.ownerName || null,
+            ownerName:
+              matchedIP.ownerName || asset.ownerName || null,
           };
         }
 
         // EDM upload (no library IP match)
         return {
           ...base,
-          kind: 'upload',
-          sourceType: 'edm',
+          kind: "upload",
+          sourceType: "edm",
           ipId: asset.ipId || null,
           licensingFee: asset.licensingFee ?? 0,
           ownerId: asset.ownerId || null,
@@ -349,7 +508,7 @@ export async function POST(request) {
       })
       .filter(Boolean);
 
-          console.log("[save-draft] computed designAssets", designAssets);
+    console.log("[save-draft] computed designAssets", designAssets);
 
     const result = await products.findOneAndUpdate(
       { userId: decoded.userId, externalProductId },
@@ -358,11 +517,11 @@ export async function POST(request) {
           userId: decoded.userId,
           externalProductId,
           catalogProductId:
-            typeof baseProduct?.product_id === 'number'
+            typeof baseProduct?.product_id === "number"
               ? baseProduct.product_id
-              : typeof baseProduct?.printfulProductId === 'number'
-                ? baseProduct.printfulProductId
-                : null,
+              : typeof baseProduct?.printfulProductId === "number"
+              ? baseProduct.printfulProductId
+              : null,
           printfulTemplateId: printfulTemplateId || null,
           selectedIPs: normalizedSelectedIPs,
           licensedIPs, // explicit licensing summary for this product
@@ -375,65 +534,105 @@ export async function POST(request) {
           originalPlacementAssets: designAssets,
 
           // Mark this as the unified EDM v2 snapshot
-          designStateVersion: 'edm-v2',
+          designStateVersion: "edm-v2",
 
           baseProduct,
-          name: name || baseProduct?.name || 'Untitled Design',
+          name:
+            name ||
+            baseProduct?.name ||
+            "Untitled Design",
           costAnalysis: costAnalysis || null,
-          status: 'draft',
-          printfulSyncProductId: existingProduct?.printfulSyncProductId || null,
+          status: "draft",
+          printfulSyncProductId:
+            existingProduct?.printfulSyncProductId || null,
           updatedAt: now,
         },
         $setOnInsert: { createdAt: now },
       },
-      { upsert: true, returnDocument: 'after' }
+      { upsert: true, returnDocument: "after" }
     );
 
     // Process layouts instantly without executing 3-minute polling delays
     if (printfulTemplateId) {
       try {
-        console.log('🔍 Processing configurations instantly...', { externalProductId, templateId: printfulTemplateId });
-        const mockupResult = await generatePrintfulMockup(externalProductId, printfulTemplateId);
+        console.log("🔍 Processing configurations instantly...", {
+          externalProductId,
+          templateId: printfulTemplateId,
+        });
+        const mockupResult = await generatePrintfulMockup(
+          externalProductId,
+          printfulTemplateId
+        );
 
         if (mockupResult) {
+          const update = {
+            mockupUrl: mockupResult.mockupUrl || null,
+          };
+
+          if (
+            Array.isArray(mockupResult.placementConfigs) &&
+            mockupResult.placementConfigs.length > 0
+          ) {
+            update.printfulPlacementConfigs =
+              mockupResult.placementConfigs;
+          }
+
           await products.updateOne(
             { externalProductId },
+            { $set: update }
+          );
+
+          console.log(
+            "[save-draft] updating mockup and placements",
             {
-              $set: {
-                mockupUrl: mockupResult.mockupUrl || null,
-                printfulPlacementConfigs: mockupResult.placementConfigs || [],
-              },
+              externalProductId,
+              placementConfigs:
+                mockupResult?.placementConfigs,
             }
           );
         }
       } catch (e) {
-        console.warn('Configuration extraction warning:', e.message);
+        console.warn(
+          "Configuration extraction warning:",
+          e.message
+        );
       }
     }
 
     // Background push to sync endpoints
     try {
       const vercelUrl = process.env.VERCEL_URL;
-      const publicBaseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-      const baseUrl = publicBaseUrl || (vercelUrl ? `https://${vercelUrl}` : 'http://localhost:3000');
+      const publicBaseUrl =
+        process.env.NEXT_PUBLIC_BASE_URL;
+      const baseUrl =
+        publicBaseUrl ||
+        (vercelUrl
+          ? `https://${vercelUrl}`
+          : "http://localhost:3000");
 
-      const ensureSyncRes = await fetch(`${baseUrl}${ENSURE_SYNC_PATH}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': authHeader || `Bearer ${token}`,
-        },
-        body: JSON.stringify({ externalProductId }),
-      });
+      const ensureSyncRes = await fetch(
+        `${baseUrl}${ENSURE_SYNC_PATH}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: authHeader || `Bearer ${token}`,
+          },
+          body: JSON.stringify({ externalProductId }),
+        }
+      );
 
       const ensureSyncData = await ensureSyncRes.json();
-      console.log('ensure-sync response', {
+      console.log("ensure-sync response", {
         status: ensureSyncRes.status,
         ok: ensureSyncRes.ok,
         data: ensureSyncData,
       });
     } catch (err) {
-      console.error('Error scheduling ensure-sync:', err);
+      console.error(
+        "Error scheduling ensure-sync:",
+        err
+      );
     }
 
     return NextResponse.json(
@@ -445,7 +644,10 @@ export async function POST(request) {
       { status: 200 }
     );
   } catch (err) {
-    console.error('❌ save-draft error:', err);
-    return NextResponse.json({ error: err.message || 'Failed to save draft' }, { status: 500 });
+    console.error("❌ save-draft error:", err);
+    return NextResponse.json(
+      { error: err.message || "Failed to save draft" },
+      { status: 500 }
+    );
   }
 }

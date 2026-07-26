@@ -1,32 +1,35 @@
-import { NextResponse } from 'next/server';
-// Note: You may need to move your sync script logic into a lib folder 
-// or simply paste the logic inside this GET function.
-import { MongoClient } from 'mongodb';
+// app/api/cron/sync-printful/route.js
 
-export const maxDuration = 300; // 5 minutes (critical for catalog sync)
+import { NextResponse } from 'next/server';
+import clientPromise from '@/lib/mongodb';
+import { syncPrintfulCatalogWithAvailability } from '../../../../scripts/sync-printful-once';
+
+export const maxDuration = 300; // 5 minutes for cron
 export const dynamic = 'force-dynamic';
 
 export async function GET(req) {
-  // 1. Security Check (Matches the CRON_SECRET you set in Vercel)
+  // 1. Security check using CRON_SECRET
   const authHeader = req.headers.get('authorization');
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
 
   try {
-    console.log('🔄 Automated Sync Started');
+    console.log('🔄 Automated Printful Catalog Sync Started (cron)');
 
-    // 2. Paste your 'syncPrintfulCatalog' logic here 
-    // or call the function if you exported it from your script file.
-    
-    // For now, we return a success message so you can verify the route works.
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Printful sync triggered. Monitoring via logs.' 
+    const client = await clientPromise;
+    const result = await syncPrintfulCatalogWithAvailability(client);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Printful catalog + availability sync completed.',
+      summary: result
     });
-
   } catch (error) {
-    console.error('❌ Cron Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error('[cron/sync-printful] Error:', error);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
   }
 }

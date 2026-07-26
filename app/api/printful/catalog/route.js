@@ -1,9 +1,8 @@
+// app/api/printful/catalog/route.js
+
 import { NextResponse } from 'next/server';
+import clientPromise from '@/lib/mongodb';
 
-const PRINTFUL_API_KEY = process.env.PRINTFUL_API_KEY;
-const PRINTFUL_BASE_URL = 'https://api.printful.com';
-
-// Curated list of product categories to show
 const CURATED_PRODUCT_IDS = [
   71, 145, 380, // T-Shirts
   146, 320,     // Hoodies
@@ -12,88 +11,119 @@ const CURATED_PRODUCT_IDS = [
   1, 171,       // Posters
   56, 233,      // Phone Cases
   83,           // Bags
-  358,          // Stickers
+  358           // Stickers
 ];
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id'); // NEW: Check for specific ID
+    const id = searchParams.get('id');
     const category = searchParams.get('category');
     const search = searchParams.get('search');
     const fetchAll = searchParams.get('all') === 'true';
 
-    // --- CASE 1: FETCH SINGLE PRODUCT DETAILS (Deep Data) ---
+    const client = await clientPromise;
+    const db = client.db('metawork_db');
+    const blankProducts = db.collection('blank_products');
+
+    // --- CASE 1: FETCH SINGLE PRODUCT DETAILS (Deep Data from Mongo) ---
     if (id) {
-      const response = await fetch(`${PRINTFUL_BASE_URL}/products/${id}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${PRINTFUL_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const numericId = Number(id);
+      const productDoc =
+        (await blankProducts.findOne({ catalogProductId: numericId })) ||
+        (await blankProducts.findOne({ printfulProductId: numericId }));
 
-      if (!response.ok) {
-        throw new Error(`Printful API Error: ${response.status}`);
+      if (!productDoc || productDoc.hasAvailableVariants === false) {
+        return NextResponse.json(
+          { error: 'Product unavailable' },
+          { status: 404 }
+        );
       }
 
-      const data = await response.json();
-      // Returns { product: {...}, variants: [...] }
-      return NextResponse.json(data.result);
-    }
-
-    // --- CASE 2: FETCH CATALOG LIST (Summary Data) ---
-    const response = await fetch(`${PRINTFUL_BASE_URL}/products`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${PRINTFUL_API_KEY}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      return NextResponse.json(
-        { error: 'Failed to fetch Printful catalog', details: errorText },
-        { status: response.status }
+      const filteredVariants = (productDoc.variants || []).filter(
+        v => v.availability_status === 'active'
       );
+
+      return NextResponse.json({
+        product: {
+          id: productDoc.printfulProductId,
+          title: productDoc.title,
+          type_name: productDoc.type_name,
+          main_category_id: productDoc.main_category_id,
+          image: productDoc.image,
+          thumbnail_url: productDoc.thumbnail_url,
+          description: productDoc.description
+        },
+        variants: filteredVariants
+      });
     }
 
-    const data = await response.json();
-    let products = data.result || [];
+    // --- CASE 2: FETCH CATALOG LIST (Summary Data from Mongo) ---
+    const query = {
+      hasAvailableVariants: true
+    };
 
     if (!fetchAll) {
-      products = products.filter(p => CURATED_PRODUCT_IDS.includes(p.id));
+      query.catalogProductId = { $in: CURATED_PRODUCT_IDS };
     }
 
+    let products = await blankProducts.find(query).toArray();
+
     if (category) {
-      products = products.filter(p => 
-        p.type_name?.toLowerCase().includes(category.toLowerCase()) ||
-        p.main_category_id?.toString() === category
+      const categoryLower = category.toLowerCase();
+      products = products.filter(
+        p =>
+          p.type_name?.toLowerCase().includes(categoryLower) ||
+          p.main_category_id?.toString() === category
       );
     }
 
     if (search) {
       const searchLower = search.toLowerCase();
-      products = products.filter(p =>
-        p.title?.toLowerCase().includes(searchLower) ||
-        p.type_name?.toLowerCase().includes(searchLower)
+      products = products.filter(
+        p =>
+          p.title?.toLowerCase().includes(searchLower) ||
+          p.type_name?.toLowerCase().includes(searchLower)
       );
     }
 
-    const catalogProducts = products.map(product => ({
-      catalogProductId: product.id,
+    const catalogProducts = products.map(product => {
+    // Choose the best available image in the same way your dialog/mockup logic does
+    const variantPreview =
+      product.variants?.[0]?.files?.[0]?.previewUrl ||
+      product.variants?.[0]?.files?.[0]?.preview_url;
+
+    const thumbnailUrl =
+      product.image ||
+      product.thumbnail_url ||
+      variantPreview ||
+      null;
+
+    return {
+      catalogProductId: product.catalogProductId || product.printfulProductId,
       name: product.title || product.type_name,
-      thumbnailUrl: product.image || product.thumbnail_url,
+      thumbnailUrl,
       mainCategory: product.type_name,
       type: product.type_name,
-      variantCount: product.variant_count || 0,
+      variantCount: (product.variants || []).length,
       isAccessory: product.is_accessory || false,
       avgPrice: product.avg_price || null,
-      description: product.description || ''
-    }));
+      description: product.description || '',
+      // expose raw fields too if the UI wants them
+      rawImage: product.image,
+      rawThumbnailUrl: product.thumbnail_url
+    };
+  });
 
-    const categories = [...new Set(products.map(p => p.type_name).filter(Boolean))];
+    const categories = [
+      ...new Set(
+        products
+          .map(p => p.type_name)
+          .filter(Boolean)
+      )
+    ];
 
     return NextResponse.json({
       success: true,
@@ -101,7 +131,6 @@ export async function GET(request) {
       categories,
       totalCount: catalogProducts.length
     });
-
   } catch (error) {
     console.error('Catalog API Error:', error);
     return NextResponse.json(
