@@ -7,7 +7,7 @@ import { useWallet } from '@/lib/WalletContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plus, CheckCircle, Clock, Loader2, Wallet } from 'lucide-react';
+import { Plus, CheckCircle, Clock, Loader2, Wallet, Trash2 } from 'lucide-react';
 import IPEditDialog from '@/components/ip/IPEditDialog';
 import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 
@@ -78,6 +78,28 @@ function MyIPPage() {
       return `https://coffee-far-haddock-423.mypinata.cloud/ipfs/${rawUrl}`;
     }
     return '/placeholder.png';
+  };
+
+  const [deletingId, setDeletingId] = useState(null);
+
+  const handleDelete = async (e, ip) => {
+    e.stopPropagation();
+    if (!confirm(`Delete "${ip.name}"? This cannot be undone.`)) return;
+    setDeletingId(ip._id || ip.id);
+    try {
+      const res = await fetch(`/api/ip/${ip._id || ip.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeader(),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setIpAssets((prev) =>
+        prev.filter((a) => (a._id || a.id) !== (ip._id || ip.id))
+      );
+    } catch (err) {
+      alert('Failed to delete: ' + err.message);
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   if (isLoading) {
@@ -164,7 +186,7 @@ function MyIPPage() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {visibleAssets.map((ip) => (
               <Card
-                key={ip.id}
+                key={ip._id || ip.id}
                 className="group overflow-hidden hover:shadow-lg transition-all duration-300 border-muted cursor-pointer"
                 onClick={() => { setSelectedIP(ip); setDialogOpen(true); }}
               >
@@ -197,13 +219,25 @@ function MyIPPage() {
                       ? `TX: ${ip.txId || 'Pending...'}`
                       : `ID: ${ip.revenueTokenAssetId || 'Pending...'}`}
                   </div>
-                  <div className="mt-3">
+                  <div className="mt-3 flex gap-2">
                     <Button
                       size="sm"
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
                       onClick={(e) => { e.stopPropagation(); setSelectedIP(ip); setDialogOpen(true); }}
                     >
                       View Details
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive hover:bg-destructive hover:text-destructive-foreground border-destructive/40"
+                      onClick={(e) => handleDelete(e, ip)}
+                      disabled={deletingId === (ip._id || ip.id)}
+                      title="Delete IP asset"
+                    >
+                      {deletingId === (ip._id || ip.id)
+                        ? <Loader2 className="w-4 h-4 animate-spin" />
+                        : <Trash2 className="w-4 h-4" />}
                     </Button>
                   </div>
                 </CardContent>
@@ -213,7 +247,30 @@ function MyIPPage() {
         )}
 
         {selectedIP && (
-          <IPEditDialog ipAsset={selectedIP} open={dialogOpen} onOpenChange={setDialogOpen} />
+          <IPEditDialog
+            key={selectedIP._id || selectedIP.id}
+            ipAsset={selectedIP}
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            onSaved={(updated) => {
+              // If dialog signals deletion
+              if (updated?._deleted) {
+                setIpAssets(prev =>
+                  prev.filter(a =>
+                    (a._id || a.id) !== (selectedIP._id || selectedIP.id)
+                  )
+                );
+                return;
+              }
+
+              // Normal save path
+              setIpAssets(prev =>
+                prev.map(a =>
+                  (a._id || a.id) === (updated._id || updated.id) ? updated : a
+                )
+              );
+            }}
+          />
         )}
       </div>
 

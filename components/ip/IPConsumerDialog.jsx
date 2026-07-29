@@ -28,8 +28,15 @@ import {
 export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
   const router = useRouter();
   const pathname = usePathname(); // Detect where the user is
-
+  
   if (!ip) return null;
+
+  // Normalize tags defensively — DB may store as string or array
+  const tags = Array.isArray(ip.tags)
+    ? ip.tags
+    : typeof ip.tags === 'string'
+    ? ip.tags.split(',').map(t => t.trim()).filter(Boolean)
+    : [];
 
   // Check if we are currently on the creator page
   const isInsideCreator = pathname.includes('/products/creator');
@@ -213,17 +220,17 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
                 </div>
 
                 {/* Tags */}
-                {ip.tags && ip.tags.length > 0 && (
-                   <div className="space-y-2">
-                      <h3 className="text-sm font-semibold flex items-center gap-2">
-                         <Tag className="h-4 w-4 text-purple-500" /> Tags
-                      </h3>
-                      <div className="flex flex-wrap gap-1.5">
-                         {ip.tags.map(tag => (
-                            <Badge key={tag} variant="outline" className="text-xs">#{tag}</Badge>
-                         ))}
-                      </div>
-                   </div>
+                {tags.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-purple-500" /> Tags
+                    </h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {tags.map(tag => (
+                        <Badge key={tag} variant="outline" className="text-xs">#{tag}</Badge>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             </ScrollArea>

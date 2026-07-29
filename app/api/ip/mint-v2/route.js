@@ -67,6 +67,13 @@ export async function POST(request) {
 
     let user = await db.collection("users").findOne(userQuery);
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    
+    const displayName = user.profile?.displayName || user.username || user.email;
+    const avatar =
+      user.profile?.avatar ||
+      user.avatar ||
+      user.profileImage ||
+      "";
 
     // --- CREDITS CHECK & DEDUCTION ---
     const MINT_COST = 25;
@@ -149,20 +156,23 @@ export async function POST(request) {
     });
 
     const ipAsset = {
-      id: ipAssetId,
-      name,
-      assetType: assetType || 'token',
-      description,
-      category,
-      imageUrl: imageUrl.replace("ipfs://", `${process.env.PINATA_GATEWAY}/ipfs/`),
-      metadataUrl: metaRes.ipfsUrl,
-      metadataHash,
-      ownerId: decoded.userId,
-      ownerWallet: senderWallet,
-      stakeholders: finalStakeholders,
-      status: "pending_nft_mint",
-      createdAt: new Date()
-    };
+    id: ipAssetId,
+    name,
+    assetType: assetType || 'token',
+    description,
+    category,
+    imageUrl: imageUrl.replace("ipfs://", `${process.env.PINATA_GATEWAY}/ipfs/`),
+    metadataUrl: metaRes.ipfsUrl,
+    metadataHash,
+    ownerId: decoded.userId,
+    ownerWallet: senderWallet,
+    ownerName: displayName,
+    ownerUsername: user.username,
+    ownerAvatar: avatar,
+    stakeholders: finalStakeholders,
+    status: "pending_nft_mint",
+    createdAt: new Date()
+  };
     await db.collection("ip_assets").insertOne(ipAsset);
 
     return NextResponse.json(safeJson({

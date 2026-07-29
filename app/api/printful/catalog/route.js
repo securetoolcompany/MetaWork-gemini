@@ -1,7 +1,7 @@
 // app/api/printful/catalog/route.js
 
 import { NextResponse } from 'next/server';
-import clientPromise from '@/lib/mongodb';
+import { connectToDatabase } from '@/lib/mongodb';
 
 const CURATED_PRODUCT_IDS = [
   71, 145, 380, // T-Shirts
@@ -24,8 +24,7 @@ export async function GET(request) {
     const search = searchParams.get('search');
     const fetchAll = searchParams.get('all') === 'true';
 
-    const client = await clientPromise;
-    const db = client.db('metawork_db');
+    const { db } = await connectToDatabase();
     const blankProducts = db.collection('blank_products');
 
     // --- CASE 1: FETCH SINGLE PRODUCT DETAILS (Deep Data from Mongo) ---

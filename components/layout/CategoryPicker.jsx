@@ -9,10 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { ChevronDown, ChevronUp, X } from 'lucide-react';
 import {
   IP_CATEGORY_GROUPS,
-  SUPER_CATEGORY_GROUPS,
   parseCategoryString,
   serializeCategoryMap,
-  getAllGroups,
 } from '@/lib/ipCategories';
 
 /**
@@ -25,17 +23,26 @@ import {
 export default function CategoryPicker({
   value = '',
   onChange,
-  superGroups = SUPER_CATEGORY_GROUPS,
+  superGroups = null,
   groups = null,
 }) {
-  const flatGroups = groups ?? getAllGroups();
+  const flatGroups = groups ?? IP_CATEGORY_GROUPS;
   const selected = parseCategoryString(value, flatGroups);
 
+  const effectiveSuperGroups = superGroups ?? [
+    {
+      id: 'default',
+      label: 'Categories',
+      emoji: '📦',
+      subGroups: flatGroups,
+    },
+  ];
+
   // Super-master open state (null = all closed)
-  const [openSuper, setOpenSuper] = useState(superGroups[0]?.id ?? null);
+  const [openSuper, setOpenSuper] = useState(effectiveSuperGroups[0]?.id ?? null);
   // Sub-group open state per super-group
   const [openSub, setOpenSub] = useState(() =>
-    Object.fromEntries(superGroups.map(sg => [sg.id, sg.subGroups[0]?.id ?? null]))
+    Object.fromEntries(effectiveSuperGroups.map(sg => [sg.id, sg.subGroups[0]?.id ?? null]))
   );
 
   const toggle = (groupId, option) => {
@@ -83,7 +90,7 @@ export default function CategoryPicker({
 
       {/* Super-master accordion */}
       <div className="border border-border rounded-lg overflow-hidden divide-y divide-border">
-        {superGroups.map(sg => {
+        {effectiveSuperGroups.map(sg => {
           const isSuperOpen = openSuper === sg.id;
           const sgSelectedCount = sg.subGroups.reduce(
             (n, g) => n + (selected[g.id]?.length || 0), 0

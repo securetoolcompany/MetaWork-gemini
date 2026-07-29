@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
 import algosdk from 'algosdk';
+import { ObjectId } from 'mongodb';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,9 +20,22 @@ export async function GET(request) {
     
     const { db } = await connectToDatabase();
     
-    // Fetch IP assets
+    // Fetch IP assets for this user, supporting string and ObjectId ownerId
+    const userId = decoded.userId;
+    const ownerFilter = { $or: [{ ownerId: userId }] };
+
+    if (ObjectId.isValid(userId)) {
+      ownerFilter.$or.push({ ownerId: new ObjectId(userId) });
+    }
+
+    // Fetch IP assets for this user (string or ObjectId ownerId)
     const ipAssets = await db.collection('ip_assets')
-      .find({ ownerId: decoded.userId })
+      .find({
+        $or: [
+          { ownerId: decoded.userId },
+          { ownerId: new ObjectId(decoded.userId) }
+        ]
+      })
       .sort({ createdAt: -1 })
       .toArray();
     

@@ -27,7 +27,7 @@ import {
 import {
   Upload, DollarSign, TrendingUp, AlertCircle, Globe, Lock,
   Info, ShoppingCart, Eye, Coins, Users, Calendar, Wallet,
-  ExternalLink, BarChart2,
+  ExternalLink, BarChart2, Trash2, Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -95,6 +95,7 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, onSaved, tut
 
   const [charCount, setCharCount] = useState(formData.description.length);
 
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleDescriptionChange = (e) => {
     const text = e.target.value;
@@ -175,6 +176,49 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, onSaved, tut
     }
   };
 
+  const handleDelete = async () => {
+    if (!ipAsset) return;
+
+    const confirmed = window.confirm(
+      `Delete "${ipAsset.name || 'this IP'}"? This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+
+    try {
+      // Reuse the same token approach as handleSave
+      const token = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('auth_token='))
+        ?.split('=')[1];
+
+      const res = await fetch(`/api/ip/${ipAsset._id || ipAsset.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || 'Delete failed');
+      }
+
+      toast.success('IP deleted', {
+        description: 'This IP asset has been permanently removed.',
+      });
+
+      // Let parent page remove it from its list if it wants
+      onSaved?.({ ...ipAsset, _deleted: true });
+
+      onOpenChange(false);
+    } catch (err) {
+      toast.error('Delete failed', { description: err.message });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (!ipAsset) return null;
 
@@ -668,10 +712,40 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, onSaved, tut
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-border">
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            className="flex-1"
+            disabled={isDeleting}
+          >
             Cancel
           </Button>
-          <Button onClick={handleSave} className="flex-1 bg-primary" id="ip-save-button">
+
+          <Button
+            variant="outline"
+            className="flex-1 border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            onClick={handleDelete}
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Deleting…
+              </>
+            ) : (
+              <>
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete IP
+              </>
+            )}
+          </Button>
+
+          <Button
+            onClick={handleSave}
+            className="flex-1 bg-primary"
+            id="ip-save-button"
+            disabled={isDeleting}
+          >
             Save Changes
           </Button>
         </div>

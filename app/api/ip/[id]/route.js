@@ -59,16 +59,23 @@ export async function GET(request, { params }) {
     if (ipAsset.revenueTokenAssetId) ipAsset.revenueTokenAssetId = String(ipAsset.revenueTokenAssetId);
     if (ipAsset.revenuePool?.appId) ipAsset.revenuePool.appId = String(ipAsset.revenuePool.appId);
 
+    // Normalize tags
+    if (typeof ipAsset.tags === 'string') {
+      ipAsset.tags = ipAsset.tags.split(',').map(t => t.trim()).filter(Boolean);
+    } else if (!Array.isArray(ipAsset.tags)) {
+      ipAsset.tags = [];
+    }
+
     // 4. Usage Stats: Fetch history, products, and owner info
-const [ownershipHistory, products, owner] = await Promise.all([
-  db.collection('ip_ownership_history')
-    .find({ ipAssetId: String(ipAsset.id) })
-    .toArray(),
-  db.collection('products')
-    .find({ ipAssetId: String(ipAsset.id) })
-    .toArray(),
-  db.collection('users').findOne({ id: ipAsset.ownerId })
-]);
+    const [ownershipHistory, products, owner] = await Promise.all([
+      db.collection('ip_ownership_history')
+        .find({ ipAssetId: String(ipAsset.id) })
+        .toArray(),
+      db.collection('products')
+        .find({ ipAssetId: String(ipAsset.id) })
+        .toArray(),
+      db.collection('users').findOne({ id: ipAsset.ownerId })
+    ]);
 
 // Add owner info to ipAsset (for creator button)
 if (owner) {
@@ -196,6 +203,54 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('IP update error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+// DELETE - Remove IP asset
+export async function DELETE(request, { params }) {
+  try {
+    const token = request.cookies.get('auth_token')?.value;
+    if (!token) {
+      return NextResponse.json({ error: 'Auth required' }, { status: 401 });
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded?.userId) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const { db } = await connectToDatabase();
+
+    // Same matching strategy as PUT, owner-guarded
+    const matchQuery = {
+      $or: [
+        { id: id },
+        { revenueTokenAssetId: parseInt(id) || -1 },
+      ],
+      ownerId: decoded.userId,
+    };
+
+    if (ObjectId.isValid(id)) {
+      matchQuery.$or.push({ _id: new ObjectId(id) });
+    }
+
+    // Find the asset first (to get _id)
+    const ipAsset = await db.collection('ip_assets').findOne(matchQuery);
+
+    if (!ipAsset) {
+      return NextResponse.json(
+        { error: 'IP not found or unauthorized' },
+        { status: 404 }
+      );
+    }
+
+    await db.collection('ip_assets').deleteOne({ _id: ipAsset._id });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('IP delete error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
