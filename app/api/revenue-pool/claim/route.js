@@ -11,9 +11,12 @@ import {
   invalidateAccountCache,
 } from '@/lib/algorand-rate-limit';
 
-const USDC_ASSET_ID = Number(process.env.USDC_ASSET_ID);
-  if (!USDC_ASSET_ID) {
+function getUsdcAssetId() {
+  const id = Number(process.env.USDC_ASSET_ID);
+  if (!id) {
     throw new Error('USDC_ASSET_ID is not configured');
+  }
+  return id;
 }
 
 function encodePoolBoxName(ipId) {
@@ -121,13 +124,18 @@ export async function GET(request) {
         try {
           accountInfo = await getCachedAccountInfo(algodClient, normalizedUser);
 
-          const asset = (accountInfo.assets || []).find(
-            (a) => Number(a['asset-id']) === pool.revenueTokenId
-          );
+          const targetAssetId = BigInt(pool.revenueTokenId);
+          const assets = Array.isArray(accountInfo?.assets) ? accountInfo.assets : [];
 
-          if (asset) {
-            userTokenBalance = Number(asset.amount || 0);
-          }
+          const asset = assets.find((a) => {
+            try {
+              return BigInt(a?.['asset-id'] ?? a?.assetId ?? 0) === targetAssetId;
+            } catch {
+              return false;
+            }
+          });
+
+          userTokenBalance = asset ? Number(asset?.amount ?? 0) : 0;
         } catch (err) {
           console.log(
             'Could not get user token balance:',
@@ -229,7 +237,8 @@ export async function POST(request) {
     const algodClient = getAlgodClient();
     const suggestedParams = await getCachedTxParams(algodClient);
     const appIndex = parseInt(appId, 10);
-
+    const USDC_ASSET_ID = getUsdcAssetId();
+    
     const poolBoxName = encodePoolBoxName(ipId);
     const poolBox = await getCachedPoolBox(
       algodClient,

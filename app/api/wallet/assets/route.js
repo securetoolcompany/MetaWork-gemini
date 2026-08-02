@@ -1,14 +1,7 @@
 import { NextResponse } from 'next/server';
-import algosdk from 'algosdk';
+import { getAlgodClient, getUsdcAssetId } from '@/lib/algorand';
 
 export const dynamic = 'force-dynamic';
-
-const algodClient = new algosdk.Algodv2('', 'https://testnet-api.algonode.cloud', '');
-const USDC_ASSET_ID = Number(process.env.USDC_ASSET_ID);
-
-if (!USDC_ASSET_ID) {
-  throw new Error('USDC_ASSET_ID is not configured');
-}
 
 export async function GET(request) {
   try {
@@ -19,18 +12,22 @@ export async function GET(request) {
       return NextResponse.json({ error: 'userAddress is required' }, { status: 400 });
     }
 
+    const algodClient = getAlgodClient();
+    const USDC_ASSET_ID = getUsdcAssetId();
+
     const account = await algodClient.accountInformation(userAddress).do();
     const assets = Array.isArray(account.assets) ? account.assets : [];
+    const usdcIdBig = BigInt(USDC_ASSET_ID);
 
     return NextResponse.json({
       success: true,
       usdcAssetId: String(USDC_ASSET_ID),
-      optedIn: assets.some((a) => Number(a['asset-id']) === USDC_ASSET_ID),
+      optedIn: assets.some((a) => BigInt(a['asset-id'] ?? 0) === usdcIdBig),
       assets: assets.map((a) => ({
-         assetId: String(a['asset-id']),
-         amount: String(a.amount),
-         isFrozen: Boolean(a['is-frozen']),
-        })),
+        assetId: String(a['asset-id']),
+        amount: String(a.amount),
+        isFrozen: Boolean(a['is-frozen']),
+      })),
     });
   } catch (error) {
     console.error('Wallet assets error:', error);
