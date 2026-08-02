@@ -50,10 +50,65 @@ export default function ClaimPage() {
   const tokensInFlightRef = useRef(false);
   const poolsInFlightRef = useRef(false);
   const refreshTimeoutRef = useRef(null);
+  const usdcOptInCacheRef = useRef(new Map());
 
   useEffect(() => {
     tokenOverridesRef.current = tokenOverrides;
   }, [tokenOverrides]);
+
+  async function getUsdcOptInStatus(userAddress) {
+    const cached = usdcOptInCacheRef.current.get(userAddress);
+    if (cached?.optedIn === true) {
+      return cached;
+    }
+
+    const res = await fetch(
+      `/api/wallet/assets?userAddress=${encodeURIComponent(userAddress)}`,
+      { method: 'GET', credentials: 'include' }
+    );
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      throw new Error(data?.error || 'Failed to check USDC opt-in');
+    }
+
+    const status = {
+      optedIn: Boolean(data?.optedIn),
+      assetId: Number(data?.usdcAssetId || 0),
+      checkedAt: Date.now(),
+    };
+
+    if (status.optedIn) {
+      usdcOptInCacheRef.current.set(userAddress, status);
+    }
+
+    return status;
+  }
+
+  async function getUsdcOptInTxn(userAddress) {
+    const res = await fetch('/api/revenue-pool/usdc-optin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ userAddress }),
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      throw new Error(data?.error || 'Failed to prepare USDC opt-in transaction');
+    }
+
+    if (!data?.transaction) {
+      throw new Error('USDC opt-in transaction was not returned');
+    }
+
+    return {
+      transaction: data.transaction,
+      assetId: Number(data?.assetId || 0),
+    };
+  }
 
   const mergeTokenWithOverride = useCallback((item) => {
     const override = tokenOverridesRef.current[item.ipId];
@@ -144,30 +199,50 @@ export default function ClaimPage() {
       const ipData = ipResult.ipAssets || (Array.isArray(ipResult) ? ipResult : []);
       const ipsWithPools = ipData.filter((ip) => ip.revenuePoolAppId);
 
+      console.log('[POOLS] ipsWithPools', ipsWithPools.map((ip) => ({
+        name: ip.name,
+        _id: ip._id,
+        mongoId: ip.mongoId,
+        id: ip.id,
+        ipId: ip.ipId,
+        tokenizedIpId: ip.tokenizedIpId,
+        assetId: ip.assetId,
+        revenuePoolAppId: ip.revenuePoolAppId,
+        revenuePool: ip.revenuePool,
+      })));
+
       const poolsWithClaimInfo = [];
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
       for (const ip of ipsWithPools) {
         if (controller.signal.aborted) return;
 
+        const resolvedIpId = resolvePoolIpId(ip);
+
+        console.log('[POOLS] resolving ip id', {
+          name: ip.name,
+          _id: ip._id,
+          id: ip.id,
+          ipId: ip.ipId,
+          tokenizedIpId: ip.tokenizedIpId,
+          resolvedIpId,
+          revenuePoolAppId: ip.revenuePoolAppId,
+        });
+
+        // Per-request timeout controller
+        const requestController = new AbortController();
+        const timeoutId = setTimeout(() => {
+          requestController.abort();
+        }, 4000); // 4s, adjust as needed
+
         try {
-          const resolvedIpId = resolvePoolIpId(ip);
-
-          console.log('[POOLS] resolving ip id', {
-            name: ip.name,
-            _id: ip._id,
-            id: ip.id,
-            ipId: ip.ipId,
-            tokenizedIpId: ip.tokenizedIpId,
-            resolvedIpId,
-            revenuePoolAppId: ip.revenuePoolAppId,
-          });
-
           const res = await fetch(
             `/api/revenue-pool/claim?appId=${Number(
               ip.revenuePoolAppId
             )}&userAddress=${accountAddress}&ipId=${resolvedIpId}`,
-            { signal: controller.signal }
+            {
+              signal: requestController.signal,
+            }
           );
 
           if (res.ok) {
@@ -176,16 +251,23 @@ export default function ClaimPage() {
           } else {
             console.warn(
               '[POOLS] Claim info request failed',
-              ip.id,
-              res.status
+              { id: ip.id, status: res.status }
             );
-            poolsWithClaimInfo.push({ ...ip, claimInfo: null });
+            poolsWithClaimInfo.push({ ...ip, resolvedIpId, claimInfo: null });
           }
         } catch (err) {
-          if (err.name !== 'AbortError') {
+          if (err.name === 'AbortError') {
+            console.warn('[POOLS] claim fetch timed out', {
+              name: ip.name,
+              appId: ip.revenuePoolAppId,
+              resolvedIpId,
+            });
+          } else {
             console.error('Error fetching pool claim info:', ip.id, err);
           }
-          poolsWithClaimInfo.push({ ...ip, claimInfo: null });
+          poolsWithClaimInfo.push({ ...ip, resolvedIpId, claimInfo: null });
+        } finally {
+          clearTimeout(timeoutId);
         }
 
         await sleep(400);
@@ -345,14 +427,27 @@ export default function ClaimPage() {
   };
 
   const handleClaimRevenue = async (pool) => {
-    if (!isConnected || !accountAddress) return toast.error('Connect wallet');
+    if (!isConnected || !accountAddress) {
+      return toast.error('Connect wallet');
+    }
 
     const poolIpId = resolvePoolIpId(pool);
-    const amount = claimAmounts[poolIpId] || pool.claimInfo?.user?.claimableAmount;
-    if (!amount) return toast.error('Nothing to claim');
-    
+    const amount =
+      claimAmounts[poolIpId] || pool.claimInfo?.user?.claimableAmount;
+
+    if (!amount) {
+      return toast.error('Nothing to claim');
+    }
+
     setClaimingRevenue(poolIpId);
+
     try {
+      const { optedIn } = await getUsdcOptInStatus(accountAddress);
+
+      if (!optedIn) {
+        toast.info('Preparing your wallet to receive USDC. This is a one-time setup.');
+      }
+
       const res = await fetch('/api/revenue-pool/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -366,20 +461,46 @@ export default function ClaimPage() {
         ),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to prepare claim');
+      }
 
-      const signed = await signTransactionGroup([
-        new Uint8Array(Buffer.from(data.transaction, 'base64')),
-      ]);
-      if (!signed?.length) throw new Error('Cancelled');
+      const txnsToSign = [];
+
+      if (!optedIn) {
+        const { transaction: optInTxn } = await getUsdcOptInTxn(accountAddress);
+        if (!optInTxn) {
+          throw new Error('Failed to prepare USDC opt-in transaction');
+        }
+        txnsToSign.push(optInTxn);
+      }
+
+      if (!data?.transaction) {
+        throw new Error('Missing claim transaction');
+      }
+
+      txnsToSign.push(data.transaction);
+
+      const signed = await signTransactionGroup(
+        txnsToSign.map((t) => new Uint8Array(Buffer.from(t, 'base64')))
+      );
+
+      if (!signed?.length) {
+        throw new Error('Cancelled');
+      }
+
+      const signedTxnsBase64 = signed.map((s) =>
+        Buffer.from(s).toString('base64')
+      );
 
       const submit = await fetch('/api/revenue-pool/claim', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
           {
-            signedTxn: Buffer.from(signed[0]).toString('base64'),
+            signedTxns: signedTxnsBase64,
+            signedTxn: signedTxnsBase64[signedTxnsBase64.length - 1],
             userAddress: accountAddress,
             ipId: poolIpId,
             appId: Number(pool.revenuePoolAppId),
@@ -393,10 +514,24 @@ export default function ClaimPage() {
         throw new Error(submitData?.error || 'USDC claim submission failed');
       }
 
-      toast.success('USDC Claimed!');
+      if (!optedIn) {
+        usdcOptInCacheRef.current.set(accountAddress, {
+          optedIn: true,
+          assetId: Number(submitData?.assetId || 0),
+          checkedAt: Date.now(),
+        });
+      }
+
+      toast.success(
+        !optedIn
+          ? 'USDC opt-in complete and claim submitted!'
+          : 'USDC Claimed!'
+      );
+
       await fetchData();
     } catch (e) {
-      toast.error(e.message);
+      console.error('Error claiming from Revenue Pool:', e);
+      toast.error(e?.message || 'Failed to claim from revenue pool');
     } finally {
       setClaimingRevenue(null);
     }

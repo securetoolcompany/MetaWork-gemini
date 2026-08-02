@@ -11,7 +11,10 @@ import {
   invalidateAccountCache,
 } from '@/lib/algorand-rate-limit';
 
-const USDC_ASSET_ID = parseInt(process.env.USDC_ASSET_ID || '10458941', 10);
+const USDC_ASSET_ID = Number(process.env.USDC_ASSET_ID);
+  if (!USDC_ASSET_ID) {
+    throw new Error('USDC_ASSET_ID is not configured');
+}
 
 function encodePoolBoxName(ipId) {
   return new Uint8Array(Buffer.concat([Buffer.from('p_'), Buffer.from(ipId)]));
@@ -262,22 +265,37 @@ export async function PUT(request) {
 
   try {
     const body = await request.json();
-    const { signedTxn, userAddress, ipId, appId } = body;
+    const { signedTxn, signedTxns, userAddress, ipId, appId } = body;
     claimerAddress = String(userAddress || '').trim().toUpperCase();
 
-    if (!signedTxn) {
-      return NextResponse.json({ error: 'signedTxn is required' }, { status: 400 });
+    const hasSingle = typeof signedTxn === 'string' && signedTxn.length > 0;
+    const hasGroup = Array.isArray(signedTxns) && signedTxns.length > 0;
+
+    if (!hasSingle && !hasGroup) {
+      return NextResponse.json(
+        { error: 'signedTxn or signedTxns is required' },
+        { status: 400 }
+      );
     }
 
     const runSubmit = async () => {
       await sleep(500);
 
       const algodClient = getAlgodClient();
-      const signedTxnBytes = new Uint8Array(Buffer.from(signedTxn, 'base64'));
+
+      const signedTxnBytes = hasGroup
+        ? signedTxns.map((tx) => new Uint8Array(Buffer.from(tx, 'base64')))
+        : [new Uint8Array(Buffer.from(signedTxn, 'base64'))];
+
       const result = await algodClient.sendRawTransaction(signedTxnBytes).do();
       const txid = result.txid || result.txId;
 
-      console.log('Claim transaction submitted:', txid);
+      console.log('Claim transaction submitted:', txid, {
+        groupSize: signedTxnBytes.length,
+        ipId,
+        appId,
+        claimerAddress,
+      });
 
       if (claimerAddress) {
         invalidateAccountCache(claimerAddress);
@@ -291,6 +309,7 @@ export async function PUT(request) {
       return NextResponse.json({
         success: true,
         txId: txid,
+        groupSize: signedTxnBytes.length,
         message: 'USDC claimed successfully!',
       });
     };

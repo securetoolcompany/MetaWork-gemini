@@ -12,7 +12,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Use the ID we confirmed
-const USDC_ID = 10458941;
+const USDC_ASSET_ID = Number(process.env.USDC_ASSET_ID);
+if (!USDC_ASSET_ID) {
+  throw new Error('USDC_ASSET_ID is not configured');
+}
 
 export default function PoolAdminPage() {
     const { accountAddress, isConnected, connect, signTransactionGroup } = useWallet();
