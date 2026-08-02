@@ -8,33 +8,76 @@ import {
   withUserClaimLock,
   sleep,
   invalidatePoolBoxCache,
-  invalidateAccountCache
+  invalidateAccountCache,
 } from '@/lib/algorand-rate-limit';
 
-// USDC Asset ID on Algorand Testnet
 const USDC_ASSET_ID = parseInt(process.env.USDC_ASSET_ID || '10458941', 10);
-
-// Helper: Safe Uint64 Encoding
-function encodeUint64(num) {
-  try {
-    const n = BigInt(Math.floor(Number(num) || 0));
-    const buf = Buffer.alloc(8);
-    buf.writeBigUInt64BE(n);
-    return new Uint8Array(buf);
-  } catch (e) {
-    console.error('Encoding Error:', e);
-    return new Uint8Array(8);
-  }
-}
 
 function encodePoolBoxName(ipId) {
   return new Uint8Array(Buffer.concat([Buffer.from('p_'), Buffer.from(ipId)]));
 }
 
-/**
- * GET /api/revenue-pool/claim
- * Get claim information for a user from the Global Pool Box
- */
+function encodeRoundBoxName(ipId, roundId) {
+  const prefix = Buffer.from(`rnd_${ipId}`);
+  const roundBytes = Buffer.alloc(8);
+  roundBytes.writeBigUInt64BE(BigInt(roundId));
+  return new Uint8Array(Buffer.concat([prefix, roundBytes]));
+}
+
+function toUint8Array(value) {
+  if (value instanceof Uint8Array) return value;
+  if (typeof value === 'string') return new Uint8Array(Buffer.from(value, 'base64'));
+  return new Uint8Array(value);
+}
+
+function readPoolBox(value) {
+  const rawValue = toUint8Array(value);
+  const view = new DataView(rawValue.buffer, rawValue.byteOffset, rawValue.byteLength);
+  const shCount = rawValue[40];
+
+  return {
+    revenueTokenId: Number(view.getBigUint64(0, false)),
+    unallocatedUsdc: Number(view.getBigUint64(8, false)),
+    totalClaimed: Number(view.getBigUint64(16, false)),
+    heldUsdc: Number(view.getBigUint64(24, false)),
+    currentRoundId: Number(view.getBigUint64(32, false)),
+    shCount,
+    proxyAddress: algosdk.encodeAddress(rawValue.slice(41, 73)),
+    stakeholders: Array.from({ length: shCount }, (_, i) => ({
+      address: algosdk.encodeAddress(rawValue.slice(73 + i * 35, 73 + i * 35 + 32)),
+      bps: rawValue[73 + i * 35 + 32] * 256 + rawValue[73 + i * 35 + 33],
+      claimed: rawValue[73 + i * 35 + 34] === 1,
+    })),
+  };
+}
+
+function readRoundBox(value) {
+  const rawValue = toUint8Array(value);
+  const view = new DataView(rawValue.buffer, rawValue.byteOffset, rawValue.byteLength);
+  const holderCount = view.getUint16(16, false);
+  const entryOffset = 18;
+  const entrySize = 41;
+
+  return {
+    roundAmount: Number(view.getBigUint64(0, false)),
+    roundCreated: Number(view.getBigUint64(8, false)),
+    holderCount,
+    holders: Array.from({ length: holderCount }, (_, i) => {
+      const off = entryOffset + i * entrySize;
+      return {
+        address: algosdk.encodeAddress(rawValue.slice(off, off + 32)),
+        amount: Number(view.getBigUint64(off + 32, false)),
+        claimed: rawValue[off + 40] === 1,
+      };
+    }),
+  };
+}
+
+async function getApplicationBox(algodClient, appIndex, boxName) {
+  const box = await algodClient.getApplicationBoxByName(appIndex, boxName).do();
+  return box && box.value ? box.value : null;
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -52,100 +95,112 @@ export async function GET(request) {
     const algodClient = getAlgodClient();
     const appIndex = parseInt(appId, 10);
     const normalizedUser = String(userAddress).trim().toUpperCase();
+    const poolBoxName = encodePoolBoxName(ipId);
 
-    const boxName = encodePoolBoxName(ipId);
-
-    let totalDeposited = 0;
-    let totalClaimed = 0;
-    let revenueTokenId = 0;
-
+    let pool;
     try {
-      const boxVal = await getCachedPoolBox(
+      const poolBox = await getCachedPoolBox(
         algodClient,
         appIndex,
-        boxName,
+        poolBoxName,
         `usdc:${ipId}`
       );
-
-      const rawValue =
-        boxVal?.value instanceof Uint8Array
-          ? boxVal.value
-          : typeof boxVal?.value === 'string'
-          ? new Uint8Array(Buffer.from(boxVal.value, 'base64'))
-          : new Uint8Array(boxVal.value);
-
-      const view = new DataView(rawValue.buffer, rawValue.byteOffset, rawValue.byteLength);
-
-      revenueTokenId = Number(view.getBigUint64(0, false));
-      totalDeposited = Number(view.getBigUint64(8, false));
-      totalClaimed = Number(view.getBigUint64(16, false));
+      pool = readPoolBox(poolBox && poolBox.value ? poolBox.value : poolBox);
     } catch (e) {
-      console.warn(`Box not found for IP ${ipId}:`, e.message);
+      console.warn(`Box not found for IP ${ipId}:`, e && e.message ? e.message : e);
       return NextResponse.json({ pool: null, error: 'Pool not initialized' });
     }
 
-    const poolBalance = totalDeposited - totalClaimed;
-
     let userTokenBalance = 0;
-    if (revenueTokenId > 0) {
+    if (pool.revenueTokenId > 0) {
       try {
         const accountInfo = await getCachedAccountInfo(algodClient, normalizedUser);
-        const asset = accountInfo.assets?.find(
-          (a) => Number(a['asset-id']) === revenueTokenId
+        const asset = (accountInfo.assets || []).find(
+          (a) => Number(a['asset-id']) === pool.revenueTokenId
         );
         if (asset) {
           userTokenBalance = Number(asset.amount || 0);
         }
       } catch (err) {
-        console.log('Could not get user token balance:', err.message);
+        console.log('Could not get user token balance:', err && err.message ? err.message : err);
       }
     }
 
-    const userShareAmount = Math.floor((poolBalance * userTokenBalance) / 100);
+    const rounds = [];
+    let claimableAmount = 0;
+
+    for (let roundId = 1; roundId <= pool.currentRoundId; roundId += 1) {
+      try {
+        const roundBoxValue = await getApplicationBox(
+          algodClient,
+          appIndex,
+          encodeRoundBoxName(ipId, roundId)
+        );
+        if (!roundBoxValue) continue;
+
+        const round = readRoundBox(roundBoxValue);
+        const holder = round.holders.find((entry) => entry.address === normalizedUser);
+        if (!holder) continue;
+
+        rounds.push({
+          roundId,
+          roundAmount: round.roundAmount,
+          roundCreated: round.roundCreated,
+          amount: holder.amount,
+          claimed: holder.claimed,
+        });
+
+        if (!holder.claimed) {
+          claimableAmount += holder.amount;
+        }
+      } catch (_err) {
+        continue;
+      }
+    }
 
     return NextResponse.json({
       success: true,
       appId: appIndex,
       ipId,
-      revenueTokenId,
+      revenueTokenId: pool.revenueTokenId,
       pool: {
-        totalDeposited,
-        totalClaimed,
-        balance: poolBalance,
-        totalDepositedFormatted: (totalDeposited / 1000000).toFixed(2),
-        totalClaimedFormatted: (totalClaimed / 1000000).toFixed(2),
-        balanceFormatted: (poolBalance / 1000000).toFixed(2)
+        unallocatedUsdc: pool.unallocatedUsdc,
+        totalClaimed: pool.totalClaimed,
+        heldUsdc: pool.heldUsdc,
+        currentRoundId: pool.currentRoundId,
+        unallocatedUsdcFormatted: (pool.unallocatedUsdc / 1000000).toFixed(2),
+        totalClaimedFormatted: (pool.totalClaimed / 1000000).toFixed(2),
+        heldUsdcFormatted: (pool.heldUsdc / 1000000).toFixed(2),
+        balance: claimableAmount,
+        balanceFormatted: (claimableAmount / 1000000).toFixed(2),
+        totalDeposited: pool.unallocatedUsdc,
+        totalDepositedFormatted: (pool.unallocatedUsdc / 1000000).toFixed(2),
       },
       user: {
         address: normalizedUser,
         tokenBalance: userTokenBalance,
-        claimableAmount: userShareAmount,
-        claimableFormatted: (userShareAmount / 1000000).toFixed(2)
-      }
+        claimableAmount,
+        claimableFormatted: (claimableAmount / 1000000).toFixed(2),
+      },
+      rounds,
     });
   } catch (error) {
     console.error('Error getting claim info:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to get claim info' },
+      { error: error && error.message ? error.message : 'Failed to get claim info' },
       { status: 500 }
     );
   }
 }
 
-/**
- * POST /api/revenue-pool/claim
- * Create claim transaction
- */
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { claimerAddress, appId, amount, userTokenBalance, ipId } = body;
+    const { claimerAddress, appId, ipId } = body;
 
-    if (!claimerAddress || !appId || !amount || userTokenBalance === undefined || !ipId) {
+    if (!claimerAddress || !appId || !ipId) {
       return NextResponse.json(
-        {
-          error: 'Missing required fields (claimerAddress, appId, amount, userTokenBalance, ipId)'
-        },
+        { error: 'Missing required fields (claimerAddress, appId, ipId)' },
         { status: 400 }
       );
     }
@@ -154,19 +209,34 @@ export async function POST(request) {
     const suggestedParams = await getCachedTxParams(algodClient);
     const appIndex = parseInt(appId, 10);
 
-    const boxName = encodePoolBoxName(ipId);
+    const poolBoxName = encodePoolBoxName(ipId);
+    const poolBox = await getCachedPoolBox(
+      algodClient,
+      appIndex,
+      poolBoxName,
+      `usdc:${ipId}`
+    );
+    const pool = readPoolBox(poolBox && poolBox.value ? poolBox.value : poolBox);
+
+    const boxes = [{ appIndex, name: poolBoxName }];
+    for (let roundId = 1; roundId <= pool.currentRoundId; roundId += 1) {
+      boxes.push({ appIndex, name: encodeRoundBoxName(ipId, roundId) });
+    }
 
     const claimTxn = algosdk.makeApplicationNoOpTxnFromObject({
       sender: claimerAddress,
-      suggestedParams,
+      suggestedParams: {
+        ...suggestedParams,
+        fee: BigInt(1000 + 1000 * pool.currentRoundId),
+        flatFee: true,
+      },
       appIndex,
       appArgs: [
-        new Uint8Array(Buffer.from('claim_revenue')),
+        new Uint8Array(Buffer.from('claim_revenue_all')),
         new Uint8Array(Buffer.from(ipId)),
-        encodeUint64(userTokenBalance)
       ],
-      foreignAssets: [USDC_ASSET_ID],
-      boxes: [{ appIndex, name: boxName }]
+      foreignAssets: [USDC_ASSET_ID, pool.revenueTokenId],
+      boxes,
     });
 
     const txnBytes = algosdk.encodeUnsignedTransaction(claimTxn);
@@ -176,21 +246,17 @@ export async function POST(request) {
       success: true,
       transaction: txnBase64,
       txnId: claimTxn.txID(),
-      message: 'Sign this transaction to claim your USDC'
+      message: 'Sign this transaction to claim your USDC',
     });
   } catch (error) {
     console.error('Error creating claim transaction:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create claim transaction' },
+      { error: error && error.message ? error.message : 'Failed to create claim transaction' },
       { status: 500 }
     );
   }
 }
 
-/**
- * PUT /api/revenue-pool/claim
- * Submit signed claim transaction
- */
 export async function PUT(request) {
   let claimerAddress = '';
 
@@ -209,7 +275,7 @@ export async function PUT(request) {
       const algodClient = getAlgodClient();
       const signedTxnBytes = new Uint8Array(Buffer.from(signedTxn, 'base64'));
       const result = await algodClient.sendRawTransaction(signedTxnBytes).do();
-      const txid = result.txid ?? result.txId;
+      const txid = result.txid || result.txId;
 
       console.log('Claim transaction submitted:', txid);
 
@@ -225,7 +291,7 @@ export async function PUT(request) {
       return NextResponse.json({
         success: true,
         txId: txid,
-        message: 'USDC claimed successfully!'
+        message: 'USDC claimed successfully!',
       });
     };
 
@@ -235,23 +301,20 @@ export async function PUT(request) {
 
     return await runSubmit();
   } catch (error) {
-    const message = error?.message || '';
+    const message = error && error.message ? error.message : '';
 
-    if (error?.retryable) {
+    if (error && error.retryable) {
       return NextResponse.json(
         { error: message, retryable: true },
         { status: 429 }
       );
     }
 
-    if (
-      message.includes('429') ||
-      message.toLowerCase().includes('too many requests')
-    ) {
+    if (message.includes('429') || message.toLowerCase().includes('too many requests')) {
       return NextResponse.json(
         {
           error: 'Node throttled; please retry in a few seconds.',
-          retryable: true
+          retryable: true,
         },
         { status: 429 }
       );

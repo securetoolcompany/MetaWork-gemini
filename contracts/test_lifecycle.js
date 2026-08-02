@@ -73,7 +73,7 @@ function readPoolBox(raw) {
   const shCount = v[40];
   return {
     revAsaId:       Number(dv.getBigUint64(0)),
-    totalDeposited: Number(dv.getBigUint64(8)),
+    unallocatedUsdc: Number(dv.getBigUint64(8)),
     totalClaimed:   Number(dv.getBigUint64(16)),
     heldUsdc:       Number(dv.getBigUint64(24)),
     currentRoundId: Number(dv.getBigUint64(32)),
@@ -528,7 +528,7 @@ async function main() {
 
     console.log('T02 BEFORE:', {
       heldUsdc: before.heldUsdc,
-      totalDeposited: before.totalDeposited,
+      unallocatedUsdc: before.unallocatedUsdc,
     });
 
     const { txns, signers } = await buildDepositHeld(algod, signer, ipId, depositAmt);
@@ -537,7 +537,7 @@ async function main() {
 
     const after = readPoolBox(await getBox(algod, poolBoxName(ipId)));
     assert(after.heldUsdc       === before.heldUsdc + depositAmt, 'T02 deposit_held', 'heldUsdc increased');
-    assert(after.totalDeposited === before.totalDeposited,        'T02 deposit_held', 'totalDeposited unchanged');
+    assert(after.unallocatedUsdc === before.unallocatedUsdc,        'T02 deposit_held', 'unallocatedUsdc unchanged');
   }
 
   // ── T03: claim_tokens — valid then double-claim rejected ─────────────────
@@ -671,7 +671,7 @@ async function main() {
     await confirm(algod, txId);
 
     const after = readPoolBox(await getBox(algod, poolBoxName(ipId)));
-    assert(after.totalDeposited === before.totalDeposited + depositAmt, 'T08 deposit_usdc', 'totalDeposited increased');
+    assert(after.unallocatedUsdc === before.unallocatedUsdc + depositAmt, 'T08 deposit_usdc', 'unallocatedUsdc increased');
     assert(after.heldUsdc       === before.heldUsdc,                   'T08 deposit_usdc', 'heldUsdc unchanged');
   }
 

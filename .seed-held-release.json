@@ -1,0 +1,22 @@
+{
+  "appId": 768287773,
+  "ipId": "6a6f3f9a41bff4f55fe08dcd",
+  "amount": 1000000,
+  "amountUsdc": 1,
+  "usdcAssetId": 10458941,
+  "signer": "WNXGR6DCD4FWCK62JHWNI6OE37XMJGZFHO42FYFEGW5P3G4MYO4AJYJGTI",
+  "depositTxId": "BGZN4MGFBZJUVFBSDTQGXMCKXA4K2MOFXMP34AWXOAADZ4MYVROA",
+  "releaseTxId": "GX3IUR6V4G7ZWE2UDACYVF56ML4XIESS4633LJXJIIDG2XG7TRDQ",
+  "roundId": 1,
+  "round": {
+    "roundAmount": 1000000,
+    "roundCreated": 1785676143,
+    "holders": [
+      {
+        "address": "CI6UHKREVAJVODRCHSYL54RPGRBQLMWSY3TVL64MT4TJSETHX6AXHRHUEA",
+        "amount": 1000000,
+        "claimed": false
+      }
+    ]
+  }
+}

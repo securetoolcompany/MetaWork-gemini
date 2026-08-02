@@ -17,6 +17,16 @@ import {
   Gift,
 } from 'lucide-react';
 
+const resolvePoolIpId = (item) =>
+  String(
+    item?.ipId ||
+    item?.tokenizedIpId ||
+    item?.assetId ||
+    item?.id ||
+    item?._id ||
+    ''
+  );
+
 const bigintReplacer = (_key, value) =>
   typeof value === 'bigint' ? value.toString() : value;
 
@@ -141,16 +151,28 @@ export default function ClaimPage() {
         if (controller.signal.aborted) return;
 
         try {
+          const resolvedIpId = resolvePoolIpId(ip);
+
+          console.log('[POOLS] resolving ip id', {
+            name: ip.name,
+            _id: ip._id,
+            id: ip.id,
+            ipId: ip.ipId,
+            tokenizedIpId: ip.tokenizedIpId,
+            resolvedIpId,
+            revenuePoolAppId: ip.revenuePoolAppId,
+          });
+
           const res = await fetch(
             `/api/revenue-pool/claim?appId=${Number(
               ip.revenuePoolAppId
-            )}&userAddress=${accountAddress}&ipId=${ip.id}`,
+            )}&userAddress=${accountAddress}&ipId=${resolvedIpId}`,
             { signal: controller.signal }
           );
 
           if (res.ok) {
             const claimInfo = await res.json();
-            poolsWithClaimInfo.push({ ...ip, claimInfo });
+            poolsWithClaimInfo.push({ ...ip, resolvedIpId, claimInfo });
           } else {
             console.warn(
               '[POOLS] Claim info request failed',
@@ -325,10 +347,11 @@ export default function ClaimPage() {
   const handleClaimRevenue = async (pool) => {
     if (!isConnected || !accountAddress) return toast.error('Connect wallet');
 
-    const amount = claimAmounts[pool.id] || pool.claimInfo?.user?.claimableAmount;
+    const poolIpId = resolvePoolIpId(pool);
+    const amount = claimAmounts[poolIpId] || pool.claimInfo?.user?.claimableAmount;
     if (!amount) return toast.error('Nothing to claim');
-
-    setClaimingRevenue(pool.id);
+    
+    setClaimingRevenue(poolIpId);
     try {
       const res = await fetch('/api/revenue-pool/claim', {
         method: 'POST',
@@ -337,9 +360,7 @@ export default function ClaimPage() {
           {
             claimerAddress: accountAddress,
             appId: Number(pool.revenuePoolAppId),
-            ipId: pool.id,
-            amount: parseInt(amount, 10),
-            userTokenBalance: Number(pool.claimInfo?.user?.tokenBalance || 0),
+            ipId: poolIpId,
           },
           bigintReplacer
         ),
@@ -356,9 +377,15 @@ export default function ClaimPage() {
       const submit = await fetch('/api/revenue-pool/claim', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          signedTxn: Buffer.from(signed[0]).toString('base64'),
-        }),
+        body: JSON.stringify(
+          {
+            signedTxn: Buffer.from(signed[0]).toString('base64'),
+            userAddress: accountAddress,
+            ipId: poolIpId,
+            appId: Number(pool.revenuePoolAppId),
+          },
+          bigintReplacer
+        ),
       });
 
       const submitData = await submit.json().catch(() => null);
@@ -685,11 +712,12 @@ export default function ClaimPage() {
                     p.claimInfo?.user?.claimableFormatted || '0.00';
                   const poolBalanceFormatted =
                     p.claimInfo?.pool?.balanceFormatted || '0.00';
-                  const isClaiming = claimingRevenue === p.id;
+                  const poolKey = p.resolvedIpId || resolvePoolIpId(p);
+                  const isClaiming = claimingRevenue === poolKey;
                   const isDisabled = isClaiming || claimableAmount <= 0;
 
                   return (
-                    <Card key={p.id} className="overflow-hidden">
+                    <Card key={poolKey} className="overflow-hidden">
                       <CardContent className="p-0">
                         <div className="grid min-h-[132px] grid-cols-1 md:grid-cols-[96px_minmax(0,1fr)_180px]">
                           <div className="flex items-center justify-center border-b bg-muted/20 p-4 md:border-b-0 md:border-r">
