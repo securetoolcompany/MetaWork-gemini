@@ -8,10 +8,12 @@ import {
   invalidatePoolBoxCache,
   sleep,
   getCachedTxParams,
-  getCachedAccountInfo
+  getCachedAccountInfo,
 } from '@/lib/algorand-rate-limit';
 
 export const dynamic = 'force-dynamic';
+
+const CLAIM_FEE = 3000;
 
 function getAlgodClient() {
   const apiKey = process.env.TATUM_API_KEY;
@@ -27,216 +29,342 @@ function getAlgodClient() {
   return new algosdk.Algodv2('', 'https://testnet-api.algonode.cloud', '');
 }
 
+function normalizeAddress(addr) {
+  return String(addr || '').trim().toUpperCase();
+}
+
+function normalizeIpId(value) {
+  return String(value || '').trim();
+}
+
+function resolveIpQuery(ipId) {
+  return {
+    $or: [
+      { id: ipId },
+      { ipId },
+      { tokenizedIpId: ipId },
+      { assetId: ipId },
+      { _id: ipId },
+    ],
+  };
+}
+
+function resolveIpId(ip) {
+  return normalizeIpId(
+    ip?.ipId ||
+      ip?.tokenizedIpId ||
+      ip?.assetId ||
+      ip?.id ||
+      ip?._id ||
+      ''
+  );
+}
+
+function findAssetHolding(userAssets, assetId) {
+  if (!Array.isArray(userAssets) || !Number.isFinite(assetId) || assetId <= 0) {
+    return null;
+  }
+
+  const target = BigInt(assetId);
+
+  for (const asset of userAssets) {
+    const candidate = asset?.['asset-id'] ?? asset?.assetId ?? 0;
+
+    try {
+      if (BigInt(candidate) === target) {
+        return asset;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+function getGenesisFields(params) {
+  const genesisHash = params?.genesisHash ?? params?.['genesis-hash'];
+  const genesisID = params?.genesisID ?? params?.['genesis-id'];
+
+  if (!genesisHash || !genesisID) {
+    throw new Error('Failed to fetch valid transaction params.');
+  }
+
+  return { genesisHash, genesisID };
+}
+
+function buildPoolBoxName(ipId) {
+  return new Uint8Array(Buffer.concat([Buffer.from('p_'), Buffer.from(ipId)]));
+}
+
+function encodeUnsignedTxn(txn) {
+  return Buffer.from(algosdk.encodeUnsignedTransaction(txn)).toString('base64');
+}
+
+function decodeSignedBase64Txn(base64) {
+  return new Uint8Array(Buffer.from(base64, 'base64'));
+}
+
+function getSingleSignedTxn(body) {
+  if (typeof body?.signedTxn === 'string' && body.signedTxn.length > 0) {
+    return body.signedTxn;
+  }
+
+  if (Array.isArray(body?.signedTxns) && body.signedTxns.length > 0) {
+    return body.signedTxns[0];
+  }
+
+  return null;
+}
+
+function buildStructuredError(error, fallback) {
+  const message = error?.message || fallback;
+
+  if (error?.retryable) {
+    return {
+      status: 429,
+      body: { error: message, retryable: true },
+    };
+  }
+
+  if (
+    message.includes('429') ||
+    message.toLowerCase().includes('too many requests')
+  ) {
+    return {
+      status: 429,
+      body: {
+        error: 'Node throttled; please retry in a few seconds.',
+        retryable: true,
+      },
+    };
+  }
+
+  return {
+    status: 500,
+    body: { error: message || fallback },
+  };
+}
+
+async function findIpRecord(db, rawIpId) {
+  const ipId = normalizeIpId(rawIpId);
+
+  if (!ipId) {
+    throw new Error('ipId is required');
+  }
+
+  const ip = await db.collection('ip_assets').findOne(resolveIpQuery(ipId));
+
+  if (!ip) {
+    throw new Error(`IP Asset ${ipId} not found in DB.`);
+  }
+
+  return ip;
+}
+
+function extractPoolConfig(ip) {
+  const resolvedIpId = resolveIpId(ip);
+  const appId = Number(ip?.revenuePoolAppId || ip?.appId);
+  const tokenId = Number(ip?.revenueTokenAssetId || ip?.revenueTokenId);
+
+  if (!resolvedIpId) {
+    throw new Error('Unable to resolve IP identifier.');
+  }
+
+  if (!Number.isFinite(appId) || appId <= 0) {
+    throw new Error(`Invalid App ID: ${appId}`);
+  }
+
+  if (!Number.isFinite(tokenId) || tokenId <= 0) {
+    throw new Error(`Invalid Token ID: ${tokenId}`);
+  }
+
+  return { resolvedIpId, appId, tokenId };
+}
+
+/**
+ * POST
+ * Prepare ONE unsigned claim transaction only.
+ * Safest UX: wallet opt-in is handled separately in its own route/flow.
+ */
 export async function POST(request) {
   try {
     const body = await request.json();
-    const userAddr = String(body.userAddress || body.accountAddress || '').trim().toUpperCase();
+    const userAddr = normalizeAddress(body?.userAddress || body?.accountAddress);
+    const requestedIpId = normalizeIpId(body?.ipId);
 
     if (!userAddr || !algosdk.isValidAddress(userAddr)) {
-      throw new Error(`Invalid sender address: "${userAddr}"`);
+      return NextResponse.json(
+        { error: `Invalid sender address: "${userAddr}"` },
+        { status: 400 }
+      );
     }
 
-    if (!body.ipId) {
+    if (!requestedIpId) {
       return NextResponse.json({ error: 'ipId is required' }, { status: 400 });
     }
 
     const { db } = await connectToDatabase();
-    const ip = await db.collection('ip_assets').findOne({ id: body.ipId });
-
-    if (!ip) {
-      throw new Error(`IP Asset ${body.ipId} not found in DB.`);
-    }
-
-    const appId = Number(ip.revenuePoolAppId || ip.appId);
-    const tokenId = Number(ip.revenueTokenAssetId || ip.revenueTokenId);
-
-    if (!Number.isFinite(appId) || appId <= 0) {
-      throw new Error(`Invalid App ID: ${appId}`);
-    }
-
-    if (!Number.isFinite(tokenId) || tokenId <= 0) {
-      throw new Error(`Invalid Token ID: ${tokenId}`);
-    }
+    const ip = await findIpRecord(db, requestedIpId);
+    const { resolvedIpId, appId, tokenId } = extractPoolConfig(ip);
 
     const algodClient = getAlgodClient();
-
     const suggestedParams = await getCachedTxParams(algodClient);
-
-    const genesisHash = suggestedParams?.genesisHash ?? suggestedParams?.['genesis-hash'];
-    const genesisID = suggestedParams?.genesisID ?? suggestedParams?.['genesis-id'];
-
-    if (!genesisHash || !genesisID) {
-      console.error('[CLAIM][POST] Bad tx params shape:', suggestedParams);
-      throw new Error('Failed to fetch valid transaction params.');
-    }
-
-    const ipIdBytes = new Uint8Array(Buffer.from(body.ipId));
-    const poolBoxName = new Uint8Array(
-      Buffer.concat([Buffer.from('p_'), Buffer.from(body.ipId)])
-    );
-
-    console.log(`[CLAIM] appId=${appId} tokenId=${tokenId} ipId=${body.ipId}`);
-    console.log(
-      `[CLAIM] poolBoxName hex: ${Buffer.from(poolBoxName).toString('hex')}`
-    );
+    const { genesisHash, genesisID } = getGenesisFields(suggestedParams);
 
     const accountInfo = await getCachedAccountInfo(algodClient, userAddr);
-    const userAssets = accountInfo.assets || [];
-    const existingHolding = userAssets.find(
-      (a) => Number(a['asset-id']) === tokenId
-    );
-    const hasOptedIn = !!existingHolding;
-
-    console.log(
-      `[CLAIM] user=${userAddr} tokenId=${tokenId} hasOptedIn=${hasOptedIn} existingBalance=${Number(existingHolding?.amount || 0)}`
-    );
-
-    const txns = [];
+    const userAssets = Array.isArray(accountInfo?.assets) ? accountInfo.assets : [];
+    const existingHolding = findAssetHolding(userAssets, tokenId);
+    const hasOptedIn = Boolean(existingHolding);
 
     if (!hasOptedIn) {
-      txns.push(
-        algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
-          sender: userAddr,
-          receiver: userAddr,
-          amount: 0,
-          assetIndex: tokenId,
-          suggestedParams: {
-          ...suggestedParams,
-          genesisHash,
-          genesisID,
-          flatFee: true,
-          fee: 1000
-        }
-        })
+      return NextResponse.json(
+        {
+          error: 'Wallet must opt in to the revenue token before claiming.',
+          code: 'TOKEN_OPT_IN_REQUIRED',
+          revenueTokenId: tokenId,
+          appId,
+          ipId: resolvedIpId,
+        },
+        { status: 409 }
       );
     }
 
-    txns.push(
-      algosdk.makeApplicationNoOpTxnFromObject({
-        sender: userAddr,
-        appIndex: appId,
-        appArgs: [
-          new Uint8Array(Buffer.from('claim_tokens')),
-          ipIdBytes
-        ],
-        foreignAssets: [tokenId],
-        boxes: [{ appIndex: appId, name: poolBoxName }],
-        suggestedParams: {
+    const poolBoxName = buildPoolBoxName(resolvedIpId);
+    const ipIdBytes = new Uint8Array(Buffer.from(resolvedIpId));
+
+    const claimTxn = algosdk.makeApplicationNoOpTxnFromObject({
+      sender: userAddr,
+      appIndex: appId,
+      appArgs: [new Uint8Array(Buffer.from('claim_tokens')), ipIdBytes],
+      foreignAssets: [tokenId],
+      boxes: [{ appIndex: appId, name: poolBoxName }],
+      suggestedParams: {
         ...suggestedParams,
         genesisHash,
         genesisID,
         flatFee: true,
-        fee: 3000
-      }
-      })
-    );
+        fee: CLAIM_FEE,
+      },
+    });
 
     console.log(
-      `[CLAIM] Prepared ${txns.length} txn(s) for ${body.ipId} (includedOptIn=${!hasOptedIn})`
+      `[CLAIM][POST] Prepared claim txn ipId=${resolvedIpId} appId=${appId} tokenId=${tokenId} user=${userAddr} hasOptedIn=${hasOptedIn}`
     );
-
-    algosdk.assignGroupID(txns);
 
     return NextResponse.json(
       safeJson({
         success: true,
         hasOptedIn,
-        includedOptIn: !hasOptedIn,
+        includedOptIn: false,
         revenueTokenId: tokenId,
         appId,
-        ipId: body.ipId,
-        transactions: txns.map((t) =>
-          Buffer.from(algosdk.encodeUnsignedTransaction(t)).toString('base64')
-        )
+        ipId: resolvedIpId,
+        transaction: encodeUnsignedTxn(claimTxn),
+        transactions: [encodeUnsignedTxn(claimTxn)],
+        indexesToSign: [0],
       })
     );
   } catch (error) {
-    console.error('[CLAIM][POST] ERROR:', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const { status, body } = buildStructuredError(
+      error,
+      'Failed to prepare claim transaction'
+    );
+    console.error('[CLAIM][POST] ERROR:', error?.message || error);
+    return NextResponse.json(body, { status });
   }
 }
 
+/**
+ * PUT
+ * Submit ONE signed claim transaction only.
+ * Safer UX than grouped opt-in + claim; avoids mixed group signing/order issues.
+ */
 export async function PUT(request) {
   let userAddr = '';
+  let ipIdForInvalidation = '';
+  let appIdForInvalidation = 0;
 
   try {
     const body = await request.json();
-    const { signedTxns, userAddress, ipId, appId } = body;
-    userAddr = String(userAddress || '').trim().toUpperCase();
+    userAddr = normalizeAddress(body?.userAddress);
+    const requestedIpId = normalizeIpId(body?.ipId);
+    const signedTxnBase64 = getSingleSignedTxn(body);
 
-    if (!Array.isArray(signedTxns) || signedTxns.length === 0) {
+    if (!userAddr || !algosdk.isValidAddress(userAddr)) {
       return NextResponse.json(
-        { error: 'signedTxns is required' },
+        { error: `Invalid sender address: "${userAddr}"` },
         { status: 400 }
       );
     }
+
+    if (!requestedIpId) {
+      return NextResponse.json({ error: 'ipId is required' }, { status: 400 });
+    }
+
+    if (!signedTxnBase64) {
+      return NextResponse.json(
+        { error: 'signedTxn or signedTxns[0] is required' },
+        { status: 400 }
+      );
+    }
+
+    const { db } = await connectToDatabase();
+    const ip = await findIpRecord(db, requestedIpId);
+    const { resolvedIpId, appId, tokenId } = extractPoolConfig(ip);
+
+    ipIdForInvalidation = resolvedIpId;
+    appIdForInvalidation = appId;
 
     const runSubmit = async () => {
       await sleep(500);
 
       const client = getAlgodClient();
-      console.log('[PUT] Using configured algod client');
-      console.log(`[PUT] Signed txn count: ${signedTxns.length}`);
 
-      const binaryTxns = signedTxns.map((t, i) => {
-        const bytes = new Uint8Array(Buffer.from(t, 'base64'));
-        console.log(`[PUT] Txn ${i} bytes: ${bytes.length}`);
-        return bytes;
+      const signedBytes = decodeSignedBase64Txn(signedTxnBase64);
+      const stxn = algosdk.decodeSignedTransaction(signedBytes);
+      const decodedSender = stxn?.txn?.sender
+        ? algosdk.encodeAddress(stxn.txn.sender.publicKey)
+        : null;
+
+      console.log('[CLAIM][PUT] decoded', {
+        txid: stxn?.txn?.txID?.(),
+        sender: decodedSender,
+        appId,
+        tokenId,
+        ipId: resolvedIpId,
       });
 
-      const result = await client.sendRawTransaction(binaryTxns).do();
-      const txid = result.txid ?? result.txId;
+      const result = await client.sendRawTransaction(signedBytes).do();
+      const txid = result?.txid ?? result?.txId;
 
-      console.log(
-        `[PUT] TRANSACTION SUBMITTED: https://testnet.explorer.perawallet.app/tx/${txid}`
-      );
-
-      if (userAddr) {
-        invalidateAccountCache(userAddr);
+      if (!txid) {
+        throw new Error('Claim transaction submitted but no txId was returned.');
       }
 
-      if (ipId && appId) {
-        invalidatePoolBoxCache(appId, `usdc:${ipId}`);
-      }
+      invalidateAccountCache(userAddr);
+      invalidatePoolBoxCache(appId, `rev:${resolvedIpId}`);
 
       return NextResponse.json({
         success: true,
         submitted: true,
         txId: txid,
         explorerUrl: `https://testnet.explorer.perawallet.app/tx/${txid}`,
-        message: 'Claim transaction submitted successfully.'
+        message: 'Claim transaction submitted successfully.',
       });
     };
 
-    if (userAddr) {
-      return await withUserClaimLock(userAddr, runSubmit);
-    }
-
-    return await runSubmit();
+    return await withUserClaimLock(userAddr, runSubmit);
   } catch (error) {
-    const message = error?.message || '';
-
-    if (error?.retryable) {
-      return NextResponse.json(
-        { error: message, retryable: true },
-        { status: 429 }
-      );
-    }
-
-    if (
-      message.includes('429') ||
-      message.toLowerCase().includes('too many requests')
-    ) {
-      return NextResponse.json(
-        {
-          error: 'Node throttled; please retry in a few seconds.',
-          retryable: true
-        },
-        { status: 429 }
-      );
-    }
-
-    console.error('[PUT] ERROR:', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    const { status, body } = buildStructuredError(
+      error,
+      'Failed to submit claim transaction'
+    );
+    console.error('[CLAIM][PUT] ERROR:', error?.message || error, {
+      userAddr,
+      ipId: ipIdForInvalidation,
+      appId: appIdForInvalidation,
+    });
+    return NextResponse.json(body, { status });
   }
 }

@@ -39,6 +39,15 @@ export async function POST(request) {
       );
     }
 
+    console.log('Algod config', {
+        network: process.env.ALGORAND_NETWORK,
+        rpc: process.env.ALGORAND_TESTNET_RPC,
+        hasApiKey: Boolean(process.env.ALGOD_X_API_KEY),
+        apiKeyPrefix: process.env.ALGOD_X_API_KEY
+            ? `${process.env.ALGOD_X_API_KEY.slice(0, 6)}...`
+            : null,
+        });
+
     const suggestedParams = await algodClient.getTransactionParams().do();
 
     const txn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({

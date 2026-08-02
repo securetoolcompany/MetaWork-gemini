@@ -71,9 +71,14 @@ export default function ClaimPage() {
     tokenOverridesRef.current = tokenOverrides;
   }, [tokenOverrides]);
 
+  const USDC_OPTIN_CACHE_TTL_MS = 30_000;
+
   async function getUsdcOptInStatus(userAddress) {
     const cached = usdcOptInCacheRef.current.get(userAddress);
-    if (cached?.optedIn === true) {
+    if (
+      cached &&
+      Date.now() - cached.checkedAt < USDC_OPTIN_CACHE_TTL_MS
+    ) {
       return cached;
     }
 
@@ -94,10 +99,7 @@ export default function ClaimPage() {
       checkedAt: Date.now(),
     };
 
-    if (status.optedIn) {
-      usdcOptInCacheRef.current.set(userAddress, status);
-    }
-
+    usdcOptInCacheRef.current.set(userAddress, status);
     return status;
   }
 
@@ -374,56 +376,66 @@ export default function ClaimPage() {
   };
 
   const handleClaimTokens = async (token) => {
-    if (!isConnected || !accountAddress) {
-      console.error('CLAIM BLOCKED: accountAddress is missing.');
+    const addr = accountAddress;
+
+    if (!isConnected || !addr) {
       return toast.error('Wallet not fully synced. Please reconnect.');
     }
 
     setClaimingTokens(token.ipId);
+
     try {
       const res = await fetch('/api/revenue-tokens/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          {
-            userAddress: accountAddress,
-            ipId: token.ipId,
-          },
-          bigintReplacer
-        ),
+        credentials: 'include',
+        body: JSON.stringify({
+          userAddress: addr,
+          ipId: token.ipId,
+        }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Backend Error');
+      const data = await res.json().catch(() => null);
 
-      const txnsToSign = data.transactions || [data.transaction];
+      if (res.status === 409 && data?.code === 'TOKEN_OPT_IN_REQUIRED') {
+        throw new Error(
+          `Wallet must opt in to revenue token ${data?.revenueTokenId} before claiming.`
+        );
+      }
 
-      const signed = await signTransactionGroup(
-        txnsToSign.map((t) => new Uint8Array(Buffer.from(t, 'base64')))
-      );
+      if (!res.ok) {
+        throw new Error(data?.error || 'Failed to prepare token claim');
+      }
 
-      if (!signed || signed.length === 0) throw new Error('Signing cancelled');
+      if (!data?.transaction) {
+        throw new Error('Missing claim transaction');
+      }
+
+      const signed = await signTransactionGroup([
+        new Uint8Array(Buffer.from(data.transaction, 'base64')),
+      ]);
+
+      if (!signed?.length) {
+        throw new Error('Claim signing cancelled');
+      }
+
+      const signedTxn = Buffer.from(signed[0]).toString('base64');
 
       const submit = await fetch('/api/revenue-tokens/claim', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          {
-            signedTxns: signed.map((s) => Buffer.from(s).toString('base64')),
-            userAddress: accountAddress,
-            ipId: token.ipId,
-            appId: Number(token.revenuePoolAppId),
-          },
-          bigintReplacer
-        ),
+        credentials: 'include',
+        body: JSON.stringify({
+          signedTxn,
+          userAddress: addr,
+          ipId: token.ipId,
+        }),
       });
 
       const submitData = await submit.json().catch(() => null);
       if (!submit.ok) {
         throw new Error(submitData?.error || 'Submission failed');
       }
-
-      
 
       const nextOverrides = {
         ...tokenOverridesRef.current,
@@ -436,12 +448,8 @@ export default function ClaimPage() {
 
       tokenOverridesRef.current = nextOverrides;
       setTokenOverrides(nextOverrides);
-
-      // Apply the override immediately to the current list
       setClaimableTokens((prev) =>
-        prev.map((item) =>
-          item.ipId === token.ipId ? mergeTokenWithOverride(item) : item
-        )
+        prev.map((item) => (item.ipId === token.ipId ? mergeTokenWithOverride(item) : item))
       );
 
       toast.success('Claim submitted!');
@@ -455,13 +463,12 @@ export default function ClaimPage() {
         void fetchRevenuePools();
       }, 2500);
     } catch (e) {
-      console.error('Final Point of Failure:', e);
-      toast.error(e.message);
+      console.error('Token claim failed:', e);
+      toast.error(e?.message || 'Failed to claim revenue tokens');
     } finally {
       setClaimingTokens(null);
     }
   };
-
   async function handleClaimRevenue(pool) {
     const addr = accountAddress;
 
