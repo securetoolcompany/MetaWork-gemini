@@ -22,11 +22,11 @@ export async function POST(request) {
     const suggestedParams = await algodClient.getTransactionParams().do();
 
     const txn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
-      from: userAddress,
-      to: userAddress,
-      amount: 0,
-      assetIndex: USDC_ASSET_ID,
-      suggestedParams,
+        sender: userAddress,
+        receiver: userAddress,
+        amount: 0,
+        assetIndex: USDC_ASSET_ID,
+        suggestedParams,
     });
 
     return NextResponse.json({

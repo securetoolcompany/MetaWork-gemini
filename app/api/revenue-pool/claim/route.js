@@ -115,20 +115,38 @@ export async function GET(request) {
     }
 
     let userTokenBalance = 0;
-    if (pool.revenueTokenId > 0) {
-      try {
-        const accountInfo = await getCachedAccountInfo(algodClient, normalizedUser);
-        const asset = (accountInfo.assets || []).find(
-          (a) => Number(a['asset-id']) === pool.revenueTokenId
-        );
-        if (asset) {
-          userTokenBalance = Number(asset.amount || 0);
-        }
-      } catch (err) {
-        console.log('Could not get user token balance:', err && err.message ? err.message : err);
-      }
-    }
+      let accountInfo = null;
 
+      if (pool.revenueTokenId > 0) {
+        try {
+          accountInfo = await getCachedAccountInfo(algodClient, normalizedUser);
+
+          const asset = (accountInfo.assets || []).find(
+            (a) => Number(a['asset-id']) === pool.revenueTokenId
+          );
+
+          if (asset) {
+            userTokenBalance = Number(asset.amount || 0);
+          }
+        } catch (err) {
+          console.log(
+            'Could not get user token balance:',
+            err && err.message ? err.message : err
+          );
+        }
+      }
+
+      console.log('[POOL REV HELD]', {
+        ipId,
+        appId: appIndex,
+        revenueTokenId: pool.revenueTokenId,
+        user: normalizedUser,
+        userTokenBalance,
+        userAssetsSample: (accountInfo?.assets || []).slice(0, 10).map((a) => ({
+          assetId: a['asset-id'],
+          amount: a.amount,
+        })),
+      });
     const rounds = [];
     let claimableAmount = 0;
 

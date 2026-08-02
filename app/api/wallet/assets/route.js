@@ -24,13 +24,13 @@ export async function GET(request) {
 
     return NextResponse.json({
       success: true,
-      usdcAssetId: USDC_ASSET_ID,
+      usdcAssetId: String(USDC_ASSET_ID),
       optedIn: assets.some((a) => Number(a['asset-id']) === USDC_ASSET_ID),
       assets: assets.map((a) => ({
-        assetId: a['asset-id'],
-        amount: a.amount,
-        isFrozen: a['is-frozen'] || false,
-      })),
+         assetId: String(a['asset-id']),
+         amount: String(a.amount),
+         isFrozen: Boolean(a['is-frozen']),
+        })),
     });
   } catch (error) {
     console.error('Wallet assets error:', error);

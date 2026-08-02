@@ -17,6 +17,10 @@ import {
   Gift,
 } from 'lucide-react';
 
+const CURRENT_REVENUE_POOL_APP_ID = Number(
+  process.env.NEXT_PUBLIC_REVENUE_POOL_APP_ID || 768287773
+);
+
 const resolvePoolIpId = (item) =>
   String(
     item?.ipId ||
@@ -26,6 +30,17 @@ const resolvePoolIpId = (item) =>
     item?._id ||
     ''
   );
+
+const resolveIpImage = (item) =>
+  item?.imageUrl ||
+  item?.image ||
+  item?.thumbnailUrl ||
+  item?.thumbnail ||
+  item?.previewImage ||
+  item?.coverImage ||
+  item?.fileUrl ||
+  item?.mediaUrl ||
+  null;
 
 const bigintReplacer = (_key, value) =>
   typeof value === 'bigint' ? value.toString() : value;
@@ -87,6 +102,10 @@ export default function ClaimPage() {
   }
 
   async function getUsdcOptInTxn(userAddress) {
+    if (!userAddress) {
+      throw new Error('Wallet address missing for USDC opt-in');
+    }
+
     const res = await fetch('/api/revenue-pool/usdc-optin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -197,7 +216,9 @@ export default function ClaimPage() {
 
       const ipResult = await ipResponse.json();
       const ipData = ipResult.ipAssets || (Array.isArray(ipResult) ? ipResult : []);
-      const ipsWithPools = ipData.filter((ip) => ip.revenuePoolAppId);
+      const ipsWithPools = ipData.filter(
+        (ip) => Number(ip.revenuePoolAppId) === CURRENT_REVENUE_POOL_APP_ID
+      );
 
       console.log('[POOLS] ipsWithPools', ipsWithPools.map((ip) => ({
         name: ip.name,
@@ -247,13 +268,23 @@ export default function ClaimPage() {
 
           if (res.ok) {
             const claimInfo = await res.json();
-            poolsWithClaimInfo.push({ ...ip, resolvedIpId, claimInfo });
+            poolsWithClaimInfo.push({
+              ...ip,
+              resolvedIpId,
+              imageUrl: resolveIpImage(ip),
+              claimInfo,
+            });
           } else {
             console.warn(
               '[POOLS] Claim info request failed',
               { id: ip.id, status: res.status }
             );
-            poolsWithClaimInfo.push({ ...ip, resolvedIpId, claimInfo: null });
+            poolsWithClaimInfo.push({
+              ...ip,
+              resolvedIpId,
+              imageUrl: resolveIpImage(ip),
+              claimInfo,
+            });
           }
         } catch (err) {
           if (err.name === 'AbortError') {
@@ -265,7 +296,12 @@ export default function ClaimPage() {
           } else {
             console.error('Error fetching pool claim info:', ip.id, err);
           }
-          poolsWithClaimInfo.push({ ...ip, resolvedIpId, claimInfo: null });
+          poolsWithClaimInfo.push({
+            ...ip,
+            resolvedIpId,
+            imageUrl: resolveIpImage(ip),
+            claimInfo: null,
+          });
         } finally {
           clearTimeout(timeoutId);
         }
@@ -274,7 +310,7 @@ export default function ClaimPage() {
       }
 
       if (!controller.signal.aborted) {
-        setRevenuePools(poolsWithClaimInfo.filter((p) => p.claimInfo));
+        setRevenuePools(poolsWithClaimInfo);
       }
     } catch (error) {
       if (error.name !== 'AbortError') {
@@ -426,14 +462,16 @@ export default function ClaimPage() {
     }
   };
 
-  const handleClaimRevenue = async (pool) => {
-    if (!isConnected || !accountAddress) {
-      return toast.error('Connect wallet');
+  async function handleClaimRevenue(pool) {
+    const addr = accountAddress;
+
+    if (!isConnected || !addr) {
+      return toast.error('Wallet not fully synced. Please reconnect.');
     }
 
     const poolIpId = resolvePoolIpId(pool);
     const amount =
-      claimAmounts[poolIpId] || pool.claimInfo?.user?.claimableAmount;
+      claimAmounts[poolIpId] ?? pool.claimInfo?.user?.claimableAmount;
 
     if (!amount) {
       return toast.error('Nothing to claim');
@@ -442,108 +480,128 @@ export default function ClaimPage() {
     setClaimingRevenue(poolIpId);
 
     try {
-      const { optedIn } = await getUsdcOptInStatus(accountAddress);
+      // 1) USDC opt-in if needed — SINGLE TXN FLOW
+      const optInStatus = await getUsdcOptInStatus(addr);
+      const isUsdcOptedIn = Boolean(optInStatus?.optedIn);
 
-      if (!optedIn) {
-        toast.info('Preparing your wallet to receive USDC. This is a one-time setup.');
-      }
+      if (!isUsdcOptedIn) {
+        toast.info(
+          'Preparing your wallet to receive USDC. This is a one-time setup.'
+        );
 
-      const res = await fetch('/api/revenue-pool/claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          {
-            claimerAddress: accountAddress,
-            appId: Number(pool.revenuePoolAppId),
-            ipId: poolIpId,
-          },
-          bigintReplacer
-        ),
-      });
-
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        throw new Error(data?.error || 'Failed to prepare claim');
-      }
-
-      const txnsToSign = [];
-
-      if (!optedIn) {
-        const { transaction: optInTxn } = await getUsdcOptInTxn(accountAddress);
+        const { transaction: optInTxn } = await getUsdcOptInTxn(addr);
         if (!optInTxn) {
           throw new Error('Failed to prepare USDC opt-in transaction');
         }
-        txnsToSign.push(optInTxn);
+
+        const signedOptIn = await signTransactionGroup([
+          new Uint8Array(Buffer.from(optInTxn, 'base64')),
+        ]);
+
+        if (!signedOptIn?.length) {
+          throw new Error('USDC opt-in signing cancelled');
+        }
+
+        const signedOptInBase64 = [
+          Buffer.from(signedOptIn[0]).toString('base64'),
+        ];
+
+        const submitOptIn = await fetch('/api/revenue-pool/usdc-optin', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            signedTxns: signedOptInBase64,
+            signedTxn: signedOptInBase64[0],
+            userAddress: addr,
+          }),
+        });
+
+        const submitOptInData = await submitOptIn.json().catch(() => null);
+        if (!submitOptIn.ok) {
+          throw new Error(
+            submitOptInData?.error || 'USDC opt-in submission failed'
+          );
+        }
+
+        usdcOptInCacheRef.current.set(addr, {
+          optedIn: true,
+          assetId: Number(submitOptInData?.assetId || 0),
+          checkedAt: Date.now(),
+        });
+
+        toast.success('USDC opt-in complete.');
       }
 
-      if (!data?.transaction) {
+      // 2) Pool claim — SINGLE TXN FLOW
+      const prepareClaimRes = await fetch('/api/revenue-pool/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          claimerAddress: addr,
+          appId: Number(pool.revenuePoolAppId),
+          ipId: poolIpId,
+        }),
+      });
+
+      const prepareClaimData = await prepareClaimRes.json().catch(() => null);
+      if (!prepareClaimRes.ok) {
+        throw new Error(
+          prepareClaimData?.error || 'Failed to prepare claim transaction'
+        );
+      }
+
+      if (!prepareClaimData?.transaction) {
         throw new Error('Missing claim transaction');
       }
 
-      txnsToSign.push(data.transaction);
+      const claimTxnBase64 = prepareClaimData.transaction;
 
-      const signed = await signTransactionGroup(
-        txnsToSign.map((t) => new Uint8Array(Buffer.from(t, 'base64')))
-      );
+      const signedClaim = await signTransactionGroup([
+        new Uint8Array(Buffer.from(claimTxnBase64, 'base64')),
+      ]);
 
-      if (!signed?.length) {
-        throw new Error('Cancelled');
+      if (!signedClaim?.length) {
+        throw new Error('Claim signing cancelled');
       }
 
-      const signedTxnsBase64 = signed.map((s) =>
-        Buffer.from(s).toString('base64')
-      );
+      const signedClaimBase64 = [
+        Buffer.from(signedClaim[0]).toString('base64'),
+      ];
 
-      const submit = await fetch('/api/revenue-pool/claim', {
+      const submitClaimRes = await fetch('/api/revenue-pool/claim', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          {
-            signedTxns: signedTxnsBase64,
-            signedTxn: signedTxnsBase64[signedTxnsBase64.length - 1],
-            userAddress: accountAddress,
-            ipId: poolIpId,
-            appId: Number(pool.revenuePoolAppId),
-          },
-          bigintReplacer
-        ),
+        credentials: 'include',
+        body: JSON.stringify({
+          signedTxns: signedClaimBase64,
+          signedTxn: signedClaimBase64[0],
+          userAddress: addr,
+          ipId: poolIpId,
+          appId: Number(pool.revenuePoolAppId),
+        }),
       });
 
-      const submitData = await submit.json().catch(() => null);
-      if (!submit.ok) {
-        throw new Error(submitData?.error || 'USDC claim submission failed');
+      const submitClaimData = await submitClaimRes.json().catch(() => null);
+      if (!submitClaimRes.ok) {
+        throw new Error(
+          submitClaimData?.error || 'USDC claim submission failed'
+        );
       }
 
-      if (!optedIn) {
-        usdcOptInCacheRef.current.set(accountAddress, {
-          optedIn: true,
-          assetId: Number(submitData?.assetId || 0),
-          checkedAt: Date.now(),
-        });
-      }
-
-      toast.success(
-        !optedIn
-          ? 'USDC opt-in complete and claim submitted!'
-          : 'USDC Claimed!'
-      );
-
+      toast.success('USDC Claimed!');
       await fetchData();
     } catch (e) {
-      console.error('Error claiming from Revenue Pool:', e);
+      console.error('Error claiming from Revenue Pool', e);
       toast.error(e?.message || 'Failed to claim from revenue pool');
     } finally {
       setClaimingRevenue(null);
     }
-  };
+  }
 
-  const totalClaimableTokens = claimableTokens.reduce(
-    (sum, t) => sum + Number(t.claimableAmount || 0),
-    0
-  );
-
-  const totalOwnedTokens = claimableTokens.reduce(
-    (sum, t) => sum + Number(t.existingBalance || 0),
+  const totalPendingReleaseUSDC = revenuePools.reduce(
+    (sum, p) => sum + Number(p.claimInfo?.pool?.unallocatedUsdc || 0),
     0
   );
 
@@ -551,6 +609,14 @@ export default function ClaimPage() {
     (sum, p) => sum + Number(p.claimInfo?.user?.claimableAmount || 0),
     0
   );
+
+  const totalLifetimeClaimedUSDC = revenuePools.reduce((sum, p) => {
+    const rounds = Array.isArray(p.claimInfo?.rounds) ? p.claimInfo.rounds : [];
+    const claimed = rounds
+      .filter((r) => r.claimed)
+      .reduce((roundSum, r) => roundSum + Number(r.amount || 0), 0);
+    return sum + claimed;
+  }, 0);
 
   const getTokenClaimStatus = (token) => {
     const claiming = claimingTokens === token.ipId;
@@ -640,8 +706,10 @@ export default function ClaimPage() {
                   <Coins className="text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{totalOwnedTokens.toLocaleString()}</p>
-                  <p className="text-sm text-muted-foreground">Owned</p>
+                  <p className="text-2xl font-bold">
+                    ${(totalPendingReleaseUSDC / 1000000).toFixed(2)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Pending Release</p>
                 </div>
               </CardContent>
             </Card>
@@ -653,9 +721,9 @@ export default function ClaimPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    {totalClaimableTokens.toLocaleString()}
+                    ${(totalClaimableUSDC / 1000000).toFixed(2)}
                   </p>
-                  <p className="text-sm text-muted-foreground">Claimable</p>
+                  <p className="text-sm text-muted-foreground">Available to Claim</p>
                 </div>
               </CardContent>
             </Card>
@@ -667,9 +735,9 @@ export default function ClaimPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    ${(totalClaimableUSDC / 1000000).toFixed(2)}
+                    ${(totalLifetimeClaimedUSDC / 1000000).toFixed(2)}
                   </p>
-                  <p className="text-sm text-muted-foreground">USDC</p>
+                  <p className="text-sm text-muted-foreground">Lifetime Claimed</p>
                 </div>
               </CardContent>
             </Card>
@@ -841,29 +909,40 @@ export default function ClaimPage() {
                 </Card>
               ) : (
                 revenuePools.map((p) => {
-                  const userTokenBalance = Number(p.claimInfo?.user?.tokenBalance || 0);
-                  const claimableAmount = Number(p.claimInfo?.user?.claimableAmount || 0);
-                  const claimableFormatted =
-                    p.claimInfo?.user?.claimableFormatted || '0.00';
-                  const poolBalanceFormatted =
-                    p.claimInfo?.pool?.balanceFormatted || '0.00';
+                  const claimInfo = p.claimInfo;
+                  const hasError = !claimInfo;
+
+                  const userRevBalance = Number(claimInfo?.user?.tokenBalance || 0);
+                  const claimableAmount = Number(claimInfo?.user?.claimableAmount || 0);
+                  const claimableFormatted = claimInfo?.user?.claimableFormatted || '0.00';
+                  const poolBalanceFormatted = claimInfo?.pool?.balanceFormatted || '0.00';
+
+                  const rounds = Array.isArray(claimInfo?.rounds) ? claimInfo.rounds : [];
+                  const lifetimeClaimedAmount = rounds
+                    .filter((r) => r.claimed)
+                    .reduce((sum, r) => sum + Number(r.amount || 0), 0);
+                  const lifetimeClaimedFormatted = (lifetimeClaimedAmount / 1000000).toFixed(2);
+
                   const poolKey = p.resolvedIpId || resolvePoolIpId(p);
                   const isClaiming = claimingRevenue === poolKey;
-                  const isDisabled = isClaiming || claimableAmount <= 0;
+                  const isDisabled = isClaiming || hasError || claimableAmount <= 0;
 
                   return (
                     <Card key={poolKey} className="overflow-hidden">
                       <CardContent className="p-0">
-                        <div className="grid min-h-[132px] grid-cols-1 md:grid-cols-[96px_minmax(0,1fr)_180px]">
+                        <div className="grid min-h-[124px] grid-cols-1 md:grid-cols-[84px_minmax(0,1fr)_170px]">
                           <div className="flex items-center justify-center border-b bg-muted/20 p-4 md:border-b-0 md:border-r">
-                            {p.imageUrl ? (
+                            {resolveIpImage(p) ? (
                               <img
-                                src={p.imageUrl}
+                                src={resolveIpImage(p)}
                                 alt={p.name}
-                                className="h-16 w-16 rounded-xl object-cover"
+                                className="h-14 w-14 rounded-xl object-cover"
+                                width={56}
+                                height={56}
+                                loading="lazy"
                               />
                             ) : (
-                              <div className="h-16 w-16 rounded-xl bg-muted" />
+                              <div className="h-14 w-14 rounded-xl bg-muted" />
                             )}
                           </div>
 
@@ -872,46 +951,72 @@ export default function ClaimPage() {
                               <h3 className="truncate text-lg font-semibold leading-tight">
                                 {p.name}
                               </h3>
+
                               <Badge
                                 variant="secondary"
                                 className={
-                                  claimableAmount > 0
+                                  hasError
+                                    ? 'bg-muted text-muted-foreground border-border'
+                                    : claimableAmount > 0
                                     ? 'bg-green-500/15 text-green-400 border-green-500/30'
                                     : 'bg-muted text-muted-foreground border-border'
                                 }
                               >
-                                {claimableAmount > 0 ? 'Claim available' : 'Nothing to claim'}
+                                {hasError
+                                  ? 'Unavailable'
+                                  : claimableAmount > 0
+                                  ? 'Claim available'
+                                  : 'Nothing to claim'}
                               </Badge>
                             </div>
 
-                            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                              <div className="min-w-0 rounded-lg border bg-background/60 px-3 py-3">
-                                <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                            <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-4">
+                              <div className="rounded-md border bg-background/50 px-3 py-2">
+                                <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
                                   Pool Balance
                                 </p>
-                                <p className="mt-1 truncate text-sm font-semibold">
-                                  ${poolBalanceFormatted}
+                                <p className="mt-1 text-sm font-semibold">
+                                  {hasError ? '—' : `$${poolBalanceFormatted}`}
                                 </p>
                               </div>
 
-                              <div className="min-w-0 rounded-lg border bg-background/60 px-3 py-3">
-                                <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                                  Your Share
+                              <div className="rounded-md border bg-background/50 px-3 py-2">
+                                <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                                  REV Held
                                 </p>
-                                <p className="mt-1 truncate text-sm font-semibold">
-                                  {userTokenBalance.toLocaleString()} / 10000
+                                <p className="mt-1 text-sm font-semibold">
+                                  {hasError ? '—' : userRevBalance.toLocaleString()}
                                 </p>
                               </div>
 
-                              <div className="min-w-0 rounded-lg border bg-background/60 px-3 py-3">
-                                <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                              <div className="rounded-md border bg-background/50 px-3 py-2">
+                                <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
                                   Claimable
                                 </p>
-                                <p className="mt-1 truncate text-sm font-semibold">
-                                  ${claimableFormatted} USDC
+                                <p className="mt-1 text-sm font-semibold">
+                                  {hasError ? '—' : `$${claimableFormatted} USDC`}
+                                </p>
+                              </div>
+
+                              <div className="rounded-md border bg-background/50 px-3 py-2">
+                                <p className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                                  Lifetime USDC Claimed
+                                </p>
+                                <p className="mt-1 text-sm font-semibold">
+                                  {hasError ? '—' : `$${lifetimeClaimedFormatted}`}
                                 </p>
                               </div>
                             </div>
+
+                            {hasError && (
+                              <button
+                                type="button"
+                                onClick={() => fetchRevenuePools()}
+                                className="mt-3 w-fit text-xs text-primary underline underline-offset-2"
+                              >
+                                Retry loading pool data
+                              </button>
+                            )}
                           </div>
 
                           <div className="flex items-center justify-center border-t bg-muted/10 p-4 md:border-l md:border-t-0">
@@ -922,6 +1027,8 @@ export default function ClaimPage() {
                             >
                               {isClaiming ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : hasError ? (
+                                'Unavailable'
                               ) : claimableAmount > 0 ? (
                                 `Claim $${claimableFormatted}`
                               ) : (
@@ -930,6 +1037,73 @@ export default function ClaimPage() {
                             </Button>
                           </div>
                         </div>
+
+                        {!hasError && rounds.length > 0 && (
+                          <details className="border-t bg-muted/5">
+                            <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm text-muted-foreground md:px-5">
+                              <span>USDC Claim History</span>
+                              <span>{rounds.length} {rounds.length === 1 ? 'round' : 'rounds'}</span>
+                            </summary>
+
+                            <div className="px-4 pb-4 md:px-5">
+                              <div className="overflow-hidden rounded-lg border">
+                                <div className="hidden grid-cols-[110px_160px_160px_1fr] border-b bg-muted/20 px-3 py-2 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground md:grid">
+                                  <div>Round</div>
+                                  <div>Date released</div>
+                                  <div>Date claimed</div>
+                                  <div>Amount</div>
+                                </div>
+
+                                <div className="divide-y">
+                                  {rounds.map((r) => {
+                                    const releasedAt = r.roundCreated
+                                      ? new Date(Number(r.roundCreated) * 1000).toLocaleDateString()
+                                      : '—';
+
+                                    const claimedLabel = r.claimed ? 'Claimed' : 'Pending';
+
+                                    return (
+                                      <div
+                                        key={r.roundId}
+                                        className="grid gap-2 px-3 py-3 md:grid-cols-[110px_160px_160px_1fr] md:items-center"
+                                      >
+                                        <div>
+                                          <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground md:hidden">
+                                            Round
+                                          </p>
+                                          <p className="text-sm font-medium">Round {r.roundId}</p>
+                                        </div>
+
+                                        <div>
+                                          <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground md:hidden">
+                                            Date released
+                                          </p>
+                                          <p className="text-sm text-muted-foreground">{releasedAt}</p>
+                                        </div>
+
+                                        <div>
+                                          <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground md:hidden">
+                                            Date claimed
+                                          </p>
+                                          <p className="text-sm text-muted-foreground">{claimedLabel}</p>
+                                        </div>
+
+                                        <div>
+                                          <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground md:hidden">
+                                            Amount
+                                          </p>
+                                          <p className="text-sm font-medium">
+                                            {(Number(r.amount || 0) / 1000000).toFixed(2)} USDC
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+                          </details>
+                        )}
                       </CardContent>
                     </Card>
                   );

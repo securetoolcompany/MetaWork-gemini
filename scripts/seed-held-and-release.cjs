@@ -237,6 +237,19 @@ async function main() {
     round,
   }, null, 2));
   log('Wrote artifact', outPath);
+
+  
+  const net =
+  process.env.ALGORAND_NETWORK ||
+  process.env.NEXT_PUBLIC_ALGORAND_NETWORK ||
+  'testnet';
+  console.log('[ALGOD CLIENT]', {
+    net,
+    server: net === 'mainnet'
+        ? (process.env.ALGORAND_MAINNET_RPC || 'https://mainnet-api.algonode.cloud')
+        : (process.env.ALGORAND_TESTNET_RPC || 'https://testnet-api.algonode.cloud'),
+    hasApiKey: !!process.env.ALGOD_X_API_KEY,
+    });
 }
 
 main().catch((err) => {
