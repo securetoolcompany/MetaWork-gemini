@@ -65,6 +65,11 @@ def approval_program():
     action = Txn.application_args[0]
     ip_id  = Txn.application_args[1]
 
+    # ScratchVars for ASA ownership checks in claim paths
+    token_asa_id = ScratchVar(TealType.uint64)
+    asa_balance  = ScratchVar(TealType.uint64)
+    asa_maybe_val = ScratchVar(TealType.uint64)  # used to stage MaybeValue.value()
+
     # ----------------------------------------------------------------
     # CREATE (deploy) — initialise admin global key
     # ----------------------------------------------------------------
@@ -582,6 +587,23 @@ def approval_program():
         Assert(claim_found.load() == Int(1)),
         Assert(claim_amt.load() > Int(0)),
 
+
+        # --- NEW: enforce revenue ASA ownership ---
+        token_asa_id.store(read_u64(crr_pbox.load(), REV_ASA_OFFSET)),
+
+        # Evaluate AssetHolding.balance once and store its value safely
+        Seq([
+            (lambda mv: Seq(
+                mv,
+                Assert(mv.hasValue()),
+                asa_balance.store(mv.value()),
+            ))(AssetHolding.balance(Txn.sender(), token_asa_id.load())),
+        ]),
+
+        Assert(asa_balance.load() >= Int(1)),
+        # ------------------------------------------
+
+
         InnerTxnBuilder.Begin(),
         InnerTxnBuilder.SetFields({
             TxnField.type_enum:      TxnType.AssetTransfer,
@@ -591,6 +613,7 @@ def approval_program():
             TxnField.fee:            Int(0),
         }),
         InnerTxnBuilder.Submit(),
+
 
         App.box_replace(claim_rkey.load(), target_off.load() + Int(40), FLAG_CLAIMED),
         App.box_replace(
@@ -653,7 +676,7 @@ def approval_program():
                     cra_off.store(Int(0)),
                     cra_match_off.store(Int(0)),
                     cra_i.store(Int(0)),
-                    While(
+                                        While(
                         And(cra_i.load() < cra_n.load(), cra_found.load() == Int(0))
                     ).Do(
                         cra_off.store(
@@ -675,6 +698,21 @@ def approval_program():
                         ),
                         cra_i.store(cra_i.load() + Int(1)),
                     ),
+
+                    # --- NEW: enforce revenue ASA ownership ---
+                    token_asa_id.store(read_u64(cra_pbox.load(), REV_ASA_OFFSET)),
+
+                    Seq([
+                        (lambda mv: Seq(
+                            mv,
+                            Assert(mv.hasValue()),
+                            asa_balance.store(mv.value()),
+                        ))(AssetHolding.balance(Txn.sender(), token_asa_id.load())),
+                    ]),
+
+                    Assert(asa_balance.load() >= Int(1)),
+                    # ------------------------------------------
+
                     If(
                         And(
                             cra_found.load() == Int(1),

@@ -1,6 +1,6 @@
 /**
  * scripts/test_lifecycle.js
- * Revenue Pool V7 — Full Lifecycle Test Harness (16 cases)
+ * Revenue Pool V7 — Full Lifecycle Test Harness (17 cases)
  *
  * Run with:  node scripts/test_lifecycle.js
  *
@@ -61,7 +61,7 @@ function poolBoxName(ipId) {
 }
 
 function roundBoxName(ipId, roundId) {
-  const prefix    = Buffer.from('r_' + ipId);
+  const prefix    = Buffer.from('rnd_' + ipId);
   const roundBytes = Buffer.alloc(8);
   roundBytes.writeBigUInt64BE(BigInt(roundId));
   return new Uint8Array(Buffer.concat([prefix, roundBytes]));
@@ -87,17 +87,45 @@ function readPoolBox(raw) {
   };
 }
 
+function packPayees(entries) {
+  // Each entry: { address: string, amount: number }
+  // Output: 32-byte addr + 8-byte amount per entry = 40 bytes each
+  const buf = Buffer.alloc(entries.length * 40);
+  let off = 0;
+  for (const { address, amount } of entries) {
+    const pk = algosdk.decodeAddress(address).publicKey;
+    pk.forEach((b, i) => { buf[off + i] = b; });
+    buf.writeBigUInt64BE(BigInt(amount), off + 32);
+    off += 40;
+  }
+  return buf;
+}
+
 function readRoundBox(raw) {
   const v  = raw instanceof Uint8Array ? Buffer.from(raw) : Buffer.from(raw, 'base64');
   const dv = new DataView(v.buffer, v.byteOffset, v.byteLength);
-  const holderCount = Math.floor((v.length - 16) / 33);
+  
+  // Read header
+  const roundAmount = Number(dv.getBigUint64(0));
+  const roundCreated = Number(dv.getBigUint64(8));
+  const holderCount = dv.getUint16(16);  // ✅ Changed from getBigUint16
+  
+  // Round box layout: header (18 bytes) + entries
+  // Each entry: addr (32) + amount (8) + flag (1) = 41 bytes
+  const RND_ENTRIES_OFFSET = 18;
+  const RND_ENTRY_SIZE = 41;
+  
   return {
-    roundAmount:  Number(dv.getBigUint64(0)),
-    roundClaimed: Number(dv.getBigUint64(8)),
-    holders: Array.from({ length: holderCount }, (_, i) => ({
-      address: algosdk.encodeAddress(v.slice(16 + i*33, 16 + i*33 + 32)),
-      claimed: v[16 + i*33 + 32] === 1,
-    })),
+    roundAmount,
+    roundCreated,
+    holders: Array.from({ length: holderCount }, (_, i) => {
+      const off = RND_ENTRIES_OFFSET + i * RND_ENTRY_SIZE;
+      return {
+        address: algosdk.encodeAddress(v.slice(off, off + 32)),
+        amount: Number(dv.getBigUint64(off + 32)),
+        claimed: v[off + 40] === 1,  // Flag is at offset 40 (32 + 8)
+      };
+    }),
   };
 }
 
@@ -114,7 +142,7 @@ async function confirm(algod, appCallTxId, maxRounds = 6) {
 /** Read admin address from global state */
 async function readAdmin(algod) {
   const info  = await algod.getApplicationByID(APP_ID).do();
-  const entry = info.params['global-state'].find(
+  const entry = info.params['globalState'].find(
     s => Buffer.from(s.key, 'base64').toString() === 'admin'
   );
   if (!entry) throw new Error('admin key not found in global state');
@@ -136,7 +164,7 @@ function poolMbr(ipId, shCount) {
 }
 
 function roundMbr(ipId, holderCount) {
-  return 2500 + 400 * (12 + Buffer.byteLength(ipId) + 8 + 18 + holderCount * 33);
+  return 2500 + 400 * (12 + Buffer.byteLength(ipId) + 18 + holderCount * 41);
 }
 
 /**
@@ -281,7 +309,7 @@ async function buildDepositUsdc(algod, signer, ipId, amount) {
   };
 }
 
-async function buildCreatePayoutRound(algod, signer, ipId, amount, currentRoundId, holderCount) {
+async function buildCreatePayoutRound(algod, signer, ipId, amount, currentRoundId, holderCount, payees) {
   const sp         = await algod.getTransactionParams().do();
   const appAddr    = algosdk.getApplicationAddress(APP_ID).toString();
   const nextRoundId = currentRoundId + 1;
@@ -297,6 +325,7 @@ async function buildCreatePayoutRound(algod, signer, ipId, amount, currentRoundI
       new TextEncoder().encode('create_payout_round'),
       new TextEncoder().encode(ipId),
       algosdk.encodeUint64(amount),
+      packPayees(payees),
       algosdk.encodeUint64(0),
     ],
     foreignAssets: [USDC_ID],
@@ -497,6 +526,11 @@ async function main() {
     const before     = readPoolBox(await getBox(algod, poolBoxName(ipId)));
     const depositAmt = 500_000;  // 0.5 USDC in microUSDC
 
+    console.log('T02 BEFORE:', {
+      heldUsdc: before.heldUsdc,
+      totalDeposited: before.totalDeposited,
+    });
+
     const { txns, signers } = await buildDepositHeld(algod, signer, ipId, depositAmt);
     const txId = await sendGroup(algod, txns, signers);
     await confirm(algod, txId);
@@ -558,8 +592,25 @@ async function main() {
 
   // ── T05: claim_revenue_round — valid ─────────────────────────────────────
   {
+    // Opt-in to USDC before claiming
+    const optInParams = await algod.getTransactionParams().do();
+    const optInTxn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
+      sender: signer.address,
+      receiver: signer.address,
+      assetIndex: USDC_ID,
+      amount: 0,
+      suggestedParams: { ...optInParams, fee: 1000n, flatFee: true },
+    });
+    const signedOptIn = signer.signTxn(optInTxn);
+    await algod.sendRawTransaction(signedOptIn).do();
+    await algosdk.waitForConfirmation(algod, optInTxn.txID(), 10);
+    console.log(`✅ [Pre-T05] Opted in to USDC ${USDC_ID}`);
+
+    // Re-fetch account info to ensure opt-in is visible
+    await new Promise(r => setTimeout(r, 1000));  // Wait 1 second
     const acctBefore = await algod.accountAssetInformation(signer.address, USDC_ID).do();
-    const balBefore  = Number(acctBefore['asset-holding'].amount);
+    console.log('acctBefore:', acctBefore);  // Debug
+    const balBefore = Number(acctBefore['assetHolding'].amount);
 
     const { txns, signers } = await buildClaimRevenueRound(algod, signer, ipId, round1Id, revAsaId);
     const txId = await sendGroup(algod, txns, signers);
@@ -567,9 +618,9 @@ async function main() {
 
     const acctAfter = await algod.accountAssetInformation(signer.address, USDC_ID).do();
     assert(
-      Number(acctAfter['asset-holding'].amount) > balBefore,
+      Number(acctAfter['assetHolding'].amount) > balBefore,
       'T05 claim_revenue_round valid',
-      `received USDC (+${Number(acctAfter['asset-holding'].amount) - balBefore} micro)`
+      `received USDC (+${Number(acctAfter['assetHolding'].amount) - balBefore} micro)`
     );
 
     const roundRaw = await getBox(algod, roundBoxName(ipId, round1Id));
@@ -625,35 +676,41 @@ async function main() {
   }
 
   // ── T09: create_payout_round (manual) ────────────────────────────────────
-  {
-    const before   = readPoolBox(await getBox(algod, poolBoxName(ipId)));
-    const roundAmt = 100_000;
+{
+  const before   = readPoolBox(await getBox(algod, poolBoxName(ipId)));
+  const roundAmt = 100_000;
 
-    const { txns, signers } = await buildCreatePayoutRound(
-      algod, signer, ipId, roundAmt, before.currentRoundId, before.shCount
-    );
-    const txId = await sendGroup(algod, txns, signers);
-    await confirm(algod, txId);
+  // Calculate pro-rata split based on actual stakeholder bps
+  const payees = before.stakeholders.map(sh => ({
+    address: sh.address,
+    amount: Math.floor(roundAmt * sh.bps / 10000),
+  }));
 
-    const after = readPoolBox(await getBox(algod, poolBoxName(ipId)));
-    assert(after.currentRoundId === before.currentRoundId + 1, 'T09 create_payout_round', 'roundId incremented');
-    const roundRaw = await getBox(algod, roundBoxName(ipId, after.currentRoundId));
-    assert(roundRaw !== null, 'T09 create_payout_round', 'round box created');
+  const { txns, signers } = await buildCreatePayoutRound(
+    algod, signer, ipId, roundAmt, before.currentRoundId, before.shCount, payees
+  );
+  const txId = await sendGroup(algod, txns, signers);
+  await confirm(algod, txId);
 
-    main._manualRoundId = after.currentRoundId;
-  }
+  const after = readPoolBox(await getBox(algod, poolBoxName(ipId)));
+  assert(after.currentRoundId === before.currentRoundId + 1, 'T09 create_payout_round', 'roundId incremented');
+  const roundRaw = await getBox(algod, roundBoxName(ipId, after.currentRoundId));
+  assert(roundRaw !== null, 'T09 create_payout_round', 'round box created');
+
+  main._manualRoundId = after.currentRoundId;
+}
   const manualRoundId = main._manualRoundId;
 
   // ── T10: claim from manual round ─────────────────────────────────────────
   {
     const acctBefore = await algod.accountAssetInformation(signer.address, USDC_ID).do();
-    const balBefore  = Number(acctBefore['asset-holding'].amount);
+    const balBefore  = Number(acctBefore['assetHolding'].amount);
 
     const { txns, signers } = await buildClaimRevenueRound(algod, signer, ipId, manualRoundId, revAsaId);
     await confirm(algod, await sendGroup(algod, txns, signers));
 
     const acctAfter = await algod.accountAssetInformation(signer.address, USDC_ID).do();
-    assert(Number(acctAfter['asset-holding'].amount) > balBefore, 'T10 claim from manual round', 'received USDC');
+    assert(Number(acctAfter['assetHolding'].amount) > balBefore, 'T10 claim from manual round', 'received USDC');
   }
 
   // ── T11: stranger rejection ───────────────────────────────────────────────
@@ -770,8 +827,8 @@ async function main() {
       const round     = readRoundBox(roundRaw);
       const allClaimed = round.holders.every(h => h.claimed);
       if (allClaimed) {
-        await confirm(algod, await sendGroup(algod, ...(await buildCleanupRound(algod, signer, ipId, round1Id)).txns,
-          ...(await buildCleanupRound(algod, signer, ipId, round1Id)).signers));
+        const cleanup = await buildCleanupRound(algod, signer, ipId, round1Id);
+          await confirm(algod, await sendGroup(algod, cleanup.txns, cleanup.signers));
         const afterClean = await getBox(algod, roundBoxName(ipId, round1Id));
         assert(afterClean === null, 'T16 cleanup_round after all claimed', 'box deleted');
       } else {
@@ -782,7 +839,53 @@ async function main() {
     }
   }
 
-  console.log('\n━━━ All 16 tests complete ━━━\n');
+    // ── T17: ASA seller cannot claim USDC ─────────────────────────────────────
+  {
+    console.log('\n⏳ [T17] Testing ASA seller cannot claim USDC...');
+
+    // 1) Create a fresh round with held USDC so there is something to claim
+    const heldAmt = 400_000;
+    {
+      const { txns, signers } = await buildDepositHeld(algod, signer, ipId, heldAmt);
+      await confirm(algod, await sendGroup(algod, txns, signers));
+    }
+    {
+      const p = readPoolBox(await getBox(algod, poolBoxName(ipId)));
+      const { txns, signers } = await buildReleaseHeld(algod, signer, ipId, p.currentRoundId, p.shCount);
+      await confirm(algod, await sendGroup(algod, txns, signers));
+    }
+    const poolNow = readPoolBox(await getBox(algod, poolBoxName(ipId)));
+    const roundForSeller = poolNow.currentRoundId;
+    log('T17 setup', true, `Created round ${roundForSeller} with ${heldAmt} microUSDC`);
+
+    // 2) Create a wallet that never held ASA (reusing T11 pattern)
+    const noAsaWallet = algosdk.generateAccount();
+    const noAsaSigner = {
+      address: noAsaWallet.addr.toString(),
+      signTxn: (txn) => txn.signTxn(noAsaWallet.sk),
+    };
+    // Fund for fees
+    {
+      const sp = await algod.getTransactionParams().do();
+      const fundTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+        sender: signer.address,
+        receiver: noAsaWallet.addr.toString(),
+        amount: 200_000,
+        suggestedParams: sp,
+      });
+      await algod.sendRawTransaction(signer.signTxn(fundTxn)).do();
+      await confirm(algod, fundTxn.txID());
+    }
+
+    // 3) Attempt to claim — should be rejected (never held ASA)
+    await expectReject(
+      algod,
+      () => buildClaimRevenueRound(algod, noAsaSigner, ipId, roundForSeller, revAsaId),
+      'T17 claim_revenue_round rejected for non-ASA holder'
+    );
+  }
+
+  console.log('\n━━━ All 17 tests complete ━━━\n');
 
   // ── ARTIFACT EXPORT ────────────────────────────────────────────────────────
   console.log('📦 [Teardown] Generating Next.js artifacts...');

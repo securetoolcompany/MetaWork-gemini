@@ -33,8 +33,8 @@ from algosdk.transaction import (
 # ---------------------------------------------------------------------------
 ALGOD_ADDRESS     = "https://testnet-api.algonode.cloud"
 ALGOD_TOKEN       = ""
-APP_ID            = 765208294
-APP_ADDRESS       = "O3NVHXTEBBICZRRSCY5QWPF3FRNQPFVGLBAXAGHOF5F2WOVLT5A6V6WYHQ"
+APP_ID            = 768287773
+APP_ADDRESS       = "UXTL2KCPNHKKCLMY3IALPLZ5R3SXC2C7YRKFYAQJZD3ZUPACAZJXLASXME"
 USDC_ASSET_ID     = 10458941
 
 CREATOR_MNEMONIC  = os.getenv("CREATOR_MNEMONIC", "")

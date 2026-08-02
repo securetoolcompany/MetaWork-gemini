@@ -55,45 +55,45 @@ int 2
 assert
 txna ApplicationArgs 1
 callsub poolkey_0
-store 112
-load 112
+store 118
+load 118
 box_get
-store 122
-store 121
-load 122
+store 128
+store 127
+load 128
 assert
-load 121
-store 113
-load 113
+load 127
+store 119
+load 119
 int 0
 callsub readu64_3
-store 114
-load 113
+store 120
+load 119
 extract 40 1
 btoi
-store 115
+store 121
 int 0
-store 119
+store 125
 int 0
-store 120
+store 126
 int 0
-store 116
+store 122
 int 0
-store 118
+store 124
 main_l14:
-load 116
-load 115
+load 122
+load 121
 <
-load 119
+load 125
 int 0
 ==
 &&
 bnz main_l16
-load 119
+load 125
 int 1
 ==
 assert
-load 120
+load 126
 int 0
 >
 assert
@@ -102,15 +102,15 @@ int axfer
 itxn_field TypeEnum
 txn Sender
 itxn_field AssetReceiver
-load 120
+load 126
 itxn_field AssetAmount
-load 114
+load 120
 itxn_field XferAsset
 int 0
 itxn_field Fee
 itxn_submit
-load 112
 load 118
+load 124
 int 34
 +
 byte 0x01
@@ -118,27 +118,27 @@ box_replace
 int 1
 return
 main_l16:
-load 116
+load 122
 callsub stakeholderoffset_2
-store 117
-load 113
-load 117
+store 123
+load 119
+load 123
 int 32
 extract3
 txn Sender
 ==
 bnz main_l18
 main_l17:
-load 116
+load 122
 int 1
 +
-store 116
+store 122
 b main_l14
 main_l18:
-load 117
-store 118
-load 113
-load 117
+load 123
+store 124
+load 119
+load 123
 int 34
 +
 int 1
@@ -146,16 +146,16 @@ extract3
 byte 0x00
 ==
 assert
-load 113
-load 117
+load 119
+load 123
 int 32
 +
 int 2
 extract3
 btoi
-store 120
+store 126
 int 1
-store 119
+store 125
 b main_l17
 main_l19:
 txn NumAppArgs
@@ -169,28 +169,28 @@ app_global_get
 assert
 txna ApplicationArgs 2
 btoi
-store 103
+store 109
 txna ApplicationArgs 1
-load 103
+load 109
 callsub roundkey_1
-store 104
-load 104
-box_get
-store 111
 store 110
-load 111
-assert
 load 110
-store 105
-load 105
+box_get
+store 117
+store 116
+load 117
+assert
+load 116
+store 111
+load 111
 int 16
 callsub readu16_4
-store 106
+store 112
 int 0
-store 107
+store 113
 main_l20:
-load 107
-load 106
+load 113
+load 112
 <
 bnz main_l22
 int 2500
@@ -201,14 +201,14 @@ len
 +
 int 18
 +
-load 106
+load 112
 int 41
 *
 +
 *
 +
-store 109
-load 104
+store 115
+load 110
 box_del
 pop
 itxn_begin
@@ -216,7 +216,7 @@ int pay
 itxn_field TypeEnum
 txn Sender
 itxn_field Receiver
-load 109
+load 115
 itxn_field Amount
 int 0
 itxn_field Fee
@@ -225,24 +225,24 @@ int 1
 return
 main_l22:
 int 18
-load 107
+load 113
 int 41
 *
 +
 int 40
 +
-store 108
-load 105
-load 108
+store 114
+load 111
+load 114
 int 1
 extract3
 byte 0x01
 ==
 assert
-load 107
+load 113
 int 1
 +
-store 107
+store 113
 b main_l20
 main_l23:
 txn NumAppArgs
@@ -251,39 +251,39 @@ int 2
 assert
 txna ApplicationArgs 1
 callsub poolkey_0
-store 84
-load 84
+store 88
+load 88
 box_get
-store 100
-store 99
-load 100
+store 104
+store 103
+load 104
 assert
-load 99
-store 85
-load 85
+load 103
+store 89
+load 89
 int 32
 callsub readu64_3
-store 86
-load 85
+store 90
+load 89
 int 16
 callsub readu64_3
-store 96
+store 100
 int 0
-store 97
+store 101
 int 0
-store 98
+store 102
 int 1
-store 87
+store 91
 main_l24:
-load 87
-load 86
+load 91
+load 90
 <=
-load 98
+load 102
 int 7
 <
 &&
 bnz main_l28
-load 97
+load 101
 int 0
 >
 bnz main_l27
@@ -291,66 +291,83 @@ main_l26:
 int 1
 return
 main_l27:
-load 84
+load 88
 int 16
-load 96
-load 97
+load 100
+load 101
 +
 itob
 box_replace
 b main_l26
 main_l28:
 txna ApplicationArgs 1
-load 87
+load 91
 callsub roundkey_1
-store 88
-load 88
+store 92
+load 92
 box_get
-store 102
-store 101
-load 102
+store 106
+store 105
+load 106
 bnz main_l30
 main_l29:
-load 87
+load 91
 int 1
 +
-store 87
+store 91
 b main_l24
 main_l30:
-load 101
-store 89
-load 89
+load 105
+store 93
+load 93
 int 16
 callsub readu16_4
-store 90
-int 0
-store 92
-int 0
-store 93
-int 0
 store 94
 int 0
-store 95
+store 96
 int 0
-store 91
+store 97
+int 0
+store 98
+int 0
+store 99
+int 0
+store 95
 main_l31:
-load 91
-load 90
+load 95
+load 94
 <
-load 92
+load 96
 int 0
 ==
 &&
 bnz main_l34
-load 92
+load 89
+int 0
+callsub readu64_3
+store 0
+txn Sender
+load 0
+asset_holding_get AssetBalance
+store 108
+store 107
+load 108
+assert
+load 107
+store 1
+load 1
+int 1
+>=
+assert
+load 96
 int 1
 ==
-load 93
+load 97
 int 0
 >
 &&
-load 89
-load 95
+load 93
+load 99
 int 40
 +
 int 1
@@ -366,59 +383,59 @@ int 10458941
 itxn_field XferAsset
 txn Sender
 itxn_field AssetReceiver
-load 93
+load 97
 itxn_field AssetAmount
 int 0
 itxn_field Fee
 itxn_submit
-load 88
-load 95
+load 92
+load 99
 int 40
 +
 byte 0x01
 box_replace
+load 101
 load 97
-load 93
 +
-store 97
-load 98
+store 101
+load 102
 int 1
 +
-store 98
+store 102
 b main_l29
 main_l34:
 int 18
-load 91
+load 95
 int 41
 *
 +
-store 94
-load 89
-load 94
+store 98
+load 93
+load 98
 int 32
 extract3
 txn Sender
 ==
 bnz main_l36
 main_l35:
-load 91
+load 95
 int 1
 +
-store 91
+store 95
 b main_l31
 main_l36:
-load 94
-store 95
+load 98
+store 99
 int 1
-store 92
-load 89
-load 94
+store 96
+load 93
+load 98
 int 32
 +
 int 8
 extract3
 btoi
-store 93
+store 97
 b main_l35
 main_l37:
 txn NumAppArgs
@@ -427,74 +444,91 @@ int 3
 assert
 txna ApplicationArgs 2
 btoi
-store 70
-load 70
+store 72
+load 72
 int 0
 >
 assert
 txna ApplicationArgs 1
 callsub poolkey_0
-store 68
-load 68
-box_get
-store 81
-store 80
-load 81
-assert
-load 80
-store 69
+store 70
 load 70
-load 69
-int 32
-callsub readu64_3
-<=
-assert
-load 69
-int 16
-callsub readu64_3
-store 79
-txna ApplicationArgs 1
-load 70
-callsub roundkey_1
-store 71
-load 71
 box_get
 store 83
 store 82
 load 83
 assert
 load 82
-store 72
+store 71
 load 72
+load 71
+int 32
+callsub readu64_3
+<=
+assert
+load 71
+int 16
+callsub readu64_3
+store 81
+txna ApplicationArgs 1
+load 72
+callsub roundkey_1
+store 73
+load 73
+box_get
+store 85
+store 84
+load 85
+assert
+load 84
+store 74
+load 74
 int 16
 callsub readu16_4
-store 73
-int 0
 store 75
-int 0
-store 76
-int 0
-store 74
 int 0
 store 77
 int 0
 store 78
+int 0
+store 76
+int 0
+store 79
+int 0
+store 80
 main_l38:
-load 74
-load 73
-<
+load 76
 load 75
+<
+load 77
 int 0
 ==
 &&
 bnz main_l40
-load 75
+load 77
 int 1
 ==
 assert
-load 76
+load 78
 int 0
 >
+assert
+load 71
+int 0
+callsub readu64_3
+store 0
+txn Sender
+load 0
+asset_holding_get AssetBalance
+store 87
+store 86
+load 87
+assert
+load 86
+store 1
+load 1
+int 1
+>=
 assert
 itxn_begin
 int axfer
@@ -503,21 +537,21 @@ int 10458941
 itxn_field XferAsset
 txn Sender
 itxn_field AssetReceiver
-load 76
+load 78
 itxn_field AssetAmount
 int 0
 itxn_field Fee
 itxn_submit
-load 71
-load 78
+load 73
+load 80
 int 40
 +
 byte 0x01
 box_replace
-load 68
+load 70
 int 16
-load 79
-load 76
+load 81
+load 78
 +
 itob
 box_replace
@@ -525,39 +559,39 @@ int 1
 return
 main_l40:
 int 18
-load 74
+load 76
 int 41
 *
 +
-store 77
-load 72
-load 77
+store 79
+load 74
+load 79
 int 32
 extract3
 txn Sender
 ==
 bnz main_l42
 main_l41:
-load 74
+load 76
 int 1
 +
-store 74
+store 76
 b main_l38
 main_l42:
-load 77
-store 78
+load 79
+store 80
 int 1
-store 75
-load 72
-load 77
+store 77
+load 74
+load 79
 int 32
 +
 int 8
 extract3
 btoi
-store 76
-load 72
-load 77
+store 78
+load 74
+load 79
 int 40
 +
 int 1
@@ -578,28 +612,28 @@ int 5
 assert
 txna ApplicationArgs 2
 btoi
-store 51
-load 51
+store 53
+load 53
 int 0
 >
 assert
 txna ApplicationArgs 3
-store 52
+store 54
 int 4
-store 53
+store 55
 main_l44:
-load 53
+load 55
 txn NumAppArgs
 int 1
 -
 <
 bnz main_l52
-load 52
+load 54
 len
 int 0
 >
 assert
-load 52
+load 54
 len
 int 40
 %
@@ -607,58 +641,58 @@ int 0
 ==
 assert
 int 0
-store 55
+store 57
 int 0
-store 54
+store 56
 main_l46:
+load 56
 load 54
-load 52
 len
 <
 bnz main_l51
-load 55
-load 51
+load 57
+load 53
 ==
 assert
-load 52
+load 54
 len
 int 40
 /
-store 56
+store 58
 int 18
-load 56
+load 58
 int 41
 *
 +
-store 63
+store 65
 int 2500
 int 400
 int 12
 txna ApplicationArgs 1
 len
 +
-load 63
+load 65
 +
 *
 +
-store 64
+store 66
 txna ApplicationArgs 1
 callsub poolkey_0
-store 49
-load 49
+store 51
+load 51
 box_get
-store 67
-store 66
-load 67
+store 69
+store 68
+load 69
 assert
-load 66
-store 50
-load 50
+load 68
+store 52
+load 52
 int 8
 callsub readu64_3
-store 59
-load 51
-load 59
+store 61
+load 53
+load 61
 <=
 assert
 txn NumAppArgs
@@ -666,140 +700,140 @@ int 1
 -
 txnas ApplicationArgs
 btoi
-store 65
-load 65
+store 67
+load 67
 gtxns TypeEnum
 int pay
 ==
 assert
-load 65
+load 67
 gtxns Receiver
 global CurrentApplicationAddress
 ==
 assert
-load 65
+load 67
 gtxns Amount
-load 64
+load 66
 ==
 assert
-load 49
-int 8
-load 59
 load 51
+int 8
+load 61
+load 53
 -
 itob
 box_replace
-load 50
+load 52
 int 32
 callsub readu64_3
 int 1
 +
-store 57
-load 49
+store 59
+load 51
 int 32
-load 57
+load 59
 itob
 box_replace
 txna ApplicationArgs 1
-load 57
+load 59
 callsub roundkey_1
-store 58
-load 58
-load 63
+store 60
+load 60
+load 65
 box_create
 assert
-load 58
+load 60
 int 0
-load 51
+load 53
 itob
 box_replace
-load 58
+load 60
 int 8
 global LatestTimestamp
 itob
 box_replace
-load 58
+load 60
 int 16
-load 56
+load 58
 itob
 extract 6 2
 box_replace
 int 0
-store 54
+store 56
 int 18
-store 60
+store 62
 main_l48:
+load 56
 load 54
-load 52
 len
 <
 bnz main_l50
 int 1
 return
 main_l50:
-load 52
 load 54
+load 56
 int 32
 extract3
-store 61
-load 52
+store 63
 load 54
+load 56
 int 32
 +
 int 8
 extract3
-store 62
-load 58
+store 64
 load 60
-load 61
+load 62
+load 63
 box_replace
-load 58
 load 60
+load 62
 int 32
 +
-load 62
+load 64
 box_replace
-load 58
 load 60
+load 62
 int 40
 +
 byte 0x00
 box_replace
-load 54
+load 56
 int 40
 +
-store 54
-load 60
+store 56
+load 62
 int 41
 +
-store 60
+store 62
 b main_l48
 main_l51:
-load 55
-load 52
+load 57
 load 54
+load 56
 int 32
 +
 int 8
 extract3
 btoi
 +
-store 55
-load 54
+store 57
+load 56
 int 40
 +
-store 54
+store 56
 b main_l46
 main_l52:
-load 52
-load 53
+load 54
+load 55
 txnas ApplicationArgs
 concat
-store 52
-load 53
+store 54
+load 55
 int 1
 +
-store 53
+store 55
 b main_l44
 main_l53:
 txn NumAppArgs
@@ -813,191 +847,191 @@ app_global_get
 assert
 txna ApplicationArgs 1
 callsub poolkey_0
-store 30
-load 30
-box_get
-store 48
-store 47
-load 48
-assert
-load 47
-store 31
-load 31
-int 24
-callsub readu64_3
 store 32
 load 32
+box_get
+store 50
+store 49
+load 50
+assert
+load 49
+store 33
+load 33
+int 24
+callsub readu64_3
+store 34
+load 34
 int 0
 >
 assert
-load 31
+load 33
 extract 40 1
 btoi
-store 34
+store 36
 int 18
-load 34
+load 36
 int 41
 *
 +
-store 37
+store 39
 int 2500
 int 400
 int 12
 txna ApplicationArgs 1
 len
 +
-load 37
+load 39
 +
 *
 +
-store 38
+store 40
 txn NumAppArgs
 int 1
 -
 txnas ApplicationArgs
 btoi
-store 39
-load 39
+store 41
+load 41
 gtxns TypeEnum
 int pay
 ==
 assert
-load 39
+load 41
 gtxns Receiver
 global CurrentApplicationAddress
 ==
 assert
-load 39
+load 41
 gtxns Amount
-load 38
+load 40
 ==
 assert
-load 31
+load 33
 int 8
 callsub readu64_3
-store 33
-load 30
+store 35
+load 32
 int 24
 int 0
 itob
 box_replace
-load 30
-int 8
-load 33
 load 32
+int 8
+load 35
+load 34
 +
 itob
 box_replace
-load 31
+load 33
 int 32
 callsub readu64_3
 int 1
 +
-store 35
-load 30
+store 37
+load 32
 int 32
-load 35
+load 37
 itob
 box_replace
 txna ApplicationArgs 1
-load 35
-callsub roundkey_1
-store 36
-load 36
 load 37
+callsub roundkey_1
+store 38
+load 38
+load 39
 box_create
 assert
-load 36
+load 38
 int 0
-load 32
+load 34
 itob
 box_replace
-load 36
+load 38
 int 8
 global LatestTimestamp
 itob
 box_replace
-load 36
+load 38
 int 16
-load 34
+load 36
 itob
 extract 6 2
 box_replace
 int 0
-store 40
+store 42
 int 18
-store 41
+store 43
 int 0
-store 46
+store 48
 main_l54:
-load 40
-load 34
+load 42
+load 36
 <
 bnz main_l56
-load 32
-load 46
+load 34
+load 48
 -
-store 45
-load 30
+store 47
+load 32
 int 8
-load 33
-load 45
+load 35
+load 47
 +
 itob
 box_replace
 int 1
 return
 main_l56:
-load 31
-load 40
+load 33
+load 42
 callsub stakeholderoffset_2
 int 32
 extract3
-store 42
-load 31
-load 40
+store 44
+load 33
+load 42
 callsub stakeholderoffset_2
 int 32
 +
 int 2
 extract3
 btoi
-store 43
-load 32
-load 43
+store 45
+load 34
+load 45
 *
 int 10000
 /
-store 44
-load 36
-load 41
-load 42
+store 46
+load 38
+load 43
+load 44
 box_replace
-load 36
-load 41
+load 38
+load 43
 int 32
 +
-load 44
+load 46
 itob
 box_replace
-load 36
-load 41
+load 38
+load 43
 int 40
 +
 byte 0x00
 box_replace
+load 48
 load 46
-load 44
 +
-store 46
-load 41
+store 48
+load 43
 int 41
 +
-store 41
-load 40
+store 43
+load 42
 int 1
 +
-store 40
+store 42
 b main_l54
 main_l57:
 txn NumAppArgs
@@ -1014,46 +1048,46 @@ int 1
 -
 txnas ApplicationArgs
 btoi
-store 27
-load 27
+store 29
+load 29
 gtxns TypeEnum
 int axfer
 ==
 assert
-load 27
+load 29
 gtxns XferAsset
 int 10458941
 ==
 assert
-load 27
+load 29
 gtxns AssetReceiver
 global CurrentApplicationAddress
 ==
 assert
-load 27
+load 29
 gtxns AssetAmount
-store 25
-load 25
+store 27
+load 27
 int 0
 >
 assert
 txna ApplicationArgs 1
 callsub poolkey_0
-store 24
-load 24
+store 26
+load 26
 box_get
-store 29
-store 28
-load 29
+store 31
+store 30
+load 31
 assert
-load 28
+load 30
 int 24
 callsub readu64_3
-store 26
-load 24
-int 24
+store 28
 load 26
-load 25
+int 24
+load 28
+load 27
 +
 itob
 box_replace
@@ -1066,28 +1100,28 @@ int 3
 assert
 txna ApplicationArgs 1
 callsub poolkey_0
-store 16
-load 16
+store 18
+load 18
 box_get
-store 23
-store 22
-load 23
+store 25
+store 24
+load 25
 assert
-load 22
-store 17
-load 17
+load 24
+store 19
+load 19
 extract 41 32
-store 21
+store 23
 txn Sender
 byte "admin"
 app_global_get
 ==
-load 21
+load 23
 int 32
 bzero
 !=
 txn Sender
-load 21
+load 23
 ==
 &&
 ||
@@ -1097,37 +1131,37 @@ int 1
 -
 txnas ApplicationArgs
 btoi
-store 20
-load 20
+store 22
+load 22
 gtxns TypeEnum
 int axfer
 ==
 assert
-load 20
+load 22
 gtxns XferAsset
 int 10458941
 ==
 assert
-load 20
+load 22
 gtxns AssetReceiver
 global CurrentApplicationAddress
 ==
 assert
-load 20
+load 22
 gtxns AssetAmount
-store 18
-load 18
+store 20
+load 20
 int 0
 >
 assert
-load 17
+load 19
 int 8
 callsub readu64_3
-store 19
-load 16
-int 8
-load 19
+store 21
 load 18
+int 8
+load 21
+load 20
 +
 itob
 box_replace
@@ -1150,14 +1184,14 @@ int 32
 assert
 txna ApplicationArgs 1
 callsub poolkey_0
-store 13
-load 13
-box_get
 store 15
-store 14
 load 15
+box_get
+store 17
+store 16
+load 17
 assert
-load 13
+load 15
 int 41
 txna ApplicationArgs 2
 box_replace
@@ -1189,12 +1223,12 @@ txna ApplicationArgs 4
 len
 int 34
 /
-store 0
-load 0
+store 2
+load 2
 int 0
 >
 assert
-load 0
+load 2
 int 100
 <=
 assert
@@ -1204,55 +1238,55 @@ int 75
 txna ApplicationArgs 1
 len
 +
-load 0
+load 2
 int 35
 *
 +
 *
 +
-store 8
+store 10
 txn NumAppArgs
 int 1
 -
 txnas ApplicationArgs
 btoi
-store 9
-load 9
+store 11
+load 11
 gtxns TypeEnum
 int pay
 ==
 assert
-load 9
+load 11
 gtxns Receiver
 global CurrentApplicationAddress
 ==
 assert
-load 9
+load 11
 gtxns Amount
-load 8
+load 10
 ==
 assert
 int 0
-store 2
+store 4
 int 0
-store 1
+store 3
 main_l61:
-load 1
-load 0
+load 3
+load 2
 <
 bnz main_l66
-load 2
+load 4
 int 10000
 ==
 assert
 txna ApplicationArgs 1
 callsub poolkey_0
-store 10
-load 10
-box_get
 store 12
-store 11
 load 12
+box_get
+store 14
+store 13
+load 14
 !
 assert
 itxn_begin
@@ -1292,8 +1326,8 @@ int 0
 itxn_field Fee
 itxn_submit
 itxn CreatedAssetID
-store 4
-load 4
+store 6
+load 6
 itob
 int 0
 itob
@@ -1307,26 +1341,26 @@ concat
 int 0
 itob
 concat
-load 0
+load 2
 itob
 extract 7 1
 concat
 int 32
 bzero
 concat
-store 5
+store 7
 int 0
-store 1
+store 3
 main_l63:
-load 1
-load 0
+load 3
+load 2
 <
 bnz main_l65
-load 10
-load 5
+load 12
+load 7
 box_put
 byte "asset_id:"
-load 4
+load 6
 itob
 concat
 log
@@ -1334,37 +1368,37 @@ int 1
 return
 main_l65:
 txna ApplicationArgs 4
-load 1
+load 3
 int 34
 *
 int 32
 extract3
-store 6
+store 8
 txna ApplicationArgs 4
-load 1
+load 3
 int 34
 *
 int 32
 +
 int 2
 extract3
-store 7
-load 5
-load 6
-concat
+store 9
 load 7
+load 8
+concat
+load 9
 concat
 byte 0x00
 concat
-store 5
-load 1
+store 7
+load 3
 int 1
 +
-store 1
+store 3
 b main_l63
 main_l66:
 txna ApplicationArgs 4
-load 1
+load 3
 int 34
 *
 int 32
@@ -1372,19 +1406,19 @@ int 32
 int 2
 extract3
 btoi
-store 3
-load 3
+store 5
+load 5
 int 0
 >
 assert
-load 2
-load 3
+load 4
+load 5
 +
-store 2
-load 1
+store 4
+load 3
 int 1
 +
-store 1
+store 3
 b main_l61
 main_l67:
 txn NumAppArgs
