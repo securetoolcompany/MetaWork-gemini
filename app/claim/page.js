@@ -789,6 +789,25 @@ export default function ClaimPage() {
     }
   }
 
+  function formatUsdDynamicFromMicro(microUsdc) {
+    const raw = microUsdc / 1_000_000;
+
+    // Up to 6 decimals.
+    let s = raw.toFixed(6);
+
+    // Trim trailing zeros after the last non-zero decimal.
+    s = s.replace(/(\.\d*?[1-9])0+$/, '$1');
+
+    // Ensure at least two decimals for whole numbers.
+    if (s.endsWith('.0')) {
+      s = s + '0';
+    } else if (!s.includes('.')) {
+      s = s + '.00';
+    }
+
+    return s;
+  }
+
   const totalPendingReleaseUSDC = revenuePools.reduce(
     (sum, p) => sum + Number(p.claimInfo?.pool?.unallocatedUsdc || 0),
     0
@@ -898,7 +917,7 @@ export default function ClaimPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    {(totalPendingReleaseUSDC / 1000000).toFixed(2)}
+                    ${formatUsdDynamicFromMicro(totalPendingReleaseUSDC)}
                   </p>
                   <p className="text-sm text-muted-foreground">Pending Release</p>
                 </div>
@@ -912,7 +931,7 @@ export default function ClaimPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    {(totalClaimableUSDC / 1000000).toFixed(2)}
+                    ${formatUsdDynamicFromMicro(totalClaimableUSDC)}
                   </p>
                   <p className="text-sm text-muted-foreground">Available to Claim</p>
                 </div>
@@ -926,7 +945,7 @@ export default function ClaimPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    {(totalLifetimeClaimedUSDC / 1000000).toFixed(2)}
+                    ${formatUsdDynamicFromMicro(totalLifetimeClaimedUSDC)}
                   </p>
                   <p className="text-sm text-muted-foreground">Lifetime Claimed</p>
                 </div>
@@ -1112,15 +1131,11 @@ export default function ClaimPage() {
                   const poolBalanceFormatted =
                     claimInfo?.pool?.balanceFormatted || '0.00';
 
-                  const rounds = Array.isArray(claimInfo?.rounds)
-                    ? claimInfo.rounds
-                    : [];
+                  const rounds = Array.isArray(claimInfo?.rounds) ? claimInfo.rounds : [];
                   const lifetimeClaimedAmount = rounds
                     .filter((r) => r.claimed)
                     .reduce((sum, r) => sum + Number(r.amount || 0), 0);
-                  const lifetimeClaimedFormatted = (
-                    lifetimeClaimedAmount / 1000000
-                  ).toFixed(2);
+                  const lifetimeClaimedFormatted = formatUsdDynamicFromMicro(lifetimeClaimedAmount);
 
                   const poolKey = p.resolvedIpId || resolvePoolIpId(p);
                   const isClaiming = claimingRevenue === poolKey;
@@ -1305,7 +1320,7 @@ export default function ClaimPage() {
                                             Amount
                                           </p>
                                           <p className="text-sm font-medium">
-                                            {(Number(r.amount || 0) / 1000000).toFixed(2)} USDC
+                                            {formatUsdDynamicFromMicro(Number(r.amount || 0))} USDC
                                           </p>
                                         </div>
                                       </div>

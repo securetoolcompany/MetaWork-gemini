@@ -11,6 +11,25 @@ import {
   invalidateAccountCache,
 } from '@/lib/algorand-rate-limit';
 
+function formatUsdDynamicFromMicro(microUsdc) {
+  const raw = microUsdc / 1_000_000;
+
+  // Start with up to 6 decimals.
+  let s = raw.toFixed(6);
+
+  // Trim trailing zeros after the last non-zero decimal.
+  s = s.replace(/(\.\d*?[1-9])0+$/, '$1');
+
+  // Ensure at least two decimals for whole numbers.
+  if (s.endsWith('.0')) {
+    s = s + '0';
+  } else if (!s.includes('.')) {
+    s = s + '.00';
+  }
+
+  return s;
+}
+
 function getUsdcAssetId() {
   const id = Number(process.env.USDC_ASSET_ID);
   if (!id) {
@@ -187,6 +206,9 @@ export async function GET(request) {
       }
     }
 
+    const totalDeposited =
+      pool.heldUsdc + pool.totalClaimed + pool.unallocatedUsdc;
+
     return NextResponse.json({
       success: true,
       appId: appIndex,
@@ -197,19 +219,19 @@ export async function GET(request) {
         totalClaimed: pool.totalClaimed,
         heldUsdc: pool.heldUsdc,
         currentRoundId: pool.currentRoundId,
-        unallocatedUsdcFormatted: (pool.unallocatedUsdc / 1000000).toFixed(2),
-        totalClaimedFormatted: (pool.totalClaimed / 1000000).toFixed(2),
-        heldUsdcFormatted: (pool.heldUsdc / 1000000).toFixed(2),
+        unallocatedUsdcFormatted: formatUsdDynamicFromMicro(pool.unallocatedUsdc),
+        totalClaimedFormatted: formatUsdDynamicFromMicro(pool.totalClaimed),
+        heldUsdcFormatted: formatUsdDynamicFromMicro(pool.heldUsdc),
         balance: pool.heldUsdc,
-        balanceFormatted: (pool.heldUsdc / 1000000).toFixed(2),
-        totalDeposited: pool.heldUsdc + pool.totalClaimed + pool.unallocatedUsdc,
-        totalDepositedFormatted: ((pool.heldUsdc + pool.totalClaimed + pool.unallocatedUsdc) / 1000000).toFixed(2),
+        balanceFormatted: formatUsdDynamicFromMicro(pool.heldUsdc),
+        totalDeposited,
+        totalDepositedFormatted: formatUsdDynamicFromMicro(totalDeposited),
       },
       user: {
         address: normalizedUser,
         tokenBalance: userTokenBalance,
         claimableAmount,
-        claimableFormatted: (claimableAmount / 1000000).toFixed(2),
+        claimableFormatted: formatUsdDynamicFromMicro(claimableAmount),
       },
       rounds,
     });
