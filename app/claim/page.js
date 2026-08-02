@@ -24,11 +24,11 @@ const CURRENT_REVENUE_POOL_APP_ID = Number(
 const resolvePoolIpId = (item) =>
   String(
     item?.ipId ||
-    item?.tokenizedIpId ||
-    item?.assetId ||
-    item?.id ||
-    item?._id ||
-    ''
+      item?.tokenizedIpId ||
+      item?.assetId ||
+      item?.id ||
+      item?._id ||
+      ''
   );
 
 const resolveIpImage = (item) =>
@@ -46,7 +46,8 @@ const bigintReplacer = (_key, value) =>
   typeof value === 'bigint' ? value.toString() : value;
 
 export default function ClaimPage() {
-  const { accountAddress, isConnected, connect, signTransactionGroup } = useWallet();
+  const { accountAddress, isConnected, connect, signTransactionGroup } =
+    useWallet();
   const { getAuthHeader, isAuthenticated } = useAuth();
 
   const [activeTab, setActiveTab] = useState('tokens');
@@ -131,6 +132,41 @@ export default function ClaimPage() {
     };
   }
 
+  // ── Revenue-token (REV ASA) opt-in helpers ──────────────────────────────────
+
+  async function getRevenueTokenOptInTxn(userAddress, revenueTokenId) {
+    const res = await fetch('/api/revenue-tokens/optin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ userAddress, revenueTokenId }),
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || 'Failed to prepare revenue token opt-in');
+    if (!data?.transaction) throw new Error('Revenue token opt-in transaction was not returned');
+
+    return {
+      transaction: data.transaction,
+      revenueTokenId: Number(data?.revenueTokenId || revenueTokenId || 0),
+    };
+  }
+
+  async function submitRevenueTokenOptIn({ signedTxn, userAddress, revenueTokenId }) {
+    const res = await fetch('/api/revenue-tokens/optin', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ signedTxn, userAddress, revenueTokenId }),
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || 'Revenue token opt-in submission failed');
+    return data;
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+
   const mergeTokenWithOverride = useCallback((item) => {
     const override = tokenOverridesRef.current[item.ipId];
     if (!override?.forceClaimed) return item;
@@ -209,108 +245,216 @@ export default function ClaimPage() {
 
     try {
       const authHeaders = getAuthHeader();
+      const poolsWithClaimInfo = [];
+
+      // ── 1) Creator/IP-based pools via /api/ip ──────────────────────────────
       const ipResponse = await fetch('/api/ip', {
         headers: authHeaders,
         credentials: 'include',
         signal: controller.signal,
       });
-      if (!ipResponse.ok) return;
+      if (ipResponse.ok) {
+        const ipResult = await ipResponse.json();
+        const ipData =
+          ipResult.ipAssets || (Array.isArray(ipResult) ? ipResult : []);
+        const ipsWithPools = ipData.filter(
+          (ip) =>
+            Number(ip.revenuePoolAppId) === CURRENT_REVENUE_POOL_APP_ID
+        );
 
-      const ipResult = await ipResponse.json();
-      const ipData = ipResult.ipAssets || (Array.isArray(ipResult) ? ipResult : []);
-      const ipsWithPools = ipData.filter(
-        (ip) => Number(ip.revenuePoolAppId) === CURRENT_REVENUE_POOL_APP_ID
-      );
+        console.log(
+          '[POOLS] ipsWithPools',
+          ipsWithPools.map((ip) => ({
+            name: ip.name,
+            _id: ip._id,
+            mongoId: ip.mongoId,
+            id: ip.id,
+            ipId: ip.ipId,
+            tokenizedIpId: ip.tokenizedIpId,
+            assetId: ip.assetId,
+            revenuePoolAppId: ip.revenuePoolAppId,
+            revenuePool: ip.revenuePool,
+          }))
+        );
 
-      console.log('[POOLS] ipsWithPools', ipsWithPools.map((ip) => ({
-        name: ip.name,
-        _id: ip._id,
-        mongoId: ip.mongoId,
-        id: ip.id,
-        ipId: ip.ipId,
-        tokenizedIpId: ip.tokenizedIpId,
-        assetId: ip.assetId,
-        revenuePoolAppId: ip.revenuePoolAppId,
-        revenuePool: ip.revenuePool,
-      })));
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-      const poolsWithClaimInfo = [];
-      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        for (const ip of ipsWithPools) {
+          if (controller.signal.aborted) return;
 
-      for (const ip of ipsWithPools) {
-        if (controller.signal.aborted) return;
+          const resolvedIpId = resolvePoolIpId(ip);
 
-        const resolvedIpId = resolvePoolIpId(ip);
+          console.log('[POOLS] resolving ip id', {
+            name: ip.name,
+            _id: ip._id,
+            id: ip.id,
+            ipId: ip.ipId,
+            tokenizedIpId: ip.tokenizedIpId,
+            resolvedIpId,
+            revenuePoolAppId: ip.revenuePoolAppId,
+          });
 
-        console.log('[POOLS] resolving ip id', {
-          name: ip.name,
-          _id: ip._id,
-          id: ip.id,
-          ipId: ip.ipId,
-          tokenizedIpId: ip.tokenizedIpId,
-          resolvedIpId,
-          revenuePoolAppId: ip.revenuePoolAppId,
+          // Per-request timeout controller
+          const requestController = new AbortController();
+          const timeoutId = setTimeout(() => {
+            requestController.abort();
+          }, 4000); // 4s, adjust as needed
+
+          try {
+            const res = await fetch(
+              `/api/revenue-pool/claim?appId=${Number(
+                ip.revenuePoolAppId
+              )}&userAddress=${accountAddress}&ipId=${resolvedIpId}`,
+              {
+                signal: requestController.signal,
+              }
+            );
+
+            if (res.ok) {
+              const claimInfo = await res.json();
+              poolsWithClaimInfo.push({
+                ...ip,
+                resolvedIpId,
+                imageUrl: resolveIpImage(ip),
+                claimInfo,
+              });
+            } else {
+              console.warn(
+                '[POOLS] Claim info request failed',
+                { id: ip.id, status: res.status }
+              );
+              poolsWithClaimInfo.push({
+                ...ip,
+                resolvedIpId,
+                imageUrl: resolveIpImage(ip),
+                claimInfo,
+              });
+            }
+          } catch (err) {
+            if (err.name === 'AbortError') {
+              console.warn('[POOLS] claim fetch timed out', {
+                name: ip.name,
+                appId: ip.revenuePoolAppId,
+                resolvedIpId,
+              });
+            } else {
+              console.error('Error fetching pool claim info:', ip.id, err);
+            }
+            poolsWithClaimInfo.push({
+              ...ip,
+              resolvedIpId,
+              imageUrl: resolveIpImage(ip),
+              claimInfo: null,
+            });
+          } finally {
+            clearTimeout(timeoutId);
+          }
+
+          await sleep(400);
+        }
+      } else {
+        console.warn('[POOLS] /api/ip request failed', {
+          status: ipResponse.status,
         });
+      }
 
-        // Per-request timeout controller
-        const requestController = new AbortController();
-        const timeoutId = setTimeout(() => {
-          requestController.abort();
-        }, 4000); // 4s, adjust as needed
-
+      // ── 2) Stakeholder pools via REV ASA holdings (fallback) ───────────────
+      if (!controller.signal.aborted && poolsWithClaimInfo.length === 0) {
         try {
-          const res = await fetch(
-            `/api/revenue-pool/claim?appId=${Number(
-              ip.revenuePoolAppId
-            )}&userAddress=${accountAddress}&ipId=${resolvedIpId}`,
+          const stakeholderRes = await fetch(
+            `/api/revenue-pool/stakeholder-pools?userAddress=${accountAddress}`,
             {
-              signal: requestController.signal,
+              credentials: 'include',
+              signal: controller.signal,
             }
           );
 
-          if (res.ok) {
-            const claimInfo = await res.json();
-            poolsWithClaimInfo.push({
-              ...ip,
-              resolvedIpId,
-              imageUrl: resolveIpImage(ip),
-              claimInfo,
+          if (stakeholderRes.ok) {
+            const stakeholderData = await stakeholderRes.json();
+            const stakeholderPools = Array.isArray(stakeholderData?.pools)
+              ? stakeholderData.pools
+              : [];
+
+            console.log('[POOLS] stakeholder pools', {
+              userAddress: accountAddress,
+              count: stakeholderPools.length,
             });
+
+            // We treat stakeholder pools as first-class pools in the UI.
+            for (const p of stakeholderPools) {
+              if (controller.signal.aborted) return;
+
+              const resolvedIpId = p.ipId || resolvePoolIpId(p);
+
+              const requestController = new AbortController();
+              const timeoutId = setTimeout(() => {
+                requestController.abort();
+              }, 4000);
+
+              try {
+                const res = await fetch(
+                  `/api/revenue-pool/claim?appId=${Number(
+                    p.revenuePoolAppId
+                  )}&userAddress=${accountAddress}&ipId=${resolvedIpId}`,
+                  {
+                    signal: requestController.signal,
+                  }
+                );
+
+                let claimInfo = null;
+                if (res.ok) {
+                  claimInfo = await res.json();
+                } else {
+                  console.warn(
+                    '[POOLS] stakeholder Claim info request failed',
+                    { ipId: resolvedIpId, status: res.status }
+                  );
+                }
+
+                poolsWithClaimInfo.push({
+                  ...p,
+                  resolvedIpId,
+                  imageUrl: p.imageUrl || resolveIpImage(p),
+                  claimInfo,
+                });
+              } catch (err) {
+                if (err.name === 'AbortError') {
+                  console.warn('[POOLS] stakeholder claim fetch timed out', {
+                    ipId: resolvedIpId,
+                    appId: p.revenuePoolAppId,
+                  });
+                } else {
+                  console.error(
+                    'Error fetching stakeholder pool claim info:',
+                    resolvedIpId,
+                    err
+                  );
+                }
+                poolsWithClaimInfo.push({
+                  ...p,
+                  resolvedIpId,
+                  imageUrl: p.imageUrl || resolveIpImage(p),
+                  claimInfo: null,
+                });
+              } finally {
+                clearTimeout(timeoutId);
+              }
+            }
           } else {
-            console.warn(
-              '[POOLS] Claim info request failed',
-              { id: ip.id, status: res.status }
-            );
-            poolsWithClaimInfo.push({
-              ...ip,
-              resolvedIpId,
-              imageUrl: resolveIpImage(ip),
-              claimInfo,
+            console.warn('[POOLS] stakeholder-pools request failed', {
+              status: stakeholderRes.status,
             });
           }
         } catch (err) {
           if (err.name === 'AbortError') {
-            console.warn('[POOLS] claim fetch timed out', {
-              name: ip.name,
-              appId: ip.revenuePoolAppId,
-              resolvedIpId,
-            });
+            console.warn('[POOLS] stakeholder-pools fetch aborted');
           } else {
-            console.error('Error fetching pool claim info:', ip.id, err);
+            console.error('Error fetching stakeholder pools:', err);
           }
-          poolsWithClaimInfo.push({
-            ...ip,
-            resolvedIpId,
-            imageUrl: resolveIpImage(ip),
-            claimInfo: null,
-          });
-        } finally {
-          clearTimeout(timeoutId);
         }
-
-        await sleep(400);
       }
 
+      // ── 3) Final state update ───────────────────────────────────────────────
       if (!controller.signal.aborted) {
         setRevenuePools(poolsWithClaimInfo);
       }
@@ -385,23 +529,55 @@ export default function ClaimPage() {
     setClaimingTokens(token.ipId);
 
     try {
-      const res = await fetch('/api/revenue-tokens/claim', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          userAddress: addr,
-          ipId: token.ipId,
-        }),
-      });
+      // Helper to call POST /api/revenue-tokens/claim
+      const prepareClaim = async () => {
+        const res = await fetch('/api/revenue-tokens/claim', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ userAddress: addr, ipId: token.ipId }),
+        });
+        const data = await res.json().catch(() => null);
+        return { res, data };
+      };
 
-      const data = await res.json().catch(() => null);
+      let { res, data } = await prepareClaim();
 
-      if (res.status === 409 && data?.code === 'TOKEN_OPT_IN_REQUIRED') {
-        throw new Error(
-          `Wallet must opt in to revenue token ${data?.revenueTokenId} before claiming.`
+      // ── Automatic REV ASA opt-in subflow ──────────────────────────────────
+      if (
+        res.status === 409 &&
+        data?.code === 'TOKEN_OPT_IN_REQUIRED' &&
+        data?.revenueTokenId
+      ) {
+        toast.info(
+          'Preparing your wallet for this revenue token. This is a one-time setup.'
         );
+
+        const { transaction: optInTxn, revenueTokenId } =
+          await getRevenueTokenOptInTxn(addr, data.revenueTokenId);
+
+        const signedOptIn = await signTransactionGroup([
+          new Uint8Array(Buffer.from(optInTxn, 'base64')),
+        ]);
+
+        if (!signedOptIn?.length) {
+          throw new Error('Revenue token opt-in signing cancelled');
+        }
+
+        const signedOptInBase64 = Buffer.from(signedOptIn[0]).toString('base64');
+
+        await submitRevenueTokenOptIn({
+          signedTxn: signedOptInBase64,
+          userAddress: addr,
+          revenueTokenId,
+        });
+
+        toast.success('Revenue token opt-in complete.');
+
+        // Retry the claim now that the wallet is opted in
+        ({ res, data } = await prepareClaim());
       }
+      // ─────────────────────────────────────────────────────────────────────
 
       if (!res.ok) {
         throw new Error(data?.error || 'Failed to prepare token claim');
@@ -437,11 +613,14 @@ export default function ClaimPage() {
         throw new Error(submitData?.error || 'Submission failed');
       }
 
+      // Optimistic UI update – keep claimed state visible before next refresh
       const nextOverrides = {
         ...tokenOverridesRef.current,
         [token.ipId]: {
           forceClaimed: true,
-          allocatedTokens: Number(token.allocatedTokens ?? token.stakeholderBps ?? 0),
+          allocatedTokens: Number(
+            token.allocatedTokens ?? token.stakeholderBps ?? 0
+          ),
           at: Date.now(),
         },
       };
@@ -449,10 +628,12 @@ export default function ClaimPage() {
       tokenOverridesRef.current = nextOverrides;
       setTokenOverrides(nextOverrides);
       setClaimableTokens((prev) =>
-        prev.map((item) => (item.ipId === token.ipId ? mergeTokenWithOverride(item) : item))
+        prev.map((item) =>
+          item.ipId === token.ipId ? mergeTokenWithOverride(item) : item
+        )
       );
 
-      toast.success('Claim submitted!');
+      toast.success('Revenue tokens claimed.');
 
       if (refreshTimeoutRef.current) {
         clearTimeout(refreshTimeoutRef.current);
@@ -469,6 +650,7 @@ export default function ClaimPage() {
       setClaimingTokens(null);
     }
   };
+
   async function handleClaimRevenue(pool) {
     const addr = accountAddress;
 
@@ -689,7 +871,9 @@ export default function ClaimPage() {
           </Button>
 
           <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}>
-            <RefreshCcw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCcw
+              className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`}
+            />
             Refresh
           </Button>
         </div>
@@ -714,7 +898,7 @@ export default function ClaimPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    ${(totalPendingReleaseUSDC / 1000000).toFixed(2)}
+                    {(totalPendingReleaseUSDC / 1000000).toFixed(2)}
                   </p>
                   <p className="text-sm text-muted-foreground">Pending Release</p>
                 </div>
@@ -728,7 +912,7 @@ export default function ClaimPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    ${(totalClaimableUSDC / 1000000).toFixed(2)}
+                    {(totalClaimableUSDC / 1000000).toFixed(2)}
                   </p>
                   <p className="text-sm text-muted-foreground">Available to Claim</p>
                 </div>
@@ -742,7 +926,7 @@ export default function ClaimPage() {
                 </div>
                 <div>
                   <p className="text-2xl font-bold">
-                    ${(totalLifetimeClaimedUSDC / 1000000).toFixed(2)}
+                    {(totalLifetimeClaimedUSDC / 1000000).toFixed(2)}
                   </p>
                   <p className="text-sm text-muted-foreground">Lifetime Claimed</p>
                 </div>
@@ -804,10 +988,12 @@ export default function ClaimPage() {
                   const claimableAmount = Number(t.claimableAmount || 0);
                   const existingBalance = Number(t.existingBalance || 0);
                   const stakeholderBps = Number(t.stakeholderBps || 0);
-                  const claimedAmount =
-                    Number(t.claimedAmount ?? (status === 'claimed'
-                      ? stakeholderBps
-                      : Math.min(existingBalance, stakeholderBps)));
+                  const claimedAmount = Number(
+                    t.claimedAmount ??
+                      (status === 'claimed'
+                        ? stakeholderBps
+                        : Math.min(existingBalance, stakeholderBps))
+                  );
 
                   return (
                     <Card key={t.ipId}>
@@ -854,7 +1040,7 @@ export default function ClaimPage() {
                             </p>
 
                             <p className="text-sm text-muted-foreground">
-                              Claimed:{' '}
+                              Claimed{' '}
                               {claimedAmount.toLocaleString()} /{' '}
                               {stakeholderBps.toLocaleString()}
                             </p>
@@ -921,14 +1107,20 @@ export default function ClaimPage() {
 
                   const userRevBalance = Number(claimInfo?.user?.tokenBalance || 0);
                   const claimableAmount = Number(claimInfo?.user?.claimableAmount || 0);
-                  const claimableFormatted = claimInfo?.user?.claimableFormatted || '0.00';
-                  const poolBalanceFormatted = claimInfo?.pool?.balanceFormatted || '0.00';
+                  const claimableFormatted =
+                    claimInfo?.user?.claimableFormatted || '0.00';
+                  const poolBalanceFormatted =
+                    claimInfo?.pool?.balanceFormatted || '0.00';
 
-                  const rounds = Array.isArray(claimInfo?.rounds) ? claimInfo.rounds : [];
+                  const rounds = Array.isArray(claimInfo?.rounds)
+                    ? claimInfo.rounds
+                    : [];
                   const lifetimeClaimedAmount = rounds
                     .filter((r) => r.claimed)
                     .reduce((sum, r) => sum + Number(r.amount || 0), 0);
-                  const lifetimeClaimedFormatted = (lifetimeClaimedAmount / 1000000).toFixed(2);
+                  const lifetimeClaimedFormatted = (
+                    lifetimeClaimedAmount / 1000000
+                  ).toFixed(2);
 
                   const poolKey = p.resolvedIpId || resolvePoolIpId(p);
                   const isClaiming = claimingRevenue === poolKey;
@@ -1049,7 +1241,10 @@ export default function ClaimPage() {
                           <details className="border-t bg-muted/5">
                             <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm text-muted-foreground md:px-5">
                               <span>USDC Claim History</span>
-                              <span>{rounds.length} {rounds.length === 1 ? 'round' : 'rounds'}</span>
+                              <span>
+                                {rounds.length}{' '}
+                                {rounds.length === 1 ? 'round' : 'rounds'}
+                              </span>
                             </summary>
 
                             <div className="px-4 pb-4 md:px-5">
@@ -1064,10 +1259,14 @@ export default function ClaimPage() {
                                 <div className="divide-y">
                                   {rounds.map((r) => {
                                     const releasedAt = r.roundCreated
-                                      ? new Date(Number(r.roundCreated) * 1000).toLocaleDateString()
+                                      ? new Date(
+                                          Number(r.roundCreated) * 1000
+                                        ).toLocaleDateString()
                                       : '—';
 
-                                    const claimedLabel = r.claimed ? 'Claimed' : 'Pending';
+                                    const claimedLabel = r.claimed
+                                      ? 'Claimed'
+                                      : 'Pending';
 
                                     return (
                                       <div
@@ -1078,21 +1277,27 @@ export default function ClaimPage() {
                                           <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground md:hidden">
                                             Round
                                           </p>
-                                          <p className="text-sm font-medium">Round {r.roundId}</p>
+                                          <p className="text-sm font-medium">
+                                            Round {r.roundId}
+                                          </p>
                                         </div>
 
                                         <div>
                                           <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground md:hidden">
                                             Date released
                                           </p>
-                                          <p className="text-sm text-muted-foreground">{releasedAt}</p>
+                                          <p className="text-sm text-muted-foreground">
+                                            {releasedAt}
+                                          </p>
                                         </div>
 
                                         <div>
                                           <p className="text-[11px] uppercase tracking-[0.08em] text-muted-foreground md:hidden">
                                             Date claimed
                                           </p>
-                                          <p className="text-sm text-muted-foreground">{claimedLabel}</p>
+                                          <p className="text-sm text-muted-foreground">
+                                            {claimedLabel}
+                                          </p>
                                         </div>
 
                                         <div>
