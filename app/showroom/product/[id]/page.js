@@ -9,43 +9,88 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, ShoppingCart, Star, TrendingUp, Heart, Share2, Check, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  ShoppingCart,
+  Star,
+  TrendingUp,
+  Heart,
+  Share2,
+  Loader2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import AisleAdPlacement from '@/components/aisle-public/AisleAdPlacement';
 import ShowroomNav from '@/components/showroom/ShowroomNav';
 import { useCart } from '@/lib/CartContext';
 
-const productSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-const productColors = [
-  { name: 'Black', hex: '#000000' },
-  { name: 'White', hex: '#FFFFFF' },
-  { name: 'Navy', hex: '#1e3a8a' },
-  { name: 'Red', hex: '#dc2626' },
-  { name: 'Green', hex: '#16a34a' },
+// Mock reviews for now
+const mockReviews = [
+  {
+    id: 1,
+    author: 'Sarah M.',
+    rating: 5,
+    date: '2024-01-15',
+    comment:
+      'Amazing quality! The design is even better in person. Highly recommend!',
+    verified: true,
+  },
+  {
+    id: 2,
+    author: 'Mike R.',
+    rating: 5,
+    date: '2024-01-12',
+    comment:
+      'Perfect fit and the print quality is outstanding. Will definitely buy more!',
+    verified: true,
+  },
+  {
+    id: 3,
+    author: 'Emma L.',
+    rating: 4,
+    date: '2024-01-10',
+    comment: 'Great product! Only wish it came in more colors.',
+    verified: true,
+  },
+  {
+    id: 4,
+    author: 'Alex K.',
+    rating: 5,
+    date: '2024-01-08',
+    comment:
+      'Fast shipping and excellent customer service. Love the design!',
+    verified: false,
+  },
 ];
 
-// Reviews will come from API in future, keeping mock for now
-const mockReviews = [
-  { id: 1, author: 'Sarah M.', rating: 5, date: '2024-01-15', comment: 'Amazing quality! The design is even better in person. Highly recommend!', verified: true },
-  { id: 2, author: 'Mike R.', rating: 5, date: '2024-01-12', comment: 'Perfect fit and the print quality is outstanding. Will definitely buy more!', verified: true },
-  { id: 3, author: 'Emma L.', rating: 4, date: '2024-01-10', comment: 'Great product! Only wish it came in more colors.', verified: true },
-  { id: 4, author: 'Alex K.', rating: 5, date: '2024-01-08', comment: 'Fast shipping and excellent customer service. Love the design!', verified: false },
-];
+function normalizeImageUrl(url) {
+  if (!url) return null;
+  if (typeof url === 'object') {
+    url = url.secure_url || url.url;
+  }
+  if (!url || typeof url !== 'string') return null;
+
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (trimmed === 'https://files.cdn.printful.com/') return null;
+  if (trimmed.includes('/undefined')) return null;
+  if (trimmed.includes('null')) return null;
+
+  return trimmed.startsWith('//') ? 'https:' + trimmed : trimmed;
+}
 
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
   const productId = params.id;
   const { addToCart } = useCart();
-  
+
   const [product, setProduct] = useState(null);
   const [creator, setCreator] = useState(null);
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   const [selectedSize, setSelectedSize] = useState('M');
-  const [selectedColor, setSelectedColor] = useState(productColors[0]);
   const [quantity, setQuantity] = useState(1);
   const [isFavorited, setIsFavorited] = useState(false);
 
@@ -56,9 +101,16 @@ export default function ProductDetailPage() {
         setLoading(true);
         const response = await fetch(`/api/products/${productId}`);
         const data = await response.json();
-        
+
         if (data.success) {
-          setProduct(data.product);
+          const safeProduct = {
+            ...data.product,
+            description:
+              typeof data.product.description === 'string'
+                ? data.product.description
+                : null,
+          };
+          setProduct(safeProduct);
           setCreator(data.creator);
           setRelatedProducts(data.relatedProducts || []);
         } else {
@@ -71,7 +123,7 @@ export default function ProductDetailPage() {
         setLoading(false);
       }
     }
-    
+
     if (productId) {
       fetchProduct();
     }
@@ -81,8 +133,9 @@ export default function ProductDetailPage() {
     if (!product) return;
     addToCart(product, {
       size: selectedSize,
-      color: selectedColor,
-      quantity: quantity,
+      // color not wired here; keep shape for CartContext
+      color: null,
+      quantity,
     });
   };
 
@@ -91,8 +144,8 @@ export default function ProductDetailPage() {
     if (navigator.share) {
       navigator.share({
         title: product?.title || product?.name || 'Product',
-        text: `Check out this product on MetaWork Showroom!`,
-        url: url
+        text: 'Check out this product on MetaWork Showroom!',
+        url,
       });
     } else {
       navigator.clipboard.writeText(url);
@@ -100,7 +153,7 @@ export default function ProductDetailPage() {
     }
   };
 
-    // Simple derived value instead of useMemo
+  // Sizes from variants (if present)
   const uniqueSizes = (product?.variants || [])
     .map((v) => v.size)
     .filter(Boolean)
@@ -119,7 +172,7 @@ export default function ProductDetailPage() {
     );
   }
 
-  // Error or not found state
+  // Error or not found
   if (error || !product) {
     return (
       <div className="min-h-screen bg-background">
@@ -127,7 +180,9 @@ export default function ProductDetailPage() {
         <div className="flex items-center justify-center py-24">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-4">Product Not Found</h1>
-            <p className="text-muted-foreground mb-6">{error || "This product doesn't exist or has been removed."}</p>
+            <p className="text-muted-foreground mb-6">
+              {error || "This product doesn't exist or has been removed."}
+            </p>
             <Link href="/showroom">
               <Button>Back to Showroom</Button>
             </Link>
@@ -137,26 +192,62 @@ export default function ProductDetailPage() {
     );
   }
 
-  // Get product display values
-  const productName = product.title || product.name || 'Product';
-  const productPrice = product.price || 0;
-  const productImage = product.imageUrl || '/placeholder.png';
-  const productDescription = product.description || 'This unique design combines style and comfort. Perfect for everyday wear or special occasions.';
-  const productBaseType = product.baseProduct || product.catalogProductName || 'Product';
-  const salesCount = product.salesCount || 0;
-  const creatorSlug = creator?.username || creator?.id || 'unknown';
+  // ---- image logic (mirrors modal) ----
+  const preferredImageSet =
+    (Array.isArray(product?.mockups) && product.mockups.length > 0
+      ? product.mockups
+      : null) ||
+    (Array.isArray(product?.mockupImages) && product.mockupImages.length > 0
+      ? product.mockupImages
+      : null) ||
+    (Array.isArray(product?.images) && product.images.length > 0
+      ? product.images
+      : null) ||
+    (product?.imageUrl ? [product.imageUrl] : null) ||
+    (product?.thumbnailUrl ? [product.thumbnailUrl] : null) ||
+    (product?.mockupUrl ? [product.mockupUrl] : null) ||
+    (product?.image ? [product.image] : null) ||
+    [];
 
-  // Calculate average rating from reviews
-  const averageRating = mockReviews.length > 0 
-  ? mockReviews.reduce((sum, r) => sum + r.rating, 0) / mockReviews.length 
-  : 4.8;
+  const galleryImages = Array.from(
+    new Set(
+      preferredImageSet
+        .map((img) => normalizeImageUrl(img))
+        .filter(Boolean)
+    )
+  );
+  const safeGalleryImages =
+    galleryImages.length > 0 ? galleryImages : ['/placeholder.png'];
+
+  const productImage = safeGalleryImages[0];
+
+  // ---- derived display values ----
+  const productName = String(product.title || product.name || 'Product');
+  const productPrice =
+    typeof product.price === 'number' ? product.price : 0;
+
+  const productDescription =
+    typeof product.description === 'string'
+      ? product.description
+      : 'This unique design combines style and comfort. Perfect for everyday wear or special occasions.';
+  const productBaseType = String(
+    product.baseProduct || product.catalogProductName || 'Product'
+  );
+  const salesCount =
+    typeof product.salesCount === 'number' ? product.salesCount : 0;
+  const creatorSlug = String(creator?.username || creator?.id || 'unknown');
+
+  const averageRating =
+    mockReviews.length > 0
+      ? mockReviews.reduce((sum, r) => sum + r.rating, 0) / mockReviews.length
+      : 4.8;
 
   return (
     <div className="min-h-screen bg-background">
       <ShowroomNav />
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Breadcrumb Navigation */}
+        {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
           <Link href="/showroom" className="hover:text-foreground">
             Showroom
@@ -168,7 +259,7 @@ export default function ProductDetailPage() {
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="flex-1">
             <div className="grid md:grid-cols-2 gap-8 mb-12">
-              {/* Product Image Display */}
+              {/* Product Image + Gallery */}
               <div className="space-y-4">
                 <div className="relative aspect-square rounded-lg overflow-hidden bg-muted">
                   {productImage ? (
@@ -190,19 +281,28 @@ export default function ProductDetailPage() {
                     </Badge>
                   )}
                 </div>
+
                 {/* Thumbnail Gallery */}
-                <div className="grid grid-cols-4 gap-2">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="relative aspect-square rounded-md overflow-hidden border-2 border-primary cursor-pointer bg-muted">
-                      {productImage && (
-                        <Image src={productImage} alt={`View ${i}`} fill className="object-cover" />
-                      )}
-                    </div>
-                  ))}
-                </div>
+                {safeGalleryImages.length > 1 && (
+                  <div className="grid grid-cols-4 gap-2">
+                    {safeGalleryImages.slice(0, 4).map((img, i) => (
+                      <div
+                        key={img + '-' + i}
+                        className="relative aspect-square rounded-md overflow-hidden border-2 border-primary cursor-pointer bg-muted"
+                      >
+                        <Image
+                          src={img || '/placeholder.png'}
+                          alt={'View ' + (i + 1)}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Product Information and Controls */}
+              {/* Product Info + Controls */}
               <div className="space-y-6">
                 <div>
                   <h1 className="text-3xl font-bold mb-2">{productName}</h1>
@@ -215,30 +315,41 @@ export default function ProductDetailPage() {
                     {[1, 2, 3, 4, 5].map((star) => (
                       <Star
                         key={star}
-                        className={`w-5 h-5 ${
-                          star <= Math.round(averageRating)
+                        className={
+                          'w-5 h-5 ' +
+                          (star <= Math.round(averageRating)
                             ? 'fill-yellow-400 text-yellow-400'
-                            : 'text-gray-300'
-                        }`}
+                            : 'text-gray-300')
+                        }
                       />
                     ))}
                   </div>
-                  <span className="font-semibold">{averageRating.toFixed(1)}</span>
-                  <span className="text-muted-foreground">({mockReviews.length} reviews)</span>
+                  <span className="font-semibold">
+                    {averageRating.toFixed(1)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    ({mockReviews.length} reviews)
+                  </span>
                   <span className="text-muted-foreground">•</span>
-                  <span className="text-muted-foreground">{salesCount} sold</span>
+                  <span className="text-muted-foreground">
+                    {salesCount} sold
+                  </span>
                 </div>
 
-                {/* Price: Derived from Creator's DB entry */}
+                {/* Price */}
                 <div className="flex items-baseline gap-3">
-                  <span className="text-4xl font-bold text-primary">${productPrice.toFixed(2)}</span>
-                  <span className="text-xl text-muted-foreground line-through">${(productPrice * 1.3).toFixed(2)}</span>
+                  <span className="text-4xl font-bold text-primary">
+                    ${productPrice.toFixed(2)}
+                  </span>
+                  <span className="text-xl text-muted-foreground line-through">
+                    ${(productPrice * 1.3).toFixed(2)}
+                  </span>
                   <Badge variant="secondary">Save 30%</Badge>
                 </div>
 
                 <Separator />
 
-                {/* Size Selector: Populated from live Printful variants */}
+                {/* Size Selector */}
                 {uniqueSizes.length > 0 && (
                   <div>
                     <label className="block text-sm font-semibold mb-3">
@@ -261,7 +372,7 @@ export default function ProductDetailPage() {
                   </div>
                 )}
 
-                {/* Quantity Control */}
+                {/* Quantity */}
                 <div>
                   <label className="block text-sm font-semibold mb-3">
                     Quantity
@@ -308,20 +419,18 @@ export default function ProductDetailPage() {
                       className="gap-2"
                     >
                       <Heart
-                        className={`w-5 h-5 ${
-                          isFavorited
+                        className={
+                          'w-5 h-5 ' +
+                          (isFavorited
                             ? 'fill-red-500 text-red-500 border-none'
-                            : ''
-                        }`}
+                            : '')
+                        }
                       />
                       {isFavorited ? 'Saved' : 'Save'}
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => {
-                        navigator.clipboard.writeText(window.location.href);
-                        toast.success('Link copied!');
-                      }}
+                      onClick={handleShare}
                       className="gap-2"
                     >
                       <Share2 className="w-5 h-5" />
@@ -330,7 +439,7 @@ export default function ProductDetailPage() {
                   </div>
                 </div>
 
-                {/* Navigation Buttons */}
+                {/* Navigation */}
                 <div className="grid grid-cols-2 gap-3 pt-4">
                   <Link href="/showroom">
                     <Button variant="outline" className="w-full gap-2">
@@ -350,7 +459,7 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {/* Information Tabs: Details and Shipping */}
+            {/* Info Tabs */}
             <Tabs defaultValue="details">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="details">Product Specs</TabsTrigger>
@@ -359,8 +468,12 @@ export default function ProductDetailPage() {
 
               <TabsContent value="details" className="mt-6">
                 <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Product Description</h3>
-                  <p className="text-muted-foreground mb-4">{productDescription}</p>
+                  <h3 className="text-lg font-semibold mb-4">
+                    Product Description
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    {productDescription}
+                  </p>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <span className="font-bold text-foreground block mb-1">
@@ -384,7 +497,7 @@ export default function ProductDetailPage() {
 
               <TabsContent value="shipping" className="mt-6">
                 <Card className="p-6 text-muted-foreground">
-                  Orders are typically fulfilled within 2-5 business days.
+                  Orders are typically delivered within 10 - 14 business days.
                   Shipping rates and delivery estimates are calculated at
                   checkout based on your location.
                 </Card>
@@ -397,13 +510,22 @@ export default function ProductDetailPage() {
                 <h3 className="text-2xl font-bold mb-6">You May Also Like</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {relatedProducts.map((relatedProduct) => (
-                    <Link key={relatedProduct.id} href={`/showroom/product/${relatedProduct.id}`}>
+                    <Link
+                      key={relatedProduct.id}
+                      href={`/showroom/product/${relatedProduct.id}`}
+                    >
                       <Card className="group overflow-hidden cursor-pointer transition-all hover:shadow-lg">
                         <div className="relative aspect-square overflow-hidden bg-muted">
                           {relatedProduct.imageUrl ? (
                             <Image
                               src={relatedProduct.imageUrl}
-                              alt={relatedProduct.name || relatedProduct.title || 'Product'}
+                              alt={
+                                String(
+                                  relatedProduct.name ||
+                                    relatedProduct.title ||
+                                    'Product'
+                                )
+                              }
                               fill
                               className="object-cover group-hover:scale-105 transition-transform"
                             />
@@ -415,10 +537,19 @@ export default function ProductDetailPage() {
                         </div>
                         <div className="p-3">
                           <h4 className="font-semibold text-sm mb-1 line-clamp-1">
-                            {relatedProduct.name || relatedProduct.title || 'Product'}
+                            {String(
+                              relatedProduct.name ||
+                                relatedProduct.title ||
+                                'Product'
+                            )}
                           </h4>
                           <p className="text-lg font-bold text-primary">
-                            ${(relatedProduct.price || 0).toFixed(2)}
+                            $
+                            {(
+                              typeof relatedProduct.price === 'number'
+                                ? relatedProduct.price
+                                : 0
+                            ).toFixed(2)}
                           </p>
                         </div>
                       </Card>
@@ -433,8 +564,7 @@ export default function ProductDetailPage() {
           <div className="hidden lg:block w-64 flex-shrink-0">
             <div className="sticky top-20 space-y-6">
               <AisleAdPlacement type="sidebar" accentColor="#3b82f6" />
-              
-              {/* Creator Info Card */}
+
               {creator && (
                 <Card className="p-4">
                   <h4 className="font-semibold mb-3">About the Creator</h4>
@@ -442,7 +572,12 @@ export default function ProductDetailPage() {
                     <div className="flex items-center gap-3 mb-3 cursor-pointer hover:opacity-80">
                       <div className="relative w-12 h-12 rounded-full overflow-hidden bg-muted">
                         {creator.avatar ? (
-                          <Image src={creator.avatar} alt={creator.name || 'Creator'} fill className="object-cover" />
+                          <Image
+                            src={creator.avatar}
+                            alt={creator.name || 'Creator'}
+                            fill
+                            className="object-cover"
+                          />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
                             {(creator.name || 'C')[0]}
@@ -450,13 +585,21 @@ export default function ProductDetailPage() {
                         )}
                       </div>
                       <div>
-                        <p className="font-semibold">{creator.name || creator.username || 'Creator'}</p>
-                        <p className="text-xs text-muted-foreground">@{creator.username || 'creator'}</p>
+                        <p className="font-semibold">
+                          {String(
+                            creator.name || creator.username || 'Creator'
+                          )}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          @{String(creator.username || 'creator')}
+                        </p>
                       </div>
                     </div>
                   </Link>
-                  {creator.bio && (
-                    <p className="text-sm text-muted-foreground mb-3">{creator.bio}</p>
+                  {creator.bio && typeof creator.bio === 'string' && (
+                    <p className="text-sm text-muted-foreground mb-3">
+                      {creator.bio}
+                    </p>
                   )}
                   <Link href={`/aisle/${creatorSlug}`}>
                     <Button variant="outline" size="sm" className="w-full">
