@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AisleAdPlacement from '@/components/aisle-public/AisleAdPlacement';
-import ShowroomNav from '@/components/showroom/ShowroomNav';
 import { useCart } from '@/lib/CartContext';
 
 // Mock reviews for now
@@ -62,7 +61,8 @@ const mockReviews = [
   },
 ];
 
-function normalizeImageUrl(url) {
+// ---- image logic (prefer mockups) ----
+const normalizeImageUrl = (url) => {
   if (!url) return null;
   if (typeof url === 'object') {
     url = url.secure_url || url.url;
@@ -75,8 +75,8 @@ function normalizeImageUrl(url) {
   if (trimmed.includes('/undefined')) return null;
   if (trimmed.includes('null')) return null;
 
-  return trimmed.startsWith('//') ? 'https:' + trimmed : trimmed;
-}
+  return trimmed.startsWith('//') ? `https:${trimmed}` : trimmed;
+};
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -163,8 +163,7 @@ export default function ProductDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <ShowroomNav />
-        <div className="flex items-center justify-center py-24">
+       <div className="flex items-center justify-center py-24">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <span className="ml-2 text-muted-foreground">Loading product...</span>
         </div>
@@ -176,7 +175,6 @@ export default function ProductDetailPage() {
   if (error || !product) {
     return (
       <div className="min-h-screen bg-background">
-        <ShowroomNav />
         <div className="flex items-center justify-center py-24">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-4">Product Not Found</h1>
@@ -192,34 +190,13 @@ export default function ProductDetailPage() {
     );
   }
 
-  // ---- image logic (mirrors modal) ----
-  const preferredImageSet =
-    (Array.isArray(product?.mockups) && product.mockups.length > 0
-      ? product.mockups
-      : null) ||
-    (Array.isArray(product?.mockupImages) && product.mockupImages.length > 0
-      ? product.mockupImages
-      : null) ||
-    (Array.isArray(product?.images) && product.images.length > 0
-      ? product.images
-      : null) ||
-    (product?.imageUrl ? [product.imageUrl] : null) ||
-    (product?.thumbnailUrl ? [product.thumbnailUrl] : null) ||
-    (product?.mockupUrl ? [product.mockupUrl] : null) ||
-    (product?.image ? [product.image] : null) ||
-    [];
+ // ---- image logic (prefer mockups only) ----
+  const galleryImages =
+    Array.isArray(product.mockups) && product.mockups.length > 0
+      ? product.mockups.map((img) => normalizeImageUrl(img)).filter(Boolean)
+      : ['/placeholder.png'];
 
-  const galleryImages = Array.from(
-    new Set(
-      preferredImageSet
-        .map((img) => normalizeImageUrl(img))
-        .filter(Boolean)
-    )
-  );
-  const safeGalleryImages =
-    galleryImages.length > 0 ? galleryImages : ['/placeholder.png'];
-
-  const productImage = safeGalleryImages[0];
+  const productImage = galleryImages[0];
 
   // ---- derived display values ----
   const productName = String(product.title || product.name || 'Product');
@@ -244,8 +221,6 @@ export default function ProductDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <ShowroomNav />
-
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
@@ -283,16 +258,16 @@ export default function ProductDetailPage() {
                 </div>
 
                 {/* Thumbnail Gallery */}
-                {safeGalleryImages.length > 1 && (
+                {galleryImages.length > 1 && (
                   <div className="grid grid-cols-4 gap-2">
-                    {safeGalleryImages.slice(0, 4).map((img, i) => (
+                    {galleryImages.map((img, i) => (
                       <div
                         key={img + '-' + i}
                         className="relative aspect-square rounded-md overflow-hidden border-2 border-primary cursor-pointer bg-muted"
                       >
                         <Image
                           src={img || '/placeholder.png'}
-                          alt={'View ' + (i + 1)}
+                          alt={`View ${i + 1}`}
                           fill
                           className="object-cover"
                         />

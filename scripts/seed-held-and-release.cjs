@@ -14,7 +14,7 @@ const {
 } = require(path.resolve(process.cwd(), 'lib/algorand.js'));
 
 const APP_ID = Number(process.env.NEXT_PUBLIC_REVENUE_POOL_APP_ID || 768287773);
-const IP_ID = process.env.SEED_IP_ID || '6a6f3f9a41bff4f55fe08dcd';
+const IP_ID = process.env.SEED_IP_ID || '6a6fb77f9f800d3fe22d7d38';
 const AMOUNT = Number(process.env.SEED_USDC_AMOUNT || 1_000_000);
 
 function log(...args) {
