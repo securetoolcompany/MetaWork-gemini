@@ -92,7 +92,9 @@ const uniqueImages = [...new Set(allImages)];
     const normalizedProduct = {
       ...product,
       id: product._id.toString(),
-      name: product.title || product.name,
+      name: String(product.title || product.name || ''),
+      title: String(product.title || product.name || ''),
+      description: typeof product.description === 'string' ? product.description : null,
       thumbnailUrl: normalizeImageUrl(product.thumbnailUrl),
       images: uniqueImages,
       imageUrl: uniqueImages[0] || null,
@@ -126,20 +128,24 @@ const uniqueImages = [...new Set(allImages)];
 
     return NextResponse.json({
       success: true,
-      product: normalizedProduct,
+      product: {
+        ...normalizedProduct,
+        description: typeof product.description === 'string' ? product.description : null,
+      },
       creator: creator ? {
-        id: creator.id || creator._id?.toString(),
-        username: creator.username,
-        name: creator.name || creator.displayName || creator.username,
-        avatar: creator.avatar || creator.avatarUrl,
-        bio: creator.bio
+        id: String(creator.id || creator._id?.toString() || ''),
+        username: String(creator.username || ''),
+        name: String(creator.name || creator.displayName || creator.username || ''),
+        avatar: creator.avatar || creator.avatarUrl || null,
+        bio: typeof creator.bio === 'string' ? creator.bio : null
       } : null,
       relatedProducts: relatedProducts.map(p => ({
         id: p.id || p._id?.toString(),
         title: p.title || p.name,
         name: p.title || p.name,
         price: p.price,
-        imageUrl: getProductImageUrl(p)
+        imageUrl: getProductImageUrl(p),
+        description: typeof p.description === 'string' ? p.description : null,
       }))
     });
 
