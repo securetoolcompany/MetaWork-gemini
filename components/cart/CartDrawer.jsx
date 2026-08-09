@@ -107,7 +107,18 @@ export default function CartDrawer({ open, onOpenChange }) {
                 return (
                   <div key={itemKey} className="flex gap-4 p-4 border rounded-lg bg-card relative">
                     <div className="relative w-20 h-20 flex-shrink-0 bg-muted rounded-md overflow-hidden">
-                      <Image src={item.thumbnailUrl || '/placeholder.png'} alt={item.title} fill className="object-cover" />
+                      <Image
+                        src={
+                          item.thumbnailUrl ||
+                          item.imageUrl ||
+                          item.mockupUrl ||
+                          '/placeholder.png'
+                        }
+                        alt={item.title || 'Cart product'}
+                        fill
+                        sizes="80px"
+                        className="object-cover"
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-medium text-sm leading-tight mb-1 line-clamp-2">{item.title}</h4>
@@ -122,7 +133,9 @@ export default function CartDrawer({ open, onOpenChange }) {
                             <Plus className="h-3 w-3" />
                           </Button>
                         </div>
-                        <p className="text-sm font-semibold">{formatPrice(item.priceSnapshot * item.quantity)}</p>
+                        <p className="text-sm font-semibold">
+                          {formatPrice(Number(item.priceSnapshot ?? item.price ?? 0) * item.quantity)}
+                        </p>
                       </div>
                     </div>
                     <Button size="sm" variant="ghost" className="absolute top-2 right-2 h-6 w-6 p-0 text-muted-foreground hover:text-destructive" onClick={() => handleRemoveItem(item.productId, item.variationId)} disabled={isUpdating || loading}>

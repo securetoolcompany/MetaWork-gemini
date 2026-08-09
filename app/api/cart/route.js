@@ -175,23 +175,19 @@ export async function POST(request) {
       );
     }
     
-    // Validate variation exists in product (only if product has variations)
-    const hasVariations = product.variations?.length > 0;
-    
-    if (hasVariations) {
-      const variationExists = product.variations.some(v => 
-        String(v.id) === String(variationId) || 
-        String(v._id) === String(variationId)
+    // createCartItem resolves the variant across product.variants,
+    // product.variations, and product.baseProduct.variants.
+    try {
+      createCartItem(product, variationId, qty);
+    } catch (error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message || 'Variation not found in product',
+        },
+        { status: 400 }
       );
-      
-      if (!variationExists) {
-        return NextResponse.json(
-          { success: false, error: 'Variation not found in product' },
-          { status: 400 }
-        );
-      }
     }
-    // If product has no variations, any variationId is accepted (use "default" or product ID)
     
     // Get or create session
     const { userId } = await getUserSession();
@@ -223,20 +219,34 @@ export async function POST(request) {
     let result;
     
     if (existingCart) {
-      // Item exists - increment quantity
-      result = await db.collection(CART_COLLECTION).findOneAndUpdate(
-        {
-          ...query,
-          'items.productId': cartItem.productId,
-          'items.variationId': cartItem.variationId
+    // Increment quantity and refresh stale price/image snapshots from MongoDB.
+    result = await db.collection(CART_COLLECTION).findOneAndUpdate(
+      {
+        ...query,
+        'items.productId': cartItem.productId,
+        'items.variationId': cartItem.variationId,
+      },
+      {
+        $inc: {
+          'items.$.quantity': qty,
         },
-        {
-          $inc: { 'items.$.quantity': qty },
-          $set: { updatedAt: new Date() }
+        $set: {
+          'items.$.priceSnapshot': cartItem.priceSnapshot,
+          'items.$.price': cartItem.price,
+          'items.$.title': cartItem.title,
+          'items.$.thumbnailUrl': cartItem.thumbnailUrl,
+          'items.$.imageUrl': cartItem.imageUrl,
+          'items.$.attributes': cartItem.attributes,
+          'items.$.sync_variant_id': cartItem.sync_variant_id,
+          'items.$.printfulVariantId': cartItem.printfulVariantId,
+          'items.$.printful_id': cartItem.printful_id,
+          'items.$.catalogVariantId': cartItem.catalogVariantId,
+          updatedAt: new Date(),
         },
-        { returnDocument: 'after' }
-      );
-    } else {
+      },
+      { returnDocument: 'after' }
+    );
+  } else {
       // Item doesn't exist - add new item
       const updateDoc = {
         $push: { items: cartItem },

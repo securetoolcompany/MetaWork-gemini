@@ -97,6 +97,29 @@ function normalizeVariantValue(value) {
     .replace(/[^a-z0-9]/g, '');
 }
 
+function getOrderItemRetailPrice(item) {
+  const cents = Number(
+    item?.unitMerchandisePriceCents ??
+      item?.canonicalPricing?.retailPriceCents
+  );
+
+  if (Number.isInteger(cents) && cents >= 0) {
+    return (cents / 100).toFixed(2);
+  }
+
+  // Legacy-order fallback only. New checkout orders must use the cents snapshot.
+  const legacyDollars = Number(
+    item?.priceSnapshot ??
+      item?.unitPrice ??
+      item?.retail_price ??
+      0
+  );
+
+  return Number.isFinite(legacyDollars) && legacyDollars >= 0
+    ? legacyDollars.toFixed(2)
+    : '0.00';
+}
+
 async function resolveLegacyTemplateVariantId({
   availableVariantIds,
   legacyVariation,
@@ -477,9 +500,7 @@ export async function POST(req) {
           return {
             sync_variant_id: Number(syncVariantId),
             quantity: Number(item.quantity || 1),
-            retail_price: Number(
-              item.priceSnapshot || item.unitPrice || 0
-            ).toFixed(2),
+            retail_price: getOrderItemRetailPrice(item),
             name: item.title || matchedVariant?.name || product?.title || 'Item',
             external_id: String(item.productId),
           };
@@ -538,9 +559,7 @@ export async function POST(req) {
       const baseItem = {
         variant_id: Number(variantId),
         quantity: Number(item.quantity || 1),
-        retail_price: Number(
-          item.priceSnapshot || item.unitPrice || 0
-        ).toFixed(2),
+        retail_price: getOrderItemRetailPrice(item),
         name: item.title || matchedVariant?.name || product?.title || 'Item',
         external_id: String(item.productId),
       };

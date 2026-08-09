@@ -2,6 +2,9 @@ import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { validateShippingCodes } from '@/lib/addressCodes';
+import {
+  buildOrderItemSnapshot,
+} from '@/lib/order-financial-snapshot';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -20,7 +23,17 @@ export async function POST(req) {
       !shippingInfo?.zip ||
       !shippingInfo?.country_code
     ) {
-      return NextResponse.json({ error: 'Missing required shipping information' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing required shipping information' },
+        { status: 400 }
+      );
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json(
+        { error: 'No items in cart' },
+        { status: 400 }
+      );
     }
 
     const { country, state } = validateShippingCodes(shippingInfo);
@@ -37,38 +50,146 @@ export async function POST(req) {
       state_code: state || '',
     };
 
-    if (!items || items.length === 0) {
-      return NextResponse.json({ error: "No items in cart" }, { status: 400 });
+    const normalizedShippingCost = Number(shippingCost || 0);
+
+    if (
+      !Number.isFinite(normalizedShippingCost) ||
+      normalizedShippingCost < 0
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid shipping cost' },
+        { status: 400 }
+      );
     }
 
-    // 1. Calculate Base Subtotal & Discounts
-    const itemsSubtotal = items.reduce((acc, item) => {
-      return acc + (parseFloat(item.priceSnapshot || item.price) * item.quantity);
-    }, 0);
+    const { db } = await connectToDatabase();
+
+    // Resolve every cart item against MongoDB before calculating money.
+    // Browser price fields are never used for totals, tax, or PaymentIntent amount.
+    const resolvedCartItems = await Promise.all(
+      items.map(async (cartItem, index) => {
+        if (!cartItem?.productId || !cartItem?.variationId) {
+          throw new Error(
+            `Cart item ${index + 1} is missing productId or variationId`
+          );
+        }
+
+        if (!ObjectId.isValid(cartItem.productId)) {
+          throw new Error(`Cart item ${index + 1} has an invalid productId`);
+        }
+
+        const quantity = Number(cartItem.quantity);
+
+        if (!Number.isInteger(quantity) || quantity < 1) {
+          throw new Error(`Cart item ${index + 1} has an invalid quantity`);
+        }
+
+        const product = await db.collection('products').findOne({
+          _id: new ObjectId(cartItem.productId),
+        });
+
+        if (!product) {
+          throw new Error(`Product not found for cart item ${index + 1}`);
+        }
+
+        const candidateVariants = [
+          ...(product.variants || []),
+          ...(product.variations || []),
+          ...(product.baseProduct?.variants || []),
+        ];
+
+        const requestedVariantId = String(cartItem.variationId);
+
+        const dbVariation = candidateVariants.find((variant) => {
+          const canonicalIds = [
+            variant?.id,
+            variant?.variantId,
+            variant?.variant_id,
+            variant?.printful_id,
+            variant?.sync_variant_id,
+            variant?.printfulVariantId,
+          ]
+            .filter((value) => value !== undefined && value !== null)
+            .map(String);
+
+          return canonicalIds.includes(requestedVariantId);
+        });
+
+        if (!dbVariation) {
+          throw new Error(
+            `Canonical variant ${cartItem.variationId} was not found for product ${product._id}`
+          );
+        }
+
+        const unitPrice = Number(
+          dbVariation.retail_price ??
+            dbVariation.retailPrice ??
+            dbVariation.price
+        );
+
+        if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+          throw new Error(
+            `Canonical retail price is invalid for product ${product._id}, variant ${cartItem.variationId}`
+          );
+        }
+
+        // A Printful sync variant ID is valid only when the product was actually
+        // synced to the connected Printful store. Do not fall back to catalog IDs.
+        const syncVariantId =
+          dbVariation.sync_variant_id ??
+          dbVariation.printfulVariantId ??
+          null;
+
+        // Catalog variant IDs are distinct from sync-store variant IDs.
+        const catalogVariantId =
+          dbVariation.printful_id ??
+          dbVariation.variantId ??
+          dbVariation.variant_id ??
+          dbVariation.id ??
+          null;
+
+        return {
+          cartItem,
+          product,
+          dbVariation,
+          quantity,
+          unitPrice,
+          title: product.name ?? cartItem.title ?? 'Untitled product',
+          syncVariantId,
+          catalogVariantId,
+        };
+      })
+    );
+
+    // Canonical server-derived merchandise subtotal.
+    const itemsSubtotal = resolvedCartItems.reduce(
+      (total, item) => total + item.unitPrice * item.quantity,
+      0
+    );
 
     let discountAmount = 0;
-    if (promoCode) {
-      if (promoCode === 'SAVE10') discountAmount = 10.00;
-      else if (promoCode === 'HALFOFF') discountAmount = itemsSubtotal * 0.5;
+
+    if (promoCode === 'SAVE10') {
+      discountAmount = 10;
+    } else if (promoCode === 'HALFOFF') {
+      discountAmount = itemsSubtotal * 0.5;
     }
 
-    // Prevent negative subtotal
     discountAmount = Math.min(discountAmount, itemsSubtotal);
+
     const discountedSubtotal = itemsSubtotal - discountAmount;
+    const discountMultiplier =
+      itemsSubtotal > 0 ? discountedSubtotal / itemsSubtotal : 1;
 
-    // Calculate proportional discount multiplier to avoid overcharging tax
-    // e.g. A $10 discount on a $50 cart = 0.8 multiplier applied to all items
-    const discountMultiplier = itemsSubtotal > 0 ? (discountedSubtotal / itemsSubtotal) : 1;
-
-    // 2. ASK STRIPE FOR THE EXACT TAX AMOUNT (International & Domestic)
-    const lineItems = items.map((item) => ({
-      // Apply the discount directly to the line item so Stripe taxes the right amount
-      amount: Math.round(parseFloat(item.priceSnapshot || item.price) * item.quantity * discountMultiplier * 100),
-      reference: item.title || item.name || 'Item',
+    // Stripe Tax receives only server-resolved canonical prices.
+    const lineItems = resolvedCartItems.map((item) => ({
+      amount: Math.round(
+        item.unitPrice * item.quantity * discountMultiplier * 100
+      ),
+      reference: item.title,
       tax_behavior: 'exclusive',
     }));
 
-    // Generate the tax calculation with shipping properly separated
     const taxCalculation = await stripe.tax.calculations.create({
       currency: 'usd',
       customer_details: {
@@ -82,61 +203,115 @@ export async function POST(req) {
         address_source: 'shipping',
       },
       line_items: lineItems,
-      shipping_cost: parseFloat(shippingCost || 0) > 0 ? {
-        amount: Math.round(parseFloat(shippingCost) * 100),
-        tax_behavior: 'exclusive',
-      } : undefined,
+      shipping_cost:
+        normalizedShippingCost > 0
+          ? {
+              amount: Math.round(normalizedShippingCost * 100),
+              tax_behavior: 'exclusive',
+            }
+          : undefined,
     });
 
     const finalAmountInCents = taxCalculation.amount_total;
     const exactTaxAmount = taxCalculation.tax_amount_exclusive / 100;
 
-    // 3. ENRICH ITEMS WITH SYNC IDs & CREATE PENDING ORDER
-    const { db } = await connectToDatabase(); 
+    const generatedOrderNumber = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
 
-    const enrichedItems = await Promise.all(items.map(async (cartItem) => {
-      const dbProduct = await db.collection('products').findOne({ _id: new ObjectId(cartItem.productId) });
-      
-      const candidateVariants = [
-        ...(dbProduct?.variants || []),
-        ...(dbProduct?.variations || []),
-        ...(dbProduct?.baseProduct?.variants || []),
-      ];
-
-      const dbVariation = candidateVariants.find(v =>
-        String(v?.id || v?.variantId || v?.printful_id || '') === String(cartItem.variationId || '') ||
-        String(v?.sync_variant_id || v?.printfulVariantId || '') === String(cartItem.variationId || '') ||
-        String(v?.printful_id || '') === String(cartItem.variationId || '')
-      );
+    // Preserve fulfillment identifiers while adding immutable financial,
+    // canonical-pricing, and locked-licensing snapshots.
+    const orderItemSnapshots = resolvedCartItems.map((item, index) => {
+      const snapshot = buildOrderItemSnapshot({
+        orderItemId: `${generatedOrderNumber}:item:${index + 1}`,
+        product: item.product,
+        variant: item.dbVariation,
+        quantity: item.quantity,
+        unitMerchandisePrice: item.unitPrice,
+      });
 
       return {
-        ...cartItem,
-        sync_variant_id: dbVariation?.sync_variant_id || dbVariation?.printfulVariantId || null,
-        printfulVariantId: dbVariation?.sync_variant_id || dbVariation?.printfulVariantId || null,
-        title: dbProduct?.name || cartItem.title
+        ...snapshot,
+
+        // Backward-compatible fields expected by current fulfillment code.
+        productId: String(item.product._id),
+        variationId: String(item.cartItem.variationId),
+        quantity: item.quantity,
+        title: item.title,
+        sku: item.dbVariation.sku ?? item.cartItem.sku ?? null,
+        // Set only if it is an actual Printful store sync-variant mapping.
+        sync_variant_id: item.syncVariantId,
+        printfulVariantId: item.syncVariantId,
+
+        // Retain catalog identity separately for resolver/template fallback logic.
+        printful_id: item.catalogVariantId,
+        catalogVariantId: item.catalogVariantId,
+        selectedOptions: item.cartItem.selectedOptions ?? null,
       };
-    }));
-    
-    const generatedOrderNumber = Math.floor(100000 + Math.random() * 900000).toString();
-    
+    });
+
+    const merchandiseSubtotalCents = resolvedCartItems.reduce(
+      (total, item) => total + Math.round(item.unitPrice * item.quantity * 100),
+      0
+    );
+
+    const discountedMerchandiseSubtotalCents = lineItems.reduce(
+      (total, lineItem) => total + lineItem.amount,
+      0
+    );
+
+    const shippingCents = Math.round(normalizedShippingCost * 100);
+
+    const discountCents =
+      merchandiseSubtotalCents - discountedMerchandiseSubtotalCents;
+
+    // Stripe Tax's amount_total is the authoritative amount being charged.
+    const orderTotalsSnapshot = {
+      merchandiseSubtotalCents,
+      discountedMerchandiseSubtotalCents,
+      shippingCents,
+      taxCents: taxCalculation.tax_amount_exclusive,
+      discountCents,
+      customerTotalCents: taxCalculation.amount_total,
+      currency: 'USD',
+    };
+
     const pendingOrder = {
       orderNumber: generatedOrderNumber,
       email: normalizedShippingInfo.email,
       shippingInfo: normalizedShippingInfo,
-      items: enrichedItems, // SAVE THE ENRICHED ITEMS INSTEAD
+
+      // Canonical immutable purchase-time order-item snapshots.
+      items: orderItemSnapshots,
+
+      // Legacy top-level money fields retained for existing UI/routes.
       subtotal: itemsSubtotal,
       discount: discountAmount,
-      shippingCost: parseFloat(shippingCost || 0),
+      shippingCost: normalizedShippingCost,
       tax: exactTaxAmount,
       total: finalAmountInCents / 100,
-      status: 'pending', 
+
+      // Integer-cent audit source for later settlement work.
+      financialSnapshot: orderTotalsSnapshot,
+
+      status: 'pending',
+      paymentStatus: 'pending',
+      fulfillmentStatus: 'pending',
+
+      settlementPolicySnapshot: {
+        eligibilityEvent: 'delivered',
+        holdDays: 14,
+        licensingRevenueBase: 'merchandise_only',
+        stripeFeeTreatment: 'platform_margin',
+        settlementCadence: 'weekly',
+      },
+
       createdAt: new Date(),
     };
 
     const insertResult = await db.collection('orders').insertOne(pendingOrder);
     const orderId = insertResult.insertedId.toString();
 
-    // 4. CREATE THE PAYMENT INTENT
     const paymentIntent = await stripe.paymentIntents.create({
       amount: finalAmountInCents,
       currency: 'usd',
@@ -145,15 +320,14 @@ export async function POST(req) {
         customer_email: normalizedShippingInfo.email,
         customer_name: normalizedShippingInfo.name,
         shipping_country: normalizedShippingInfo.country_code,
-        order_id: orderId, 
+        order_id: orderId,
         applied_promo: promoCode || 'none',
         discount_amount: discountAmount.toFixed(2),
-        stripe_tax_calculation_id: taxCalculation.id, 
-        tax_collected: exactTaxAmount.toFixed(2)
+        stripe_tax_calculation_id: taxCalculation.id,
+        tax_collected: exactTaxAmount.toFixed(2),
       },
     });
 
-    // Return the secret to the frontend so it can render the card inputs safely
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
       orderNumber: generatedOrderNumber,
@@ -162,7 +336,11 @@ export async function POST(req) {
       amountTotal: taxCalculation.amount_total,
     });
   } catch (err) {
-    console.error("STRIPE BACKEND ERROR:", err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error('STRIPE BACKEND ERROR:', err.message);
+
+    return NextResponse.json(
+      { error: err.message || 'Unable to create checkout payment' },
+      { status: 500 }
+    );
   }
 }
