@@ -3,6 +3,25 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
 
+function parseUsdToCents(value, fieldName) {
+  const normalized = String(value ?? '').trim();
+
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) {
+    throw new Error(
+      `${fieldName} must be a USD amount with at most two decimals`
+    );
+  }
+
+  const [whole, fraction = ''] = normalized.split('.');
+  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+
+  if (!Number.isSafeInteger(cents) || cents < 0) {
+    throw new Error(`${fieldName} must be a non-negative USD amount`);
+  }
+
+  return cents;
+}
+
 export async function GET(request, { params }) {
   try {
     const { id } = await params;
@@ -180,11 +199,28 @@ export async function PUT(request, { params }) {
     
     const ipAsset = await db.collection('ip_assets').findOne(matchQuery);
     
-    if (!ipAsset) {
+        if (!ipAsset) {
       return NextResponse.json({ error: 'IP not found or unauthorized' }, { status: 404 });
     }
-    
-    // Update the IP asset using the internal _id
+
+    const isPublicIp =
+      typeof body.isPublic === 'boolean'
+        ? body.isPublic
+        : ipAsset.isPublic === true;
+
+    const isLicensableIp = isPublicIp;
+
+    let licensingFeeCents = 0;
+
+    if (isLicensableIp) {
+      licensingFeeCents = parseUsdToCents(
+        body.licensingFee,
+        'licensingFee'
+      );
+    }
+
+    // licensingFeeCents is the canonical settlement value.
+    // licensingFee is retained temporarily for older UI readers only.
     await db.collection('ip_assets').updateOne(
       { _id: ipAsset._id },
       {
@@ -193,10 +229,14 @@ export async function PUT(request, { params }) {
           description: body.description,
           category: body.category,
           tags: body.tags,
-          licensingFee: body.licensingFee,
-          isPublic: body.isPublic,
-          updatedAt: new Date()
-        }
+
+          isPublic: isPublicIp,
+          licensable: isLicensableIp,
+          licensingFeeCents,
+          licensingFee: licensingFeeCents / 100,
+
+          updatedAt: new Date(),
+        },
       }
     );
     

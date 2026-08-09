@@ -482,6 +482,13 @@ export default function DesignPropertiesPanel({
               </span>
             </div>
 
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-slate-400">IP licensing fees</span>
+              <span className="font-mono text-amber-300">
+                ${Number(costAnalysis.ip || 0).toFixed(2)}
+              </span>
+            </div>
+
             {/* Est. Total */}
             <div className="flex justify-between items-center text-xs">
               <span className="text-slate-400">Est. Total</span>

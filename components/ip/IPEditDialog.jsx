@@ -89,7 +89,13 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, onSaved, tut
     description:  ipAsset?.description || 'High-quality digital artwork perfect for print-on-demand products',
     category:     initialCategory,
     tags:         Array.isArray(ipAsset?.tags) ? ipAsset.tags : (ipAsset?.tags || 'design, artwork, print, creative'),
-    licensingFee: ipAsset?.licensingFee != null ? ipAsset.licensingFee : 1.00,    isPublic:     ipAsset?.isPublic !== undefined ? ipAsset.isPublic : true,
+    licensingFee:
+      ipAsset?.licensingFeeCents != null
+        ? Number(ipAsset.licensingFeeCents) / 100
+        : ipAsset?.licensingFee != null
+          ? Number(ipAsset.licensingFee)
+          : 0,
+    isPublic:     ipAsset?.isPublic !== undefined ? ipAsset.isPublic : true,
   });
 
 
@@ -131,10 +137,7 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, onSaved, tut
       toast.error('Missing required fields', { description: 'Name and at least one category are required.' });
       return;
     }
-    if (formData.isPublic && formData.licensingFee < 0.50) {
-      toast.error('Licensing fee too low!', { description: 'Minimum is $0.50 per use.' });
-      return;
-    }
+    
     if (formData.isPublic && formData.licensingFee > 20.00) {
       toast.warning('High licensing fee', { description: 'High fees may discourage usage.' });
     }
@@ -431,10 +434,10 @@ export default function IPEditDialog({ ipAsset, open, onOpenChange, onSaved, tut
                       <Input
                         id="fee"
                         type="number"
-                        step="0.25"
-                        min="0.50"
-                        max="20.00"
+                        step="0.01"
+                        min="0"
                         value={formData.licensingFee}
+                        onFocus={(event) => event.currentTarget.select()}
                         onChange={(e) => setFormData({ ...formData, licensingFee: parseFloat(e.target.value) || 0 })}
                         className="pl-7 bg-background border-border"
                       />

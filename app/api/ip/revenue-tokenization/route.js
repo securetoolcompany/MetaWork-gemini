@@ -46,6 +46,23 @@ function roundMbr(ipId, shCount) {
   return 2500 + 400 * (12 + Buffer.byteLength(ipId) + 18 + shCount * 41);
 }
 
+function parseUsdToCents(value, fieldName) {
+  const normalized = String(value ?? "").trim();
+
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) {
+    throw new Error(`${fieldName} must be a USD amount with at most two decimals`);
+  }
+
+  const [whole, fraction = ""] = normalized.split(".");
+  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+
+  if (!Number.isSafeInteger(cents) || cents < 0) {
+    throw new Error(`${fieldName} must be a non-negative USD amount`);
+  }
+
+  return cents;
+}
+
 // =========================================================
 // POST: PREPARE TOKENIZATION MINT (NFT ONLY, STEP 1)
 // =========================================================
@@ -67,7 +84,7 @@ export async function POST(request) {
     const { db } = await connectToDatabase();
     const body = await request.json();
 
-    const {
+        const {
       name,
       assetType,
       description,
@@ -75,6 +92,9 @@ export async function POST(request) {
       image: imageCid,
       walletAddress: connectedWallet,
       stakeholders: incomingStakeholders,
+      licenseFeeUsd,
+      licensable,
+      isPublic,
     } = body;
 
     const { ObjectId } = await import("mongodb");
@@ -132,6 +152,18 @@ export async function POST(request) {
     }
 
     const ipAssetId = new (await import("mongodb")).ObjectId().toString();
+
+    const isPublicIp = isPublic !== false;
+    const isLicensableIp = licensable !== false;
+
+    let licensingFeeCents = 0;
+
+    if (isPublicIp && isLicensableIp) {
+      licensingFeeCents = parseUsdToCents(
+        licenseFeeUsd,
+        "licenseFeeUsd"
+      );
+    }
 
     // 1. Validate stakeholders
     let norm = (incomingStakeholders || []).map((s, index) => ({
@@ -267,6 +299,11 @@ export async function POST(request) {
       ownerName: displayName,
       ownerUsername: user.username,
       ownerAvatar: avatar,
+
+      isPublic: isPublicIp,
+      licensable: isLicensableIp,
+      licensingFeeCents,
+
       stakeholders: stakeholdersForContract, // { address, bps }
       type: "tokenized",
       status: "pending_nft_mint",

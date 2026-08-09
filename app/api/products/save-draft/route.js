@@ -352,7 +352,351 @@ async function generatePrintfulMockup(productId, templateId) {
 }
 
 const ENSURE_SYNC_PATH = "/api/products/ensure-sync";
+
+const PLATFORM_LICENSE_FEE_BPS = 2000;
+
+const PLATFORM_BASE_MARKUP_BPS = 2000; // 20%
+const PLATFORM_BASE_FIXED_FEE_CENTS = 200; // $2.00
+
+const toCents = (value) => Math.round(Number(value || 0) * 100);
+const fromCents = (value) => Number((value / 100).toFixed(2));
+
+const EDM_TO_PRINTFUL_PLACEMENT = {
+  front: ["front", "default", "dtg_front", "embroidery_front"],
+  back: ["back", "dtg_back", "embroidery_back"],
+  sleeve_right: [
+    "sleeve_right",
+    "right_sleeve",
+    "embroidery_right",
+    "front_sleeve_right",
+  ],
+  sleeve_left: [
+    "sleeve_left",
+    "left_sleeve",
+    "embroidery_left",
+    "front_sleeve_left",
+  ],
+};
+
+function getCanonicalPlacementCostCents(blankProduct, baseProduct) {
+  const placementConfigs = Array.isArray(baseProduct?.printfulPlacementConfigs)
+    ? baseProduct.printfulPlacementConfigs
+    : [];
+
+  const usedPrintfulPlacementTypes = new Set();
+
+  placementConfigs
+    .map((config) => config?.placement)
+    .filter(Boolean)
+    .forEach((placement) => {
+      (EDM_TO_PRINTFUL_PLACEMENT[placement] || []).forEach((type) =>
+        usedPrintfulPlacementTypes.add(type)
+      );
+    });
+
+  if (usedPrintfulPlacementTypes.size === 0) {
+    return 0;
+  }
+
+  return (Array.isArray(blankProduct?.printFiles)
+    ? blankProduct.printFiles
+    : []
+  ).reduce((total, printFile) => {
+    if (
+      !printFile ||
+      printFile.type === "mockup" ||
+      !usedPrintfulPlacementTypes.has(printFile.type)
+    ) {
+      return total;
+    }
+
+    return total + Math.max(0, toCents(printFile.additional_price));
+  }, 0);
+}
+
+function buildPricedVariants({
+  blankProduct,
+  baseProduct,
+  licensedRevenueTerms,
+}) {
+  const sourceVariants = Array.isArray(blankProduct?.variants)
+    ? blankProduct.variants.filter((variant) => variant?.inStock !== false)
+    : [];
+
+  if (sourceVariants.length === 0) {
+    throw new Error("Selected blank product has no sellable variants.");
+  }
+
+  const placementCostCents = getCanonicalPlacementCostCents(
+    blankProduct,
+    baseProduct
+  );
+
+  const lockedIpFeeCents = (Array.isArray(licensedRevenueTerms)
+    ? licensedRevenueTerms
+    : []
+  ).reduce(
+    (total, term) => total + Math.max(0, Number(term?.licensingFeeCents || 0)),
+    0
+  );
+
+  return sourceVariants.map((sourceVariant) => {
+    const rawPrintfulPrice = sourceVariant.price;
+
+    if (
+      rawPrintfulPrice === undefined ||
+      rawPrintfulPrice === null ||
+      rawPrintfulPrice === ""
+    ) {
+      throw new Error(
+        `Blank product variant ${sourceVariant.variantId || sourceVariant.id || ""} is missing a Printful price.`
+      );
+    }
+
+    const printfulCostCents = toCents(rawPrintfulPrice);
+
+    if (!Number.isSafeInteger(printfulCostCents) || printfulCostCents < 0) {
+      throw new Error(
+        `Blank product variant ${sourceVariant.variantId || sourceVariant.id || ""} has an invalid Printful price.`
+      );
+    }
+
+    const metaWorkMarkupCents = Math.round(
+      (printfulCostCents * PLATFORM_BASE_MARKUP_BPS) / 10000
+    );
+
+    const costCents =
+      printfulCostCents +
+      metaWorkMarkupCents +
+      PLATFORM_BASE_FIXED_FEE_CENTS +
+      placementCostCents;
+
+    const retailPriceCents = costCents + lockedIpFeeCents;
+    const printfulVariantId =
+      sourceVariant.variantId ?? sourceVariant.printful_id ?? sourceVariant.id;
+
+    return {
+      ...sourceVariant,
+      id: printfulVariantId,
+      variantId: printfulVariantId,
+      variant_id: printfulVariantId,
+      printful_id: printfulVariantId,
+      printfulCost: fromCents(printfulCostCents),
+      placementCost: fromCents(placementCostCents),
+      metaWorkMarkup: fromCents(
+        metaWorkMarkupCents + PLATFORM_BASE_FIXED_FEE_CENTS
+      ),
+      lockedIpFees: fromCents(lockedIpFeeCents),
+      cost: fromCents(costCents),
+      retail_price: fromCents(retailPriceCents),
+    };
+  });
+}
+
+async function buildLockedRevenueTerms({
+  db,
+  selectedIPs,
+  existingLockedTerms,
+  productOwnerId,
+  lockedAt,
+}) {
+  const requestedIpAssetIds = [
+    ...new Set(
+      (Array.isArray(selectedIPs) ? selectedIPs : [])
+        .map((ip) => String(ip?.ipId || ip?.id || "").trim())
+        .filter(Boolean)
+    ),
+  ];
+
+  if (requestedIpAssetIds.length === 0) {
+    return [];
+  }
+
+  const ipAssets = await db
+    .collection("ip_assets")
+    .find(
+      { id: { $in: requestedIpAssetIds } },
+      {
+        projection: {
+          id: 1,
+          ownerId: 1,
+          isPublic: 1,
+          licensable: 1,
+          licensingFeeCents: 1,
+          status: 1,
+          revenuePoolAppId: 1,
+          revenueTokenAssetId: 1,
+        },
+      }
+    )
+    .toArray();
+
+  const ipAssetById = new Map(ipAssets.map((ipAsset) => [ipAsset.id, ipAsset]));
+
+  const existingTermByIpAssetId = new Map(
+    (Array.isArray(existingLockedTerms) ? existingLockedTerms : [])
+      .filter((term) => term?.ipAssetId)
+      .map((term) => [String(term.ipAssetId), term])
+  );
+
+  return requestedIpAssetIds.map((ipAssetId) => {
+    const ipAsset = ipAssetById.get(ipAssetId);
+
+    if (!ipAsset) {
+      throw new Error(`Selected IP asset was not found: ${ipAssetId}`);
+    }
+
+    if (ipAsset.status !== "active") {
+      throw new Error(
+        `Selected IP asset is not active and cannot be licensed: ${ipAssetId}`
+      );
+    }
+
+    if (
+      !Number.isSafeInteger(ipAsset.revenuePoolAppId) ||
+      ipAsset.revenuePoolAppId <= 0 ||
+      !Number.isSafeInteger(ipAsset.revenueTokenAssetId) ||
+      ipAsset.revenueTokenAssetId <= 0
+    ) {
+      throw new Error(
+        `Selected IP asset does not have an active V7 revenue pool: ${ipAssetId}`
+      );
+    }
+
+    const isProductOwner = String(ipAsset.ownerId) === String(productOwnerId);
+
+    if (!ipAsset.isPublic && !isProductOwner) {
+      throw new Error(
+        `Private IP asset cannot be licensed by another product creator: ${ipAssetId}`
+      );
+    }
+
+    if (ipAsset.isPublic && ipAsset.licensable !== true) {
+      throw new Error(
+        `Public IP asset is not available for licensing: ${ipAssetId}`
+      );
+    }
+
+    const existingTerm = existingTermByIpAssetId.get(ipAssetId);
+
+    if (existingTerm) {
+      if (
+        !Number.isSafeInteger(existingTerm.licensingFeeCents) ||
+        existingTerm.licensingFeeCents < 0 ||
+        !Number.isSafeInteger(existingTerm.platformFeeBps) ||
+        existingTerm.platformFeeBps < 0
+      ) {
+        throw new Error(
+          `Existing locked license term is invalid for IP asset: ${ipAssetId}`
+        );
+      }
+
+      return {
+        ipAssetId,
+        licensingFeeCents: existingTerm.licensingFeeCents,
+        platformFeeBps: existingTerm.platformFeeBps,
+        requiresSettlement: existingTerm.licensingFeeCents > 0,
+        lockedAt: existingTerm.lockedAt
+          ? new Date(existingTerm.lockedAt)
+          : new Date(lockedAt),
+      };
+    }
+
+    if (
+      !Number.isSafeInteger(ipAsset.licensingFeeCents) ||
+      ipAsset.licensingFeeCents < 0
+    ) {
+      throw new Error(
+        `Selected IP asset is missing a valid canonical licensing fee: ${ipAssetId}`
+      );
+    }
+
+    return {
+      ipAssetId,
+      licensingFeeCents: ipAsset.licensingFeeCents,
+      platformFeeBps: PLATFORM_LICENSE_FEE_BPS,
+      requiresSettlement: ipAsset.licensingFeeCents > 0,
+      lockedAt: new Date(lockedAt),
+    };
+  });
+}
+
 export const dynamic = "force-dynamic";
+
+const DISABLED_REVENUE_CONFIGURATION = Object.freeze({
+  enabled: false,
+  destinationType: "ip_pool",
+  ipAssetId: null,
+});
+
+async function normalizeRevenueConfiguration(db, revenueConfiguration) {
+  if (revenueConfiguration === undefined) {
+    return undefined;
+  }
+
+  if (
+    !revenueConfiguration ||
+    typeof revenueConfiguration !== "object" ||
+    Array.isArray(revenueConfiguration)
+  ) {
+    throw new Error("revenueConfiguration must be an object");
+  }
+
+  if (revenueConfiguration.enabled !== true) {
+    return { ...DISABLED_REVENUE_CONFIGURATION };
+  }
+
+  if (revenueConfiguration.destinationType !== "ip_pool") {
+    throw new Error("Only ip_pool revenue destinations are currently supported");
+  }
+
+  const requestedIpAssetId = String(
+    revenueConfiguration.ipAssetId || ""
+  ).trim();
+
+  if (!requestedIpAssetId) {
+    throw new Error(
+      "revenueConfiguration.ipAssetId is required when revenue is enabled"
+    );
+  }
+
+  const ipAsset = await db.collection("ip_assets").findOne(
+    {
+      id: requestedIpAssetId,
+      status: "active",
+    },
+    {
+      projection: {
+        id: 1,
+        revenuePoolAppId: 1,
+        revenueTokenAssetId: 1,
+      },
+    }
+  );
+
+  if (!ipAsset) {
+    throw new Error(
+      "Revenue destination IP was not found or is not active"
+    );
+  }
+
+  if (
+    !Number.isSafeInteger(ipAsset.revenuePoolAppId) ||
+    ipAsset.revenuePoolAppId <= 0 ||
+    !Number.isSafeInteger(ipAsset.revenueTokenAssetId) ||
+    ipAsset.revenueTokenAssetId <= 0
+  ) {
+    throw new Error(
+      "Revenue destination IP does not have a valid active V7 pool configuration"
+    );
+  }
+
+  return {
+    enabled: true,
+    destinationType: "ip_pool",
+    ipAssetId: ipAsset.id,
+  };
+}
 
 export async function POST(request) {
   try {
@@ -385,6 +729,7 @@ export async function POST(request) {
       name,
       costAnalysis,
       originalPlacementAssets,
+      revenueConfiguration,
     } = body;
 
     console.log(
@@ -408,7 +753,76 @@ export async function POST(request) {
       externalProductId,
     });
 
-    const normalizedSelectedIPs = (selectedIPs || []).map((ip) => ({
+    const submittedSelectedIPs = Array.isArray(selectedIPs)
+      ? selectedIPs
+      : [];
+
+    const hasExistingLockedRevenueTerms =
+      Array.isArray(existingProduct?.licensedRevenueTerms) &&
+      existingProduct.licensedRevenueTerms.length > 0;
+
+    const preserveExistingLicenseState =
+      Boolean(existingProduct) &&
+      submittedSelectedIPs.length === 0 &&
+      hasExistingLockedRevenueTerms;
+
+    const effectiveSelectedIPs = preserveExistingLicenseState
+      ? Array.isArray(existingProduct.selectedIPs)
+        ? existingProduct.selectedIPs
+        : []
+      : submittedSelectedIPs;
+
+    const licensedRevenueTerms = preserveExistingLicenseState
+      ? existingProduct.licensedRevenueTerms
+      : await buildLockedRevenueTerms({
+          db,
+          selectedIPs: effectiveSelectedIPs,
+          existingLockedTerms: existingProduct?.licensedRevenueTerms,
+          productOwnerId: decoded.userId,
+          lockedAt: now,
+        });
+
+    const normalizedRevenueConfiguration =
+      await normalizeRevenueConfiguration(db, revenueConfiguration);
+
+    const revenueConfigurationUpdate =
+      normalizedRevenueConfiguration !== undefined
+        ? { revenueConfiguration: normalizedRevenueConfiguration }
+        : existingProduct
+          ? {}
+          : {
+              revenueConfiguration: {
+                ...DISABLED_REVENUE_CONFIGURATION,
+              },
+            };
+
+    const catalogProductId = Number(
+      baseProduct?.catalogProductId ??
+        baseProduct?.product_id ??
+        baseProduct?.printfulProductId ??
+        baseProduct?.productId
+    );
+
+    if (!Number.isSafeInteger(catalogProductId) || catalogProductId <= 0) {
+      throw new Error("A valid catalogProductId is required to save this draft.");
+    }
+
+    const blankProduct = await db.collection("blank_products").findOne({
+      catalogProductId,
+      isActive: true,
+    });
+
+    if (!blankProduct) {
+      throw new Error("Selected blank product was not found or is inactive.");
+    }
+
+    const variants = buildPricedVariants({
+      blankProduct,
+      baseProduct,
+      licensedRevenueTerms,
+    });
+
+    const normalizedSelectedIPs = effectiveSelectedIPs.map((ip) => ({
       ...ip,
       ipId: ip.ipId || ip.id || null,
       licensingFee: Number(ip.licensingFee || 0),
@@ -515,15 +929,11 @@ export async function POST(request) {
         $set: {
           userId: decoded.userId,
           externalProductId,
-          catalogProductId:
-            typeof baseProduct?.product_id === "number"
-              ? baseProduct.product_id
-              : typeof baseProduct?.printfulProductId === "number"
-              ? baseProduct.printfulProductId
-              : null,
+          catalogProductId,
           printfulTemplateId: printfulTemplateId || null,
           selectedIPs: normalizedSelectedIPs,
           licensedIPs, // explicit licensing summary for this product
+          licensedRevenueTerms,
 
           // Unified design assets: library IPs + EDM uploads
           designAssets,
@@ -536,11 +946,14 @@ export async function POST(request) {
           designStateVersion: "edm-v2",
 
           baseProduct,
+          variants,
+          pricingVersion: "v1",
           name:
             name ||
             baseProduct?.name ||
             "Untitled Design",
           costAnalysis: costAnalysis || null,
+          ...revenueConfigurationUpdate,
           status: "draft",
           printfulSyncProductId:
             existingProduct?.printfulSyncProductId || null,

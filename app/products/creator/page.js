@@ -119,6 +119,7 @@ function ProductCreatorInner() {
 
   const hasInitializedRef = useRef(false)
   const hasAppliedShowroomIPRef = useRef(false)
+  const isHydratingExistingProductRef = useRef(false)
 
   const selectedBlankId = selectedBlank?.catalogProductId
 
@@ -189,6 +190,11 @@ function ProductCreatorInner() {
   }, [inspectSlug, catalogProducts, inspectingProduct])
 
   useEffect(() => {
+    if (isHydratingExistingProductRef.current) {
+      isHydratingExistingProductRef.current = false
+      return
+    }
+
     setSelectedIPs([])
   }, [selectedBlank, externalProductId, step])
 
@@ -662,6 +668,40 @@ function ProductCreatorInner() {
         )
 
         if (product) {
+          const persistedSelectedIPs =
+            Array.isArray(product.selectedIPs) && product.selectedIPs.length > 0
+              ? product.selectedIPs
+              : Array.isArray(product.licensedIPs)
+                ? product.licensedIPs
+                : []
+
+          const lockedTermByIpAssetId = new Map(
+            (Array.isArray(product.licensedRevenueTerms)
+              ? product.licensedRevenueTerms
+              : []
+            )
+              .filter((term) => term?.ipAssetId)
+              .map((term) => [String(term.ipAssetId), term])
+          )
+
+          const hydratedSelectedIPs = persistedSelectedIPs.map((ip) => {
+            const ipAssetId = String(ip.ipId || ip.id || '')
+            const lockedTerm = lockedTermByIpAssetId.get(ipAssetId)
+
+            return {
+              ...ip,
+              id: ip.id || ipAssetId,
+              ipId: ip.ipId || ipAssetId,
+              licensingFee:
+                lockedTerm?.licensingFeeCents != null
+                  ? Number(lockedTerm.licensingFeeCents) / 100
+                  : Number(ip.licensingFee || 0),
+            }
+          })
+
+          isHydratingExistingProductRef.current = true
+          setSelectedIPs(hydratedSelectedIPs)
+
           setSelectedBlank({
             catalogProductId:
               product.catalogProductId || product.baseProductId || product._id,

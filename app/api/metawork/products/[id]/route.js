@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
+import { verifyToken } from '@/lib/auth';
 
 async function generatePrintfulMockup(productId, templateId) {
   const res = await fetch('https://api.printful.com/mockup-generator', {
@@ -23,7 +24,172 @@ async function generatePrintfulMockup(productId, templateId) {
   return data.result?.url;
 }
 
-export const dynamic = 'force-dynamic'; 
+export const dynamic = 'force-dynamic';
+
+function getAuthenticatedUserId(request) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    const token =
+      authHeader?.startsWith('Bearer ')
+        ? authHeader.substring(7)
+        : request.cookies.get('auth_token')?.value;
+
+    if (!token) return null;
+
+    const decoded = verifyToken(token);
+
+    return decoded?.userId ? String(decoded.userId) : null;
+  } catch {
+    return null;
+  }
+}
+
+function createOwnershipFilter(productFilter, userId) {
+  return {
+    $and: [
+      productFilter,
+      {
+        $or: [
+          { userId },
+          { ownerId: userId },
+        ],
+      },
+    ],
+  };
+}
+
+const toCents = (value) => Math.round(Number(value || 0) * 100);
+
+const getLockedLicensingFeeCents = (product) =>
+  (Array.isArray(product?.licensedRevenueTerms)
+    ? product.licensedRevenueTerms
+    : []
+  ).reduce(
+    (total, term) => total + Math.max(0, Number(term?.licensingFeeCents || 0)),
+    0
+  );
+
+const getVariantCostCents = (variant) => {
+  const value = variant?.cost ?? variant?.printfulCost ?? variant?.supplierCost;
+
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+
+  const cents = toCents(value);
+
+  if (!Number.isFinite(cents) || cents < 0) {
+    return null;
+  }
+
+  return cents;
+};
+
+function getVariantKey(variant) {
+  const value =
+    variant?.variant_id ??
+    variant?.variantId ??
+    variant?.printful_id ??
+    variant?.id;
+
+  return value === undefined || value === null || value === ''
+    ? null
+    : String(value);
+}
+
+function applyCanonicalVariantPricing(existingVariants, requestedVariants) {
+  const canonicalVariants = Array.isArray(existingVariants)
+    ? existingVariants
+    : [];
+
+  const existingByKey = new Map(
+    canonicalVariants
+      .map((variant) => [getVariantKey(variant), variant])
+      .filter(([key]) => key)
+  );
+
+  const requestedByKey = new Map();
+
+  for (const requestedVariant of requestedVariants) {
+    const key = getVariantKey(requestedVariant);
+
+    if (!key || !existingByKey.has(key)) {
+      throw new Error(
+        `Unknown product variant: ${key || 'missing variant ID'}`
+      );
+    }
+
+    if (requestedByKey.has(key)) {
+      throw new Error(`Duplicate product variant: ${key}`);
+    }
+
+    requestedByKey.set(key, requestedVariant);
+  }
+
+  /*
+   * Preserve every canonical database variant. Only a matching incoming
+   * variant may change its retail_price.
+   */
+  return canonicalVariants.map((canonicalVariant) => {
+    const key = getVariantKey(canonicalVariant);
+    const requestedVariant = requestedByKey.get(key);
+
+    if (!requestedVariant) {
+      return canonicalVariant;
+    }
+
+    const rawRetailPrice =
+      requestedVariant.retail_price ?? canonicalVariant.retail_price;
+
+    if (
+      rawRetailPrice === undefined ||
+      rawRetailPrice === null ||
+      rawRetailPrice === ''
+    ) {
+      throw new Error(`Variant ${key} is missing a retail_price.`);
+    }
+
+    const retailPrice = Number(rawRetailPrice);
+
+    if (!Number.isFinite(retailPrice) || retailPrice < 0) {
+      throw new Error(`Variant ${key} has an invalid retail_price.`);
+    }
+
+    return {
+      ...canonicalVariant,
+      retail_price: Number(retailPrice.toFixed(2)),
+    };
+  });
+}
+
+const assertProductCanBeSold = ({ product, variants }) => {
+  if (!Array.isArray(variants) || variants.length === 0) {
+    throw new Error('Cannot publish a product without at least one sellable variant.');
+  }
+  const lockedLicensingFeeCents = getLockedLicensingFeeCents(product);
+
+  for (const variant of variants) {
+    const retailPriceCents = toCents(variant?.retail_price);
+    const supplierCostCents = getVariantCostCents(variant);
+
+    if (supplierCostCents === null) {
+      throw new Error(
+        `Cannot publish ${variant?.name || variant?.size || 'a variant'} without a supplier cost.`
+      );
+    }
+
+    const minimumPriceCents = supplierCostCents + lockedLicensingFeeCents;
+
+    if (retailPriceCents < minimumPriceCents) {
+      throw new Error(
+        `${variant?.name || variant?.size || 'A variant'} must be priced at ` +
+          `$${(minimumPriceCents / 100).toFixed(2)} or more. ` +
+          `Its supplier cost is $${(supplierCostCents / 100).toFixed(2)} and ` +
+          `the product has $${(lockedLicensingFeeCents / 100).toFixed(2)} in locked IP licensing fees.`
+      );
+    }
+  }
+};
 
 export async function GET(request, { params }) {
   console.log('[METAWORK DEBUG] Initializing handler');
@@ -96,53 +262,135 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params;
     const updates = await request.json();
-    const shouldSyncPrintful = updates.syncToPrintful === true;
-    delete updates.syncToPrintful;
 
     const { db } = await connectToDatabase();
+    const { ObjectId } = require('mongodb');
 
     if (!id || id === 'undefined') {
-      return NextResponse.json({ success: false, error: 'Invalid ID' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Invalid ID' },
+        { status: 400 }
+      );
     }
+
+    const authenticatedUserId = getAuthenticatedUserId(request);
+
+    if (!authenticatedUserId) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const filter = {
+      $or: [
+        { id },
+        { _id: /^[a-fA-F0-9]{24}$/.test(id) ? new ObjectId(id) : id },
+      ],
+    };
+
+    const existingProduct = await db.collection('products').findOne(filter);
+
+    if (!existingProduct) {
+      return NextResponse.json(
+        { success: false, error: 'Product not found' },
+        { status: 404 }
+      );
+    }
+
+    const productOwnerId = String(
+      existingProduct.userId ?? existingProduct.ownerId ?? ''
+    );
+
+    if (productOwnerId !== authenticatedUserId) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
+
+    const ownershipFilter = createOwnershipFilter(
+      filter,
+      authenticatedUserId
+    );
+
+    /*
+    * These values are locked/database-controlled.
+    * Never accept changes to them from the browser.
+    */
+    delete updates.userId;
+    delete updates.licensedRevenueTerms;
+    delete updates.ownerId;
+    delete updates.ownerWallet;
+    delete updates.ownerName;
+    delete updates.ownerUsername;
+    delete updates.revenuePoolAddress;
+    delete updates.revenuePoolAppId;
+    delete updates.revenueTokenAssetId;
 
     console.log(`[METAWORK DEBUG] Updating product ${id} with:`, updates);
 
-    // --- ENFORCE PRICING LOGIC HERE ---
-    if (updates.variants && updates.variants.length > 0) {
-      const baseVariant = updates.variants.reduce(
-        (min, v) => ((v.cost || 0) < (min.cost || 0) ? v : min),
-        updates.variants[0]
+    // --- PRESERVE CANONICAL VARIANT COSTS; ACCEPT RETAIL PRICE ONLY ---
+    if (Array.isArray(updates.variants) && updates.variants.length > 0) {
+      updates.variants = applyCanonicalVariantPricing(
+        existingProduct.variants || [],
+        updates.variants
       );
 
-      const markup = (baseVariant.retail_price || 0) - (baseVariant.cost || 0);
-
-      updates.variants = updates.variants.map((variant) => ({
-        ...variant,
-        retail_price: parseFloat(((variant.cost || 0) + markup).toFixed(2)),
-      }));
-
-      updates.price = baseVariant.retail_price;
+      updates.price = updates.variants.reduce(
+        (lowest, variant) =>
+          Number(variant.retail_price) < Number(lowest)
+            ? Number(variant.retail_price)
+            : lowest,
+        Number(updates.variants[0].retail_price)
+      );
     }
-    // ----------------------------------
+
+    const nextStatus = updates.status ?? existingProduct.status;
+    const nextIsPublic = updates.isPublic ?? existingProduct.isPublic;
+    const productWillBeSellable =
+      nextStatus === 'live' ||
+      nextStatus === 'active' ||
+      nextIsPublic === true;
+
+    if (productWillBeSellable) {
+      assertProductCanBeSold({
+        product: existingProduct,
+        variants: updates.variants ?? existingProduct.variants ?? [],
+      });
+    }
+    // -------------------------------------------------------------------
 
     // --- ENSURE PRINTFUL SYNC ONLY WHEN EXPLICITLY REQUESTED ---
-    if (shouldSyncPrintful && updates.variants && updates.variants.length > 0) {
-      try {
+    if (Array.isArray(updates.variants) && updates.variants.length > 0) {      try {
         const { ensurePrintfulSyncProduct } = require('@/lib/printful-sync-product');
-        const { ObjectId } = require('mongodb');
-
-        const filterForLookup = {
-          $or: [
-            { id: id },
-            { _id: /^[a-fA-F0-9]{24}$/.test(id) ? new ObjectId(id) : id }
-          ]
-        };
+        
+        const filterForLookup = ownershipFilter;
 
         const existingProduct = await db.collection('products').findOne(filterForLookup);
 
+        const hasRetailPriceChange = (updates.variants || []).some(
+          (updatedVariant) => {
+            const key = getVariantKey(updatedVariant);
+
+            const storedVariant = (existingProduct?.variants || []).find(
+              (variant) => getVariantKey(variant) === key
+            );
+
+            return (
+              storedVariant &&
+              toCents(updatedVariant.retail_price) !==
+                toCents(storedVariant.retail_price)
+            );
+          }
+        );
+
         const needsSync =
           !existingProduct?.printfulSyncProductId ||
-          (existingProduct?.variants || []).some((v) => !v.sync_variant_id);
+          (existingProduct?.variants || []).some(
+            (variant) => !variant.sync_variant_id
+          ) ||
+          hasRetailPriceChange;
 
         console.log(
           '[SYNC DEBUG] needsSync:',
@@ -193,16 +441,8 @@ export async function PUT(request, { params }) {
     }
     // ----------------------------------
 
-    const { ObjectId } = require('mongodb');
-    const filter = {
-      $or: [
-        { id: id },
-        { _id: /^[a-fA-F0-9]{24}$/.test(id) ? new ObjectId(id) : id }
-      ]
-    };
-
     const result = await db.collection('products').updateOne(
-      filter,
+      ownershipFilter,
       {
         $set: {
           ...updates,
@@ -218,7 +458,7 @@ export async function PUT(request, { params }) {
     if (updates.printfulTemplateId) {
       try {
         const mockupUrl = await generatePrintfulMockup(id, updates.printfulTemplateId);
-        await db.collection('products').updateOne(filter, {
+        await db.collection('products').updateOne(ownershipFilter, {
           $set: { mockupUrl }
         });
         console.log('[METAWORK] Mockup generated:', mockupUrl);
@@ -233,9 +473,17 @@ export async function PUT(request, { params }) {
     });
   } catch (error) {
     console.error('[METAWORK DEBUG] PUT Error:', error.message);
+
+    const isPricingValidationError =
+      error.message.startsWith('Cannot publish') ||
+      error.message.startsWith('Unknown product variant') ||
+      error.message.startsWith('Duplicate product variant') ||
+      error.message.startsWith('Variant ') ||
+      error.message.includes('must be priced at');
+
     return NextResponse.json(
       { success: false, error: error.message },
-      { status: 500 }
+      { status: isPricingValidationError ? 400 : 500 }
     );
   }
 }
@@ -251,17 +499,32 @@ export async function DELETE(request, { params }) {
       );
     }
 
+    const authenticatedUserId = getAuthenticatedUserId(request);
+
+    if (!authenticatedUserId) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { db } = await connectToDatabase();
     const { ObjectId } = require('mongodb');
 
     const filter = {
       $or: [
-        { id: id },
-        { _id: /^[a-fA-F0-9]{24}$/.test(id) ? new ObjectId(id) : id }
-      ]
+        { id },
+        {
+          _id: /^[a-fA-F0-9]{24}$/.test(id)
+            ? new ObjectId(id)
+            : id,
+        },
+      ],
     };
 
-    const existingProduct = await db.collection('products').findOne(filter);
+    const existingProduct = await db
+      .collection('products')
+      .findOne(filter);
 
     if (!existingProduct) {
       return NextResponse.json(
@@ -270,9 +533,27 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const result = await db.collection('products').deleteOne(filter);
+    const productOwnerId = String(
+      existingProduct.userId ?? existingProduct.ownerId ?? ''
+    );
 
-    if (result.deletedCount === 0) {
+    if (productOwnerId !== authenticatedUserId) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden' },
+        { status: 403 }
+      );
+    }
+
+    const ownershipFilter = createOwnershipFilter(
+      filter,
+      authenticatedUserId
+    );
+
+    const result = await db
+      .collection('products')
+      .deleteOne(ownershipFilter);
+
+    if (result.deletedCount !== 1) {
       return NextResponse.json(
         { success: false, error: 'Failed to delete product' },
         { status: 500 }
@@ -281,10 +562,11 @@ export async function DELETE(request, { params }) {
 
     return NextResponse.json({
       success: true,
-      message: 'Product deleted successfully'
+      message: 'Product deleted successfully',
     });
   } catch (error) {
     console.error('[METAWORK DEBUG] DELETE Error:', error.message);
+
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

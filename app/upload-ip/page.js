@@ -643,14 +643,14 @@ function UploadIPInner() {
                     </span>
                     <Input
                       type="number"
-                      step="0.25"
-                      min="0.50"
+                      step="0.01"
+                      min="0"
                       value={formData.licensingFee}
+                      onFocus={(event) => event.currentTarget.select()}
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          licensingFee:
-                            parseFloat(e.target.value) || 0.5,
+                          licensingFee: parseFloat(e.target.value) || 0,
                         }))
                       }
                       className="pl-7 bg-background border-border"
