@@ -89,6 +89,120 @@ function buildDefaultProductOptions(product) {
     .filter(Boolean);
 }
 
+function normalizeVariantValue(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+async function resolveLegacyTemplateVariantId({
+  availableVariantIds,
+  legacyVariation,
+}) {
+  const ids = (availableVariantIds || []).map(Number).filter(Number.isFinite);
+
+  if (ids.length === 1) {
+    return ids[0];
+  }
+
+  const legacyValues = [
+    legacyVariation?.attributes?.pa_size,
+    legacyVariation?.attributes?.size,
+    legacyVariation?.size,
+    legacyVariation?.name,
+  ]
+    .map(normalizeVariantValue)
+    .filter(Boolean);
+
+  if (legacyValues.length === 0 || ids.length === 0) {
+    return null;
+  }
+
+  const candidates = await Promise.all(
+    ids.map(async (candidateId) => {
+      try {
+        const response = await fetch(
+          `https://api.printful.com/products/variant/${candidateId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`,
+            },
+            cache: 'no-store',
+          }
+        );
+
+        if (!response.ok) {
+          return null;
+        }
+
+        const data = await response.json();
+        const variant = data?.result?.variant || data?.result || {};
+
+        return {
+          id: candidateId,
+          size: variant?.size || '',
+          color: variant?.color || '',
+          name: variant?.name || '',
+        };
+      } catch (error) {
+        console.error(
+          `[Legacy variant mapper] Failed to fetch catalog variant ${candidateId}:`,
+          error.message
+        );
+        return null;
+      }
+    })
+  );
+
+  const matches = candidates
+    .filter(Boolean)
+    .map((candidate) => {
+      const candidateValues = [
+        normalizeVariantValue(candidate.size),
+        normalizeVariantValue(candidate.color),
+        normalizeVariantValue(candidate.name),
+      ].filter(Boolean);
+
+      const score = legacyValues.reduce((total, legacyValue) => {
+        if (candidateValues.includes(legacyValue)) {
+          return total + 100;
+        }
+
+        if (
+          candidateValues.some(
+            (candidateValue) =>
+              candidateValue.includes(legacyValue) ||
+              legacyValue.includes(candidateValue)
+          )
+        ) {
+          return total + 10;
+        }
+
+        return total;
+      }, 0);
+
+      return { ...candidate, score };
+    })
+    .filter((candidate) => candidate.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  if (matches.length === 0) {
+    return null;
+  }
+
+  // Do not guess if two catalog variants tie for the strongest match.
+  if (
+    matches.length > 1 &&
+    matches[0].score === matches[1].score
+  ) {
+    return null;
+  }
+
+  return matches[0].id;
+}
+
 export async function POST(req) {
   const payload = await req.text();
   const sig = req.headers.get('stripe-signature');
@@ -437,45 +551,107 @@ export async function POST(req) {
           product.printfulTemplateId
         );
 
-        let templateVariantId = Number(variantId);
+      let templateVariantId = Number(variantId);
 
         if (product?.legacyMetadata) {
-          try {
-            const templateResponse = await fetch(
-            `https://api.printful.com/product-templates/${product.printfulTemplateId}`,
-            {
-              headers: {
-                Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`,
-              },
-              cache: 'no-store',
-            }
+          const cachedCatalogVariantId = Number(
+            matchedVariant?.printfulCatalogVariantId
           );
 
-          const templateData = await templateResponse.json();
-          const availableVariantIds =
-            templateData?.result?.available_variant_ids || [];
+          // Fast path: this legacy variation has already been mapped and saved.
+          if (
+            Number.isFinite(cachedCatalogVariantId) &&
+            cachedCatalogVariantId > 0
+          ) {
+            templateVariantId = cachedCatalogVariantId;
 
-          // Safe only for one-variant templates, such as the legacy backpack.
-          if (availableVariantIds.length === 1) {
-            templateVariantId = Number(availableVariantIds[0]);
-
-            console.log(`[Order ${order_id}] Legacy template variant remap`, {
+            console.log(`[Order ${order_id}] Using cached legacy variant map`, {
               productId: item.productId,
               templateId: product.printfulTemplateId,
               legacyVariationId: variantId,
               printfulCatalogVariantId: templateVariantId,
             });
           } else {
-            console.warn(
-              `[Order ${order_id}] Template ${product.printfulTemplateId} has ${availableVariantIds.length} variants; cannot safely auto-map legacy variation ${variantId}.`,
-              { availableVariantIds }
-            );
-          }
-          } catch (templateError) {
-            console.error(
-              `[Order ${order_id}] Failed to resolve template variant for ${product.printfulTemplateId}:`,
-              templateError.message
-            );
+            try {
+              const templateResponse = await fetch(
+                `https://api.printful.com/product-templates/${product.printfulTemplateId}`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`,
+                  },
+                  cache: 'no-store',
+                }
+              );
+
+              const templateData = await templateResponse.json();
+              const availableVariantIds =
+                templateData?.result?.available_variant_ids || [];
+
+              const mappedVariantId = await resolveLegacyTemplateVariantId({
+                availableVariantIds,
+                legacyVariation: matchedVariant || {
+                  id: item.variationId,
+                  attributes: item.attributes || {},
+                },
+              });
+
+              if (mappedVariantId) {
+                templateVariantId = Number(mappedVariantId);
+
+                console.log(`[Order ${order_id}] Legacy template variant remap`, {
+                  productId: item.productId,
+                  templateId: product.printfulTemplateId,
+                  legacyVariationId: variantId,
+                  legacyAttributes:
+                    matchedVariant?.attributes || item.attributes || {},
+                  printfulCatalogVariantId: templateVariantId,
+                });
+
+                // Save the resolved Printful catalog ID directly on this one
+                // legacy WooCommerce variation. Future orders skip all catalog
+                // variant lookup requests and use this value immediately.
+                if (matchedVariant?.id) {
+                  const persistResult = await db.collection('products').updateOne(
+                    {
+                      _id: product._id,
+                      'variations.id': String(matchedVariant.id),
+                    },
+                    {
+                      $set: {
+                        'variations.$[variation].printfulCatalogVariantId':
+                          templateVariantId,
+                      },
+                    },
+                    {
+                      arrayFilters: [
+                        { 'variation.id': String(matchedVariant.id) },
+                      ],
+                    }
+                  );
+
+                  console.log(`[Order ${order_id}] Cached legacy variant map`, {
+                    productId: item.productId,
+                    legacyVariationId: matchedVariant.id,
+                    printfulCatalogVariantId: templateVariantId,
+                    modifiedCount: persistResult.modifiedCount,
+                  });
+                }
+              } else {
+                console.warn(
+                  `[Order ${order_id}] Could not map legacy variation ${variantId} to a Printful catalog variant for template ${product.printfulTemplateId}.`,
+                  {
+                    legacyAttributes:
+                      matchedVariant?.attributes || item.attributes || {},
+                    availableVariantIds,
+                  }
+                );
+              }
+            } catch (templateError) {
+              console.error(
+                `[Order ${order_id}] Failed to resolve template variant for ${product.printfulTemplateId}:`,
+                templateError.message
+              );
+            }
           }
         }
 
