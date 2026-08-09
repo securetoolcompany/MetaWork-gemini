@@ -359,8 +359,8 @@ function ProductCreatorInner() {
           elemId: 'printful-designer-container',
           nonce: String(json.nonce),
           externalProductId: extId,
-          ...(existingTemplateId && { templateId: existingTemplateId }),
-
+          ...(existingTemplateId ? { templateId: existingTemplateId } : {}),
+          
           onDesignStatusUpdate: () => {},
 
           onReady: () => {

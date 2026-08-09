@@ -294,7 +294,7 @@ async function generatePrintfulMockup(productId, templateId) {
       name: opt?.id || opt?.name,
       value: opt?.value,
     }))
-    .filter((opt) => {
+        .filter((opt) => {
       if (
         !opt.name ||
         opt.value === undefined ||
@@ -306,12 +306,11 @@ async function generatePrintfulMockup(productId, templateId) {
         const isEmbroideryTech = placementConfigs.some(
           (p) => p.technique === "EMBROIDERY"
         );
-        if (
-          !isEmbroideryTech &&
-          (opt.name.includes("thread") ||
-            opt.name.includes("stitch"))
-        )
-          return false;
+        const isEmbroideryThreadOption =
+          opt.name.includes("thread_color") ||
+          opt.name.includes("thread_colors") ||
+          opt.name === "thread";
+        if (!isEmbroideryTech && isEmbroideryThreadOption) return false;
         return true;
       }
       return allowedProductOptions.includes(
@@ -345,10 +344,10 @@ async function generatePrintfulMockup(productId, templateId) {
     console.error("Failed to dispatch async mockup task:", err);
   }
 
-  // Return parsed configurations immediately so the database can update instantly
   return {
     mockupUrl: template.mockup_file_url || null,
     placementConfigs,
+    productOptions,
   };
 }
 
@@ -573,8 +572,14 @@ export async function POST(request) {
             Array.isArray(mockupResult.placementConfigs) &&
             mockupResult.placementConfigs.length > 0
           ) {
-            update.printfulPlacementConfigs =
-              mockupResult.placementConfigs;
+            update.printfulPlacementConfigs = mockupResult.placementConfigs;
+          }
+
+          if (
+            Array.isArray(mockupResult.productOptions) &&
+            mockupResult.productOptions.length > 0
+          ) {
+            update.printfulProductOptions = mockupResult.productOptions;
           }
 
           await products.updateOne(

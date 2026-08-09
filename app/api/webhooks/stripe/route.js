@@ -21,8 +21,23 @@ function uniqueHttpUrls(values = []) {
   return out;
 }
 
+function getAllowedPlacementTypes(product) {
+  const printFiles =
+    product?.baseProduct?.printFiles ||
+    product?.printFiles ||
+    [];
+
+  const excludedTypes = new Set(['mockup', 'label_inside', 'label_outside']);
+
+  const allowed = printFiles
+    .map((pf) => pf.type)
+    .filter((type) => type && !excludedTypes.has(type));
+
+  return allowed.length > 0 ? allowed : ['front'];
+}
+
 function buildFallbackPrintFiles(product) {
-  const placements = ['front', 'back', 'sleeve_right', 'sleeve_left'];
+  const placements = getAllowedPlacementTypes(product);
 
   const candidateUrls = uniqueHttpUrls([
     ...(Array.isArray(product?.mockups) ? product.mockups : []),
@@ -40,6 +55,36 @@ function buildFallbackPrintFiles(product) {
       const url = candidateUrls[index] || candidateUrls[0];
       if (!url) return null;
       return { type, url };
+    })
+    .filter(Boolean);
+}
+
+function buildDefaultProductOptions(product) {
+  const savedOptions = Array.isArray(product?.printfulProductOptions)
+    ? product.printfulProductOptions
+    : [];
+
+  if (savedOptions.length > 0) {
+    return savedOptions
+      .map((opt) => ({
+        id: opt?.id || opt?.name,
+        value: opt?.value,
+      }))
+      .filter((opt) => opt.id && opt.value !== undefined && opt.value !== null);
+  }
+
+  // Fallback only for products saved before printfulProductOptions existed
+  const optionDefs =
+    product?.baseProduct?.options ||
+    product?.options ||
+    [];
+
+  return optionDefs
+    .filter((opt) => opt?.type === 'radio' && opt?.values)
+    .map((opt) => {
+      const firstValue = Object.keys(opt.values)[0];
+      if (!firstValue) return null;
+      return { id: opt.id, value: firstValue };
     })
     .filter(Boolean);
 }
@@ -309,7 +354,7 @@ export async function POST(req) {
           product?.syncVariantId ??
           null;
 
-        if (syncVariantId) {
+        if (syncVariantId && !product?.legacyMetadata) {
             console.log('[Resolver] using sync_variant_id', {
               order_id,
               productId: item.productId,
@@ -354,10 +399,13 @@ export async function POST(req) {
           .filter(Boolean);
       });
 
-      console.log('[Resolver] placementConfigs', placementConfigs);
+            console.log('[Resolver] placementConfigs', placementConfigs);
       console.log('[Resolver] files', files);
 
-      if ((!files || files.length === 0) && product) {
+      const canUseTemplateReference =
+        (!files || files.length === 0) && Boolean(product?.printfulTemplateId);
+
+      if ((!files || files.length === 0) && product && !canUseTemplateReference) {
         const fallbackFiles = buildFallbackPrintFiles(product);
 
         if (fallbackFiles.length > 0) {
@@ -366,12 +414,14 @@ export async function POST(req) {
         }
       }
 
-      if (!files || files.length === 0) {
+      if ((!files || files.length === 0) && !canUseTemplateReference) {
         console.log(`[Order ${order_id}] No print files found for product ${item.productId}`);
         return null;
       }
 
-      return {
+            const options = buildDefaultProductOptions(product);
+
+      const baseItem = {
         variant_id: Number(variantId),
         quantity: Number(item.quantity || 1),
         retail_price: Number(
@@ -379,7 +429,67 @@ export async function POST(req) {
         ).toFixed(2),
         name: item.title || matchedVariant?.name || product?.title || 'Item',
         external_id: String(item.productId),
+      };
+
+      if (canUseTemplateReference) {
+        console.log(
+          `[Order ${order_id}] No placementConfigs for product ${item.productId}; ordering by product_template_id`,
+          product.printfulTemplateId
+        );
+
+        let templateVariantId = Number(variantId);
+
+        if (product?.legacyMetadata) {
+          try {
+            const templateResponse = await fetch(
+            `https://api.printful.com/product-templates/${product.printfulTemplateId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`,
+              },
+              cache: 'no-store',
+            }
+          );
+
+          const templateData = await templateResponse.json();
+          const availableVariantIds =
+            templateData?.result?.available_variant_ids || [];
+
+          // Safe only for one-variant templates, such as the legacy backpack.
+          if (availableVariantIds.length === 1) {
+            templateVariantId = Number(availableVariantIds[0]);
+
+            console.log(`[Order ${order_id}] Legacy template variant remap`, {
+              productId: item.productId,
+              templateId: product.printfulTemplateId,
+              legacyVariationId: variantId,
+              printfulCatalogVariantId: templateVariantId,
+            });
+          } else {
+            console.warn(
+              `[Order ${order_id}] Template ${product.printfulTemplateId} has ${availableVariantIds.length} variants; cannot safely auto-map legacy variation ${variantId}.`,
+              { availableVariantIds }
+            );
+          }
+          } catch (templateError) {
+            console.error(
+              `[Order ${order_id}] Failed to resolve template variant for ${product.printfulTemplateId}:`,
+              templateError.message
+            );
+          }
+        }
+
+        return {
+          ...baseItem,
+          variant_id: templateVariantId,
+          product_template_id: Number(product.printfulTemplateId),
+        };
+      }
+
+      return {
+        ...baseItem,
         files,
+        ...(options.length > 0 && { options }),
       };
       })
     );

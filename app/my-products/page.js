@@ -314,12 +314,19 @@ function MyProductsInner() {
                         <Edit className="h-3 w-3 sm:mr-1" />
                         <span className="hidden sm:inline">Edit</span>
                       </Button>
-                      <Link href={`/products/creator?externalProductId=${product.externalProductId}&printfulTemplateId=${product.printfulTemplateId || ''}`}>
-                        <Button size="sm" variant="outline" className="gap-1" title="Edit in Creator">
+                      {product.externalProductId ? (
+                        <Link href={`/products/creator?externalProductId=${product.externalProductId}&printfulTemplateId=${product.printfulTemplateId || ''}`}>
+                          <Button size="sm" variant="outline" className="gap-1" title="Edit in Creator">
+                            <Wand2 className="h-3 w-3" />
+                            <span className="hidden sm:inline text-xs">Design</span>
+                          </Button>
+                        </Link>
+                      ) : (
+                        <Button size="sm" variant="outline" className="gap-1" disabled title="Missing design reference — needs data repair">
                           <Wand2 className="h-3 w-3" />
                           <span className="hidden sm:inline text-xs">Design</span>
                         </Button>
-                      </Link>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
