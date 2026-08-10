@@ -23,31 +23,76 @@ async function main() {
 
     const db = client.db(DB_NAME);
     const revenueLedger = db.collection('revenue_ledger');
+    const settlementBatches = db.collection('revenue_settlement_batches');
 
-    const indexName = await revenueLedger.createIndex(
-      { idempotencyKey: 1 },
-      {
-        name: 'revenue_ledger_idempotency_key_unique',
-        unique: true,
-      }
-    );
+    const indexResults = await Promise.all([
+      revenueLedger.createIndex(
+        { idempotencyKey: 1 },
+        {
+          name: 'revenue_ledger_idempotency_key_unique',
+          unique: true,
+        }
+      ),
 
-    const indexes = await revenueLedger.indexes();
-    const idempotencyIndex = indexes.find(
-      (index) => index.name === 'revenue_ledger_idempotency_key_unique'
-    );
+      revenueLedger.createIndex(
+        {
+          status: 1,
+          settlementBatchId: 1,
+          revenuePoolAppId: 1,
+          ipAssetId: 1,
+          revenueTokenAssetId: 1,
+          settlementLeaseExpiresAt: 1,
+          createdAt: 1,
+        },
+        {
+          name: 'revenue_ledger_eligible_batch_claim',
+        }
+      ),
 
-    if (!idempotencyIndex) {
-      throw new Error(
-        'Revenue ledger idempotency index was not found after creation'
-      );
-    }
+      revenueLedger.createIndex(
+        {
+          orderId: 1,
+          orderItemId: 1,
+          createdAt: 1,
+        },
+        {
+          name: 'revenue_ledger_order_item_lookup',
+        }
+      ),
 
-    console.log('Revenue ledger indexes ensured:', {
+      settlementBatches.createIndex(
+        { batchKey: 1 },
+        {
+          name: 'revenue_settlement_batch_key_unique',
+          unique: true,
+        }
+      ),
+
+      settlementBatches.createIndex(
+        {
+          status: 1,
+          revenuePoolAppId: 1,
+          poolKey: 1,
+          revenueTokenAssetId: 1,
+          createdAt: 1,
+        },
+        {
+          name: 'revenue_settlement_batch_status_pool',
+        }
+      ),
+    ]);
+
+    const [ledgerIndexes, batchIndexes] = await Promise.all([
+      revenueLedger.indexes(),
+      settlementBatches.indexes(),
+    ]);
+
+    console.log('Revenue settlement indexes ensured:', {
       database: DB_NAME,
       dnsServers: dns.getServers(),
-      createdOrExistingIndex: indexName,
-      idempotencyIndex,
+      createdOrExistingIndexes: indexResults,
+      revenueLedgerIndexes: ledgerIndexes.map((index) => index.name),
+      settlementBatchIndexes: batchIndexes.map((index) => index.name),
     });
   } finally {
     await client.close();
@@ -55,6 +100,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error('Failed to ensure revenue ledger indexes:', error);
+  console.error('Failed to ensure revenue settlement indexes:', error);
   process.exitCode = 1;
 });

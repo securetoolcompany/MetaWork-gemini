@@ -2,6 +2,7 @@ import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { validateShippingCodes } from '@/lib/addressCodes';
+import { createHeldRevenueLedgerEntriesForOrder } from '@/lib/revenue-ledger-service';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -382,23 +383,75 @@ export async function POST(req) {
       return NextResponse.json({ received: true });
     }
 
-    // 2. Mark paid + preparing fulfillment
+    // 2. Mark paid, create immutable held ledger rows, then prepare fulfillment.
+    const paidAt = new Date();
+
     await db.collection('orders').updateOne(
       { _id: new ObjectId(order_id) },
       {
         $set: {
           status: 'paid',
+          paymentStatus: 'paid',
           fulfillmentStatus: 'submitting_to_printful',
           stripePaymentId: paymentIntent.id,
           stripeTaxCalculationId:
             paymentIntent.metadata?.stripe_tax_calculation_id || null,
-          paidAt: new Date(),
+          paidAt,
         },
         $unset: {
           printfulError: '',
         },
       }
     );
+
+    const paidOrder = await db.collection('orders').findOne({
+      _id: new ObjectId(order_id),
+    });
+
+    if (!paidOrder) {
+      throw new Error(
+        `[Order ${order_id}] Paid order could not be reloaded for ledger creation`
+      );
+    }
+
+    try {
+      const ledgerResult = await createHeldRevenueLedgerEntriesForOrder({
+        db,
+        order: paidOrder,
+        now: paidAt,
+      });
+
+      await db.collection('orders').updateOne(
+        { _id: new ObjectId(order_id) },
+        {
+          $set: {
+            revenueLedgerStatus: 'created',
+            revenueLedgerCreatedAt: paidAt,
+            revenueLedgerRowCount: ledgerResult.rows.length,
+            revenueLedgerLastError: null,
+          },
+        }
+      );
+
+      console.log(`[Order ${order_id}] Revenue ledger rows ensured`, {
+        createdCount: ledgerResult.createdCount,
+        existingCount: ledgerResult.existingCount,
+        rowCount: ledgerResult.rows.length,
+      });
+    } catch (ledgerError) {
+      await db.collection('orders').updateOne(
+        { _id: new ObjectId(order_id) },
+        {
+          $set: {
+            revenueLedgerStatus: 'failed',
+            revenueLedgerFailedAt: new Date(),
+            revenueLedgerLastError: ledgerError.message,
+          },
+        }
+      );
+
+      throw ledgerError;
+    }
 
     // 3. Resolve Printful items
     const resolvedItems = await Promise.all(

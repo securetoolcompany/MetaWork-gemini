@@ -591,11 +591,25 @@ async function buildLockedRevenueTerms({
         );
       }
 
+      const revenuePoolAppId =
+        Number.isSafeInteger(existingTerm.revenuePoolAppId) &&
+        existingTerm.revenuePoolAppId > 0
+          ? existingTerm.revenuePoolAppId
+          : ipAsset.revenuePoolAppId;
+
+      const revenueTokenAssetId =
+        Number.isSafeInteger(existingTerm.revenueTokenAssetId) &&
+        existingTerm.revenueTokenAssetId > 0
+          ? existingTerm.revenueTokenAssetId
+          : ipAsset.revenueTokenAssetId;
+
       return {
         ipAssetId,
         licensingFeeCents: existingTerm.licensingFeeCents,
         platformFeeBps: existingTerm.platformFeeBps,
         requiresSettlement: existingTerm.licensingFeeCents > 0,
+        revenuePoolAppId,
+        revenueTokenAssetId,
         lockedAt: existingTerm.lockedAt
           ? new Date(existingTerm.lockedAt)
           : new Date(lockedAt),
@@ -616,6 +630,8 @@ async function buildLockedRevenueTerms({
       licensingFeeCents: ipAsset.licensingFeeCents,
       platformFeeBps: PLATFORM_LICENSE_FEE_BPS,
       requiresSettlement: ipAsset.licensingFeeCents > 0,
+      revenuePoolAppId: ipAsset.revenuePoolAppId,
+      revenueTokenAssetId: ipAsset.revenueTokenAssetId,
       lockedAt: new Date(lockedAt),
     };
   });
