@@ -182,11 +182,13 @@ export async function POST(req) {
       itemsSubtotal > 0 ? discountedSubtotal / itemsSubtotal : 1;
 
     // Stripe Tax receives only server-resolved canonical prices.
-    const lineItems = resolvedCartItems.map((item) => ({
+    const lineItems = resolvedCartItems.map((item, index) => ({
       amount: Math.round(
         item.unitPrice * item.quantity * discountMultiplier * 100
       ),
-      reference: item.title,
+      reference: `${String(item.product._id)}:${String(
+        item.cartItem.variationId
+      )}:${index + 1}`,
       tax_behavior: 'exclusive',
     }));
 

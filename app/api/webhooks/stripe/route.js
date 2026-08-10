@@ -502,7 +502,7 @@ export async function POST(req) {
             quantity: Number(item.quantity || 1),
             retail_price: getOrderItemRetailPrice(item),
             name: item.title || matchedVariant?.name || product?.title || 'Item',
-            external_id: String(item.productId),
+            external_id: String(item.orderItemId || item.productId),
           };
         }
 
@@ -561,7 +561,7 @@ export async function POST(req) {
         quantity: Number(item.quantity || 1),
         retail_price: getOrderItemRetailPrice(item),
         name: item.title || matchedVariant?.name || product?.title || 'Item',
-        external_id: String(item.productId),
+        external_id: String(item.orderItemId || item.productId),
       };
 
       if (canUseTemplateReference) {
