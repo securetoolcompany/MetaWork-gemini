@@ -1,27 +1,16 @@
 {
+  "mode": "deposit-only",
+  "network": "testnet",
   "appId": 768287773,
-  "ipId": "6a6fb77f9f800d3fe22d7d38",
+  "ipId": "6a78b9acfb927be9305dc16f",
   "amount": 1000000,
   "amountUsdc": 1,
   "usdcAssetId": 10458941,
   "signer": "WNXGR6DCD4FWCK62JHWNI6OE37XMJGZFHO42FYFEGW5P3G4MYO4AJYJGTI",
-  "depositTxId": "M7UZQGRUUAXPEH7YKRJ5JFAOLONWCZ6JKJDKF2B7A2D4TKOFEWFA",
-  "releaseTxId": "KAFTQGVXYUDQRRDHGFUCPOIOD7RGPXEL36V3GTLQPXVJHAVHPUDA",
-  "roundId": 3,
-  "round": {
-    "roundAmount": 1000000,
-    "roundCreated": 1785708284,
-    "holders": [
-      {
-        "address": "CI6UHKREVAJVODRCHSYL54RPGRBQLMWSY3TVL64MT4TJSETHX6AXHRHUEA",
-        "amount": 999900,
-        "claimed": false
-      },
-      {
-        "address": "FKGZSMR56WBVV444NZFGS36SOYLGEL7I5DIRAFB62U7RVVGPIES7AGF6HY",
-        "amount": 100,
-        "claimed": false
-      }
-    ]
-  }
+  "depositTxId": "44SKCPR6WE3FGR5XV4QYWDLP6IJD2ODRVFZH5PBLN33SES537TEA",
+  "heldUsdcAfterDeposit": 1000000,
+  "currentRoundIdAfterDeposit": 0,
+  "releaseTxId": null,
+  "roundId": null,
+  "round": null
 }

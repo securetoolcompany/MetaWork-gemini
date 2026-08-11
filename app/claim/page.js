@@ -15,6 +15,7 @@ import {
   Loader2,
   RefreshCcw,
   Gift,
+  ExternalLink,
 } from 'lucide-react';
 
 const CURRENT_REVENUE_POOL_APP_ID = Number(
@@ -45,6 +46,9 @@ const resolveIpImage = (item) =>
 const bigintReplacer = (_key, value) =>
   typeof value === 'bigint' ? value.toString() : value;
 
+const revenueClaimTxStorageKey = (address) =>
+  `metawork:revenue-claim-txids:${String(address || '').toLowerCase()}`;
+
 export default function ClaimPage() {
   const { accountAddress, isConnected, connect, signTransactionGroup } =
     useWallet();
@@ -60,6 +64,7 @@ export default function ClaimPage() {
   const [isRepairing, setIsRepairing] = useState(false);
   const [tokenFilter, setTokenFilter] = useState('available');
   const [tokenOverrides, setTokenOverrides] = useState({});
+  const [claimTransactionIds, setClaimTransactionIds] = useState({});
   const tokenOverridesRef = useRef({});
   const tokensAbortRef = useRef(null);
   const poolsAbortRef = useRef(null);
@@ -71,6 +76,41 @@ export default function ClaimPage() {
   useEffect(() => {
     tokenOverridesRef.current = tokenOverrides;
   }, [tokenOverrides]);
+
+  useEffect(() => {
+    if (!accountAddress) {
+      setClaimTransactionIds({});
+      return;
+    }
+
+    try {
+      const saved = window.localStorage.getItem(
+        revenueClaimTxStorageKey(accountAddress)
+      );
+      setClaimTransactionIds(saved ? JSON.parse(saved) : {});
+    } catch {
+      setClaimTransactionIds({});
+    }
+  }, [accountAddress]);
+
+  function saveClaimTransactionIds(txId, poolIpId, roundIds) {
+    if (!txId || !accountAddress || !poolIpId || !roundIds.length) return;
+
+    setClaimTransactionIds((previous) => {
+      const next = { ...previous };
+
+      roundIds.forEach((roundId) => {
+        next[`${poolIpId}:${roundId}`] = txId;
+      });
+
+      window.localStorage.setItem(
+        revenueClaimTxStorageKey(accountAddress),
+        JSON.stringify(next)
+      );
+
+      return next;
+    });
+  }
 
   const USDC_OPTIN_CACHE_TTL_MS = 30_000;
 
@@ -779,6 +819,15 @@ export default function ClaimPage() {
         );
       }
 
+      const claimTxId = submitClaimData?.txId;
+      const claimedRoundIds = Array.isArray(pool?.claimInfo?.rounds)
+        ? pool.claimInfo.rounds
+            .filter((round) => !round.claimed)
+            .map((round) => String(round.roundId))
+        : [];
+
+      saveClaimTransactionIds(claimTxId, poolIpId, claimedRoundIds);
+
       toast.success('USDC Claimed!');
       await fetchData();
     } catch (e) {
@@ -1283,6 +1332,9 @@ export default function ClaimPage() {
                                       ? 'Claimed'
                                       : 'Pending';
 
+                                    const claimTxId =
+                                      claimTransactionIds[`${resolvePoolIpId(p)}:${r.roundId}`];
+
                                     return (
                                       <div
                                         key={r.roundId}
@@ -1313,6 +1365,17 @@ export default function ClaimPage() {
                                           <p className="text-sm text-muted-foreground">
                                             {claimedLabel}
                                           </p>
+                                          {r.claimed && claimTxId && (
+                                            <a
+                                              href={`https://testnet.explorer.perawallet.app/tx/${claimTxId}/`}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="mt-1 inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
+                                            >
+                                              On-chain transaction
+                                              <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                          )}
                                         </div>
 
                                         <div>
