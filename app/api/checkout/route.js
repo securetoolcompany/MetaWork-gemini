@@ -1,285 +1,170 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { validateShippingCodes } from '@/lib/addressCodes';
+import { buildOrderItemSnapshot } from '@/lib/order-financial-snapshot';
 import {
-  buildOrderItemSnapshot,
-} from '@/lib/order-financial-snapshot';
+  getCartOwner,
+  getServerCart,
+  makeCartFingerprint,
+  resolveCanonicalCartItems,
+} from '@/lib/checkout-cart';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export async function POST(req) {
   try {
-    const { ObjectId } = await import('mongodb');
     const body = await req.json();
-    const { items, shippingInfo, shippingCost, promoCode } = body;
+    const { quoteId, rateId, promoCode } = body;
 
-    if (
-      !shippingInfo?.email ||
-      !shippingInfo?.name ||
-      !shippingInfo?.phone ||
-      !shippingInfo?.address1 ||
-      !shippingInfo?.city ||
-      !shippingInfo?.zip ||
-      !shippingInfo?.country_code
-    ) {
+    /*
+     * The browser can submit only the stored quote identifier and its chosen
+     * rate identifier. It must not submit cart items, merchandise pricing,
+     * shipping cost, tax, totals, or shipping address.
+     */
+    if (!quoteId || !rateId) {
       return NextResponse.json(
-        { error: 'Missing required shipping information' },
-        { status: 400 }
-      );
-    }
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json(
-        { error: 'No items in cart' },
-        { status: 400 }
-      );
-    }
-
-    const { country, state } = validateShippingCodes(shippingInfo);
-
-    const normalizedShippingInfo = {
-      ...shippingInfo,
-      email: String(shippingInfo.email).trim().toLowerCase(),
-      name: String(shippingInfo.name).trim(),
-      phone: String(shippingInfo.phone).trim(),
-      address1: String(shippingInfo.address1).trim(),
-      city: String(shippingInfo.city).trim(),
-      zip: String(shippingInfo.zip).trim(),
-      country_code: country,
-      state_code: state || '',
-    };
-
-    const normalizedShippingCost = Number(shippingCost || 0);
-
-    if (
-      !Number.isFinite(normalizedShippingCost) ||
-      normalizedShippingCost < 0
-    ) {
-      return NextResponse.json(
-        { error: 'Invalid shipping cost' },
+        {
+          error:
+            'A current shipping quote and selected shipping rate are required.',
+        },
         { status: 400 }
       );
     }
 
     const { db } = await connectToDatabase();
 
-    // Resolve every cart item against MongoDB before calculating money.
-    // Browser price fields are never used for totals, tax, or PaymentIntent amount.
-    const resolvedCartItems = await Promise.all(
-      items.map(async (cartItem, index) => {
-        if (!cartItem?.productId || !cartItem?.variationId) {
-          throw new Error(
-            `Cart item ${index + 1} is missing productId or variationId`
-          );
-        }
+    /*
+     * Resolve owner from authenticated user or the guest-cart session cookie.
+     * Neither a user ID nor a session ID is accepted from the request body.
+     */
+    const { ownerQuery } = await getCartOwner();
 
-        if (!ObjectId.isValid(cartItem.productId)) {
-          throw new Error(`Cart item ${index + 1} has an invalid productId`);
-        }
+    const quote = await db.collection('shippingQuotes').findOne({
+      quoteId: String(quoteId),
+      ...ownerQuery,
+    });
 
-        const quantity = Number(cartItem.quantity);
+    if (!quote) {
+      return NextResponse.json(
+        {
+          error:
+            'Shipping quote not found. Please recalculate shipping before payment.',
+          code: 'SHIPPING_QUOTE_NOT_FOUND',
+        },
+        { status: 400 }
+      );
+    }
 
-        if (!Number.isInteger(quantity) || quantity < 1) {
-          throw new Error(`Cart item ${index + 1} has an invalid quantity`);
-        }
+    if (new Date(quote.expiresAt).getTime() <= Date.now()) {
+      return NextResponse.json(
+        {
+          error:
+            'Shipping quote expired. Please recalculate shipping before payment.',
+          code: 'SHIPPING_QUOTE_EXPIRED',
+        },
+        { status: 409 }
+      );
+    }
 
-        const product = await db.collection('products').findOne({
-          _id: new ObjectId(cartItem.productId),
-        });
+    if (quote.consumedAt) {
+      return NextResponse.json(
+        {
+          error:
+            'This shipping quote has already been used. Please recalculate shipping.',
+          code: 'SHIPPING_QUOTE_ALREADY_USED',
+        },
+        { status: 409 }
+      );
+    }
 
-        if (!product) {
-          throw new Error(`Product not found for cart item ${index + 1}`);
-        }
-
-        if (product.printfulTemplateId) {
-          const getVariantSize = (variant) =>
-            variant?.attributes?.pa_size ??
-            variant?.attributes?.size ??
-            variant?.size ??
-            null;
-
-          const getVariantColor = (variant) =>
-            variant?.attributes?.pa_color ??
-            variant?.attributes?.color ??
-            variant?.color ??
-            null;
-
-          const selectedOptions = cartItem.selectedOptions || {};
-
-          const canonicalVariants = [
-            ...(Array.isArray(product.variants) ? product.variants : []),
-            ...(Array.isArray(product.variations) ? product.variations : []),
-            ...(Array.isArray(product.baseProduct?.variants)
-              ? product.baseProduct.variants
-              : []),
-          ];
-
-          const availableSizes = [
-            ...new Set(canonicalVariants.map(getVariantSize).filter(Boolean)),
-          ];
-
-          const availableColors = [
-            ...new Set(canonicalVariants.map(getVariantColor).filter(Boolean)),
-          ];
-
-          // Require an option only when the customer has a real choice.
-          const requiresSizeSelection = availableSizes.length > 1;
-          const requiresColorSelection = availableColors.length > 1;
-
-          if (requiresSizeSelection && !selectedOptions.size) {
-            throw new Error(
-              `Cart item ${index + 1} for template-backed product requires a size selection`
-            );
-          }
-
-          if (requiresColorSelection && !selectedOptions.color) {
-            throw new Error(
-              `Cart item ${index + 1} for template-backed product requires a color selection`
-            );
-          }
-        }
-
-        const candidateVariants = [
-          ...(Array.isArray(product.variants) ? product.variants : []),
-          ...(Array.isArray(product.variations) ? product.variations : []),
-          ...(Array.isArray(product.baseProduct?.variants)
-            ? product.baseProduct.variants
-            : []),
-        ];
-
-        const requestedVariantId = String(cartItem.variationId);
-
-        const dbVariation = candidateVariants.find((variant) => {
-          const canonicalIds = [
-            variant?.id,
-            variant?.variantId,
-            variant?.variant_id,
-            variant?.printful_id,
-            variant?.sync_variant_id,
-            variant?.printfulVariantId,
-          ]
-            .filter((value) => value !== undefined && value !== null)
-            .map(String);
-
-          return canonicalIds.includes(requestedVariantId);
-        });
-
-        if (!dbVariation) {
-          throw new Error(
-            `Canonical variant ${cartItem.variationId} was not found for product ${product._id}`
-          );
-        }
-
-        if (product.printfulTemplateId) {
-          const normalizeOption = (value) =>
-            String(value ?? '').trim().toLowerCase();
-
-          const getVariantSize = (variant) =>
-            variant?.attributes?.pa_size ??
-            variant?.attributes?.size ??
-            variant?.size ??
-            null;
-
-          const getVariantColor = (variant) =>
-            variant?.attributes?.pa_color ??
-            variant?.attributes?.color ??
-            variant?.color ??
-            null;
-
-          const selectedOptions = cartItem.selectedOptions || {};
-
-          const canonicalVariants = [
-            ...(Array.isArray(product.variants) ? product.variants : []),
-            ...(Array.isArray(product.variations) ? product.variations : []),
-            ...(Array.isArray(product.baseProduct?.variants)
-              ? product.baseProduct.variants
-              : []),
-          ];
-
-          const availableSizes = [
-            ...new Set(canonicalVariants.map(getVariantSize).filter(Boolean)),
-          ];
-
-          const availableColors = [
-            ...new Set(canonicalVariants.map(getVariantColor).filter(Boolean)),
-          ];
-
-          const requiresSizeSelection = availableSizes.length > 1;
-          const requiresColorSelection = availableColors.length > 1;
-
-          const variantSize = getVariantSize(dbVariation);
-          const variantColor = getVariantColor(dbVariation);
-
-          const selectedSize =
-            selectedOptions.size ??
-            cartItem.attributes?.pa_size ??
-            null;
-
-          const selectedColor =
-            selectedOptions.color ??
-            cartItem.attributes?.pa_color ??
-            null;
-
-          if (
-            requiresSizeSelection &&
-            normalizeOption(selectedSize) !== normalizeOption(variantSize)
-          ) {
-            throw new Error(
-              `Cart item ${index + 1} selected size does not match its catalog variant`
-            );
-          }
-
-          if (
-            requiresColorSelection &&
-            normalizeOption(selectedColor) !== normalizeOption(variantColor)
-          ) {
-            throw new Error(
-              `Cart item ${index + 1} selected color does not match its catalog variant`
-            );
-          }
-        }
-
-        const unitPrice = Number(
-          dbVariation.retail_price ??
-            dbVariation.retailPrice ??
-            dbVariation.price
-        );
-
-        if (!Number.isFinite(unitPrice) || unitPrice < 0) {
-          throw new Error(
-            `Canonical retail price is invalid for product ${product._id}, variant ${cartItem.variationId}`
-          );
-        }
-
-        // A Printful sync variant ID is valid only when the product was actually
-        // synced to the connected Printful store. Do not fall back to catalog IDs.
-        const syncVariantId =
-          dbVariation.sync_variant_id ??
-          dbVariation.printfulVariantId ??
-          null;
-
-        // Catalog variant IDs are distinct from sync-store variant IDs.
-        const catalogVariantId =
-          dbVariation.catalogVariantId ??
-          dbVariation.printful_id ??
-          dbVariation.variantId ??
-          dbVariation.variant_id ??
-          dbVariation.id ??
-          null;
-
-        return {
-          cartItem,
-          product,
-          dbVariation,
-          quantity,
-          unitPrice,
-          title: product.name ?? cartItem.title ?? 'Untitled product',
-          syncVariantId,
-          catalogVariantId,
-        };
-      })
+    const selectedRate = quote.rates?.find(
+      (rate) => String(rate.id) === String(rateId)
     );
+
+    if (!selectedRate) {
+      return NextResponse.json(
+        {
+          error:
+            'The selected shipping rate does not belong to this quote.',
+          code: 'INVALID_SHIPPING_RATE',
+        },
+        { status: 400 }
+      );
+    }
+
+    const currency = String(selectedRate.currency ?? '').toUpperCase();
+
+    if (currency !== 'USD') {
+      return NextResponse.json(
+        {
+          error: 'The selected shipping rate has an unsupported currency.',
+          code: 'INVALID_SHIPPING_CURRENCY',
+        },
+        { status: 400 }
+      );
+    }
+
+    const normalizedShippingCost = Number(selectedRate.amount);
+
+    if (
+      !Number.isFinite(normalizedShippingCost) ||
+      normalizedShippingCost < 0
+    ) {
+      return NextResponse.json(
+        {
+          error: 'The selected shipping rate has an invalid amount.',
+          code: 'INVALID_SHIPPING_AMOUNT',
+        },
+        { status: 400 }
+      );
+    }
+
+    /*
+     * Reload the requester's current persisted cart and resolve each line
+     * against the current MongoDB product catalog. This blocks stale quotes
+     * when quantity, variant, price, or Printful catalog mapping changes.
+     */
+    const { cart } = await getServerCart({ db });
+
+    const resolvedCartItems = await resolveCanonicalCartItems({
+      db,
+      cartItems: cart.items,
+    });
+
+    if (makeCartFingerprint(resolvedCartItems) !== quote.cartFingerprint) {
+      return NextResponse.json(
+        {
+          error:
+            'Your cart changed after shipping was calculated. Please recalculate shipping.',
+          code: 'SHIPPING_QUOTE_STALE',
+        },
+        { status: 409 }
+      );
+    }
+
+    /*
+     * Address comes only from the stored quote. It was validated with
+     * validateShippingCodes before the server called Printful.
+     */
+    const normalizedShippingInfo = quote.shippingInfo;
+
+    if (
+      !normalizedShippingInfo?.email ||
+      !normalizedShippingInfo?.name ||
+      !normalizedShippingInfo?.address1 ||
+      !normalizedShippingInfo?.city ||
+      !normalizedShippingInfo?.zip ||
+      !normalizedShippingInfo?.country_code
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            'The saved shipping quote is missing required shipping information.',
+          code: 'INVALID_SHIPPING_QUOTE',
+        },
+        { status: 400 }
+      );
+    }
 
     // Canonical server-derived merchandise subtotal.
     const itemsSubtotal = resolvedCartItems.reduce(
@@ -301,14 +186,15 @@ export async function POST(req) {
     const discountMultiplier =
       itemsSubtotal > 0 ? discountedSubtotal / itemsSubtotal : 1;
 
-    // Stripe Tax receives only server-resolved canonical prices.
+    /*
+     * Stripe Tax receives only current server-resolved merchandise amounts.
+     * Selected shipping is taken only from the server-persisted quote.
+     */
     const lineItems = resolvedCartItems.map((item, index) => ({
       amount: Math.round(
         item.unitPrice * item.quantity * discountMultiplier * 100
       ),
-      reference: `${String(item.product._id)}:${String(
-        item.cartItem.variationId
-      )}:${index + 1}`,
+      reference: `${item.productId}:${item.variationId}:${index + 1}`,
       tax_behavior: 'exclusive',
     }));
 
@@ -318,7 +204,7 @@ export async function POST(req) {
         address: {
           line1: normalizedShippingInfo.address1,
           city: normalizedShippingInfo.city,
-          state: normalizedShippingInfo.state_code,
+          state: normalizedShippingInfo.state_code || '',
           postal_code: normalizedShippingInfo.zip,
           country: normalizedShippingInfo.country_code,
         },
@@ -341,8 +227,6 @@ export async function POST(req) {
       100000 + Math.random() * 900000
     ).toString();
 
-    // Preserve fulfillment identifiers while adding immutable financial,
-    // canonical-pricing, and locked-licensing snapshots.
     const orderItemSnapshots = resolvedCartItems.map((item, index) => {
       const snapshot = buildOrderItemSnapshot({
         orderItemId: `${generatedOrderNumber}:item:${index + 1}`,
@@ -355,25 +239,29 @@ export async function POST(req) {
       return {
         ...snapshot,
 
-        // Backward-compatible fields expected by current fulfillment code.
-        productId: String(item.product._id),
-        variationId: String(item.cartItem.variationId),
+        // Backward-compatible fields used by existing fulfillment code.
+        productId: item.productId,
+        variationId: item.variationId,
         quantity: item.quantity,
         title: item.title,
-        sku: item.dbVariation.sku ?? item.cartItem.sku ?? null,
-        // Set only if it is an actual Printful store sync-variant mapping.
+        sku: item.dbVariation.sku ?? item.sku ?? null,
+
+        // Connected Printful store identity, if present.
         sync_variant_id: item.syncVariantId,
         printfulVariantId: item.syncVariantId,
 
-        // Retain catalog identity separately for resolver/template fallback logic.
+        // Catalog identity remains distinct from store sync identity.
         printful_id: item.catalogVariantId,
         catalogVariantId: item.catalogVariantId,
+
+        // Preserved from the stored cart for existing fulfillment behavior.
         selectedOptions: item.cartItem.selectedOptions ?? null,
       };
     });
 
     const merchandiseSubtotalCents = resolvedCartItems.reduce(
-      (total, item) => total + Math.round(item.unitPrice * item.quantity * 100),
+      (total, item) =>
+        total + Math.round(item.unitPrice * item.quantity * 100),
       0
     );
 
@@ -387,7 +275,6 @@ export async function POST(req) {
     const discountCents =
       merchandiseSubtotalCents - discountedMerchandiseSubtotalCents;
 
-    // Stripe Tax's amount_total is the authoritative amount being charged.
     const orderTotalsSnapshot = {
       merchandiseSubtotalCents,
       discountedMerchandiseSubtotalCents,
@@ -398,12 +285,14 @@ export async function POST(req) {
       currency: 'USD',
     };
 
+    const now = new Date();
+
     const pendingOrder = {
       orderNumber: generatedOrderNumber,
       email: normalizedShippingInfo.email,
       shippingInfo: normalizedShippingInfo,
 
-      // Canonical immutable purchase-time order-item snapshots.
+      // Canonical immutable purchase-time product snapshots.
       items: orderItemSnapshots,
 
       // Legacy top-level money fields retained for existing UI/routes.
@@ -412,8 +301,25 @@ export async function POST(req) {
       shippingCost: normalizedShippingCost,
       tax: exactTaxAmount,
       total: finalAmountInCents / 100,
+      currency: 'USD',
 
-      // Integer-cent audit source for later settlement work.
+      /*
+       * Immutable shipping-rate data for the Orders dashboard and future
+       * reconciliation if Printful splits packages or changes fulfillment cost.
+       */
+      shippingRate: {
+        provider: 'printful',
+        id: String(selectedRate.id),
+        name: String(selectedRate.name),
+        amount: normalizedShippingCost,
+        currency: 'USD',
+        minDeliveryDays: selectedRate.minDeliveryDays ?? null,
+        maxDeliveryDays: selectedRate.maxDeliveryDays ?? null,
+        quoteId: String(quote.quoteId),
+        quotedAt: new Date(quote.quotedAt),
+      },
+
+      // Integer-cent audit source for settlement and charge reconciliation.
       financialSnapshot: orderTotalsSnapshot,
 
       status: 'pending',
@@ -428,11 +334,29 @@ export async function POST(req) {
         settlementCadence: 'weekly',
       },
 
-      createdAt: new Date(),
+      createdAt: now,
     };
 
     const insertResult = await db.collection('orders').insertOne(pendingOrder);
     const orderId = insertResult.insertedId.toString();
+
+    /*
+     * Mark the quote used before the PaymentIntent is returned. This prevents
+     * the same quote from being used to generate additional orders/intents.
+     */
+    await db.collection('shippingQuotes').updateOne(
+      {
+        _id: quote._id,
+        ...ownerQuery,
+        consumedAt: { $exists: false },
+      },
+      {
+        $set: {
+          consumedAt: now,
+          orderId,
+        },
+      }
+    );
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: finalAmountInCents,
@@ -443,6 +367,8 @@ export async function POST(req) {
         customer_name: normalizedShippingInfo.name,
         shipping_country: normalizedShippingInfo.country_code,
         order_id: orderId,
+        shipping_quote_id: String(quote.quoteId),
+        shipping_rate_id: String(selectedRate.id),
         applied_promo: promoCode || 'none',
         discount_amount: discountAmount.toFixed(2),
         stripe_tax_calculation_id: taxCalculation.id,
@@ -458,10 +384,12 @@ export async function POST(req) {
       amountTotal: taxCalculation.amount_total,
     });
   } catch (err) {
-    console.error('STRIPE BACKEND ERROR:', err.message);
+    console.error('STRIPE BACKEND ERROR:', err);
 
     return NextResponse.json(
-      { error: err.message || 'Unable to create checkout payment' },
+      {
+        error: err.message || 'Unable to create checkout payment',
+      },
       { status: 500 }
     );
   }
