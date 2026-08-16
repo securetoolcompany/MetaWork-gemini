@@ -153,27 +153,129 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
             // 2. Map variants, fix the "undefined" ID bug, and capture variantId
             const mappedVariants = existingVariants.length > 0 
               ? existingVariants.map((v, i) => {
-                  const fallbackVariantId = baseVariants[i]?.variantId || baseVariants[i]?.id || null;
-                  const cleanPrintfulId = (v.printful_id && v.printful_id !== "undefined")
-                    ? v.printful_id
-                    : fallbackVariantId;
+                  const existingVariantId =
+                    v.catalogVariantId ??
+                    v.printful_id ??
+                    v.variantId ??
+                    v.variant_id ??
+                    v.id ??
+                    null;
+
+                  const matchingBaseVariant = baseVariants.find((baseVariant) =>
+                    String(
+                      baseVariant.variantId ??
+                        baseVariant.printful_id ??
+                        baseVariant.id ??
+                        ''
+                    ) === String(existingVariantId ?? '')
+                  );
+
+                  const cleanPrintfulId =
+                    existingVariantId ??
+                    matchingBaseVariant?.variantId ??
+                    matchingBaseVariant?.printful_id ??
+                    matchingBaseVariant?.id ??
+                    null;
+
+                  if (!cleanPrintfulId) {
+                    throw new Error(
+                      `Product variant ${i + 1} is missing a valid Printful catalog variant ID`
+                    );
+                  }
+
+                  const size =
+                    v.attributes?.pa_size ??
+                    v.attributes?.size ??
+                    v.size ??
+                    matchingBaseVariant?.attributes?.pa_size ??
+                    matchingBaseVariant?.size ??
+                    null;
+
+                  const color =
+                    v.attributes?.pa_color ??
+                    v.attributes?.color ??
+                    v.color ??
+                    matchingBaseVariant?.attributes?.pa_color ??
+                    matchingBaseVariant?.color ??
+                    null;
 
                   return {
                     ...v,
-                    printful_id: cleanPrintfulId,
-                    id: (v.id === "undefined" || !v.id)
-                      ? String(cleanPrintfulId || `var_${i}`)
-                      : v.id,
+                    id:
+                    v.id === 'undefined' || !v.id
+                      ? String(cleanPrintfulId)
+                      : String(v.id),
+                    variantId: Number(cleanPrintfulId) || v.variantId || null,
+                    variant_id: Number(cleanPrintfulId) || v.variant_id || null,
+                    catalogVariantId: Number(cleanPrintfulId) || v.catalogVariantId || null,
+                    printful_id: Number(cleanPrintfulId) || v.printful_id || null,
+
+                    size,
+                    color,
+                    colorCode:
+                      v.colorCode ??
+                      matchingBaseVariant?.colorCode ??
+                      null,
+                    colorKey:
+                      v.colorKey ??
+                      matchingBaseVariant?.colorKey ??
+                      (color ? String(color).trim().toLowerCase() : null),
+
+                    attributes: {
+                      ...(v.attributes || {}),
+                      pa_size: size,
+                      pa_color: color,
+                    },
                   };
                 })
-              : baseVariants.map(v => ({
-                  id: String(v.variantId || v.id), // FIX: Use variantId from Printful
-                  printful_id: v.variantId || v.id,
+              : baseVariants.map((v) => {
+                const catalogVariantId = Number(v.variantId ?? v.printful_id ?? v.id);
+
+                if (!Number.isInteger(catalogVariantId) || catalogVariantId <= 0) {
+                  throw new Error(
+                    'Base product contains a variant without a valid Printful catalog variant ID'
+                  );
+                }
+
+                const size =
+                  v.attributes?.pa_size ??
+                  v.attributes?.size ??
+                  v.size ??
+                  null;
+
+                const color =
+                  v.attributes?.pa_color ??
+                  v.attributes?.color ??
+                  v.color ??
+                  null;
+
+                return {
+                  id: String(catalogVariantId),
+                  variantId: catalogVariantId,
+                  variant_id: catalogVariantId,
+                  catalogVariantId,
+                  printful_id: catalogVariantId,
+
+                  sku: v.sku || '',
                   name: v.name || '',
-                  size: v.size || v.attributes?.pa_size || 'Default',
-                  cost: parseFloat(v.price || v.cost || 0), 
-                  retail_price: parseFloat(fullProduct.price || v.price || 0) 
-                }));
+
+                  size,
+                  color,
+                  colorCode: v.colorCode || null,
+                  colorKey:
+                    v.colorKey ||
+                    (color ? String(color).trim().toLowerCase() : null),
+
+                  attributes: {
+                    ...(v.attributes || {}),
+                    pa_size: size,
+                    pa_color: color,
+                  },
+
+                  cost: parseFloat(v.price || v.cost || 0),
+                  retail_price: parseFloat(fullProduct.price || v.price || 0),
+                };
+              });
 
             setFormData(prev => ({
               ...prev,

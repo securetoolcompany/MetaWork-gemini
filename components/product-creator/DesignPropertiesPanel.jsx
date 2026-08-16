@@ -48,6 +48,20 @@ export default function DesignPropertiesPanel({
   const router = useRouter();
   const isMobile = useIsMobile();
 
+  const getLicensingFeeDollars = (ip) => {
+  const licensingFeeCents = Number(ip?.licensingFeeCents);
+
+    if (Number.isFinite(licensingFeeCents)) {
+      return Math.max(0, licensingFeeCents) / 100;
+    }
+
+    const legacyLicensingFee = Number(ip?.licensingFee);
+
+    return Number.isFinite(legacyLicensingFee)
+      ? Math.max(0, legacyLicensingFee)
+      : 0;
+  };
+
   const costAnalysis = useMemo(() => {
     // 1. Raw Printful base cost from the selected variant
     let printfulBase = Number(baseProductPrice || 0);
@@ -97,7 +111,7 @@ export default function DesignPropertiesPanel({
     // If we have placements but no printFiles, fall back to persisted cost.
     if (!hasPrintFiles && placementConfigs.length > 0) {
       const ipFees = selectedIPs.reduce(
-        (sum, ip) => sum + (Number(ip.licensingFee) || 0),
+        (sum, ip) => sum + getLicensingFeeDollars(ip),
         0
       );
 
@@ -128,7 +142,7 @@ export default function DesignPropertiesPanel({
     // placement cost should be $0.00.
     if (!placementConfigs.length) {
       const ipFees = selectedIPs.reduce(
-        (sum, ip) => sum + (Number(ip.licensingFee) || 0),
+        (sum, ip) => sum + getLicensingFeeDollars(ip),
         0
       );
       const platformBase = printfulBase * 1.2 + 2;
@@ -162,7 +176,7 @@ export default function DesignPropertiesPanel({
     }, 0);
 
     const ipFees = selectedIPs.reduce(
-      (sum, ip) => sum + (Number(ip.licensingFee) || 0),
+      (sum, ip) => sum + getLicensingFeeDollars(ip),
       0
     );
 
@@ -424,7 +438,7 @@ export default function DesignPropertiesPanel({
                     </h4>
                     <p className="text-[9px] text-green-400 font-mono">
                       +$
-                      {(Number(ip.licensingFee) || 2.0).toFixed(2)}
+                      {getLicensingFeeDollars(ip).toFixed(2)}
                     </p>
                   </div>
                   <button

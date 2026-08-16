@@ -1,6 +1,46 @@
 import { NextResponse } from 'next/server';
+import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
+
+function toIPLibraryAsset(asset) {
+  const licensingFeeCents =
+    asset.licensingFeeCents != null
+      ? Math.round(Number(asset.licensingFeeCents))
+      : asset.licenseFeeUsd != null
+        ? Math.round(Number(asset.licenseFeeUsd) * 100)
+        : asset.licensingFee != null
+          ? Math.round(Number(asset.licensingFee) * 100)
+          : 0;
+
+  const imageUrl = [asset.imageUrl, asset.thumbnailUrl, asset.image].find(
+    (value) => typeof value === 'string' && value.trim().length > 0
+  )?.trim() || null;
+
+  return {
+    id: asset.id || asset._id?.toString(),
+    title: asset.name || asset.title || 'Untitled IP asset',
+    description: asset.description || '',
+    imageUrl,
+    category: asset.category || asset.systemCategory || '',
+    tags: Array.isArray(asset.tags)
+      ? asset.tags
+      : Array.isArray(asset.userTags)
+        ? asset.userTags
+        : [],
+    ownerId: asset.ownerId?.toString() || null,
+    ownerName: asset.ownerName || asset.ownerUsername || 'Unknown creator',
+    ownerUsername: asset.ownerUsername || null,
+    ownerAvatar: asset.ownerAvatar || null,
+    licensingFeeCents: Number.isFinite(licensingFeeCents)
+      ? Math.max(0, licensingFeeCents)
+      : 0,
+    isPublic: asset.isPublic === true,
+    licensable: asset.licensable === true,
+    status: asset.status || null,
+    createdAt: asset.createdAt || null,
+  };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -29,8 +69,16 @@ export async function GET(request) {
 
     const { db } = await connectToDatabase();
 
-    // Query for user's own IP
-    const query = { ownerId: decoded.userId };
+    // Match both current string owner IDs and legacy MongoDB ObjectId owner IDs.
+    const ownerIdValues = [decoded.userId];
+
+    if (ObjectId.isValid(decoded.userId)) {
+      ownerIdValues.push(new ObjectId(decoded.userId));
+    }
+
+    const query = {
+      ownerId: { $in: ownerIdValues },
+    };
 
     // Filter by status if specified
     if (status && status !== 'all') {
@@ -47,25 +95,30 @@ export async function GET(request) {
       .sort({ createdAt: -1 })
       .toArray();
 
-    // Separate by status for UI tabs
-    const listed = ipAssets.filter(ip => ip.status === 'listed' && ip.isMinted);
-    const unlisted = ipAssets.filter(ip => ip.status === 'unlisted' || !ip.isMinted);
-    const pending = ipAssets.filter(ip => ip.status === 'pending');
+    const normalizedIPAssets = ipAssets.map(toIPLibraryAsset);
+
+    const active = normalizedIPAssets.filter((ip) => ip.status === 'active');
+    const pendingMint = normalizedIPAssets.filter(
+      (ip) => ip.status === 'pending_nft_mint'
+    );
+    const other = normalizedIPAssets.filter(
+      (ip) => ip.status !== 'active' && ip.status !== 'pending_nft_mint'
+    );
 
     return NextResponse.json({
       success: true,
-      ipAssets,
+      ipAssets: normalizedIPAssets,
       grouped: {
-        listed,
-        unlisted,
-        pending
+        active,
+        pendingMint,
+        other,
       },
       counts: {
-        total: ipAssets.length,
-        listed: listed.length,
-        unlisted: unlisted.length,
-        pending: pending.length
-      }
+        total: normalizedIPAssets.length,
+        active: active.length,
+        pendingMint: pendingMint.length,
+        other: other.length,
+      },
     });
 
   } catch (error) {

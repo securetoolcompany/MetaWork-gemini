@@ -78,14 +78,20 @@ export function CartProvider({ children }) {
     }
   }, []);
   
-  /**
-   * Add item to cart
-   * @param {string} productId - Product ID
-   * @param {string} variationId - Variation ID
-   * @param {number} quantity - Quantity to add (default: 1)
-   * @returns {Promise<{success: boolean, error?: string}>}
-   */
-  const addToCart = useCallback(async (productId, variationId, quantity = 1) => {
+ /**
+ * Add item to cart
+ * @param {string} productId - Product ID
+ * @param {string} variationId - Variation ID
+ * @param {number} quantity - Quantity to add (default: 1)
+ * @param {{ color?: string | null, size?: string | null }} selection - Chosen variant attributes
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+  const addToCart = useCallback(async (
+    productId,
+    variationId,
+    quantity = 1,
+    selection = {}
+  ) => {
   try {
     setCart(prev => ({ ...prev, loading: true, error: null }));
     
@@ -95,7 +101,13 @@ export function CartProvider({ children }) {
         'Content-Type': 'application/json'
       },
       credentials: 'include',
-      body: JSON.stringify({ productId, variationId, quantity })
+      body: JSON.stringify({
+        productId,
+        variationId,
+        quantity,
+        color: selection.color ?? null,
+        size: selection.size ?? null,
+      })
     });
     
     const data = await response.json();

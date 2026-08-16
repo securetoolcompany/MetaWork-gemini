@@ -127,20 +127,19 @@ async function resolveLegacyTemplateVariantId({
 }) {
   const ids = (availableVariantIds || []).map(Number).filter(Number.isFinite);
 
-  if (ids.length === 1) {
-    return ids[0];
-  }
+  const selectedSize = normalizeVariantValue(
+    legacyVariation?.attributes?.pa_size ??
+      legacyVariation?.attributes?.size ??
+      legacyVariation?.size
+  );
 
-  const legacyValues = [
-    legacyVariation?.attributes?.pa_size,
-    legacyVariation?.attributes?.size,
-    legacyVariation?.size,
-    legacyVariation?.name,
-  ]
-    .map(normalizeVariantValue)
-    .filter(Boolean);
+  const selectedColor = normalizeVariantValue(
+    legacyVariation?.attributes?.pa_color ??
+      legacyVariation?.attributes?.color ??
+      legacyVariation?.color
+  );
 
-  if (legacyValues.length === 0 || ids.length === 0) {
+  if (ids.length === 0 || (!selectedSize && !selectedColor)) {
     return null;
   }
 
@@ -157,18 +156,15 @@ async function resolveLegacyTemplateVariantId({
           }
         );
 
-        if (!response.ok) {
-          return null;
-        }
+        if (!response.ok) return null;
 
         const data = await response.json();
         const variant = data?.result?.variant || data?.result || {};
 
         return {
           id: candidateId,
-          size: variant?.size || '',
-          color: variant?.color || '',
-          name: variant?.name || '',
+          size: normalizeVariantValue(variant?.size),
+          color: normalizeVariantValue(variant?.color),
         };
       } catch (error) {
         console.error(
@@ -180,51 +176,24 @@ async function resolveLegacyTemplateVariantId({
     })
   );
 
-  const matches = candidates
-    .filter(Boolean)
-    .map((candidate) => {
-      const candidateValues = [
-        normalizeVariantValue(candidate.size),
-        normalizeVariantValue(candidate.color),
-        normalizeVariantValue(candidate.name),
-      ].filter(Boolean);
+  const matches = candidates.filter((candidate) => {
+    if (!candidate) return false;
 
-      const score = legacyValues.reduce((total, legacyValue) => {
-        if (candidateValues.includes(legacyValue)) {
-          return total + 100;
-        }
+    const sizeMatches = !selectedSize || candidate.size === selectedSize;
+    const colorMatches = !selectedColor || candidate.color === selectedColor;
 
-        if (
-          candidateValues.some(
-            (candidateValue) =>
-              candidateValue.includes(legacyValue) ||
-              legacyValue.includes(candidateValue)
-          )
-        ) {
-          return total + 10;
-        }
+    return sizeMatches && colorMatches;
+  });
 
-        return total;
-      }, 0);
+    console.log('[Template variant mapper]', {
+    selectedSize,
+    selectedColor,
+    availableVariantIds: ids,
+    candidates,
+    matches,
+  });
 
-      return { ...candidate, score };
-    })
-    .filter((candidate) => candidate.score > 0)
-    .sort((a, b) => b.score - a.score);
-
-  if (matches.length === 0) {
-    return null;
-  }
-
-  // Do not guess if two catalog variants tie for the strongest match.
-  if (
-    matches.length > 1 &&
-    matches[0].score === matches[1].score
-  ) {
-    return null;
-  }
-
-  return matches[0].id;
+  return matches.length === 1 ? matches[0].id : null;
 }
 
 export async function POST(req) {
@@ -455,7 +424,7 @@ export async function POST(req) {
 
     // 3. Resolve Printful items
     const resolvedItems = await Promise.all(
-      (orderData.items || []).map(async (item) => {
+      (orderData.items || []).map(async (item, index) => {
         const productId = String(item.productId || '');
         if (
           !ObjectId.isValid(productId) ||
@@ -510,19 +479,40 @@ export async function POST(req) {
         const singleCandidate =
           variantCandidates.length === 1 ? variantCandidates[0] : null;
 
+        const directCartVariantId = Number(
+          item.catalogVariantId ??
+            item.printful_id ??
+            item.productVariantId ??
+            item.variationId
+        );
+
+        const matchedVariantCatalogId = Number(
+          matchedVariant?.catalogVariantId ??
+            matchedVariant?.printfulId ??
+            matchedVariant?.printful_id ??
+            matchedVariant?.variantId ??
+            matchedVariant?.id
+        );
+
+        const legacyFallbackVariantId = Number(
+          singleCandidate?.catalogVariantId ??
+            singleCandidate?.printfulId ??
+            singleCandidate?.printful_id ??
+            singleCandidate?.variantId ??
+            singleCandidate?.id ??
+            product.printfulVariantId ??
+            product.printful_variant_id ??
+            item.printfulVariantId
+        );
+
         const variantId =
-          matchedVariant?.printfulId ??
-          matchedVariant?.printful_id ??
-          matchedVariant?.variantId ??
-          matchedVariant?.id ??
-          singleCandidate?.printfulId ??
-          singleCandidate?.printful_id ??
-          singleCandidate?.variantId ??
-          singleCandidate?.id ??
-          product.printfulVariantId ??
-          product.printful_variant_id ??
-          item.printfulVariantId ??
-          null;
+          Number.isInteger(directCartVariantId) && directCartVariantId > 0
+            ? directCartVariantId
+            : Number.isInteger(matchedVariantCatalogId) && matchedVariantCatalogId > 0
+              ? matchedVariantCatalogId
+              : Number.isInteger(legacyFallbackVariantId) && legacyFallbackVariantId > 0
+                ? legacyFallbackVariantId
+                : null;
 
         console.log('[Resolver] Order', order_id, 'item', item);
         console.log(
@@ -623,19 +613,63 @@ export async function POST(req) {
           product.printfulTemplateId
         );
 
-      let templateVariantId = Number(variantId);
+        let templateVariantId = Number(
+          item.catalogVariantId ?? item.printful_id ?? variantId
+        );
+
+        if (!Number.isInteger(templateVariantId)) {
+          throw new Error(
+            `FULFILLMENT_REVIEW_REQUIRED: missing or invalid catalog variant ID for product ${productId}`
+          );
+        }
 
         if (product?.legacyMetadata) {
           const cachedCatalogVariantId = Number(
             matchedVariant?.printfulCatalogVariantId
           );
 
+          const templateResponse = await fetch(
+            `https://api.printful.com/product-templates/${product.printfulTemplateId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`,
+              },
+              cache: 'no-store',
+            }
+          );
+
+          if (!templateResponse.ok) {
+            throw new Error(
+              `FULFILLMENT_REVIEW_REQUIRED: could not load Printful template ${product.printfulTemplateId}`
+            );
+          }
+
+          const templateData = await templateResponse.json();
+          const availableVariantIds =
+            templateData?.result?.available_variant_ids || [];
+
+          const allowedVariantIds = new Set(
+            availableVariantIds.map(Number)
+          );
+
+          if (!allowedVariantIds.size) {
+            throw new Error(
+              `FULFILLMENT_REVIEW_REQUIRED: Printful template ${product.printfulTemplateId} has no available catalog variant IDs`
+            );
+          }
+          
           // Fast path: this legacy variation has already been mapped and saved.
           if (
             Number.isFinite(cachedCatalogVariantId) &&
             cachedCatalogVariantId > 0
           ) {
             templateVariantId = cachedCatalogVariantId;
+
+            if (!allowedVariantIds.has(templateVariantId)) {
+              throw new Error(
+                `FULFILLMENT_REJECTED: cached catalog variant ${templateVariantId} is not allowed by Printful template ${product.printfulTemplateId}`
+              );
+            }
 
             console.log(`[Order ${order_id}] Using cached legacy variant map`, {
               productId: item.productId,
@@ -645,30 +679,39 @@ export async function POST(req) {
             });
           } else {
             try {
-              const templateResponse = await fetch(
-                `https://api.printful.com/product-templates/${product.printfulTemplateId}`,
-                {
-                  headers: {
-                    Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`,
+              const currentVariantIsAllowed =
+                Number.isInteger(templateVariantId) &&
+                allowedVariantIds.has(templateVariantId);
+
+              // Keep an already-approved template catalog variant. Otherwise, resolve
+              // only when the saved shopper-facing size and color identify one exact
+              // Printful catalog variant.
+              if (!currentVariantIsAllowed) {
+                const mappedVariantId = await resolveLegacyTemplateVariantId({
+                  availableVariantIds,
+                  legacyVariation: matchedVariant || {
+                    id: item.variationId,
+                    attributes: item.attributes || {},
                   },
-                  cache: 'no-store',
+                });
+
+                if (!mappedVariantId) {
+                  throw new Error(
+                    `FULFILLMENT_REVIEW_REQUIRED: unable to map cart item ${
+                      index + 1
+                    } to a catalog variant allowed by Printful template ${
+                      product.printfulTemplateId
+                    }`
+                  );
                 }
-              );
 
-              const templateData = await templateResponse.json();
-              const availableVariantIds =
-                templateData?.result?.available_variant_ids || [];
-
-              const mappedVariantId = await resolveLegacyTemplateVariantId({
-                availableVariantIds,
-                legacyVariation: matchedVariant || {
-                  id: item.variationId,
-                  attributes: item.attributes || {},
-                },
-              });
-
-              if (mappedVariantId) {
                 templateVariantId = Number(mappedVariantId);
+
+                if (!allowedVariantIds.has(templateVariantId)) {
+                  throw new Error(
+                    `FULFILLMENT_REJECTED: remapped catalog variant ${templateVariantId} is not allowed by Printful template ${product.printfulTemplateId}`
+                  );
+                }
 
                 console.log(`[Order ${order_id}] Legacy template variant remap`, {
                   productId: item.productId,
@@ -709,13 +752,8 @@ export async function POST(req) {
                   });
                 }
               } else {
-                console.warn(
-                  `[Order ${order_id}] Could not map legacy variation ${variantId} to a Printful catalog variant for template ${product.printfulTemplateId}.`,
-                  {
-                    legacyAttributes:
-                      matchedVariant?.attributes || item.attributes || {},
-                    availableVariantIds,
-                  }
+                throw new Error(
+                  `FULFILLMENT_REVIEW_REQUIRED: could not resolve legacy variation ${variantId} to an allowed catalog variant for Printful template ${product.printfulTemplateId}`
                 );
               }
             } catch (templateError) {
@@ -723,7 +761,119 @@ export async function POST(req) {
                 `[Order ${order_id}] Failed to resolve template variant for ${product.printfulTemplateId}:`,
                 templateError.message
               );
+              throw templateError;
             }
+          }
+        }
+
+        else {
+          const templateResponse = await fetch(
+            `https://api.printful.com/product-templates/${product.printfulTemplateId}`,
+            {
+              headers: {
+                Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`,
+              },
+              cache: 'no-store',
+            }
+          );
+
+          if (!templateResponse.ok) {
+            throw new Error(
+              `FULFILLMENT_REVIEW_REQUIRED: could not load Printful template ${product.printfulTemplateId}`
+            );
+          }
+
+          const templateData = await templateResponse.json();
+          const availableVariantIds =
+            templateData?.result?.available_variant_ids || [];
+
+          const allowedVariantIds = new Set(
+            availableVariantIds.map(Number)
+          );
+
+          if (!allowedVariantIds.size) {
+            throw new Error(
+              `FULFILLMENT_REVIEW_REQUIRED: Printful template ${product.printfulTemplateId} has no available catalog variant IDs`
+            );
+          }
+
+          const directCatalogVariantId = Number(
+            item.catalogVariantId ??
+              item.printful_id ??
+              item.productVariantId ??
+              item.variationId
+          );
+
+          const directCatalogVariantIsAllowed =
+            Number.isInteger(directCatalogVariantId) &&
+            allowedVariantIds.has(directCatalogVariantId);
+
+          if (directCatalogVariantIsAllowed) {
+            templateVariantId = directCatalogVariantId;
+
+            console.log(`[Order ${order_id}] Using exact paid catalog variant`, {
+              productId: item.productId,
+              templateId: product.printfulTemplateId,
+              variationId: item.variationId,
+              selectedOptions: item.selectedOptions || {},
+              printfulCatalogVariantId: templateVariantId,
+            });
+          } else {
+            const mappedVariantId = await resolveLegacyTemplateVariantId({
+              availableVariantIds,
+              legacyVariation: {
+                ...(matchedVariant || {}),
+                id: item.variationId,
+                attributes: {
+                  ...(matchedVariant?.attributes || {}),
+                  ...(item.attributes || {}),
+                  pa_size:
+                    item.selectedOptions?.size ??
+                    matchedVariant?.attributes?.pa_size ??
+                    matchedVariant?.size ??
+                    null,
+                  pa_color:
+                    item.selectedOptions?.color ??
+                    matchedVariant?.attributes?.pa_color ??
+                    matchedVariant?.color ??
+                    null,
+                },
+                size:
+                  item.selectedOptions?.size ??
+                  matchedVariant?.size ??
+                  null,
+                color:
+                  item.selectedOptions?.color ??
+                  matchedVariant?.color ??
+                  null,
+              },
+            });
+
+            if (!mappedVariantId) {
+              throw new Error(
+                `FULFILLMENT_REVIEW_REQUIRED: unable to map cart item ${
+                  index + 1
+                } to a catalog variant allowed by Printful template ${
+                  product.printfulTemplateId
+                }`
+              );
+            }
+
+            templateVariantId = Number(mappedVariantId);
+
+            if (!allowedVariantIds.has(templateVariantId)) {
+              throw new Error(
+                `FULFILLMENT_REJECTED: remapped catalog variant ${templateVariantId} is not allowed by Printful template ${product.printfulTemplateId}`
+              );
+            }
+
+            console.log(`[Order ${order_id}] Template variant remap`, {
+              productId: item.productId,
+              templateId: product.printfulTemplateId,
+              variationId: item.variationId,
+              selectedOptions: item.selectedOptions || {},
+              printfulCatalogVariantId: templateVariantId,
+            });
           }
         }
 

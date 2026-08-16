@@ -15,15 +15,6 @@ import AisleAdPlacement from '@/components/aisle-public/AisleAdPlacement';
 import ShowroomNav from '@/components/showroom/ShowroomNav';
 import { useCart } from '@/contexts/CartContext';
 
-const productSizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-const productColors = [
-  { name: 'Black', hex: '#000000' },
-  { name: 'White', hex: '#FFFFFF' },
-  { name: 'Navy', hex: '#1e3a8a' },
-  { name: 'Red', hex: '#dc2626' },
-  { name: 'Green', hex: '#16a34a' },
-];
-
 // Reviews will come from API in future, keeping mock for now
 const mockReviews = [
   { id: 1, author: 'Sarah M.', rating: 5, date: '2024-01-15', comment: 'Amazing quality! The design is even better in person. Highly recommend!', verified: true },
@@ -44,8 +35,8 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  const [selectedSize, setSelectedSize] = useState('M');
-  const [selectedColor, setSelectedColor] = useState(productColors[0]);
+  const [selectedSize, setSelectedSize] = useState('');
+  const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [isFavorited, setIsFavorited] = useState(false);
 
@@ -60,9 +51,23 @@ export default function ProductDetailPage() {
         if (data.success) {
           fetch(`/api/products/${productId}`, { method: 'POST' }).catch(() => {});  // Fire-and-forget: increment viewCount in DB
           setProduct(data.product);
-            if (data.product?.variations?.length > 0) {
-              setSelectedSize(data.product.variations[0]?.attributes?.pa_size || 'M');
-            }
+
+          const loadedVariants =
+            data.product?.variations?.length
+              ? data.product.variations
+              : data.product?.variants?.length
+                ? data.product.variants
+                : data.product?.baseProduct?.variants || [];
+
+          const firstVariant = loadedVariants[0];
+
+          setSelectedSize(
+            firstVariant?.attributes?.pa_size ?? firstVariant?.size ?? ''
+          );
+          setSelectedColor(
+            firstVariant?.attributes?.pa_color ?? firstVariant?.color ?? ''
+          );
+
           setCreator(data.creator);
           setRelatedProducts(data.relatedProducts || []);
         } else {
@@ -87,18 +92,25 @@ export default function ProductDetailPage() {
       return;
     }
 
-    const selectedVariant =
-      (product?.variations || []).find(
-        (v) => v?.attributes?.pa_size === selectedSize
-      ) || null;
-
-    if ((product?.variations || []).length > 0 && !selectedVariant?.id) {
-      toast.error('Please select a size');
+    if (!selectedVariant) {
+      toast.error('Please select an available size and color combination');
       return;
     }
 
-    const variationId = selectedVariant?.id?.toString() || null;
-    const result = await addToCart(product._id, variationId, quantity);
+    const variationId = getVariantId(selectedVariant);
+
+    if (!variationId) {
+      toast.error('This product has no purchasable variant');
+      return;
+    }
+
+    const result = await addToCart(product._id, variationId, quantity, {
+      size: getVariantSize(selectedVariant),
+      color: getVariantColor(selectedVariant),
+      colorKey:
+        selectedVariant?.colorKey ??
+        String(getVariantColor(selectedVariant)).toLowerCase(),
+    });
 
     if (result?.success) {
       toast.success('Added to cart');
@@ -121,12 +133,46 @@ export default function ProductDetailPage() {
     }
   };
 
-    // Simple derived value instead of useMemo
-  const uniqueSizes = (product?.variations || [])
-    .map((v) => v?.attributes?.pa_size)
-    .filter(Boolean)
-    .filter((value, index, self) => self.indexOf(value) === index);
+  const productVariants =
+  product?.variations?.length
+    ? product.variations
+    : product?.variants?.length
+      ? product.variants
+      : product?.baseProduct?.variants || [];
 
+const getVariantSize = (variant) =>
+  variant?.attributes?.pa_size ?? variant?.size ?? null;
+
+const getVariantColor = (variant) =>
+  variant?.attributes?.pa_color ?? variant?.color ?? null;
+
+const getVariantId = (variant) =>
+  String(
+    variant?.catalogVariantId ??
+      variant?.printful_id ??
+      variant?.variantId ??
+      variant?.variant_id ??
+      variant?.id ??
+      variant?._id ??
+      ''
+  );
+
+const uniqueSizes = Array.from(
+  new Set(productVariants.map(getVariantSize).filter(Boolean))
+);
+
+const uniqueColors = Array.from(
+  new Set(productVariants.map(getVariantColor).filter(Boolean))
+);
+
+const selectedVariant =
+  productVariants.find(
+    (variant) =>
+      getVariantSize(variant) === selectedSize &&
+      getVariantColor(variant) === selectedColor
+  ) || null;
+
+    
   // Loading state
   if (loading) {
     return (
@@ -160,14 +206,12 @@ export default function ProductDetailPage() {
 
   // Get product display values
   const productName = product.title || product.name || 'Product';
-  const selectedVariant =
-    (product?.variations || []).find((v) => {
-      const sizeMatch = v?.attributes?.pa_size === selectedSize;
-      const colorName = selectedColor?.name || selectedColor || null;
-      const colorMatch = !v?.attributes?.pa_color || !colorName || v?.attributes?.pa_color === colorName;
-      return sizeMatch && colorMatch;
-    }) || null;
-  const productPrice = Number(selectedVariant?.price || product.price || 0);
+  const productPrice = Number(
+    selectedVariant?.retail_price ??
+      selectedVariant?.price ??
+      product.price ??
+      0
+  );
   const productImage = product.imageUrl || '/placeholder.png';
   const productDescription = product.description || 'This unique design combines style and comfort. Perfect for everyday wear or special occasions.';
   const productBaseType =
@@ -277,18 +321,74 @@ export default function ProductDetailPage() {
                       Available Sizes
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      {uniqueSizes.map((size) => (
-                        <Button
-                          key={size}
-                          variant={
-                            selectedSize === size ? 'default' : 'outline'
-                          }
-                          onClick={() => setSelectedSize(size)}
-                          className="min-w-[64px]"
-                        >
-                          {size}
-                        </Button>
-                      ))}
+                      {uniqueSizes.map((size) => {
+                        const isAvailableForSelectedColor = productVariants.some(
+                          (variant) =>
+                            getVariantSize(variant) === size &&
+                            getVariantColor(variant) === selectedColor
+                        );
+
+                        return (
+                          <Button
+                            key={size}
+                            type="button"
+                            variant={selectedSize === size ? 'default' : 'outline'}
+                            disabled={!isAvailableForSelectedColor}
+                            onClick={() => setSelectedSize(size)}
+                            className="min-w-[64px]"
+                          >
+                            {size}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {uniqueColors.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-semibold mb-3">
+                      Color
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {uniqueColors.map((color) => {
+                        const isAvailableForSelectedSize = productVariants.some(
+                          (variant) =>
+                            getVariantSize(variant) === selectedSize &&
+                            getVariantColor(variant) === color
+                        );
+
+                        return (
+                          <Button
+                            key={color}
+                            type="button"
+                            variant={selectedColor === color ? 'default' : 'outline'}
+                            disabled={!isAvailableForSelectedSize}
+                            onClick={() => {
+                              setSelectedColor(color);
+
+                              const sizeStillAvailable = productVariants.some(
+                                (variant) =>
+                                  getVariantSize(variant) === selectedSize &&
+                                  getVariantColor(variant) === color
+                              );
+
+                              if (!sizeStillAvailable) {
+                                const firstMatchingVariant = productVariants.find(
+                                  (variant) => getVariantColor(variant) === color
+                                );
+
+                                setSelectedSize(
+                                  firstMatchingVariant ? getVariantSize(firstMatchingVariant) : ''
+                                );
+                              }
+                            }}
+                            className="min-w-[120px]"
+                          >
+                            {color}
+                          </Button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -429,7 +529,7 @@ export default function ProductDetailPage() {
                 <h3 className="text-2xl font-bold mb-6">You May Also Like</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {relatedProducts.map((relatedProduct) => (
-                    <Link key={relatedProduct.id} href={`/showroom/product/${relatedProduct.id}`}>
+                    <Link key={relatedProduct.id} href={`/products/${relatedProduct.id}`}>
                       <Card className="group overflow-hidden cursor-pointer transition-all hover:shadow-lg">
                         <div className="relative aspect-square overflow-hidden bg-muted">
                           {relatedProduct.imageUrl ? (
@@ -450,7 +550,7 @@ export default function ProductDetailPage() {
                             {relatedProduct.name || relatedProduct.title || 'Product'}
                           </h4>
                           <p className="text-lg font-bold text-primary">
-                            ${(relatedProduct.price || 0).toFixed(2)}
+                            ${(Number.parseFloat(relatedProduct.price) || 0).toFixed(2)}
                           </p>
                         </div>
                       </Card>

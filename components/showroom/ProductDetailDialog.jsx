@@ -32,7 +32,6 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { useCart } from '@/contexts/CartContext';
 import { ShareButton } from '@/components/ui/share-button';
-import ShippingAddressForm from '@/components/cart/ShippingAddressForm';
 
 // ── REPO IMPROVEMENT #1: normalizeProduct extracted as a standalone utility ──
 function normalizeProduct(rawProduct) {
@@ -46,18 +45,30 @@ function normalizeProduct(rawProduct) {
     existingVariations.length > 0
       ? existingVariations
       : creatorVariants.length > 0
-      ? creatorVariants.map((v, index) => ({
-          id: String(v.id || v.variantId || `creator-${index}`),
-          printfulVariantId: v.variantId || v.printfulVariantId || null,
-          price: Number(v.retail_price ?? v.price ?? 0),
-          image: v.image || null,
-          name: v.name || '',
-          attributes: {
-            pa_color: v.color || null,
-            pa_size: v.size || null,
-          },
-          in_stock: v.inStock ?? v.in_stock ?? true,
-        }))
+        ? creatorVariants.map((v, index) => {
+          const catalogVariantId =
+            v.printful_id ??
+            v.variantId ??
+            v.variant_id ??
+            v.id ??
+            null;
+
+          return {
+            id: String(catalogVariantId || `creator-${index}`),
+            catalogVariantId: catalogVariantId
+              ? Number(catalogVariantId)
+              : null,
+            printfulVariantId: v.sync_variant_id ?? v.printfulVariantId ?? null,
+            price: Number(v.retail_price ?? v.price ?? 0),
+            image: v.image || null,
+            name: v.name || '',
+            attributes: {
+              pa_color: v.color || null,
+              pa_size: v.size || null,
+            },
+            in_stock: v.inStock ?? v.in_stock ?? true,
+          };
+        })
       : baseVariants.map((v, index) => ({
           id: String(v.id || `base-${index}`),
           printfulVariantId: v.id || null,
@@ -96,10 +107,6 @@ export default function ProductDetailDialog({
   const [quantity, setQuantity] = useState(1);
   const [selectedColor, setSelectedColor] = useState(null);
 
-  // Fulfillment state
-  const [showShippingForm, setShowShippingForm] = useState(false);
-  const [isFulfilling, setIsFulfilling] = useState(false);
-
   // Reviews/Comments state
   const [reviews, setReviews] = useState([]);
   const [userRating, setUserRating] = useState(0);
@@ -110,7 +117,6 @@ export default function ProductDetailDialog({
     if ((open || asPage) && productId) {
       fetchProductDetails();
       fetchReviews();
-      setShowShippingForm(false);
       fetch(`/api/products/${productId}`, { method: 'POST' }).catch(() => {});
     } else if (!asPage) {
       setProduct(null);
@@ -191,33 +197,6 @@ export default function ProductDetailDialog({
     }
   };
 
-  const handleFulfillment = async (shippingData) => {
-    setIsFulfilling(true);
-    try {
-      const response = await fetch('/api/checkout/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productId: product._id,
-          variationId: selectedVariation?.printfulVariantId || selectedVariation?.id,
-          quantity: quantity,
-          shippingInfo: shippingData,
-        }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        toast.success(`Order #${data.orderId} processed!`);
-        onOpenChange(false);
-      } else {
-        toast.error(data.error || 'Fulfillment failed');
-      }
-    } catch (error) {
-      toast.error('Fulfillment bridge error');
-    } finally {
-      setIsFulfilling(false);
-    }
-  };
-
   const handleSubmitReview = async () => {
     if (userRating === 0 || !userComment.trim()) return;
 
@@ -250,8 +229,13 @@ export default function ProductDetailDialog({
     if (addingToCart.current || !product?._id) return;
     addingToCart.current = true;
     try {
-      const variationId = selectedVariation?.id?.toString() || null;
-      const result = await addToCart(product._id, variationId, quantity);
+      const variationId = String(
+        selectedVariation?.catalogVariantId ?? selectedVariation?.id ?? ''
+      );
+      const result = await addToCart(product._id, variationId, quantity, {
+        color: selectedColor,
+        size: selectedSize,
+      });
       if (result && result.success) toast.success('Added to cart! 🛒');
     } catch (error) {
       toast.error('Failed to add to cart');
@@ -538,32 +522,17 @@ export default function ProductDetailDialog({
             </div>
           )}
 
-          {/* Fulfillment Logic Toggle */}
+          {/* Add to Cart */}
           <div className="space-y-4 pt-6 border-t border-white/10">
-            {!showShippingForm ? (
-              <div className="flex flex-col gap-3">
-                <Button
-                  onClick={handleAddToCart}
-                  disabled={cartLoading}
-                  className="w-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/50 py-6 font-bold transition-all"
-                >
-                  <ShoppingCart className="w-5 h-5 mr-2" /> Add to Cart
-                </Button>
-
-                <Button
-                  onClick={() => setShowShippingForm(true)}
-                  className="w-full bg-emerald-500 hover:bg-emerald-600 text-black font-black py-8 text-xl shadow-[0_0_30px_rgba(16,185,129,0.3)] transition-all"
-                >
-                  <Package className="w-6 h-6 mr-2" /> Buy Now (Direct Ship)
-                </Button>
-              </div>
-            ) : (
-              <ShippingAddressForm
-                isLoading={isFulfilling}
-                onCancel={() => setShowShippingForm(false)}
-                onSubmit={handleFulfillment}
-              />
-            )}
+            <div className="flex flex-col gap-3">
+              <Button
+                onClick={handleAddToCart}
+                disabled={cartLoading}
+                className="w-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/50 py-6 font-bold transition-all"
+              >
+                <ShoppingCart className="w-5 h-5 mr-2" /> Add to Cart
+              </Button>
+            </div>
           </div>
         </div>
       </div>

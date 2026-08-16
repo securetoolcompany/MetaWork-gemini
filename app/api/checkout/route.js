@@ -92,10 +92,60 @@ export async function POST(req) {
           throw new Error(`Product not found for cart item ${index + 1}`);
         }
 
+        if (product.printfulTemplateId) {
+          const getVariantSize = (variant) =>
+            variant?.attributes?.pa_size ??
+            variant?.attributes?.size ??
+            variant?.size ??
+            null;
+
+          const getVariantColor = (variant) =>
+            variant?.attributes?.pa_color ??
+            variant?.attributes?.color ??
+            variant?.color ??
+            null;
+
+          const selectedOptions = cartItem.selectedOptions || {};
+
+          const canonicalVariants = [
+            ...(Array.isArray(product.variants) ? product.variants : []),
+            ...(Array.isArray(product.variations) ? product.variations : []),
+            ...(Array.isArray(product.baseProduct?.variants)
+              ? product.baseProduct.variants
+              : []),
+          ];
+
+          const availableSizes = [
+            ...new Set(canonicalVariants.map(getVariantSize).filter(Boolean)),
+          ];
+
+          const availableColors = [
+            ...new Set(canonicalVariants.map(getVariantColor).filter(Boolean)),
+          ];
+
+          // Require an option only when the customer has a real choice.
+          const requiresSizeSelection = availableSizes.length > 1;
+          const requiresColorSelection = availableColors.length > 1;
+
+          if (requiresSizeSelection && !selectedOptions.size) {
+            throw new Error(
+              `Cart item ${index + 1} for template-backed product requires a size selection`
+            );
+          }
+
+          if (requiresColorSelection && !selectedOptions.color) {
+            throw new Error(
+              `Cart item ${index + 1} for template-backed product requires a color selection`
+            );
+          }
+        }
+
         const candidateVariants = [
-          ...(product.variants || []),
-          ...(product.variations || []),
-          ...(product.baseProduct?.variants || []),
+          ...(Array.isArray(product.variants) ? product.variants : []),
+          ...(Array.isArray(product.variations) ? product.variations : []),
+          ...(Array.isArray(product.baseProduct?.variants)
+            ? product.baseProduct.variants
+            : []),
         ];
 
         const requestedVariantId = String(cartItem.variationId);
@@ -121,6 +171,75 @@ export async function POST(req) {
           );
         }
 
+        if (product.printfulTemplateId) {
+          const normalizeOption = (value) =>
+            String(value ?? '').trim().toLowerCase();
+
+          const getVariantSize = (variant) =>
+            variant?.attributes?.pa_size ??
+            variant?.attributes?.size ??
+            variant?.size ??
+            null;
+
+          const getVariantColor = (variant) =>
+            variant?.attributes?.pa_color ??
+            variant?.attributes?.color ??
+            variant?.color ??
+            null;
+
+          const selectedOptions = cartItem.selectedOptions || {};
+
+          const canonicalVariants = [
+            ...(Array.isArray(product.variants) ? product.variants : []),
+            ...(Array.isArray(product.variations) ? product.variations : []),
+            ...(Array.isArray(product.baseProduct?.variants)
+              ? product.baseProduct.variants
+              : []),
+          ];
+
+          const availableSizes = [
+            ...new Set(canonicalVariants.map(getVariantSize).filter(Boolean)),
+          ];
+
+          const availableColors = [
+            ...new Set(canonicalVariants.map(getVariantColor).filter(Boolean)),
+          ];
+
+          const requiresSizeSelection = availableSizes.length > 1;
+          const requiresColorSelection = availableColors.length > 1;
+
+          const variantSize = getVariantSize(dbVariation);
+          const variantColor = getVariantColor(dbVariation);
+
+          const selectedSize =
+            selectedOptions.size ??
+            cartItem.attributes?.pa_size ??
+            null;
+
+          const selectedColor =
+            selectedOptions.color ??
+            cartItem.attributes?.pa_color ??
+            null;
+
+          if (
+            requiresSizeSelection &&
+            normalizeOption(selectedSize) !== normalizeOption(variantSize)
+          ) {
+            throw new Error(
+              `Cart item ${index + 1} selected size does not match its catalog variant`
+            );
+          }
+
+          if (
+            requiresColorSelection &&
+            normalizeOption(selectedColor) !== normalizeOption(variantColor)
+          ) {
+            throw new Error(
+              `Cart item ${index + 1} selected color does not match its catalog variant`
+            );
+          }
+        }
+
         const unitPrice = Number(
           dbVariation.retail_price ??
             dbVariation.retailPrice ??
@@ -142,6 +261,7 @@ export async function POST(req) {
 
         // Catalog variant IDs are distinct from sync-store variant IDs.
         const catalogVariantId =
+          dbVariation.catalogVariantId ??
           dbVariation.printful_id ??
           dbVariation.variantId ??
           dbVariation.variant_id ??

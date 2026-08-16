@@ -473,14 +473,56 @@ function buildPricedVariants({
 
     const retailPriceCents = costCents + lockedIpFeeCents;
     const printfulVariantId =
-      sourceVariant.variantId ?? sourceVariant.printful_id ?? sourceVariant.id;
+      sourceVariant.catalogVariantId ??
+      sourceVariant.variantId ??
+      sourceVariant.printful_id ??
+      sourceVariant.id;
+
+    const size =
+  sourceVariant.attributes?.pa_size ??
+  sourceVariant.attributes?.size ??
+  sourceVariant.size ??
+  null;
+
+const color =
+  sourceVariant.attributes?.pa_color ??
+  sourceVariant.attributes?.color ??
+  sourceVariant.color ??
+  null;
+
+const catalogVariantId = Number(printfulVariantId);
+
+if (!Number.isInteger(catalogVariantId) || catalogVariantId <= 0) {
+  throw new Error(
+    `Blank product variant ${String(printfulVariantId)} has an invalid catalog variant ID.`
+  );
+}
 
     return {
       ...sourceVariant,
-      id: printfulVariantId,
-      variantId: printfulVariantId,
-      variant_id: printfulVariantId,
-      printful_id: printfulVariantId,
+
+      id: String(catalogVariantId),
+      variantId: catalogVariantId,
+      variant_id: catalogVariantId,
+      catalogVariantId,
+      printful_id: catalogVariantId,
+
+      sku: sourceVariant.sku || '',
+      name: sourceVariant.name || '',
+
+      size,
+      color,
+      colorCode: sourceVariant.colorCode || null,
+      colorKey:
+        sourceVariant.colorKey ||
+        (color ? String(color).trim().toLowerCase() : null),
+
+      attributes: {
+        ...(sourceVariant.attributes || {}),
+        pa_size: size,
+        pa_color: color,
+      },
+
       printfulCost: fromCents(printfulCostCents),
       placementCost: fromCents(placementCostCents),
       metaWorkMarkup: fromCents(

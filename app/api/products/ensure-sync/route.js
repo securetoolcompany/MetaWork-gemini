@@ -9,13 +9,26 @@ function mergeVariantMappings(existingVariants = [], variantMappings = []) {
   );
 
   return (existingVariants || []).map((variant) => {
-    const key = String(variant?.printful_id || variant?.variantId || variant?.id || '');
+    const key = String(
+      variant?.catalogVariantId ??
+      variant?.printful_id ??
+      variant?.variantId ??
+      variant?.variant_id ??
+      variant?.id ??
+      ''
+    );
     const match = mappingByVariantId.get(key);
 
     if (!match) return variant;
 
+    const color = variant.color ?? variant.colour ?? null;
+
     return {
       ...variant,
+      color,
+      colorKey:
+        variant.colorKey ??
+        (color ? String(color).trim().toLowerCase() : null),
       sync_variant_id: match.sync_variant_id,
       printfulVariantId: match.sync_variant_id,
       external_id: match.external_id || variant.external_id || null,
@@ -149,13 +162,127 @@ export async function POST(request) {
 
     const variantMappings = syncResult?.variantMappings || [];
 
-    const mergedTopLevelVariants = mergeVariantMappings(
-      leasedProductDoc.variants || [],
-      variantMappings
+    const allowedCatalogVariantIds = new Set(
+      variantMappings.map((mapping) => String(mapping.variant_id))
     );
 
+    const existingVariantByCatalogId = new Map(
+      (leasedProductDoc.variants || []).map((variant) => {
+        const catalogVariantId =
+          variant?.catalogVariantId ??
+          variant?.printful_id ??
+          variant?.variantId ??
+          variant?.variant_id ??
+          variant?.id;
+        return [String(catalogVariantId), variant];
+      })
+    );
+
+    const allowedBaseProductVariants = (
+      leasedProductDoc.baseProduct?.variants || []
+    ).filter((variant) => {
+      const catalogVariantId =
+        variant?.variantId ??
+        variant?.variant_id ??
+        variant?.printful_id ??
+        variant?.id;
+
+      return allowedCatalogVariantIds.has(String(catalogVariantId));
+      });
+
+      const mergedTopLevelVariants = mergeVariantMappings(
+        allowedBaseProductVariants.map((source) => {
+          const catalogVariantId = Number(
+            source?.catalogVariantId ??
+              source?.variantId ??
+              source?.variant_id ??
+              source?.printful_id ??
+              source?.id
+          );
+
+          if (!Number.isInteger(catalogVariantId) || catalogVariantId <= 0) {
+            throw new Error(
+              `Invalid catalog variant ID while syncing product ${String(
+                leasedProductDoc._id
+              )}`
+            );
+          }
+
+          const existingVariant = existingVariantByCatalogId.get(
+            String(catalogVariantId)
+          );
+
+          const size =
+            source?.attributes?.pa_size ??
+            source?.attributes?.size ??
+            source?.size ??
+            null;
+
+          const color =
+            source?.attributes?.pa_color ??
+            source?.attributes?.color ??
+            source?.color ??
+            source?.colour ??
+            null;
+
+          return {
+            id: String(catalogVariantId),
+            variantId: catalogVariantId,
+            variant_id: catalogVariantId,
+            catalogVariantId,
+            printful_id: catalogVariantId,
+
+            sku: source?.sku ?? existingVariant?.sku ?? '',
+            name: source?.name ?? existingVariant?.name ?? '',
+
+            size,
+            color,
+            colorCode:
+              source?.colorCode ??
+              source?.colourCode ??
+              existingVariant?.colorCode ??
+              null,
+            colorKey:
+              source?.colorKey ??
+              existingVariant?.colorKey ??
+              (color ? String(color).trim().toLowerCase() : null),
+
+            attributes: {
+              ...(existingVariant?.attributes || {}),
+              ...(source?.attributes || {}),
+              pa_size: size,
+              pa_color: color,
+            },
+
+            cost:
+              source?.price ??
+              source?.cost ??
+              existingVariant?.cost ??
+              null,
+            retail_price:
+              existingVariant?.retail_price ??
+              existingVariant?.retailPrice ??
+              source?.retail_price ??
+              source?.retailPrice ??
+              source?.price ??
+              null,
+          };
+        }),
+        variantMappings
+      );
+
     const mergedBaseProductVariants = mergeVariantMappings(
-      leasedProductDoc.baseProduct?.variants || [],
+      (leasedProductDoc.baseProduct?.variants || []).map((variant) => {
+        const color = variant?.color ?? variant?.colour ?? null;
+
+        return {
+          ...variant,
+          color,
+          colorKey:
+            variant?.colorKey ??
+            (color ? String(color).trim().toLowerCase() : null),
+        };
+      }),
       variantMappings
     );
 

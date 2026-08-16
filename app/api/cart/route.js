@@ -127,7 +127,7 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { productId, variationId, quantity = 1 } = body;
+    const { productId, variationId, quantity = 1, color = null, size = null } = body;
     
     // Validate required fields
     if (!productId) {
@@ -177,8 +177,10 @@ export async function POST(request) {
     
     // createCartItem resolves the variant across product.variants,
     // product.variations, and product.baseProduct.variants.
+    let cartItem;
+
     try {
-      createCartItem(product, variationId, qty);
+      cartItem = createCartItem(product, variationId, qty, { color, size });
     } catch (error) {
       return NextResponse.json(
         {
@@ -202,9 +204,6 @@ export async function POST(request) {
         await setSessionCookie(sessionId);
       }
     }
-    
-    // Build cart item
-    const cartItem = createCartItem(product, variationId, qty);
     
     // Build query
     const query = userId ? { userId } : { sessionId };
@@ -241,6 +240,7 @@ export async function POST(request) {
           'items.$.printfulVariantId': cartItem.printfulVariantId,
           'items.$.printful_id': cartItem.printful_id,
           'items.$.catalogVariantId': cartItem.catalogVariantId,
+          'items.$.selectedOptions': cartItem.selectedOptions ?? null,
           updatedAt: new Date(),
         },
       },

@@ -28,9 +28,15 @@ export async function GET(request) {
 
     const { db } = await connectToDatabase();
 
-    const andClauses = [];
+    const andClauses = [
+      {
+        status: 'active',
+        isPublic: true,
+        licensable: true,
+      },
+    ];
 
-    if (excludeOwner && currentUserId) {
+    if (excludeOwner === 'true' && currentUserId) {
       andClauses.push({ ownerId: { $ne: currentUserId } });
     }
 
@@ -72,35 +78,54 @@ export async function GET(request) {
         .toArray();
     }
 
-    const categories = await db.collection('ip_assets').distinct('category', {});
-    const creators = await db.collection('ip_assets').distinct('ownerName', {});
+    const categories = await db
+      .collection('ip_assets')
+      .distinct('category', { $and: andClauses });
+
+    const creators = await db
+      .collection('ip_assets')
+      .distinct('ownerName', { $and: andClauses });
 
     return NextResponse.json({
       success: true,
-      ipAssets: ipAssets.map(asset => ({
-        id: asset.id || asset._id?.toString(),
-        _id: asset._id?.toString(),
-        name: asset.name || asset.title,
-        title: asset.title || asset.name,
-        description: asset.description,
-        imageUrl: asset.imageUrl,
-        thumbnailUrl: asset.thumbnailUrl || asset.imageUrl,
-        category: asset.category || asset.systemCategory,
-        tags: asset.tags || asset.userTags || [],
-        ownerId: asset.ownerId,
-        ownerName: asset.ownerName,
-        ownerUsername: asset.ownerUsername,
-        ownerAvatar: asset.ownerAvatar,
-        licensingFee: asset.licensingFee || 0,
-        usageCount: asset.usageCount || 0,
-        totalRevenue: asset.totalRevenue || 0,
-        avgProductPrice: asset.avgProductPrice || 0,
-        viewCount: asset.viewCount || 0,
-        isPublic: asset.isPublic,
-        status: asset.status,
-        minted: asset.minted,
-        createdAt: asset.createdAt,
-      })),
+      ipAssets: ipAssets.map((asset) => {
+        const licensingFeeCents =
+          asset.licensingFeeCents != null
+            ? Math.round(Number(asset.licensingFeeCents))
+            : asset.licenseFeeUsd != null
+              ? Math.round(Number(asset.licenseFeeUsd) * 100)
+              : asset.licensingFee != null
+                ? Math.round(Number(asset.licensingFee) * 100)
+                : 0;
+
+        const imageUrl = [asset.imageUrl, asset.thumbnailUrl, asset.image].find(
+          (value) => typeof value === 'string' && value.trim().length > 0
+        )?.trim() || null;
+
+        return {
+          id: asset.id || asset._id?.toString(),
+          title: asset.name || asset.title || 'Untitled IP asset',
+          description: asset.description || '',
+          imageUrl,
+          category: asset.category || asset.systemCategory || '',
+          tags: Array.isArray(asset.tags)
+            ? asset.tags
+            : Array.isArray(asset.userTags)
+              ? asset.userTags
+              : [],
+          ownerId: asset.ownerId?.toString() || null,
+          ownerName: asset.ownerName || asset.ownerUsername || 'Unknown creator',
+          ownerUsername: asset.ownerUsername || null,
+          ownerAvatar: asset.ownerAvatar || null,
+          licensingFeeCents: Number.isFinite(licensingFeeCents)
+            ? Math.max(0, licensingFeeCents)
+            : 0,
+          isPublic: asset.isPublic === true,
+          licensable: asset.licensable === true,
+          status: asset.status || null,
+          createdAt: asset.createdAt || null,
+        };
+      }),
       pagination: { page, limit, totalCount, totalPages: Math.ceil(totalCount / limit) },
       filters: {
         categories: categories.filter(Boolean).sort(),
