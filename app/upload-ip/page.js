@@ -266,14 +266,19 @@ function UploadIPInner() {
         return;
       }
 
+      const licensingFeeCents = formData.isPublic
+        ? Math.max(0, Math.round(Number(formData.licensingFee || 0) * 100))
+        : 0;
+
       const mintPayload = {
         walletAddress: accountAddress,
         name: formData.name,
         description: formData.description,
         category: formData.category.join(','),
-        licensable: formData.isPublic,
-        licenseFeeUsd: formData.licensingFee,
         isPublic: formData.isPublic,
+        licensable: formData.isPublic,
+        licensingFeeCents,
+        licenseFeeUsd: licensingFeeCents / 100,
         image: ipfsHash,
         stakeholders: cleanedStakeholders,
       };

@@ -265,7 +265,7 @@ export async function POST(request) {
     // 4. Create NFT Mint Transaction
     const params = await getTransactionParams();
     const cidOnly = metaRes.ipfsUrl.split("/").pop();
-    const shortAssetUrl = `ipfs://${cidOnly}`;
+    const shortAssetUrl = `ipfs://${cidOnly}#arc3`;
 
     const nftTxn = algosdk.makeAssetCreateTxnWithSuggestedParamsFromObject({
       sender: senderWallet,
@@ -290,7 +290,9 @@ export async function POST(request) {
       category,
       imageUrl: imageUrl.replace(
         "ipfs://",
-        `${process.env.PINATA_GATEWAY}/ipfs/`,
+        `${String(process.env.PINATA_GATEWAY || "")
+          .replace(/\/+$/, "")
+          .replace(/\/ipfs$/, "")}/ipfs/`,
       ),
       metadataUrl: metaRes.ipfsUrl,
       metadataHash,
@@ -318,11 +320,27 @@ export async function POST(request) {
     const shCount = stakeholdersForContract.length;
     const poolMbrAmount = poolMbr(ipAssetId, shCount);
     const roundMbrAmount = roundMbr(ipAssetId, shCount);
-    // const mbrMicroAlgos = poolMbrAmount + roundMbrAmount;
-    // Optional small buffer if you want extra safety:
-    const bufferMicroAlgos = 10_000; // 0.01 ALGO
-    const mbrMicroAlgos = poolMbrAmount + roundMbrAmount + bufferMicroAlgos;
+    const usdcAssetMbr = 100_000; // App account opts into USDC
+    const revenueAssetMbr = 100_000; // App account creates/holds revenue ASA
+    const poolFundingBuffer = 10_000; // 0.01 ALGO safety margin
 
+    const mbrMicroAlgos =
+      poolMbrAmount +
+      roundMbrAmount +
+      usdcAssetMbr +
+      revenueAssetMbr +
+      poolFundingBuffer;
+
+    console.log("Revenue tokenization MBR calculation", {
+      ipAssetId,
+      shCount,
+      poolMbrAmount,
+      roundMbrAmount,
+      usdcAssetMbr,
+      revenueAssetMbr,
+      poolFundingBuffer,
+      mbrMicroAlgos,
+    });
 
     return NextResponse.json(
       safeJson({
@@ -431,19 +449,51 @@ export async function PUT(request) {
 
       // Stakeholders saved as { address, bps }
       const stakeholdersForContract = ipAsset.stakeholders || [];
-      const mbr = poolMbr(ipAssetId, stakeholdersForContract.length);
       const shBytes = packStakeholders(stakeholdersForContract);
 
-      // 3) Admin pays MBR (using funds user already sent to platform) and calls create_pool
+      const poolBoxMbr = poolMbr(
+        ipAssetId,
+        stakeholdersForContract.length,
+      );
+
+      const usdcAssetMbr = 100_000;
+      const revenueAssetMbr = 100_000;
+      const poolFundingBuffer = 10_000;
+
+      const reserveFundingAmount =
+        usdcAssetMbr +
+        revenueAssetMbr +
+        poolFundingBuffer;
+
       const adminSigner = getSigner(); // METAWORK_PLATFORM_MNEMONIC
-      const payTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-        sender: adminSigner.address,
-        receiver: appAddr,
-        amount: mbr,
-        suggestedParams: sp,
+      const boxName = poolBoxName(ipAssetId);
+
+      console.log("Revenue pool create funding", {
+        ipAssetId,
+        stakeholderCount: stakeholdersForContract.length,
+        poolBoxMbr,
+        usdcAssetMbr,
+        revenueAssetMbr,
+        poolFundingBuffer,
+        reserveFundingAmount,
+        totalSentToApp: reserveFundingAmount + poolBoxMbr,
       });
 
-      const boxName = poolBoxName(ipAssetId);
+      const reserveFundingTxn =
+        algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+          sender: adminSigner.address,
+          receiver: appAddr,
+          amount: reserveFundingAmount,
+          suggestedParams: sp,
+        });
+
+      const poolMbrPaymentTxn =
+        algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+          sender: adminSigner.address,
+          receiver: appAddr,
+          amount: poolBoxMbr,
+          suggestedParams: sp,
+        });
 
       const appTxn = algosdk.makeApplicationNoOpTxnFromObject({
         sender: adminSigner.address,
@@ -454,19 +504,25 @@ export async function PUT(request) {
           new TextEncoder().encode(`Rev ${ipAsset.name.substring(0, 10)}`),
           new TextEncoder().encode("REV"),
           shBytes,
-          algosdk.encodeUint64(0),
+          algosdk.encodeUint64(1), // pool MBR payment is group txn index 1
         ],
         foreignAssets: [USDC_ID],
         boxes: [{ appIndex: poolAppId, name: boxName }],
         suggestedParams: { ...sp, fee: BigInt(3000), flatFee: true },
       });
 
-      algosdk.assignGroupID([payTxn, appTxn]);
+      algosdk.assignGroupID([
+        reserveFundingTxn,  // group index 0: 210,000 microALGO
+        poolMbrPaymentTxn, // group index 1: exact pool box MBR
+        appTxn,            // group index 2
+      ]);
 
       const signedGroup = [
-        adminSigner.signTxn(payTxn),
+        adminSigner.signTxn(reserveFundingTxn),
+        adminSigner.signTxn(poolMbrPaymentTxn),
         adminSigner.signTxn(appTxn),
       ];
+
       const { txid } = await algod.sendRawTransaction(signedGroup).do();
       await waitForConfirmation(txid, 10);
 

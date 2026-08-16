@@ -32,16 +32,32 @@ const resolvePoolIpId = (item) =>
       ''
   );
 
-const resolveIpImage = (item) =>
-  item?.imageUrl ||
-  item?.image ||
-  item?.thumbnailUrl ||
-  item?.thumbnail ||
-  item?.previewImage ||
-  item?.coverImage ||
-  item?.fileUrl ||
-  item?.mediaUrl ||
-  null;
+const resolveIpImage = (item) => {
+  const value =
+    item?.imageUrl ??
+    item?.image ??
+    item?.thumbnailUrl ??
+    item?.thumbnail ??
+    item?.previewImage ??
+    item?.coverImage ??
+    item?.fileUrl ??
+    item?.mediaUrl ??
+    null;
+
+  if (!value) return null;
+
+  const imageUrl = String(value).trim();
+
+  // Browser cannot render ipfs:// directly.
+  if (imageUrl.startsWith("ipfs://")) {
+    const cid = imageUrl.replace(/^ipfs:\/\/(?:ipfs\/)?/, "");
+    return `https://gateway.pinata.cloud/ipfs/${cid}`;
+  }
+
+  // Repair legacy malformed gateway URLs:
+  // .../ipfs/ipfs/<CID> → .../ipfs/<CID>
+  return imageUrl.replace(/(?:\/ipfs){2,}\//g, "/ipfs/");
+};
 
 const bigintReplacer = (_key, value) =>
   typeof value === 'bigint' ? value.toString() : value;
@@ -350,6 +366,14 @@ export default function ClaimPage() {
               }
             );
 
+            console.log("Revenue pool image source", {
+              name: ip.name,
+              id: ip.id,
+              imageUrl: ip.imageUrl,
+              image: ip.image,
+              resolvedImage: resolveIpImage(ip),
+            });
+
             if (res.ok) {
               const claimInfo = await res.json();
               poolsWithClaimInfo.push({
@@ -363,6 +387,15 @@ export default function ClaimPage() {
                 '[POOLS] Claim info request failed',
                 { id: ip.id, status: res.status }
               );
+
+                console.log("Revenue pool image source", {
+                  name: ip.name,
+                  id: ip.id,
+                  imageUrl: ip.imageUrl,
+                  image: ip.image,
+                  resolvedImage: resolveIpImage(ip),
+                });
+
               poolsWithClaimInfo.push({
                 ...ip,
                 resolvedIpId,
@@ -380,6 +413,15 @@ export default function ClaimPage() {
             } else {
               console.error('Error fetching pool claim info:', ip.id, err);
             }
+
+              console.log("Revenue pool image source", {
+                name: ip.name,
+                id: ip.id,
+                imageUrl: ip.imageUrl,
+                image: ip.image,
+                resolvedImage: resolveIpImage(ip),
+              });
+
             poolsWithClaimInfo.push({
               ...ip,
               resolvedIpId,
@@ -451,6 +493,14 @@ export default function ClaimPage() {
                   );
                 }
 
+                console.log("Revenue pool image source", {
+                  name: ip.name,
+                  id: ip.id,
+                  imageUrl: ip.imageUrl,
+                  image: ip.image,
+                  resolvedImage: resolveIpImage(ip),
+                });
+
                 poolsWithClaimInfo.push({
                   ...p,
                   resolvedIpId,
@@ -470,6 +520,15 @@ export default function ClaimPage() {
                     err
                   );
                 }
+
+                console.log("Revenue pool image source", {
+                  name: ip.name,
+                  id: ip.id,
+                  imageUrl: ip.imageUrl,
+                  image: ip.image,
+                  resolvedImage: resolveIpImage(ip),
+                });
+
                 poolsWithClaimInfo.push({
                   ...p,
                   resolvedIpId,
