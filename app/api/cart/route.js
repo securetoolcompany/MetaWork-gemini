@@ -127,7 +127,14 @@ export async function GET() {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { productId, variationId, quantity = 1, color = null, size = null } = body;
+    const {
+      productId,
+      variationId,
+      quantity = 1,
+      color = null,
+      colorKey = null,
+      size = null,
+    } = body;
     
     // Validate required fields
     if (!productId) {
@@ -180,7 +187,26 @@ export async function POST(request) {
     let cartItem;
 
     try {
-      cartItem = createCartItem(product, variationId, qty, { color, size });
+      cartItem = createCartItem(product, variationId, qty, {
+        color,
+        colorKey,
+        size,
+      });
+
+      console.log('[cart/add] selection received:', {
+        productId,
+        variationId,
+        color,
+        colorKey,
+        size,
+      });
+
+      console.log('[cart/add] created cart item:', {
+        productId: cartItem.productId,
+        variationId: cartItem.variationId,
+        attributes: cartItem.attributes,
+        selectedOptions: cartItem.selectedOptions,
+      });
     } catch (error) {
       return NextResponse.json(
         {

@@ -108,7 +108,6 @@ function ProductCreatorInner() {
   const [loadingCatalog, setLoadingCatalog] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All Products')
-  const [selectedColor, setSelectedColor] = useState(null)
   const [inspectingProduct, setInspectingProduct] = useState(null)
   const [selectedBlank, setSelectedBlank] = useState(null)
   const [externalProductId, setExternalProductId] = useState(null)

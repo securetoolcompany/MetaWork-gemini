@@ -418,13 +418,54 @@ function buildPricedVariants({
   blankProduct,
   baseProduct,
   licensedRevenueTerms,
+  selectedVariantIds,
 }) {
-  const sourceVariants = Array.isArray(blankProduct?.variants)
-    ? blankProduct.variants.filter((variant) => variant?.inStock !== false)
+  const catalogVariants = Array.isArray(blankProduct?.variants)
+    ? blankProduct.variants
     : [];
 
-  if (sourceVariants.length === 0) {
-    throw new Error("Selected blank product has no sellable variants.");
+  const requestedVariantIds = Array.isArray(selectedVariantIds)
+    ? selectedVariantIds
+    : [];
+
+  if (requestedVariantIds.length === 0) {
+    throw new Error("Select at least one product variant before saving.");
+  }
+
+  const selectedIds = new Set(
+    requestedVariantIds.map((id) => Number(id)).filter(Number.isInteger)
+  );
+
+  const sourceVariants = catalogVariants.filter((variant) => {
+    const id = Number(
+      variant?.catalogVariantId ??
+        variant?.variantId ??
+        variant?.variant_id ??
+        variant?.printful_id ??
+        variant?.id
+    );
+
+    return selectedIds.has(id);
+  });
+
+  if (sourceVariants.length !== selectedIds.size) {
+    const foundIds = new Set(
+      sourceVariants.map((variant) =>
+        Number(
+          variant?.catalogVariantId ??
+            variant?.variantId ??
+            variant?.variant_id ??
+            variant?.printful_id ??
+            variant?.id
+        )
+      )
+    );
+
+    const missingIds = [...selectedIds].filter((id) => !foundIds.has(id));
+
+    throw new Error(
+      `One or more selected variants were not found in the blank-product catalog: ${missingIds.join(", ")}`
+    );
   }
 
   const placementCostCents = getCanonicalPlacementCostCents(
@@ -441,6 +482,40 @@ function buildPricedVariants({
   );
 
   return sourceVariants.map((sourceVariant) => {
+    const printfulVariantId =
+      sourceVariant.catalogVariantId ??
+      sourceVariant.variantId ??
+      sourceVariant.printful_id ??
+      sourceVariant.id;
+
+    const catalogVariantId = Number(printfulVariantId);
+
+    if (!Number.isInteger(catalogVariantId) || catalogVariantId <= 0) {
+      throw new Error(
+        `Blank product variant ${String(printfulVariantId)} has an invalid catalog variant ID.`
+      );
+    }
+
+    const size = String(
+      sourceVariant.attributes?.pa_size ??
+        sourceVariant.attributes?.size ??
+        sourceVariant.size ??
+        ""
+    ).trim();
+
+    const color = String(
+      sourceVariant.attributes?.pa_color ??
+        sourceVariant.attributes?.color ??
+        sourceVariant.color ??
+        ""
+    ).trim();
+
+    if (!size || !color) {
+      throw new Error(
+        `Selected variant ${catalogVariantId} is missing its size or color.`
+      );
+    }
+
     const rawPrintfulPrice = sourceVariant.price;
 
     if (
@@ -449,7 +524,7 @@ function buildPricedVariants({
       rawPrintfulPrice === ""
     ) {
       throw new Error(
-        `Blank product variant ${sourceVariant.variantId || sourceVariant.id || ""} is missing a Printful price.`
+        `Blank product variant ${catalogVariantId} is missing a Printful price.`
       );
     }
 
@@ -457,7 +532,7 @@ function buildPricedVariants({
 
     if (!Number.isSafeInteger(printfulCostCents) || printfulCostCents < 0) {
       throw new Error(
-        `Blank product variant ${sourceVariant.variantId || sourceVariant.id || ""} has an invalid Printful price.`
+        `Blank product variant ${catalogVariantId} has an invalid Printful price.`
       );
     }
 
@@ -472,50 +547,22 @@ function buildPricedVariants({
       placementCostCents;
 
     const retailPriceCents = costCents + lockedIpFeeCents;
-    const printfulVariantId =
-      sourceVariant.catalogVariantId ??
-      sourceVariant.variantId ??
-      sourceVariant.printful_id ??
-      sourceVariant.id;
-
-    const size =
-  sourceVariant.attributes?.pa_size ??
-  sourceVariant.attributes?.size ??
-  sourceVariant.size ??
-  null;
-
-const color =
-  sourceVariant.attributes?.pa_color ??
-  sourceVariant.attributes?.color ??
-  sourceVariant.color ??
-  null;
-
-const catalogVariantId = Number(printfulVariantId);
-
-if (!Number.isInteger(catalogVariantId) || catalogVariantId <= 0) {
-  throw new Error(
-    `Blank product variant ${String(printfulVariantId)} has an invalid catalog variant ID.`
-  );
-}
 
     return {
-      ...sourceVariant,
-
       id: String(catalogVariantId),
       variantId: catalogVariantId,
       variant_id: catalogVariantId,
       catalogVariantId,
       printful_id: catalogVariantId,
 
-      sku: sourceVariant.sku || '',
-      name: sourceVariant.name || '',
+      sku: sourceVariant.sku || "",
+      name: sourceVariant.name || "",
 
       size,
       color,
       colorCode: sourceVariant.colorCode || null,
       colorKey:
-        sourceVariant.colorKey ||
-        (color ? String(color).trim().toLowerCase() : null),
+        sourceVariant.colorKey || color.toLowerCase(),
 
       attributes: {
         ...(sourceVariant.attributes || {}),
@@ -756,6 +803,55 @@ async function normalizeRevenueConfiguration(db, revenueConfiguration) {
   };
 }
 
+async function getTemplateSelectedVariantIds(printfulTemplateId) {
+  const token = process.env.PRINTFUL_API_KEY;
+  const storeId = process.env.PRINTFUL_STORE_ID;
+
+  if (!token) {
+    throw new Error("Missing PRINTFUL_API_KEY");
+  }
+
+  if (!printfulTemplateId) {
+    throw new Error("A Printful template ID is required to save this draft.");
+  }
+
+  const response = await fetch(
+    `https://api.printful.com/product-templates/${printfulTemplateId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-PF-Store-Id": String(storeId),
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to retrieve selected EDM variants: ${
+        data?.error?.message || response.status
+      }`
+    );
+  }
+
+  const ids = data?.result?.available_variant_ids;
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    throw new Error(
+      "The saved Printful design template has no selected variants."
+    );
+  }
+
+  return [
+    ...new Set(
+      ids
+        .map(Number)
+        .filter((id) => Number.isInteger(id) && id > 0)
+    ),
+  ];
+}
+
 export async function POST(request) {
   try {
     const authHeader = request.headers.get("authorization");
@@ -874,10 +970,15 @@ export async function POST(request) {
       throw new Error("Selected blank product was not found or is inactive.");
     }
 
+    const selectedVariantIds = await getTemplateSelectedVariantIds(
+      printfulTemplateId
+    );
+
     const variants = buildPricedVariants({
       blankProduct,
       baseProduct,
       licensedRevenueTerms,
+      selectedVariantIds,
     });
 
     const normalizedSelectedIPs = effectiveSelectedIPs.map((ip) => ({

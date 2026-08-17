@@ -106,6 +106,7 @@ export function CartProvider({ children }) {
         variationId,
         quantity,
         color: selection.color ?? null,
+        colorKey: selection.colorKey ?? null,
         size: selection.size ?? null,
       })
     });

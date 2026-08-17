@@ -224,11 +224,6 @@ export default function DesignPropertiesPanel({
         printfulTemplateId ||
         null;
 
-      if (!finalTemplateId) {
-        toast.error("Template ID missing after EDM save");
-        return;
-      }
-
       try {
         const res = await fetch("/api/products/save-draft", {
           method: "POST",
