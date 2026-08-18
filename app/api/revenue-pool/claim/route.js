@@ -259,8 +259,7 @@ export async function POST(request) {
     const algodClient = getAlgodClient();
     const suggestedParams = await getCachedTxParams(algodClient);
     const appIndex = parseInt(appId, 10);
-    const USDC_ASSET_ID = getUsdcAssetId();
-    
+
     const poolBoxName = encodePoolBoxName(ipId);
     const poolBox = await getCachedPoolBox(
       algodClient,
@@ -268,42 +267,106 @@ export async function POST(request) {
       poolBoxName,
       `usdc:${ipId}`
     );
-    const pool = readPoolBox(poolBox && poolBox.value ? poolBox.value : poolBox);
 
-    const boxes = [{ appIndex, name: poolBoxName }];
+    const pool = readPoolBox(
+      poolBox && poolBox.value ? poolBox.value : poolBox
+    );
+
+    const normalizedClaimer = String(claimerAddress).trim().toUpperCase();
+
+    // Find the first active, unclaimed V10 round for this exact wallet.
+    let roundIdToClaim = null;
+
     for (let roundId = 1; roundId <= pool.currentRoundId; roundId += 1) {
-      boxes.push({ appIndex, name: encodeRoundBoxName(ipId, roundId) });
+      const roundBoxName = encodeRoundBoxName(ipId, roundId);
+      const roundBoxValue = await getApplicationBox(
+        algodClient,
+        appIndex,
+        roundBoxName
+      );
+
+      if (!roundBoxValue) continue;
+
+      const round = readRoundBox(roundBoxValue);
+      const recipientEntry = round.holders.find(
+        (holder) => holder.address === normalizedClaimer
+      );
+
+      if (
+        recipientEntry &&
+        recipientEntry.amount > 0 &&
+        !recipientEntry.claimed
+      ) {
+        roundIdToClaim = roundId;
+        break;
+      }
     }
 
+    if (!roundIdToClaim) {
+      return NextResponse.json(
+        {
+          error:
+            'No unclaimed payout round was found for this wallet and pool.',
+        },
+        { status: 409 }
+      );
+    }
+
+    const roundBoxName = encodeRoundBoxName(ipId, roundIdToClaim);
+
     const claimTxn = algosdk.makeApplicationNoOpTxnFromObject({
-      sender: claimerAddress,
+      sender: normalizedClaimer,
       suggestedParams: {
         ...suggestedParams,
-        fee: BigInt(1000 + 1000 * pool.currentRoundId),
+        // 1,000 µALGO for this app call + 1,000 µALGO for the inner USDC transfer.
+        fee: 2000,
         flatFee: true,
       },
       appIndex,
       appArgs: [
-        new Uint8Array(Buffer.from('claim_revenue_all')),
-        new Uint8Array(Buffer.from(ipId)),
+        new Uint8Array(Buffer.from('claim_revenue_round', 'utf8')),
+        new Uint8Array(Buffer.from(ipId, 'utf8')),
+        algosdk.encodeUint64(roundIdToClaim),
       ],
-      foreignAssets: [USDC_ASSET_ID, pool.revenueTokenId],
-      boxes,
+      foreignAssets: [getUsdcAssetId()],
+      boxes: [
+        { appIndex: 0, name: poolBoxName },
+        { appIndex: 0, name: roundBoxName },
+      ],
     });
 
     const txnBytes = algosdk.encodeUnsignedTransaction(claimTxn);
     const txnBase64 = Buffer.from(txnBytes).toString('base64');
 
+    console.log('[REVENUE CLAIM] built V10 round claim', {
+      appIndex,
+      claimer: normalizedClaimer,
+      ipId,
+      roundId: roundIdToClaim,
+      action: 'claim_revenue_round',
+      boxes: [
+        Buffer.from(poolBoxName).toString('hex'),
+        Buffer.from(roundBoxName).toString('hex'),
+      ],
+      txnId: claimTxn.txID(),
+    });
+
     return NextResponse.json({
       success: true,
       transaction: txnBase64,
       txnId: claimTxn.txID(),
-      message: 'Sign this transaction to claim your USDC',
+      roundId: roundIdToClaim,
+      message: `Sign this transaction to claim USDC from round ${roundIdToClaim}`,
     });
   } catch (error) {
     console.error('Error creating claim transaction:', error);
     return NextResponse.json(
-      { error: error && error.message ? error.message : 'Failed to create claim transaction' },
+      {
+        error:
+          error && error.message
+            ? error.message
+            : 'Failed to create claim transaction',
+      },
       { status: 500 }
     );
   }

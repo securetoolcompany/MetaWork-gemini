@@ -14,9 +14,20 @@ import { uploadJsonToPinata, createARC3Metadata } from "@/lib/pinata";
 import { safeJson } from "@/lib/utils";
 import crypto from "crypto";
 
-// ─── Revenue Pool V7 config (mirror scripts/test_lifecycle.js) ───
-const APP_ID = parseInt(process.env.NEXT_PUBLIC_REVENUE_POOL_APP_ID || "0", 10);
-const USDC_ID = getUsdcAssetId("testnet");
+// V10 server-side revenue-pool configuration.
+function getRevenuePoolAppId() {
+  const appId = Number(process.env.GLOBAL_POOL_APP_ID);
+
+  if (!Number.isSafeInteger(appId) || appId <= 0) {
+    throw new Error(
+      'GLOBAL_POOL_APP_ID must be configured as a positive integer',
+    );
+  }
+
+  return appId;
+}
+
+const USDC_ID = getUsdcAssetId('testnet');
 
 /** Pack stakeholders → 32-byte pubkey + 2-byte BPS big-endian (34 bytes each) */
 function packStakeholders(entries) {
@@ -436,12 +447,7 @@ export async function PUT(request) {
         );
       }
 
-      const poolAppId = APP_ID;
-      if (!poolAppId) {
-        throw new Error(
-          "Global Pool App ID not configured (check NEXT_PUBLIC_REVENUE_POOL_APP_ID)",
-        );
-      }
+      const poolAppId = getRevenuePoolAppId();
 
       const algod = getAlgodClient("testnet");
       const sp = await getTransactionParams();

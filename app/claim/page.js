@@ -24,7 +24,12 @@ const CURRENT_REVENUE_POOL_APP_ID = Number(
 
 const resolvePoolIpId = (item) =>
   String(
-    item?.ipId ||
+    item?.poolKey ||
+      item?.revenuePool?.poolKey ||
+      item?.revenuePool?.ipId ||
+      item?.claimInfo?.poolKey ||
+      item?.claimInfo?.ipId ||
+      item?.ipId ||
       item?.tokenizedIpId ||
       item?.assetId ||
       item?.id ||
@@ -757,7 +762,26 @@ export default function ClaimPage() {
       return toast.error('Wallet not fully synced. Please reconnect.');
     }
 
-    const poolIpId = resolvePoolIpId(pool);
+    const poolIpId =
+      pool?.poolKey ||
+      pool?.revenuePool?.poolKey ||
+      pool?.claimInfo?.ipId ||
+      resolvePoolIpId(pool);
+
+      console.log('[REVENUE CLAIM] selected pool identity', {
+        poolIpId,
+        expectedPoolKey: '6a84bf41f49bcdc863f8e4ef',
+        poolKey: pool?.poolKey,
+        nestedPoolKey: pool?.revenuePool?.poolKey,
+        claimInfoIpId: pool?.claimInfo?.ipId,
+        ipId: pool?.ipId,
+        tokenizedIpId: pool?.tokenizedIpId,
+        assetId: pool?.assetId,
+        id: pool?.id,
+        mongoId: pool?.mongoId,
+        _id: pool?._id,
+      });
+      
     const amount =
       claimAmounts[poolIpId] ?? pool.claimInfo?.user?.claimableAmount;
 

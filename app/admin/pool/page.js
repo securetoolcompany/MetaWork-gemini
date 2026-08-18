@@ -35,6 +35,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+  buildV10DepositUsdcGroup,
+} from '@/lib/revenue-pool-v10-deposit';
 
 const USDC_ASSET_ID = Number(process.env.NEXT_PUBLIC_USDC_ASSET_ID);
 
@@ -708,98 +711,88 @@ export default function PoolAdminPage() {
     };
 
     const handleFund = async () => {
-        if (!isConnected) {
-            return toast.error('Connect Wallet');
+        if (!isConnected || !accountAddress) {
+            return toast.error('Connect a wallet');
         }
 
         if (!selectedIpId) {
             return toast.error('Select an IP to fund');
         }
 
-        if (!fundAmount || parseFloat(fundAmount) <= 0) {
-            return toast.error('Enter valid amount');
+        const amount = Number(fundAmount);
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+            return toast.error('Enter a valid USDC amount');
+        }
+
+        const revenuePoolAppId = Number(appId);
+
+        if (
+            !Number.isSafeInteger(revenuePoolAppId) ||
+            revenuePoolAppId <= 0
+        ) {
+            return toast.error(
+            'NEXT_PUBLIC_REVENUE_POOL_APP_ID must be a positive safe integer',
+            );
+        }
+
+        const usdcAtomicUnits = Math.round(amount * 1_000_000);
+
+        if (
+            !Number.isSafeInteger(usdcAtomicUnits) ||
+            usdcAtomicUnits <= 0
+        ) {
+            return toast.error('USDC amount is invalid');
         }
 
         setIsFunding(true);
 
         try {
             const algod = new algosdk.Algodv2(
-                '',
-                'https://testnet-api.algonode.cloud',
-                ''
+            '',
+            'https://testnet-api.algonode.cloud',
+            '',
             );
 
-            const params = await algod.getTransactionParams().do();
-            const amountUnits = BigInt(
-                Math.floor(parseFloat(fundAmount) * 1000000)
-            );
+            const suggestedParams = await algod.getTransactionParams().do();
 
-            const payTxn =
-                algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
-                    sender: accountAddress,
-                    receiver: appAddress,
-                    amount: amountUnits,
-                    assetIndex: USDC_ASSET_ID,
-                    suggestedParams: params,
-                });
-
-            const boxName = new Uint8Array(
-                Buffer.concat([
-                    Buffer.from('p_'),
-                    Buffer.from(selectedIpId),
-                ])
-            );
-
-            const appTxn = algosdk.makeApplicationNoOpTxnFromObject({
-                sender: accountAddress,
-                appIndex: parseInt(appId, 10),
-                appArgs: [
-                    new Uint8Array(Buffer.from('deposit')),
-                    new Uint8Array(Buffer.from(selectedIpId)),
-                ],
-                boxes: [
-                    {
-                        appIndex: parseInt(appId, 10),
-                        name: boxName,
-                    },
-                ],
-                foreignAssets: [USDC_ASSET_ID],
-                suggestedParams: params,
+            const group = buildV10DepositUsdcGroup({
+            revenuePoolAppId,
+            usdcAssetId: USDC_ASSET_ID,
+            depositorAddress: accountAddress,
+            poolKey: selectedIpId,
+            usdcAtomicUnits,
+            suggestedParams,
             });
 
-            algosdk.assignGroupID([payTxn, appTxn]);
+            const signedTransactions = await signTransactionGroup(
+            group.unsignedTransactionsBase64.map(
+                (encodedTransaction) =>
+                new Uint8Array(Buffer.from(encodedTransaction, 'base64')),
+            ),
+            );
 
-            const signed = await signTransactionGroup([
-                algosdk.encodeUnsignedTransaction(payTxn),
-                algosdk.encodeUnsignedTransaction(appTxn),
-            ]);
-
-            if (!signed) {
-                throw new Error('Transaction cancelled');
+            if (!signedTransactions || signedTransactions.length !== 2) {
+            throw new Error('Deposit signing was cancelled or incomplete');
             }
 
-            await algod.sendRawTransaction(signed).do();
+            await algod.sendRawTransaction(signedTransactions).do();
 
-            toast.success(`Funded IP with ${fundAmount} USDC!`);
+            toast.success(
+            `Submitted ${amount} USDC V10 deposit. Waiting for confirmation…`,
+            );
+
             setFundAmount('');
-            setTimeout(fetchData, 4000);
-        } catch (error) {
-            console.error(error);
 
-            if (
-                error.message &&
-                error.message.includes('message channel closed')
-            ) {
-                toast.error(
-                    'Wallet Connection Lost. Please unlock your wallet extension.'
-                );
-            } else {
-                toast.error(error.message || 'Funding failed');
-            }
+            setTimeout(fetchData, 4_000);
+        } catch (error) {
+            console.error('V10 deposit failed', error);
+
+            toast.error(error?.message || 'V10 deposit failed');
         } finally {
             setIsFunding(false);
         }
-    };
+        };
 
     if (!appId) {
         return (
