@@ -102,13 +102,57 @@ const uniqueImages = [...new Set(allImages)];
       variations: Array.isArray(product.variations) ? product.variations : [],
     };
 
-    let creator = null;
     const creatorId = product.userId || product.creatorId;
-    if (creatorId) {
-      creator = await db.collection('users').findOne({ id: creatorId }, { projection: { password: 0 } });
-      if (!creator && isValidObjectId(creatorId)) {
-        creator = await db.collection('users').findOne({ _id: new ObjectId(creatorId) }, { projection: { password: 0 } });
-      }
+
+    const creatorLookupValues = [
+      creatorId,
+      product.userId,
+      product.creatorId,
+    ]
+      .filter(Boolean)
+      .map(String);
+
+    const creatorLookupOr = [
+      { id: { $in: creatorLookupValues } },
+      { username: { $in: creatorLookupValues } },
+    ];
+
+    const objectIds = creatorLookupValues
+      .filter(ObjectId.isValid)
+      .map((value) => new ObjectId(value));
+
+    if (objectIds.length > 0) {
+      creatorLookupOr.push({ _id: { $in: objectIds } });
+    }
+
+    const creator =
+      creatorLookupOr.length > 0
+        ? await db.collection('users').findOne(
+            { $or: creatorLookupOr },
+            { projection: { password: 0 } }
+          )
+        : null;
+
+    let aisle = null;
+
+    if (creator) {
+      const creatorUserIds = [
+        creator.id,
+        creator._id?.toString(),
+        creator.username,
+      ]
+        .filter(Boolean)
+        .map(String);
+
+      aisle = await db.collection('aisles').findOne(
+        {
+          userId: { $in: creatorUserIds },
+          isActive: { $ne: false },
+        },
+        {
+          projection: { slug: 1 },
+        }
+      );
     }
 
     const productIdForExclusion = product.id || product._id?.toString();
@@ -137,7 +181,12 @@ const uniqueImages = [...new Set(allImages)];
         username: String(creator.username || ''),
         name: String(creator.name || creator.displayName || creator.username || ''),
         avatar: creator.avatar || creator.avatarUrl || null,
-        bio: typeof creator.bio === 'string' ? creator.bio : null
+        bio: typeof creator.bio === 'string' ? creator.bio : null,
+        aisleSlug:
+          aisle?.slug ||
+          creator?.aisleSettings?.slug ||
+          creator?.username ||
+          null,
       } : null,
       relatedProducts: relatedProducts.map(p => ({
         id: p.id || p._id?.toString(),

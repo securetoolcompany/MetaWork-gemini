@@ -245,12 +245,14 @@ export default function ProductDetailDialog({
   };
 
   const handleCategoryClick = (category) => {
-    onOpenChange(false);
+    onOpenChange?.(false);
+
     if (creator && (category === creator.name || category === creator.username)) {
-      router.push(`/aisle/${creator.username}`);
-    } else {
-      router.push(`/showroom?category=${encodeURIComponent(category)}`);
+      router.push(`/aisle/${creatorSlug}`);
+      return;
     }
+
+    router.push(`/showroom?category=${encodeURIComponent(category)}`);
   };
 
   if (!open && !asPage) return null;
@@ -282,13 +284,8 @@ export default function ProductDetailDialog({
   const galleryImages = [...new Set(preferredImageSet.map(normalizeImageUrl).filter(Boolean))];
   const safeGalleryImages = galleryImages.length > 0 ? galleryImages : ['/placeholder.png'];
 
-    useEffect(() => {
-      if (currentMockupIndex >= safeGalleryImages.length) {
-        setCurrentMockupIndex(0);
-      }
-    }, [safeGalleryImages.length, currentMockupIndex]);
-
   const productName = product?.name || product?.title || 'Product';
+  const creatorSlug = creator?.username || creator?.id || 'unknown';
   const productPrice = selectedVariation?.price || product?.price || 0;
   const productDescription = product?.description || '';
   const regularPrice = selectedVariation?.regular_price || product?.regularPrice;
@@ -438,15 +435,21 @@ export default function ProductDetailDialog({
                 <div className="text-sm text-gray-400">@{creator.username}</div>
               </div>
               <div className="flex gap-2">
-                <Link href={`/aisle/${creator.username}`} onClick={() => onOpenChange?.(false)}>
+                <a
+                  href={`/aisle/${creatorSlug}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                  }}
+                >
                   <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     className="text-emerald-400 border-emerald-500/30"
                   >
                     <MapPin className="w-4 h-4 mr-1" /> Aisle
                   </Button>
-                </Link>
+                </a>
               </div>
             </div>
           )}
