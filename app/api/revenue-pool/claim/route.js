@@ -10,6 +10,10 @@ import {
   invalidatePoolBoxCache,
   invalidateAccountCache,
 } from '@/lib/algorand-rate-limit';
+import {
+  getRevenuePoolClaimHistory,
+  upsertRevenuePoolClaimReceipt,
+} from '@/lib/revenue-pool-claim-receipts.js';
 
 function formatUsdDynamicFromMicro(microUsdc) {
   const raw = microUsdc / 1_000_000;
@@ -206,6 +210,18 @@ export async function GET(request) {
       }
     }
 
+    const claimHistory = await getRevenuePoolClaimHistory({
+      appId: appIndex,
+      poolKey: ipId,
+      claimerAddress: normalizedUser,
+    });
+
+    const lifetimeClaimedAmount = claimHistory.reduce(
+      (sum, receipt) =>
+        sum + Number(receipt.amountUsdcAtomicUnits || 0),
+      0,
+    );
+
     const totalDeposited =
       pool.heldUsdc + pool.totalClaimed + pool.unallocatedUsdc;
 
@@ -232,8 +248,13 @@ export async function GET(request) {
         tokenBalance: userTokenBalance,
         claimableAmount,
         claimableFormatted: formatUsdDynamicFromMicro(claimableAmount),
+        lifetimeClaimedAmount,
+        lifetimeClaimedFormatted: formatUsdDynamicFromMicro(
+          lifetimeClaimedAmount,
+        ),
       },
       rounds,
+      claimHistory,
     });
   } catch (error) {
     console.error('Error getting claim info:', error);
@@ -378,7 +399,22 @@ export async function PUT(request) {
   try {
     const body = await request.json();
     const { signedTxn, signedTxns, userAddress, ipId, appId } = body;
+    const poolKey = String(ipId || '').trim();
+    const appIndex = Number(appId);
+
     claimerAddress = String(userAddress || '').trim().toUpperCase();
+
+    if (
+      !poolKey ||
+      !Number.isSafeInteger(appIndex) ||
+      appIndex < 1 ||
+      !claimerAddress
+    ) {
+      return NextResponse.json(
+        { error: 'userAddress, ipId, and appId are required' },
+        { status: 400 },
+      );
+    }
 
     const hasSingle = typeof signedTxn === 'string' && signedTxn.length > 0;
     const hasGroup = Array.isArray(signedTxns) && signedTxns.length > 0;
@@ -399,24 +435,138 @@ export async function PUT(request) {
         ? signedTxns.map((tx) => new Uint8Array(Buffer.from(tx, 'base64')))
         : [new Uint8Array(Buffer.from(signedTxn, 'base64'))];
 
-      const result = await algodClient.sendRawTransaction(signedTxnBytes).do();
+      if (signedTxnBytes.length !== 1) {
+        throw new Error(
+          'Revenue pool claims must contain exactly one signed transaction',
+        );
+      }
+
+      const decodedSignedTransaction = algosdk.decodeSignedTransaction(
+        signedTxnBytes[0],
+      );
+
+      const claimTransaction = decodedSignedTransaction.txn;
+
+      if (claimTransaction.type !== 'appl') {
+        throw new Error(
+          'Signed transaction must be an application call',
+        );
+      }
+
+      if (Number(claimTransaction.applicationCall.appIndex) !== appIndex) {
+        throw new Error(
+          'Signed transaction app ID does not match the requested pool',
+        );
+      }
+
+      if (
+        algosdk.encodeAddress(claimTransaction.sender.publicKey) !==
+        claimerAddress
+      ) {
+        throw new Error(
+          'Signed transaction sender does not match userAddress',
+        );
+      }
+
+      const claimAppArgs = claimTransaction.applicationCall.appArgs || [];
+
+      if (
+        Buffer.from(claimAppArgs[0] || []).toString('utf8') !==
+        'claim_revenue_round'
+      ) {
+        throw new Error(
+          'Signed transaction is not a claim_revenue_round call',
+        );
+      }
+
+      if (
+        Buffer.from(claimAppArgs[1] || []).toString('utf8') !== poolKey
+      ) {
+        throw new Error(
+          'Signed transaction pool key does not match the requested pool',
+        );
+      }
+
+      const roundIdBytes = Buffer.from(claimAppArgs[2] || []);
+
+      if (roundIdBytes.length !== 8) {
+        throw new Error(
+          'Signed claim transaction must contain an eight-byte round ID',
+        );
+      }
+
+      const preparedRoundId = Number(
+        roundIdBytes.readBigUInt64BE(),
+      );
+
+      if (
+        !Number.isSafeInteger(preparedRoundId) ||
+        preparedRoundId < 1
+      ) {
+        throw new Error(
+          'Signed claim transaction contains an invalid round ID',
+        );
+      }
+
+      const roundBoxValue = await getApplicationBox(
+        algodClient,
+        appIndex,
+        encodeRoundBoxName(poolKey, preparedRoundId),
+      );
+
+      if (!roundBoxValue) {
+        throw new Error(
+          `Payout round ${preparedRoundId} was not found for receipt recording`,
+        );
+      }
+
+      const round = readRoundBox(roundBoxValue);
+
+      const recipientEntry = round.holders.find(
+        (holder) => holder.address === claimerAddress,
+      );
+
+      if (
+        !recipientEntry ||
+        recipientEntry.amount < 1 ||
+        recipientEntry.claimed
+      ) {
+        throw new Error(
+          'The selected payout round is not claimable by this wallet',
+        );
+      }
+
+      const result = await algodClient
+        .sendRawTransaction(signedTxnBytes)
+        .do();
+
       const txid = result.txid || result.txId;
 
       console.log('Claim transaction submitted:', txid, {
         groupSize: signedTxnBytes.length,
-        ipId,
-        appId,
+        ipId: poolKey,
+        appId: appIndex,
+        roundId: preparedRoundId,
         claimerAddress,
       });
 
-      if (claimerAddress) {
-        invalidateAccountCache(claimerAddress);
-      }
-      if (ipId && appId) {
-        invalidatePoolBoxCache(appId, `usdc:${ipId}`);
-      }
+      invalidateAccountCache(claimerAddress);
+      invalidatePoolBoxCache(
+        appIndex,
+        `usdc:${poolKey}`,
+      );
 
       await algosdk.waitForConfirmation(algodClient, txid, 10);
+
+      await upsertRevenuePoolClaimReceipt({
+        appId: appIndex,
+        poolKey,
+        roundId: preparedRoundId,
+        claimerAddress,
+        amountUsdcAtomicUnits: recipientEntry.amount,
+        roundCreated: round.roundCreated,
+        claimTransactionId: txid,
+      });
 
       return NextResponse.json({
         success: true,

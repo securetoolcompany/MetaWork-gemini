@@ -950,13 +950,14 @@ export default function ClaimPage() {
     0
   );
 
-  const totalLifetimeClaimedUSDC = revenuePools.reduce((sum, p) => {
-    const rounds = Array.isArray(p.claimInfo?.rounds) ? p.claimInfo.rounds : [];
-    const claimed = rounds
-      .filter((r) => r.claimed)
-      .reduce((roundSum, r) => roundSum + Number(r.amount || 0), 0);
-    return sum + claimed;
-  }, 0);
+  const totalLifetimeClaimedUSDC = revenuePools.reduce(
+    (sum, pool) =>
+      sum +
+      Number(
+        pool.claimInfo?.user?.lifetimeClaimedAmount || 0,
+      ),
+    0,
+  );
 
   const getTokenClaimStatus = (token) => {
     const claiming = claimingTokens === token.ipId;
@@ -1263,11 +1264,21 @@ export default function ClaimPage() {
                   const poolBalanceFormatted =
                     claimInfo?.pool?.balanceFormatted || '0.00';
 
-                  const rounds = Array.isArray(claimInfo?.rounds) ? claimInfo.rounds : [];
-                  const lifetimeClaimedAmount = rounds
-                    .filter((r) => r.claimed)
-                    .reduce((sum, r) => sum + Number(r.amount || 0), 0);
-                  const lifetimeClaimedFormatted = formatUsdDynamicFromMicro(lifetimeClaimedAmount);
+                  const rounds = Array.isArray(claimInfo?.rounds)
+                    ? claimInfo.rounds
+                    : [];
+
+                  const claimHistory = Array.isArray(claimInfo?.claimHistory)
+                    ? claimInfo.claimHistory
+                    : [];
+
+                  const lifetimeClaimedAmount = Number(
+                    claimInfo?.user?.lifetimeClaimedAmount || 0,
+                  );
+
+                  const lifetimeClaimedFormatted = formatUsdDynamicFromMicro(
+                    lifetimeClaimedAmount,
+                  );
 
                   const poolKey = p.resolvedIpId || resolvePoolIpId(p);
                   const isClaiming = claimingRevenue === poolKey;
@@ -1384,13 +1395,13 @@ export default function ClaimPage() {
                           </div>
                         </div>
 
-                        {!hasError && rounds.length > 0 && (
+                        {!hasError && claimHistory.length > 0 && (
                           <details className="border-t bg-muted/5">
                             <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm text-muted-foreground md:px-5">
                               <span>USDC Claim History</span>
                               <span>
-                                {rounds.length}{' '}
-                                {rounds.length === 1 ? 'round' : 'rounds'}
+                                {claimHistory.length}{' '}
+                                {claimHistory.length === 1 ? 'claim' : 'claims'}
                               </span>
                             </summary>
 
@@ -1404,23 +1415,23 @@ export default function ClaimPage() {
                                 </div>
 
                                 <div className="divide-y">
-                                  {rounds.map((r) => {
-                                    const releasedAt = r.roundCreated
-                                      ? new Date(
-                                          Number(r.roundCreated) * 1000
-                                        ).toLocaleDateString()
-                                      : '—';
+                                  {claimHistory.map((receipt) => {
+                                    const releasedAt =
+                                      Number(receipt.roundCreated) > 0
+                                        ? new Date(
+                                            Number(receipt.roundCreated) * 1000,
+                                          ).toLocaleDateString()
+                                        : '—';
 
-                                    const claimedLabel = r.claimed
-                                      ? 'Claimed'
-                                      : 'Pending';
+                                    const claimedLabel = receipt.claimedAt
+                                      ? new Date(receipt.claimedAt).toLocaleDateString()
+                                      : 'Confirmed';
 
-                                    const claimTxId =
-                                      claimTransactionIds[`${resolvePoolIpId(p)}:${r.roundId}`];
+                                    const claimTxId = receipt.claimTransactionId;
 
                                     return (
                                       <div
-                                        key={r.roundId}
+                                        key={`${receipt.roundId}:${claimTxId || 'claim'}`}
                                         className="grid gap-2 px-3 py-3 md:grid-cols-[110px_160px_160px_1fr] md:items-center"
                                       >
                                         <div>
@@ -1428,7 +1439,7 @@ export default function ClaimPage() {
                                             Round
                                           </p>
                                           <p className="text-sm font-medium">
-                                            Round {r.roundId}
+                                            Round {receipt.roundId}
                                           </p>
                                         </div>
 
@@ -1448,7 +1459,8 @@ export default function ClaimPage() {
                                           <p className="text-sm text-muted-foreground">
                                             {claimedLabel}
                                           </p>
-                                          {r.claimed && claimTxId && (
+
+                                          {claimTxId && (
                                             <a
                                               href={`https://testnet.explorer.perawallet.app/tx/${claimTxId}/`}
                                               target="_blank"
@@ -1466,7 +1478,10 @@ export default function ClaimPage() {
                                             Amount
                                           </p>
                                           <p className="text-sm font-medium">
-                                            {formatUsdDynamicFromMicro(Number(r.amount || 0))} USDC
+                                            {formatUsdDynamicFromMicro(
+                                              Number(receipt.amountUsdcAtomicUnits || 0),
+                                            )}{' '}
+                                            USDC
                                           </p>
                                         </div>
                                       </div>
