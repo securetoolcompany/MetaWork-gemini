@@ -27,6 +27,18 @@ function encodePoolBoxName(ipId) {
   );
 }
 
+function encodeRoundBoxName(poolKey, roundId) {
+  const roundBytes = Buffer.alloc(8);
+  roundBytes.writeBigUInt64BE(BigInt(roundId));
+
+  return new Uint8Array(
+    Buffer.concat([
+      Buffer.from(`rnd_${poolKey}`),
+      roundBytes,
+    ]),
+  );
+}
+
 function toUint8Array(value) {
   if (value instanceof Uint8Array) return value;
   if (typeof value === 'string') return new Uint8Array(Buffer.from(value, 'base64'));
@@ -40,6 +52,32 @@ function readPoolBox(value) {
     rawValue.byteOffset,
     rawValue.byteLength
   );
+
+  function readRoundBox(value) {
+  const rawValue = toUint8Array(value);
+  const view = new DataView(
+    rawValue.buffer,
+    rawValue.byteOffset,
+    rawValue.byteLength,
+  );
+
+  const holderCount = view.getUint16(16, false);
+  const entryOffset = 18;
+  const entrySize = 41;
+
+  return {
+    holderCount,
+    holders: Array.from({ length: holderCount }, (_, index) => {
+      const offset = entryOffset + index * entrySize;
+
+      return {
+        address: algosdk.encodeAddress(rawValue.slice(offset, offset + 32)),
+        amount: Number(view.getBigUint64(offset + 32, false)),
+        claimed: rawValue[offset + 40] === 1,
+      };
+    }),
+  };
+}
 
   const shCount = rawValue[40];
 
@@ -63,6 +101,33 @@ function readPoolBox(value) {
   };
 }
 
+function readRoundBox(value) {
+  const rawValue = toUint8Array(value);
+
+  const view = new DataView(
+    rawValue.buffer,
+    rawValue.byteOffset,
+    rawValue.byteLength,
+  );
+
+  const holderCount = view.getUint16(16, false);
+  const entryOffset = 18;
+  const entrySize = 41;
+
+  return {
+    holderCount,
+    holders: Array.from({ length: holderCount }, (_, index) => {
+      const offset = entryOffset + index * entrySize;
+
+      return {
+        address: algosdk.encodeAddress(rawValue.slice(offset, offset + 32)),
+        amount: Number(view.getBigUint64(offset + 32, false)),
+        claimed: rawValue[offset + 40] === 1,
+      };
+    }),
+  };
+}
+
 async function getApplicationPoolBox(algodClient, appIndex, ipId) {
   const boxName = encodePoolBoxName(ipId);
   const box = await getCachedPoolBox(
@@ -72,6 +137,22 @@ async function getApplicationPoolBox(algodClient, appIndex, ipId) {
     `usdc:${ipId}`
   );
   return box && box.value ? box.value : box;
+}
+
+async function getApplicationRoundBox(
+  algodClient,
+  appIndex,
+  poolKey,
+  roundId,
+) {
+  const box = await algodClient
+    .getApplicationBoxByName(
+      appIndex,
+      encodeRoundBoxName(poolKey, roundId),
+    )
+    .do();
+
+  return box && box.value ? box.value : null;
 }
 
 function findAssetHolding(userAssets, assetId) {
@@ -181,10 +262,7 @@ export async function GET(request) {
         ? Number(holding.amount ?? 0)
         : 0;
 
-      if (userTokenBalance <= 0) {
-        // Stakeholder does not hold this IP's REV; skip.
-        continue;
-      }
+      const hasRevHolding = userTokenBalance > 0;
 
       const resolvedIpId = normalizeIpId(
         ip.ipId ||
@@ -248,7 +326,55 @@ export async function GET(request) {
         });
       }
 
+      let hasActiveUnclaimedRoundAllocation = false;
+
+      if (poolSummary?.currentRoundId > 0) {
+        for (
+          let roundId = 1;
+          roundId <= poolSummary.currentRoundId;
+          roundId += 1
+        ) {
+          try {
+            const roundBoxValue = await getApplicationRoundBox(
+              algodClient,
+              revenuePoolAppId,
+              resolvedIpId,
+              roundId,
+            );
+
+            if (!roundBoxValue) {
+              continue;
+            }
+
+            const round = readRoundBox(roundBoxValue);
+
+            const entry = round.holders.find(
+              (holder) =>
+                holder.address === userAddress &&
+                holder.amount > 0 &&
+                !holder.claimed,
+            );
+
+            if (entry) {
+              hasActiveUnclaimedRoundAllocation = true;
+              break;
+            }
+          } catch (error) {
+            if (Number(error?.status) === 404) {
+              continue;
+            }
+
+            throw error;
+          }
+        }
+      }
+
+      if (!hasRevHolding && !hasActiveUnclaimedRoundAllocation) {
+        continue;
+      }
+
       pools.push({
+        poolKey: resolvedIpId,
         ipId: resolvedIpId,
         name: ip.name || ip.title || ip.displayName || resolvedIpId,
         imageUrl:

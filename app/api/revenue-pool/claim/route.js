@@ -112,11 +112,15 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const appId = searchParams.get('appId');
     const userAddress = searchParams.get('userAddress');
-    const ipId = searchParams.get('ipId');
+    const poolKey = String(
+      searchParams.get('poolKey') ||
+        searchParams.get('ipId') ||
+        ''
+    ).trim();
 
-    if (!appId || !userAddress || !ipId) {
+    if (!appId || !userAddress || !poolKey) {
       return NextResponse.json(
-        { error: 'appId, ipId, and userAddress are required' },
+        { error: 'appId, poolKey, and userAddress are required' },
         { status: 400 }
       );
     }
@@ -124,7 +128,7 @@ export async function GET(request) {
     const algodClient = getAlgodClient();
     const appIndex = parseInt(appId, 10);
     const normalizedUser = String(userAddress).trim().toUpperCase();
-    const poolBoxName = encodePoolBoxName(ipId);
+    const poolBoxName = encodePoolBoxName(poolKey);
 
     let pool;
     try {
@@ -132,11 +136,11 @@ export async function GET(request) {
         algodClient,
         appIndex,
         poolBoxName,
-        `usdc:${ipId}`
+        `usdc:${poolKey}`
       );
       pool = readPoolBox(poolBox && poolBox.value ? poolBox.value : poolBox);
     } catch (e) {
-      console.warn(`Box not found for IP ${ipId}:`, e && e.message ? e.message : e);
+      console.warn(`Box not found for pool ${poolKey}:`, e && e.message ? e.message : e);
       return NextResponse.json({ pool: null, error: 'Pool not initialized' });
     }
 
@@ -168,7 +172,7 @@ export async function GET(request) {
       }
 
       console.log('[POOL REV HELD]', {
-        ipId,
+        poolKey,
         appId: appIndex,
         revenueTokenId: pool.revenueTokenId,
         user: normalizedUser,
@@ -186,7 +190,7 @@ export async function GET(request) {
         const roundBoxValue = await getApplicationBox(
           algodClient,
           appIndex,
-          encodeRoundBoxName(ipId, roundId)
+          encodeRoundBoxName(poolKey, roundId)
         );
         if (!roundBoxValue) continue;
 
@@ -212,7 +216,7 @@ export async function GET(request) {
 
     const claimHistory = await getRevenuePoolClaimHistory({
       appId: appIndex,
-      poolKey: ipId,
+      poolKey,
       claimerAddress: normalizedUser,
     });
 
@@ -228,7 +232,8 @@ export async function GET(request) {
     return NextResponse.json({
       success: true,
       appId: appIndex,
-      ipId,
+      poolKey,
+      ipId: poolKey,
       revenueTokenId: pool.revenueTokenId,
       pool: {
         unallocatedUsdc: pool.unallocatedUsdc,
@@ -268,11 +273,12 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { claimerAddress, appId, ipId } = body;
+    const { claimerAddress, appId } = body;
+    const poolKey = String(body.poolKey || body.ipId || '').trim();
 
-    if (!claimerAddress || !appId || !ipId) {
+    if (!claimerAddress || !appId || !poolKey) {
       return NextResponse.json(
-        { error: 'Missing required fields (claimerAddress, appId, ipId)' },
+        { error: 'Missing required fields (claimerAddress, appId, poolKey)' },
         { status: 400 }
       );
     }
@@ -281,12 +287,12 @@ export async function POST(request) {
     const suggestedParams = await getCachedTxParams(algodClient);
     const appIndex = parseInt(appId, 10);
 
-    const poolBoxName = encodePoolBoxName(ipId);
+    const poolBoxName = encodePoolBoxName(poolKey);
     const poolBox = await getCachedPoolBox(
       algodClient,
       appIndex,
       poolBoxName,
-      `usdc:${ipId}`
+      `usdc:${poolKey}`
     );
 
     const pool = readPoolBox(
@@ -299,18 +305,32 @@ export async function POST(request) {
     let roundIdToClaim = null;
 
     for (let roundId = 1; roundId <= pool.currentRoundId; roundId += 1) {
-      const roundBoxName = encodeRoundBoxName(ipId, roundId);
-      const roundBoxValue = await getApplicationBox(
-        algodClient,
-        appIndex,
-        roundBoxName
-      );
+      const roundBoxName = encodeRoundBoxName(poolKey, roundId);
 
-      if (!roundBoxValue) continue;
+      let roundBoxValue;
+
+      try {
+        roundBoxValue = await getApplicationBox(
+          algodClient,
+          appIndex,
+          roundBoxName,
+        );
+      } catch (error) {
+        if (Number(error?.status) === 404) {
+          continue;
+        }
+
+        throw error;
+      }
+
+      if (!roundBoxValue) {
+        continue;
+      }
 
       const round = readRoundBox(roundBoxValue);
+
       const recipientEntry = round.holders.find(
-        (holder) => holder.address === normalizedClaimer
+        (holder) => holder.address === normalizedClaimer,
       );
 
       if (
@@ -333,7 +353,7 @@ export async function POST(request) {
       );
     }
 
-    const roundBoxName = encodeRoundBoxName(ipId, roundIdToClaim);
+    const roundBoxName = encodeRoundBoxName(poolKey, roundIdToClaim);
 
     const claimTxn = algosdk.makeApplicationNoOpTxnFromObject({
       sender: normalizedClaimer,
@@ -346,7 +366,7 @@ export async function POST(request) {
       appIndex,
       appArgs: [
         new Uint8Array(Buffer.from('claim_revenue_round', 'utf8')),
-        new Uint8Array(Buffer.from(ipId, 'utf8')),
+        new Uint8Array(Buffer.from(poolKey, 'utf8')),
         algosdk.encodeUint64(roundIdToClaim),
       ],
       foreignAssets: [getUsdcAssetId()],
@@ -362,7 +382,7 @@ export async function POST(request) {
     console.log('[REVENUE CLAIM] built V10 round claim', {
       appIndex,
       claimer: normalizedClaimer,
-      ipId,
+      poolKey,
       roundId: roundIdToClaim,
       action: 'claim_revenue_round',
       boxes: [
@@ -398,8 +418,8 @@ export async function PUT(request) {
 
   try {
     const body = await request.json();
-    const { signedTxn, signedTxns, userAddress, ipId, appId } = body;
-    const poolKey = String(ipId || '').trim();
+    const { signedTxn, signedTxns, userAddress, appId } = body;
+    const poolKey = String(body.poolKey || body.ipId || '').trim();
     const appIndex = Number(appId);
 
     claimerAddress = String(userAddress || '').trim().toUpperCase();
@@ -411,7 +431,7 @@ export async function PUT(request) {
       !claimerAddress
     ) {
       return NextResponse.json(
-        { error: 'userAddress, ipId, and appId are required' },
+        { error: 'userAddress, poolKey, and appId are required' },
         { status: 400 },
       );
     }

@@ -5,8 +5,8 @@ import process from 'node:process';
 import algosdk from 'algosdk';
 
 import {
-  buildUnsignedV10CleanupRoundTransaction,
-} from '../lib/revenue-pool-v10-cleanup.js';
+  buildUnsignedV10CreatePayoutRoundGroup,
+} from '../lib/revenue-pool-v10-payout.js';
 
 function loadEnvLocal() {
   const envPath = path.resolve(process.cwd(), '.env.local');
@@ -56,12 +56,11 @@ function requireEnv(name) {
 
 async function waitForConfirmation(algod, transactionId, attempts = 20) {
   const status = await algod.status().do();
-
-  const lastRoundRaw =
-    status['last-round'] ??
-    status.lastRound;
-
-  const lastRound = Number(lastRoundRaw);
+    const lastRoundValue = status['last-round'];
+    const lastRound =
+    typeof lastRoundValue === 'bigint'
+        ? Number(lastRoundValue)
+        : Number(String(lastRoundValue));
 
   if (!Number.isSafeInteger(lastRound) || lastRound < 0) {
     throw new Error(
@@ -82,20 +81,14 @@ async function waitForConfirmation(algod, transactionId, attempts = 20) {
       .pendingTransactionInformation(transactionId)
       .do();
 
-    const confirmedRound =
-      pending['confirmed-round'] ??
-      pending.confirmedRound;
-
-    if (Number(confirmedRound) > 0) {
+    if (Number(pending['confirmed-round']) > 0) {
       return pending;
     }
 
-    const poolError =
-      pending['pool-error'] ??
-      pending.poolError;
-
-    if (poolError) {
-      throw new Error(`Transaction rejected: ${poolError}`);
+    if (pending['pool-error']) {
+      throw new Error(
+        `Transaction rejected: ${pending['pool-error']}`,
+      );
     }
 
     await algod.statusAfterBlock(round).do();
@@ -109,11 +102,19 @@ async function waitForConfirmation(algod, transactionId, attempts = 20) {
 
 loadEnvLocal();
 
+// Current TestNet operational constants (local to this script only).
 const appId = 769218532;
 const poolKey = '6a84bf41f49bcdc863f8e4ef';
-const roundId = 2;
 const expectedSender =
   '2F7AVO5UOVAECY5WXURXNOCYBXMSB7MVSMXCD4ZFLSAN62WIQGDERT7JTY';
+
+// Round 2: two distinct recipients splitting the existing 1 USDC unallocated.
+const recipientOne =
+  'CI6UHKREVAJVODRCHSYL54RPGRBQLMWSY3TVL64MT4TJSETHX6AXHRHUEA';
+const recipientTwo =
+  'COYJN7VFKE4FJO4BSUSYQA56GIE6CL6MUJLA5YY2HR47Z5RX2GH27TUOTE';
+const totalUsdcAtomicUnits = 1_000_000;
+const nextRoundId = 2;
 
 const mnemonic = requireEnv('METAWORK_PLATFORM_MNEMONIC');
 const algodServer = requireEnv('ALGORAND_TESTNET_RPC');
@@ -130,11 +131,16 @@ if (sender !== expectedSender) {
 
 const suggestedParams = await algod.getTransactionParams().do();
 
-const group = buildUnsignedV10CleanupRoundTransaction({
+const group = buildUnsignedV10CreatePayoutRoundGroup({
   appId,
   poolKey,
-  roundId,
   sender,
+  roundPayees: [
+    { address: recipientOne, amountUsdcAtomicUnits: 500_000 },
+    { address: recipientTwo, amountUsdcAtomicUnits: 500_000 },
+  ],
+  totalUsdcAtomicUnits,
+  nextRoundId,
   suggestedParams,
 });
 
@@ -142,42 +148,45 @@ console.log(
   JSON.stringify(
     {
       action: group.action,
-      appId: group.appId,
-      poolKey: group.poolKey,
-      roundId: group.roundId,
-      transactionCount: group.transactionCount,
-      transactionId: group.transactionId,
-      unsignedTransactionHash: group.unsignedTransactionHash,
+      appId,
+      poolKey,
+      nextRoundId,
+      recipientCount: group.recipientCount,
+      totalUsdcAtomicUnits,
+      roundPayees: group.roundPayees,
+      roundBoxMbrMicroalgos: group.roundBoxMbrMicroalgos,
+      unsignedTransactionCount: group.unsignedTransactionsBase64.length,
+      transactionIds: group.transactionIds,
     },
     null,
     2,
   ),
 );
 
-const transaction = algosdk.decodeUnsignedTransaction(
-  new Uint8Array(
-    Buffer.from(group.unsignedTransactionBase64, 'base64'),
-  ),
+const transactions = group.unsignedTransactionsBase64.map(
+  (encodedTransaction) =>
+    algosdk.decodeUnsignedTransaction(
+      new Uint8Array(Buffer.from(encodedTransaction, 'base64')),
+    ),
 );
 
-const signedTransaction = transaction.signTxn(signer.sk);
+const signedTransactions = transactions.map((transaction) =>
+  transaction.signTxn(signer.sk),
+);
 
 console.log(
   JSON.stringify(
     {
       outcome: 'submitting',
-      transactionId: group.transactionId,
+      transactionId: group.transactionIds.appCall,
     },
     null,
     2,
   ),
 );
 
-const response = await algod.sendRawTransaction(signedTransaction).do();
-const confirmation = await waitForConfirmation(
-  algod,
-  response.txid,
-);
+const response = await algod.sendRawTransaction(signedTransactions).do();
+const confirmation = await waitForConfirmation(algod, response.txid);
 
 console.log(
   JSON.stringify(
@@ -185,12 +194,15 @@ console.log(
       outcome: 'confirmed',
       appId,
       poolKey,
-      roundId,
       sender,
       appAddress: group.appAddress.toString(),
-      action: group.action,
-      transactionCount: group.transactionCount,
-      transactionId: group.transactionId,
+      totalUsdcAtomicUnits,
+      nextRoundId,
+      recipientCount: group.recipientCount,
+      roundPayees: group.roundPayees,
+      roundBoxMbrMicroalgos: group.roundBoxMbrMicroalgos,
+      groupId: group.groupId,
+      transactionIds: group.transactionIds,
       submittedTransactionId: response.txid,
       confirmedRound: confirmation['confirmed-round'],
       poolError: confirmation['pool-error'] || null,

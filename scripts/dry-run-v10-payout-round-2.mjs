@@ -5,8 +5,8 @@ import process from 'node:process';
 import algosdk from 'algosdk';
 
 import {
-  buildUnsignedV10CleanupRoundTransaction,
-} from '../lib/revenue-pool-v10-cleanup.js';
+  buildUnsignedV10CreatePayoutRoundGroup,
+} from '../lib/revenue-pool-v10-payout.js';
 
 function loadEnvLocal() {
   const envPath = path.resolve(process.cwd(), '.env.local');
@@ -58,11 +58,19 @@ function requireEnv(name) {
 
 loadEnvLocal();
 
+// Current TestNet operational constants (local to this script only).
 const appId = 769218532;
 const poolKey = '6a84bf41f49bcdc863f8e4ef';
-const roundId = 2;
 const expectedSender =
   '2F7AVO5UOVAECY5WXURXNOCYBXMSB7MVSMXCD4ZFLSAN62WIQGDERT7JTY';
+
+// Round 2: two distinct recipients splitting the existing 1 USDC unallocated.
+const nextRoundId = 2;
+const totalUsdcAtomicUnits = 1_000_000;
+const recipientOne =
+  'CI6UHKREVAJVODRCHSYL54RPGRBQLMWSY3TVL64MT4TJSETHX6AXHRHUEA';
+const recipientTwo =
+  'COYJN7VFKE4FJO4BSUSYQA56GIE6CL6MUJLA5YY2HR47Z5RX2GH27TUOTE';
 
 const mnemonic = requireEnv('METAWORK_PLATFORM_MNEMONIC');
 const algodServer = requireEnv('ALGORAND_TESTNET_RPC');
@@ -86,11 +94,16 @@ const [suggestedParams, senderAccount] = await Promise.all([
   algod.accountInformation(sender).do(),
 ]);
 
-const group = buildUnsignedV10CleanupRoundTransaction({
+const group = buildUnsignedV10CreatePayoutRoundGroup({
   appId,
   poolKey,
-  roundId,
   sender,
+  roundPayees: [
+    { address: recipientOne, amountUsdcAtomicUnits: 500_000 },
+    { address: recipientTwo, amountUsdcAtomicUnits: 500_000 },
+  ],
+  totalUsdcAtomicUnits,
+  nextRoundId,
   suggestedParams,
 });
 
@@ -101,14 +114,24 @@ console.log(
       network: suggestedParams.genesisID,
       appId,
       poolKey,
-      roundId,
       sender,
       senderAlgoBalanceMicroalgos: Number(senderAccount.amount),
       appAddress: group.appAddress.toString(),
       action: group.action,
+      totalUsdcAtomicUnits: group.totalUsdcAtomicUnits,
+      nextRoundId: group.nextRoundId,
+      recipientCount: group.recipientCount,
+      roundPayees: group.roundPayees,
+      roundBoxMbrMicroalgos: group.roundBoxMbrMicroalgos,
+      companionPaymentIndex: group.companionPaymentIndex,
       transactionCount: group.transactionCount,
-      transactionId: group.transactionId,
+      appCallTransactionIndex: group.appCallTransactionIndex,
+      companionPaymentTransactionIndex:
+        group.companionPaymentTransactionIndex,
+      groupId: group.groupId,
+      transactionIds: group.transactionIds,
       unsignedTransactionHash: group.unsignedTransactionHash,
+      roundPayeesHash: group.roundPayeesHash,
       submitted: false,
     },
     null,

@@ -35,7 +35,7 @@ const resolvePoolIpId = (item) =>
       item?.id ||
       item?._id ||
       ''
-  );
+  ).trim();
 
 const resolveIpImage = (item) => {
   const value =
@@ -362,13 +362,15 @@ export default function ClaimPage() {
           }, 4000); // 4s, adjust as needed
 
           try {
+            const poolKey = resolvedIpId;
+
             const res = await fetch(
               `/api/revenue-pool/claim?appId=${Number(
-                ip.revenuePoolAppId
-              )}&userAddress=${accountAddress}&ipId=${resolvedIpId}`,
+                ip.revenuePoolAppId,
+              )}&userAddress=${accountAddress}&poolKey=${encodeURIComponent(poolKey)}`,
               {
                 signal: requestController.signal,
-              }
+              },
             );
 
             console.log("Revenue pool image source", {
@@ -479,10 +481,12 @@ export default function ClaimPage() {
               }, 4000);
 
               try {
+                const poolKey = resolvedIpId;
+
                 const res = await fetch(
                   `/api/revenue-pool/claim?appId=${Number(
                     p.revenuePoolAppId
-                  )}&userAddress=${accountAddress}&ipId=${resolvedIpId}`,
+                  )}&userAddress=${accountAddress}&poolKey=${encodeURIComponent(poolKey)}`,
                   {
                     signal: requestController.signal,
                   }
@@ -498,12 +502,12 @@ export default function ClaimPage() {
                   );
                 }
 
-                console.log("Revenue pool image source", {
-                  name: ip.name,
-                  id: ip.id,
-                  imageUrl: ip.imageUrl,
-                  image: ip.image,
-                  resolvedImage: resolveIpImage(ip),
+                console.log('Revenue pool image source', {
+                  name: p.name,
+                  id: p.id,
+                  imageUrl: p.imageUrl,
+                  image: p.image,
+                  resolvedImage: resolveIpImage(p),
                 });
 
                 poolsWithClaimInfo.push({
@@ -527,11 +531,11 @@ export default function ClaimPage() {
                 }
 
                 console.log("Revenue pool image source", {
-                  name: ip.name,
-                  id: ip.id,
-                  imageUrl: ip.imageUrl,
-                  image: ip.image,
-                  resolvedImage: resolveIpImage(ip),
+                  name: p.name,
+                  id: p.id,
+                  imageUrl: p.imageUrl,
+                  image: p.image,
+                  resolvedImage: resolveIpImage(p),
                 });
 
                 poolsWithClaimInfo.push({
@@ -762,17 +766,19 @@ export default function ClaimPage() {
       return toast.error('Wallet not fully synced. Please reconnect.');
     }
 
-    const poolIpId =
-      pool?.poolKey ||
-      pool?.revenuePool?.poolKey ||
-      pool?.claimInfo?.ipId ||
-      resolvePoolIpId(pool);
+    const poolIpId = String(
+      pool?.claimInfo?.poolKey ||
+        pool?.poolKey ||
+        pool?.revenuePool?.poolKey ||
+        resolvePoolIpId(pool)
+    ).trim();
 
-      console.log('[REVENUE CLAIM] selected pool identity', {
+      console.info('[REVENUE CLAIM] selected pool identity', {
         poolIpId,
         expectedPoolKey: '6a84bf41f49bcdc863f8e4ef',
-        poolKey: pool?.poolKey,
+        cardPoolKey: pool?.poolKey,
         nestedPoolKey: pool?.revenuePool?.poolKey,
+        claimInfoPoolKey: pool?.claimInfo?.poolKey,
         claimInfoIpId: pool?.claimInfo?.ipId,
         ipId: pool?.ipId,
         tokenizedIpId: pool?.tokenizedIpId,
@@ -780,6 +786,7 @@ export default function ClaimPage() {
         id: pool?.id,
         mongoId: pool?.mongoId,
         _id: pool?._id,
+        name: pool?.name,
       });
       
     const amount =
@@ -853,7 +860,7 @@ export default function ClaimPage() {
         body: JSON.stringify({
           claimerAddress: addr,
           appId: Number(pool.revenuePoolAppId),
-          ipId: poolIpId,
+          poolKey: poolIpId,
         }),
       });
 
@@ -890,7 +897,7 @@ export default function ClaimPage() {
           signedTxns: signedClaimBase64,
           signedTxn: signedClaimBase64[0],
           userAddress: addr,
-          ipId: poolIpId,
+          poolKey: poolIpId,
           appId: Number(pool.revenuePoolAppId),
         }),
       });
