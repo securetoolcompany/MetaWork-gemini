@@ -62,7 +62,7 @@ loadEnvLocal();
 
 // Current TestNet operational constants (local to this script only).
 const appId = 769218532;
-const poolKey = '6a84bf41f49bcdc863f8e4ef';
+const poolKey = '6a8731a7cf853e8374a571c8';
 const expectedSender =
   '2F7AVO5UOVAECY5WXURXNOCYBXMSB7MVSMXCD4ZFLSAN62WIQGDERT7JTY';
 const usdcAssetId = 10458941;
