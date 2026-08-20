@@ -36,7 +36,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import {
-  buildV10DepositUsdcGroup,
+  buildV10DepositHeldUsdcGroup,
 } from '@/lib/revenue-pool-v10-deposit';
 
 const USDC_ASSET_ID = Number(process.env.NEXT_PUBLIC_USDC_ASSET_ID);
@@ -756,7 +756,7 @@ export default function PoolAdminPage() {
 
             const suggestedParams = await algod.getTransactionParams().do();
 
-            const group = buildV10DepositUsdcGroup({
+            const group = buildV10DepositHeldUsdcGroup({
             revenuePoolAppId,
             usdcAssetId: USDC_ASSET_ID,
             depositorAddress: accountAddress,
@@ -779,7 +779,7 @@ export default function PoolAdminPage() {
             await algod.sendRawTransaction(signedTransactions).do();
 
             toast.success(
-            `Submitted ${amount} USDC V10 deposit. Waiting for confirmation…`,
+            `Submitted ${amount} USDC to V10 held escrow. Waiting for confirmation…`,
             );
 
             setFundAmount('');
@@ -1312,7 +1312,7 @@ export default function PoolAdminPage() {
                                     {isFunding ? (
                                         <Loader2 className="animate-spin" />
                                     ) : (
-                                        'Send'
+                                        'Fund held escrow'
                                     )}
                                     <ArrowRight className="ml-1 h-4 w-4" />
                                 </Button>
