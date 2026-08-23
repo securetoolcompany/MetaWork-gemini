@@ -35,9 +35,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-  buildV10DepositHeldUsdcGroup,
-} from '@/lib/revenue-pool-v10-deposit';
 
 const USDC_ASSET_ID = Number(process.env.NEXT_PUBLIC_USDC_ASSET_ID);
 
@@ -68,7 +65,13 @@ export default function PoolAdminPage() {
     const [userInfo, setUserInfo] = useState({ algo: 0, usdc: 0 });
     const [ips, setIps] = useState([]);
     const [selectedIpId, setSelectedIpId] = useState('');
-
+    const [settlementBatches, setSettlementBatches] = useState([]);
+    const [selectedSettlementBatchId, setSelectedSettlementBatchId] =
+        useState('');
+    const [isLoadingSettlementBatches, setIsLoadingSettlementBatches] =
+        useState(false);
+    const [settlementBatchesError, setSettlementBatchesError] =
+        useState(null);
     const [v7SettlementState, setV7SettlementState] = useState({
         status: 'idle',
         error: null,
@@ -99,14 +102,17 @@ export default function PoolAdminPage() {
     });
 
     const [isFunding, setIsFunding] = useState(false);
+    const [isPreparingRecipientSnapshot, setIsPreparingRecipientSnapshot] =
+        useState(false);
     const [isOptingIn, setIsOptingIn] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    const [fundAmount, setFundAmount] = useState('');
     const [secret, setSecret] = useState('');
 
     const appId = process.env.NEXT_PUBLIC_REVENUE_POOL_APP_ID;
-
+    const selectedSettlementBatch = settlementBatches.find(
+        (batch) => batch.batchId === selectedSettlementBatchId
+    ) || null;
     const getSafeAppAddress = (id) => {
         if (!id) return '';
 
@@ -681,6 +687,56 @@ export default function PoolAdminPage() {
         }
     };
 
+    const loadSettlementBatches = async (poolKey) => {
+        if (!poolKey) {
+            setSettlementBatches([]);
+            setSelectedSettlementBatchId('');
+            setSettlementBatchesError(null);
+            return;
+        }
+
+        setIsLoadingSettlementBatches(true);
+        setSettlementBatchesError(null);
+
+        try {
+            const response = await fetch(
+                `/api/admin/revenue-settlement/batches?poolKey=${encodeURIComponent(
+                    poolKey
+                )}`,
+                {
+                    headers: getAuthHeader(),
+                    cache: 'no-store',
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.error || 'Unable to load settlement batches.'
+                );
+            }
+
+            const batches = data.batches || [];
+
+            setSettlementBatches(batches);
+            setSelectedSettlementBatchId((previousBatchId) =>
+                batches.some((batch) => batch.batchId === previousBatchId)
+                    ? previousBatchId
+                    : ''
+            );
+        } catch (error) {
+            console.error('Settlement batch load error:', error);
+            setSettlementBatches([]);
+            setSelectedSettlementBatchId('');
+            setSettlementBatchesError(
+                error.message || 'Unable to load settlement batches.'
+            );
+        } finally {
+            setIsLoadingSettlementBatches(false);
+        }
+    };
+
     const handleOptIn = async () => {
         if (!secret) {
             return toast.error('Enter Admin Secret');
@@ -710,89 +766,175 @@ export default function PoolAdminPage() {
         }
     };
 
-    const handleFund = async () => {
-        if (!isConnected || !accountAddress) {
-            return toast.error('Connect a wallet');
-        }
-
-        if (!selectedIpId) {
-            return toast.error('Select an IP to fund');
-        }
-
-        const amount = Number(fundAmount);
-
-        if (!Number.isFinite(amount) || amount <= 0) {
-            return toast.error('Enter a valid USDC amount');
-        }
-
-        const revenuePoolAppId = Number(appId);
-
-        if (
-            !Number.isSafeInteger(revenuePoolAppId) ||
-            revenuePoolAppId <= 0
-        ) {
+    const handlePrepareRecipientSnapshot = async () => {
+        if (!selectedSettlementBatch) {
             return toast.error(
-            'NEXT_PUBLIC_REVENUE_POOL_APP_ID must be a positive safe integer',
+                'Select a settlement batch before preparing its recipient snapshot.'
             );
         }
 
-        const usdcAtomicUnits = Math.round(amount * 1_000_000);
+        if (selectedSettlementBatch.status !== 'created') {
+            return toast.error(
+                'Recipient snapshots can only be prepared for batches with status "created".'
+            );
+        }
 
-        if (
-            !Number.isSafeInteger(usdcAtomicUnits) ||
-            usdcAtomicUnits <= 0
-        ) {
-            return toast.error('USDC amount is invalid');
+        setIsPreparingRecipientSnapshot(true);
+
+        try {
+            const response = await fetch('/api/admin/revenue-settlement', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeader(),
+                },
+                body: JSON.stringify({
+                    action: 'prepare_recipient_snapshot',
+                    batchId: selectedSettlementBatch.batchId,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(
+                    data.error || 'Unable to prepare the recipient snapshot.'
+                );
+            }
+
+            toast.success('Recipient snapshot prepared.');
+
+            await loadSettlementBatches(selectedIpId);
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setIsPreparingRecipientSnapshot(false);
+        }
+    };
+
+    const handleFund = async () => {
+        if (!isConnected || !accountAddress) {
+            return toast.error(
+                'Connect the administrator wallet before preparing a held deposit.'
+            );
+        }
+
+        if (!selectedSettlementBatch) {
+            return toast.error(
+                'Select a frozen settlement batch before preparing a held deposit.'
+            );
         }
 
         setIsFunding(true);
 
         try {
-            const algod = new algosdk.Algodv2(
-            '',
-            'https://testnet-api.algonode.cloud',
-            '',
+            const prepareResponse = await fetch(
+                '/api/admin/revenue-settlement',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader(),
+                    },
+                    body: JSON.stringify({
+                        action: 'prepare_deposit',
+                        batchId: selectedSettlementBatch.batchId,
+                        depositorAddress: accountAddress,
+                    }),
+                }
             );
 
-            const suggestedParams = await algod.getTransactionParams().do();
+            const prepareData = await prepareResponse.json();
 
-            const group = buildV10DepositHeldUsdcGroup({
-            revenuePoolAppId,
-            usdcAssetId: USDC_ASSET_ID,
-            depositorAddress: accountAddress,
-            poolKey: selectedIpId,
-            usdcAtomicUnits,
-            suggestedParams,
-            });
+            if (!prepareResponse.ok || !prepareData.success) {
+                throw new Error(
+                    prepareData.error ||
+                        'Unable to prepare the durable held USDC deposit.'
+                );
+            }
+
+            const depositAttempt = prepareData.depositAttempt;
+
+            if (
+                !depositAttempt ||
+                depositAttempt.status !== 'prepared' ||
+                !Array.isArray(
+                    depositAttempt.unsignedTransactionsBase64
+                ) ||
+                depositAttempt.unsignedTransactionsBase64.length !== 2 ||
+                depositAttempt.usdcTransferTransactionIndex !== 0 ||
+                depositAttempt.appCallTransactionIndex !== 1 ||
+                !depositAttempt.transactionIds?.appCall ||
+                !depositAttempt.transactionIds?.usdcTransfer
+            ) {
+                throw new Error(
+                    'Prepared held-deposit metadata is incomplete or inconsistent.'
+                );
+            }
 
             const signedTransactions = await signTransactionGroup(
-            group.unsignedTransactionsBase64.map(
-                (encodedTransaction) =>
-                new Uint8Array(Buffer.from(encodedTransaction, 'base64')),
-            ),
+                depositAttempt.unsignedTransactionsBase64.map(
+                    (encodedTransaction) =>
+                        new Uint8Array(
+                            Buffer.from(encodedTransaction, 'base64')
+                        )
+                )
             );
 
             if (!signedTransactions || signedTransactions.length !== 2) {
-            throw new Error('Deposit signing was cancelled or incomplete');
+                throw new Error(
+                    'Held-deposit signing was cancelled or incomplete.'
+                );
             }
+
+            const algod = new algosdk.Algodv2(
+                '',
+                'https://testnet-api.algonode.cloud',
+                ''
+            );
 
             await algod.sendRawTransaction(signedTransactions).do();
 
-            toast.success(
-            `Submitted ${amount} USDC to V10 held escrow. Waiting for confirmation…`,
+            const submittedResponse = await fetch(
+                '/api/admin/revenue-settlement',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader(),
+                    },
+                    body: JSON.stringify({
+                        action: 'mark_submitted',
+                        batchId: selectedSettlementBatch.batchId,
+                    }),
+                }
             );
 
-            setFundAmount('');
+            const submittedData = await submittedResponse.json();
 
-            setTimeout(fetchData, 4_000);
+            if (!submittedResponse.ok || !submittedData.success) {
+                throw new Error(
+                    submittedData.error ||
+                        'The held deposit broadcast, but the durable submission state could not be recorded.'
+                );
+            }
+
+            toast.success(
+                'Held USDC deposit submitted. Confirmation, ledger materialization, payout-round creation, and distribution remain separate steps.'
+            );
+
+            await loadSettlementBatches(selectedIpId);
+            await fetchData();
         } catch (error) {
-            console.error('V10 deposit failed', error);
+            console.error('V10 held deposit failed:', error);
 
-            toast.error(error?.message || 'V10 deposit failed');
+            toast.error(
+                error?.message || 'Unable to submit the held USDC deposit.'
+            );
         } finally {
             setIsFunding(false);
         }
-        };
+    };
 
     if (!appId) {
         return (
@@ -1250,16 +1392,19 @@ export default function PoolAdminPage() {
                         <div className="space-y-3">
                             <h3 className="flex items-center gap-2 font-medium text-green-600">
                                 <Coins className="h-4 w-4" />
-                                Step 2: Fund IP Revenue
+                                Step 1: Prepare recipient snapshot and Step 2: Prepare held USDC deposit
                             </h3>
 
                             <div className="space-y-2">
                                 <label className="text-xs font-medium text-muted-foreground">
-                                    Select IP to Fund
+                                    Select revenue-pool IP
                                 </label>
 
                                 <Select
-                                    onValueChange={setSelectedIpId}
+                                    onValueChange={(poolKey) => {
+                                        setSelectedIpId(poolKey);
+                                        loadSettlementBatches(poolKey);
+                                    }}
                                     value={selectedIpId}
                                 >
                                     <SelectTrigger>
@@ -1288,17 +1433,135 @@ export default function PoolAdminPage() {
                                         })}
                                     </SelectContent>
                                 </Select>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-muted-foreground">
+                                        Select settlement batch
+                                    </label>
+
+                                    <Select
+                                        onValueChange={setSelectedSettlementBatchId}
+                                        value={selectedSettlementBatchId}
+                                        disabled={
+                                            !selectedIpId ||
+                                            isLoadingSettlementBatches ||
+                                            settlementBatches.length === 0
+                                        }
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue
+                                                placeholder={
+                                                    isLoadingSettlementBatches
+                                                        ? 'Loading settlement batches...'
+                                                        : 'Select settlement batch...'
+                                                }
+                                            />
+                                        </SelectTrigger>
+
+                                        <SelectContent>
+                                            {settlementBatches.map((batch) => (
+                                                <SelectItem
+                                                    key={batch.batchId}
+                                                    value={batch.batchId}
+                                                >
+                                                    {batch.status} — {batch.totalUsdcAtomicUnits} atomic USDC
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+
+                                    {settlementBatchesError && (
+                                        <p className="text-xs text-red-600">
+                                            {settlementBatchesError}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
 
-                            <div className="flex gap-2">
-                                <Input
-                                    type="number"
-                                    placeholder="Amount (USDC)"
-                                    value={fundAmount}
-                                    onChange={(event) =>
-                                        setFundAmount(event.target.value)
+                            {selectedSettlementBatch && (
+                                <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+                                    <p className="font-medium">
+                                        Frozen settlement batch
+                                    </p>
+
+                                    <div className="mt-2 grid gap-2 md:grid-cols-2">
+                                        <p>
+                                            Status:{' '}
+                                            <span className="font-mono">
+                                                {selectedSettlementBatch.status}
+                                            </span>
+                                        </p>
+
+                                        <p>
+                                            Held deposit amount:{' '}
+                                            <span className="font-mono">
+                                                {selectedSettlementBatch.totalUsdcAtomicUnits}
+                                            </span>{' '}
+                                            atomic USDC
+                                        </p>
+
+                                        <p className="break-all md:col-span-2">
+                                            Batch ID:{' '}
+                                            <span className="font-mono text-xs">
+                                                {selectedSettlementBatch.batchId}
+                                            </span>
+                                        </p>
+
+                                        {selectedSettlementBatch.depositAttempt && (
+                                            <>
+                                                <p>
+                                                    Prepared group shape:{' '}
+                                                    <span className="font-mono">
+                                                        2 transactions (USDC transfer 0, app call 1)
+                                                    </span>
+                                                </p>
+
+                                                <p className="break-all">
+                                                    App-call transaction ID:{' '}
+                                                    <span className="font-mono text-xs">
+                                                        {
+                                                            selectedSettlementBatch.depositAttempt
+                                                                .transactionIds?.appCall
+                                                        }
+                                                    </span>
+                                                </p>
+
+                                                <p className="break-all md:col-span-2">
+                                                    Group ID:{' '}
+                                                    <span className="font-mono text-xs">
+                                                        {
+                                                            selectedSettlementBatch.depositAttempt
+                                                                .groupId
+                                                        }
+                                                    </span>
+                                                </p>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    <p className="mt-2 text-xs text-blue-900">
+                                        A held deposit does not pay recipients. Confirmation,
+                                        ledger materialization, payout-round creation, and distribution
+                                        remain separate steps.
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="flex flex-wrap gap-2">
+                                <Button
+                                    onClick={handlePrepareRecipientSnapshot}
+                                    disabled={
+                                        isPreparingRecipientSnapshot ||
+                                        !selectedSettlementBatch ||
+                                        selectedSettlementBatch.status !== 'created'
                                     }
-                                />
+                                    variant="outline"
+                                >
+                                    {isPreparingRecipientSnapshot ? (
+                                        <Loader2 className="animate-spin" />
+                                    ) : (
+                                        'Prepare recipient snapshot'
+                                    )}
+                                </Button>
 
                                 <Button
                                     onClick={handleFund}
@@ -1306,18 +1569,24 @@ export default function PoolAdminPage() {
                                         isFunding ||
                                         !isConnected ||
                                         !poolInfo?.isOptedIn ||
-                                        !selectedIpId
+                                        !selectedSettlementBatch ||
+                                        selectedSettlementBatch.status !==
+                                            'recipient_snapshot_prepared'
                                     }
                                 >
                                     {isFunding ? (
                                         <Loader2 className="animate-spin" />
                                     ) : (
-                                        'Fund held escrow'
+                                        'Prepare and submit held deposit'
                                     )}
                                     <ArrowRight className="ml-1 h-4 w-4" />
                                 </Button>
                             </div>
-
+                            <p className="text-xs text-muted-foreground">
+                                First prepare the recipient snapshot to freeze the recipient allocation.
+                                Then prepare and submit the held USDC deposit. Depositing funds the
+                                pool&apos;s held balance; it does not pay recipients.
+                            </p>
                             {userInfo.usdc === 0 && isConnected && (
                                 <div className="flex gap-2 rounded bg-red-50 p-2 text-xs text-red-600">
                                     <AlertCircle className="h-4 w-4" />
