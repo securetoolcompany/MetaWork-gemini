@@ -149,7 +149,7 @@ console.log(
       poolBoxNameUtf8: Buffer.from(poolBoxName).toString('utf8'),
       poolBox,
       appCreator: appInfo.params.creator,
-      appGlobalState: appInfo.params['global-state'] ?? [],
+      appGlobalState: appInfo.params.globalState ?? [],
       sender: {
         address: sender,
         algoBalanceMicroalgos: Number(senderAccount.amount),
@@ -163,7 +163,8 @@ console.log(
       },
       submitted: false,
     },
-    null,
+    (_key, value) =>
+      typeof value === 'bigint' ? value.toString() : value,
     2,
   ),
 );
