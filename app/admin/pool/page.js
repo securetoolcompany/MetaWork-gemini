@@ -104,6 +104,11 @@ export default function PoolAdminPage() {
     const [isFunding, setIsFunding] = useState(false);
     const [isPreparingRecipientSnapshot, setIsPreparingRecipientSnapshot] =
         useState(false);
+    const [isConfirmingDeposit, setIsConfirmingDeposit] = useState(false);
+    const [isMaterializingDeposit, setIsMaterializingDeposit] = useState(false);
+    const [isCreatingPayoutRound, setIsCreatingPayoutRound] = useState(false);
+    const [isPreparingDistribution, setIsPreparingDistribution] = useState(false);
+    const [preparedDistribution, setPreparedDistribution] = useState(null);
     const [isOptingIn, setIsOptingIn] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -809,6 +814,170 @@ export default function PoolAdminPage() {
             toast.error(error.message);
         } finally {
             setIsPreparingRecipientSnapshot(false);
+        }
+    };
+
+    const handleConfirmDeposit = async () => {
+        if (!selectedSettlementBatch) {
+            return toast.error('Select a settlement batch before confirming its held deposit.');
+        }
+
+        if (selectedSettlementBatch.status !== 'deposit_submitted') {
+            return toast.error('The held deposit can only be confirmed for batches with status "deposit_submitted".');
+        }
+
+        setIsConfirmingDeposit(true);
+
+        try {
+            const response = await fetch('/api/admin/revenue-settlement', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeader(),
+                },
+                body: JSON.stringify({
+                    action: 'confirm_deposit',
+                    batchId: selectedSettlementBatch.batchId,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Unable to confirm the held deposit.');
+            }
+
+            toast.success('Held deposit confirmed.');
+            await loadSettlementBatches(selectedIpId);
+        } catch (error) {
+            console.error('V10 deposit confirmation failed', error);
+            toast.error(error.message || 'Unable to confirm the held deposit.');
+        } finally {
+            setIsConfirmingDeposit(false);
+        }
+    };
+
+    const handleMaterializeDeposit = async () => {
+        if (!selectedSettlementBatch) {
+            return toast.error('Select a settlement batch before materializing its deposit.');
+        }
+
+        if (selectedSettlementBatch.status !== 'deposit_confirmed_pending_ledger') {
+            return toast.error('Materialization only applies to batches with status "deposit_confirmed_pending_ledger".');
+        }
+
+        setIsMaterializingDeposit(true);
+
+        try {
+            const response = await fetch('/api/admin/revenue-settlement', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeader(),
+                },
+                body: JSON.stringify({
+                    action: 'materialize_deposit',
+                    batchId: selectedSettlementBatch.batchId,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Unable to materialize the confirmed deposit.');
+            }
+
+            toast.success('Confirmed deposit materialized to the ledger.');
+            await loadSettlementBatches(selectedIpId);
+        } catch (error) {
+            console.error('V10 deposit materialization failed', error);
+            toast.error(error.message || 'Unable to materialize the confirmed deposit.');
+        } finally {
+            setIsMaterializingDeposit(false);
+        }
+    };
+
+    const handleCreatePayoutRound = async () => {
+        if (!selectedSettlementBatch) {
+            return toast.error('Select a deposited settlement batch before creating its payout round.');
+        }
+
+        if (selectedSettlementBatch.status !== 'deposited') {
+            return toast.error('Payout rounds can only be created for batches with status "deposited".');
+        }
+
+        setIsCreatingPayoutRound(true);
+
+        try {
+            const response = await fetch('/api/admin/revenue-settlement', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeader(),
+                },
+                body: JSON.stringify({
+                    action: 'create_payout_round',
+                    batchId: selectedSettlementBatch.batchId,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Unable to create the payout round.');
+            }
+
+            toast.success('Payout round created.');
+            setPreparedDistribution(null);
+            await loadSettlementBatches(selectedIpId);
+        } catch (error) {
+            console.error('V10 payout-round creation failed', error);
+            toast.error(error.message || 'Unable to create the payout round.');
+        } finally {
+            setIsCreatingPayoutRound(false);
+        }
+    };
+
+    // Read-only preview: preparePayoutRoundDistribution() does not persist,
+    // sign, submit, or broadcast anything. Nothing here is a stored "next
+    // stage" -- it is recomputed on every call and shown for review only.
+    const handlePrepareDistribution = async () => {
+        if (!selectedSettlementBatch) {
+            return toast.error('Select a settlement batch before previewing its distribution.');
+        }
+
+        if (selectedSettlementBatch.status !== 'round_created') {
+            return toast.error('Distribution can only be previewed for batches with status "round_created".');
+        }
+
+        setIsPreparingDistribution(true);
+
+        try {
+            const response = await fetch('/api/admin/revenue-settlement', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeader(),
+                },
+                body: JSON.stringify({
+                    action: 'prepare_distribution',
+                    batchId: selectedSettlementBatch.batchId,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.error || 'Unable to prepare a distribution preview.');
+            }
+
+            setPreparedDistribution(data.distribution || null);
+            toast.success('Distribution preview prepared. Nothing was persisted or broadcast.');
+        } catch (error) {
+            console.error('V10 distribution preview failed', error);
+            toast.error(error.message || 'Unable to prepare a distribution preview.');
+        } finally {
+            setIsPreparingDistribution(false);
         }
     };
 
@@ -1536,6 +1705,24 @@ export default function PoolAdminPage() {
                                                 </p>
                                             </>
                                         )}
+
+                                        {selectedSettlementBatch.materialization ? (
+                                            <p className="break-all md:col-span-2">
+                                                Materialization status:{' '}
+                                                <span className="font-mono">
+                                                    {selectedSettlementBatch.materialization.status || 'unknown'}
+                                                </span>
+                                            </p>
+                                        ) : null}
+
+                                        {selectedSettlementBatch.payoutRound ? (
+                                            <p className="break-all md:col-span-2">
+                                                Payout-round status:{' '}
+                                                <span className="font-mono">
+                                                    {selectedSettlementBatch.payoutRound.status || 'unknown'}
+                                                </span>
+                                            </p>
+                                        ) : null}
                                     </div>
 
                                     <p className="mt-2 text-xs text-blue-900">
@@ -1546,7 +1733,28 @@ export default function PoolAdminPage() {
                                 </div>
                             )}
 
-                            <div className="flex flex-wrap gap-2">
+                            {preparedDistribution && (
+                                <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+                                    <p className="font-medium">
+                                        Distribution preview (not persisted, not signed, not broadcast)
+                                    </p>
+                                    <p className="mt-1 font-mono text-xs">
+                                        Recipient count: {preparedDistribution.payoutInstructions?.length ?? 'unknown'}
+                                    </p>
+                                    <div className="mt-2 max-h-48 space-y-1 overflow-y-auto">
+                                        {(preparedDistribution.payoutInstructions || []).map((instruction, index) => (
+                                            <p
+                                                key={`${instruction.recipientAddress}-${index}`}
+                                                className="break-all font-mono text-xs"
+                                            >
+                                                {instruction.recipientAddress}: {instruction.amountUsdcAtomicUnits} atomic USDC
+                                            </p>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                                                        <div className="flex flex-wrap gap-2">
                                 <Button
                                     onClick={handlePrepareRecipientSnapshot}
                                     disabled={
@@ -1580,6 +1788,86 @@ export default function PoolAdminPage() {
                                         'Prepare and submit held deposit'
                                     )}
                                     <ArrowRight className="ml-1 h-4 w-4" />
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleConfirmDeposit}
+                                    disabled={
+                                        isConfirmingDeposit ||
+                                        !selectedSettlementBatch ||
+                                        selectedSettlementBatch.status !== 'deposit_submitted'
+                                    }
+                                >
+                                    {isConfirmingDeposit ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Confirming...
+                                        </>
+                                    ) : (
+                                        'Confirm held deposit'
+                                    )}
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleMaterializeDeposit}
+                                    disabled={
+                                        isMaterializingDeposit ||
+                                        !selectedSettlementBatch ||
+                                        selectedSettlementBatch.status !== 'deposit_confirmed_pending_ledger'
+                                    }
+                                >
+                                    {isMaterializingDeposit ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Materializing...
+                                        </>
+                                    ) : (
+                                        'Materialize confirmed deposit'
+                                    )}
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleCreatePayoutRound}
+                                    disabled={
+                                        isCreatingPayoutRound ||
+                                        !selectedSettlementBatch ||
+                                        selectedSettlementBatch.status !== 'deposited'
+                                    }
+                                >
+                                    {isCreatingPayoutRound ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Creating payout round...
+                                        </>
+                                    ) : (
+                                        'Create payout round'
+                                    )}
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handlePrepareDistribution}
+                                    disabled={
+                                        isPreparingDistribution ||
+                                        !selectedSettlementBatch ||
+                                        selectedSettlementBatch.status !== 'round_created'
+                                    }
+                                >
+                                    {isPreparingDistribution ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Previewing distribution...
+                                        </>
+                                    ) : (
+                                        'Preview distribution (read-only)'
+                                    )}
                                 </Button>
                             </div>
                             <p className="text-xs text-muted-foreground">
