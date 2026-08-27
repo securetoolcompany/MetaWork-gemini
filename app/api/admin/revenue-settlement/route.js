@@ -61,8 +61,15 @@ async function getAuthenticatedAdmin(request) {
 
     const { db } = await connectToDatabase();
 
-    const user = await db.collection('users').findOne({
-      id: decoded.userId,
+    const users = db.collection('users');
+
+    const user = await users.findOne({
+    $or: [
+        { id: decoded.userId },
+        ...(ObjectId.isValid(String(decoded.userId))
+        ? [{ _id: new ObjectId(String(decoded.userId)) }]
+        : []),
+    ],
     });
 
     return user?.isAdmin === true || user?.role === 'admin'
@@ -201,13 +208,19 @@ async function getBatchOrThrow(db, mongoBatchId) {
   return batch;
 }
 
-async function readRecovery({ db, mongoBatchId, algodClient }) {
+async function readRecovery({
+  db,
+  mongoBatchId,
+  algodClient,
+  indexerClient,
+}) {
   const batch = await getBatchOrThrow(db, mongoBatchId);
 
   return readV10DepositRecoveryState({
-    algodClient,
-    batch,
-  });
+		algodClient,
+		indexerClient,
+		batch,
+	});
 }
 
 export async function POST(request) {
@@ -345,7 +358,8 @@ export async function POST(request) {
         db,
         mongoBatchId,
         algodClient,
-      });
+        indexerClient,
+			});
 
       return NextResponse.json(
         toActionResponse({
@@ -359,10 +373,11 @@ export async function POST(request) {
 
     if (action === 'confirm_deposit') {
       const recovery = await readRecovery({
-        db,
-        mongoBatchId,
-        algodClient,
-      });
+				db,
+				mongoBatchId,
+				algodClient,
+				indexerClient,
+			});
 
       if (recovery.outcome !== 'confirmed') {
         return NextResponse.json(

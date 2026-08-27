@@ -97,6 +97,40 @@ function getVariantKey(variant) {
     : String(value);
 }
 
+function getCanonicalProductVariants(product) {
+  if (Array.isArray(product?.variants) && product.variants.length > 0) {
+    return product.variants;
+  }
+
+  if (
+    Array.isArray(product?.baseProduct?.variants) &&
+    product.baseProduct.variants.length > 0
+  ) {
+    return product.baseProduct.variants.map((variant) => {
+      const catalogVariantId = Number(
+        variant?.catalogVariantId ??
+          variant?.printful_id ??
+          variant?.variant_id ??
+          variant?.variantId ??
+          variant?.id
+      );
+
+      return {
+        ...variant,
+        id: String(catalogVariantId),
+        variantId: catalogVariantId,
+        variant_id: catalogVariantId,
+        catalogVariantId,
+        printful_id: catalogVariantId,
+        cost: variant?.cost ?? variant?.price,
+        retail_price: variant?.retail_price ?? product?.price,
+      };
+    });
+  }
+
+  return [];
+}
+
 function applyCanonicalVariantPricing(existingVariants, requestedVariants) {
   const canonicalVariants = Array.isArray(existingVariants)
     ? existingVariants
@@ -130,36 +164,32 @@ function applyCanonicalVariantPricing(existingVariants, requestedVariants) {
    * Preserve every canonical database variant. Only a matching incoming
    * variant may change its retail_price.
    */
-  return canonicalVariants.map((canonicalVariant) => {
-    const key = getVariantKey(canonicalVariant);
-    const requestedVariant = requestedByKey.get(key);
+  return requestedVariants.map((requestedVariant) => {
+  const key = getVariantKey(requestedVariant);
+  const canonicalVariant = existingByKey.get(key);
 
-    if (!requestedVariant) {
-      return canonicalVariant;
-    }
+  const rawRetailPrice =
+    requestedVariant.retail_price ?? canonicalVariant.retail_price;
 
-    const rawRetailPrice =
-      requestedVariant.retail_price ?? canonicalVariant.retail_price;
+  if (
+    rawRetailPrice === undefined ||
+    rawRetailPrice === null ||
+    rawRetailPrice === ''
+  ) {
+    throw new Error(`Variant ${key} is missing a retail_price.`);
+  }
 
-    if (
-      rawRetailPrice === undefined ||
-      rawRetailPrice === null ||
-      rawRetailPrice === ''
-    ) {
-      throw new Error(`Variant ${key} is missing a retail_price.`);
-    }
+  const retailPrice = Number(rawRetailPrice);
 
-    const retailPrice = Number(rawRetailPrice);
+  if (!Number.isFinite(retailPrice) || retailPrice < 0) {
+    throw new Error(`Variant ${key} has an invalid retail_price.`);
+  }
 
-    if (!Number.isFinite(retailPrice) || retailPrice < 0) {
-      throw new Error(`Variant ${key} has an invalid retail_price.`);
-    }
-
-    return {
-      ...canonicalVariant,
-      retail_price: Number(retailPrice.toFixed(2)),
-    };
-  });
+  return {
+    ...canonicalVariant,
+    retail_price: Number(retailPrice.toFixed(2)),
+  };
+});
 }
 
 const assertProductCanBeSold = ({ product, variants }) => {
@@ -244,7 +274,7 @@ export async function GET(request, { params }) {
       ...(pfData?.result?.product ?? {}), 
       ...localProduct,                    
       // FIX: Check local variants first, then fall back to Printful (Checking both variants and sync_variants)
-      variants: localProduct.variants || localProduct.variations || pfData?.result?.variants || pfData?.result?.sync_variants || [],
+      variants: getCanonicalProductVariants(localProduct),
       lastUpdated: new Date().toISOString(),
     };
 
@@ -333,7 +363,7 @@ export async function PUT(request, { params }) {
     // --- PRESERVE CANONICAL VARIANT COSTS; ACCEPT RETAIL PRICE ONLY ---
     if (Array.isArray(updates.variants) && updates.variants.length > 0) {
       updates.variants = applyCanonicalVariantPricing(
-        existingProduct.variants || [],
+        getCanonicalProductVariants(existingProduct),
         updates.variants
       );
 
@@ -356,7 +386,9 @@ export async function PUT(request, { params }) {
     if (productWillBeSellable) {
       assertProductCanBeSold({
         product: existingProduct,
-        variants: updates.variants ?? existingProduct.variants ?? [],
+        variants:
+          updates.variants ??
+          getCanonicalProductVariants(existingProduct),
       });
     }
     // -------------------------------------------------------------------
@@ -368,12 +400,14 @@ export async function PUT(request, { params }) {
         const filterForLookup = ownershipFilter;
 
         const existingProduct = await db.collection('products').findOne(filterForLookup);
+        const canonicalStoredVariants =
+         getCanonicalProductVariants(existingProduct);
 
         const hasRetailPriceChange = (updates.variants || []).some(
           (updatedVariant) => {
             const key = getVariantKey(updatedVariant);
 
-            const storedVariant = (existingProduct?.variants || []).find(
+            const storedVariant = canonicalStoredVariants.find(
               (variant) => getVariantKey(variant) === key
             );
 
@@ -387,7 +421,7 @@ export async function PUT(request, { params }) {
 
         const needsSync =
           !existingProduct?.printfulSyncProductId ||
-          (existingProduct?.variants || []).some(
+          canonicalStoredVariants.some(
             (variant) => !variant.sync_variant_id
           ) ||
           hasRetailPriceChange;

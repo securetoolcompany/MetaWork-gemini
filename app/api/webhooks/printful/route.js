@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/lib/mongodb';
+import { createHeldRevenueLedgerEntriesForOrder } from '@/lib/revenue-ledger-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -543,6 +544,18 @@ export async function POST(req) {
         orderId: localOrder._id,
         allocations: shipmentItemAllocations,
     });
+
+    if (normalizedStatus === 'delivered') {
+      const deliveredOrder = await orders.findOne({
+        _id: localOrder._id,
+      });
+
+      await createHeldRevenueLedgerEntriesForOrder({
+        db,
+        order: deliveredOrder,
+        now: new Date(),
+      });
+    }
 
     await events.updateOne(
       {

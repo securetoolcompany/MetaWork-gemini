@@ -694,6 +694,7 @@ async function buildLockedRevenueTerms({
 
       return {
         ipAssetId,
+        poolKey: String(existingTerm.poolKey ?? ipAssetId),
         licensingFeeCents: existingTerm.licensingFeeCents,
         platformFeeBps: existingTerm.platformFeeBps,
         requiresSettlement: existingTerm.licensingFeeCents > 0,
@@ -716,6 +717,7 @@ async function buildLockedRevenueTerms({
 
     return {
       ipAssetId,
+      poolKey: String(ipAssetId),
       licensingFeeCents: ipAsset.licensingFeeCents,
       platformFeeBps: PLATFORM_LICENSE_FEE_BPS,
       requiresSettlement: ipAsset.licensingFeeCents > 0,
@@ -927,7 +929,24 @@ export async function POST(request) {
       : submittedSelectedIPs;
 
     const licensedRevenueTerms = preserveExistingLicenseState
-      ? existingProduct.licensedRevenueTerms
+      ? existingProduct.licensedRevenueTerms.map((term) => {
+          const poolKey = String(
+            term?.poolKey ?? term?.ipAssetId ?? ""
+          ).trim();
+
+          if (term?.requiresSettlement && !poolKey) {
+            throw new Error(
+              `Existing settled license term is missing a poolKey: ${
+                term?.ipAssetId ?? "unknown"
+              }`
+            );
+          }
+
+          return {
+            ...term,
+            poolKey,
+          };
+        })
       : await buildLockedRevenueTerms({
           db,
           selectedIPs: effectiveSelectedIPs,
