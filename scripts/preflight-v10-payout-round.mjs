@@ -109,7 +109,7 @@ function decodeV10PoolBox(value) {
 loadEnvLocal();
 
 const appId = 769218532;
-const poolKey = '6a84bf41f49bcdc863f8e4ef';
+const poolKey = '6a8b8bccd9540168859a0bff';
 const usdcAssetId = 10458941;
 const expectedSender =
   '2F7AVO5UOVAECY5WXURXNOCYBXMSB7MVSMXCD4ZFLSAN62WIQGDERT7JTY';

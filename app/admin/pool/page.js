@@ -1715,13 +1715,41 @@ export default function PoolAdminPage() {
                                             </p>
                                         ) : null}
 
-                                        {selectedSettlementBatch.payoutRound ? (
-                                            <p className="break-all md:col-span-2">
-                                                Payout-round status:{' '}
-                                                <span className="font-mono">
-                                                    {selectedSettlementBatch.payoutRound.status || 'unknown'}
-                                                </span>
-                                            </p>
+                                                                                {selectedSettlementBatch.revenueRoundId ? (
+                                            <>
+                                                <p className="break-all md:col-span-2">
+                                                    Payout-round database status:{' '}
+                                                    <span className="font-mono">
+                                                        {selectedSettlementBatch.status === 'round_created'
+                                                            ? 'created'
+                                                            : 'unknown'}
+                                                    </span>
+                                                </p>
+
+                                                <p className="break-all md:col-span-2">
+                                                    Payout-round key:{' '}
+                                                    <span className="font-mono text-xs">
+                                                        {selectedSettlementBatch.revenueRoundId}
+                                                    </span>
+                                                </p>
+
+                                                <p className="break-all md:col-span-2">
+                                                    On-chain payout-round transaction:{' '}
+                                                    <span className="font-mono text-xs">
+                                                        {selectedSettlementBatch.revenueRoundTxId ||
+                                                            'not submitted'}
+                                                    </span>
+                                                </p>
+
+                                                {selectedSettlementBatch.revenueRoundCreatedAt ? (
+                                                    <p className="break-all md:col-span-2">
+                                                        Payout-round database creation time:{' '}
+                                                        <span className="font-mono text-xs">
+                                                            {selectedSettlementBatch.revenueRoundCreatedAt}
+                                                        </span>
+                                                    </p>
+                                                ) : null}
+                                            </>
                                         ) : null}
                                     </div>
 
