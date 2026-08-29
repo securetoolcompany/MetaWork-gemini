@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import {
+  createSettlementBatchFromEligibleRows,
+} from '@/lib/revenue-settlement-batches';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,10 +80,13 @@ function toBatchSummary(batch) {
     ? {
         attemptKey: batch.depositAttempt.attemptKey,
         operation: batch.depositAttempt.operation,
+				depositType: batch.depositAttempt.depositType ?? null,
         status: batch.depositAttempt.status,
         groupId: batch.depositAttempt.groupId,
         unsignedTransactionHash:
           batch.depositAttempt.unsignedTransactionHash,
+				unsignedTransactionsBase64:
+					batch.depositAttempt.unsignedTransactionsBase64 ?? null,
         transactionIds: batch.depositAttempt.transactionIds,
         usdcTransferTransactionIndex:
           batch.depositAttempt.usdcTransferTransactionIndex,
@@ -210,6 +216,91 @@ export async function GET(request) {
       {
         success: false,
         error: 'Unable to load revenue settlement batches.',
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request) {
+  const admin = await getAuthenticatedAdmin(request);
+
+  if (!admin) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Administrator authorization is required.',
+      },
+      { status: 403 },
+    );
+  }
+
+  let body;
+
+  try {
+    body = await request.json();
+  } catch (_error) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Request body must be valid JSON.',
+      },
+      { status: 400 },
+    );
+  }
+
+  const orderId = String(body?.orderId || '').trim();
+
+  if (!ObjectId.isValid(orderId)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'orderId must be a valid MongoDB ObjectId.',
+      },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const { db } = await connectToDatabase();
+
+    const batch = await createSettlementBatchFromEligibleRows({
+      db,
+      orderId,
+    });
+
+    if (!batch) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'No release-eligible, unbatched revenue ledger rows were found for this order.',
+        },
+        { status: 409 },
+      );
+    }
+
+    return NextResponse.json(
+      serialize({
+        success: true,
+        batch: {
+          ...batch,
+          batchId: String(batch.batchId),
+        },
+      }),
+    );
+  } catch (error) {
+    console.error(
+      '[admin/revenue-settlement/batches] failed to create batch:',
+      error,
+    );
+
+    return NextResponse.json(
+      {
+        success: false,
+        error:
+          error?.message ||
+          'Unable to create settlement batch.',
       },
       { status: 500 },
     );

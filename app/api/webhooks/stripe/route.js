@@ -362,15 +362,19 @@ export async function POST(req) {
           status: 'paid',
           paymentStatus: 'paid',
           fulfillmentStatus: 'submitting_to_printful',
+
           stripePaymentId: paymentIntent.id,
+
           stripeTaxCalculationId:
             paymentIntent.metadata?.stripe_tax_calculation_id || null,
+
           paidAt,
         },
+
         $unset: {
           printfulError: '',
         },
-      }
+      },
     );
 
     const paidOrder = await db.collection('orders').findOne({
@@ -1003,8 +1007,59 @@ export async function POST(req) {
           fulfillmentStatus,
           printfulOrderId,
           printfulError,
+
+          customerName:
+            orderData.shippingInfo?.name ||
+            null,
+
+          customerEmail:
+            orderData.shippingInfo?.email ||
+            orderData.email ||
+            paymentIntent.receipt_email ||
+            null,
+
+          customerPhone:
+            orderData.shippingInfo?.phone ||
+            null,
+
+          shippingAddress: orderData.shippingInfo
+            ? {
+                name: orderData.shippingInfo.name || null,
+                email:
+                  orderData.shippingInfo.email ||
+                  orderData.email ||
+                  paymentIntent.receipt_email ||
+                  null,
+
+                phone: orderData.shippingInfo.phone || null,
+
+                address1:
+                  orderData.shippingInfo.address1 || null,
+
+                address2:
+                  orderData.shippingInfo.address2 || null,
+
+                city:
+                  orderData.shippingInfo.city || null,
+
+                state:
+                  orderData.shippingInfo.state_code ||
+                  orderData.shippingInfo.state ||
+                  null,
+
+                postalCode:
+                  orderData.shippingInfo.zip ||
+                  orderData.shippingInfo.postalCode ||
+                  null,
+
+                country:
+                  orderData.shippingInfo.country_code ||
+                  orderData.shippingInfo.country ||
+                  null,
+              }
+            : null,
         },
-      }
+      },
     );
 
     // 5. Stripe Tax Transaction

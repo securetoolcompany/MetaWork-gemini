@@ -8,6 +8,7 @@ import {
   RevenueSettlementRecipientSnapshotValidationError,
   prepareAndPersistV10RecipientSnapshot,
   prepareAndPersistV10DepositAttempt,
+  resetExpiredV10DepositPreparation,
   persistSubmittedV10DepositAttempt,
   persistConfirmedV10DepositBatch,
   materializeConfirmedDepositIntoLedger,
@@ -23,6 +24,8 @@ export const dynamic = 'force-dynamic';
 const SUPPORTED_ACTIONS = new Set([
   'prepare_recipient_snapshot',
   'prepare_deposit',
+  'prepare_unallocated_usdc_deposit',
+	'reset_expired_deposit_preparation',
   'mark_submitted',
   'recover_deposit',
   'confirm_deposit',
@@ -60,16 +63,15 @@ async function getAuthenticatedAdmin(request) {
     }
 
     const { db } = await connectToDatabase();
-
     const users = db.collection('users');
 
     const user = await users.findOne({
-    $or: [
+      $or: [
         { id: decoded.userId },
         ...(ObjectId.isValid(String(decoded.userId))
-        ? [{ _id: new ObjectId(String(decoded.userId)) }]
-        : []),
-    ],
+          ? [{ _id: new ObjectId(String(decoded.userId)) }]
+          : []),
+      ],
     });
 
     return user?.isAdmin === true || user?.role === 'admin'
@@ -217,10 +219,10 @@ async function readRecovery({
   const batch = await getBatchOrThrow(db, mongoBatchId);
 
   return readV10DepositRecoveryState({
-		algodClient,
-		indexerClient,
-		batch,
-	});
+    algodClient,
+    indexerClient,
+    batch,
+  });
 }
 
 export async function POST(request) {
@@ -255,7 +257,7 @@ export async function POST(request) {
 
   const depositorAddress = parseDepositorAddress(
     body?.depositorAddress,
-    );
+  );
 
   if (!SUPPORTED_ACTIONS.has(action)) {
     return NextResponse.json(
@@ -285,57 +287,79 @@ export async function POST(request) {
     const indexerClient = getIndexerClient();
 
     if (action === 'prepare_recipient_snapshot') {
-        const snapshot = await prepareAndPersistV10RecipientSnapshot({
-            db,
-            batchId: mongoBatchId,
-            indexerClient,
-            algodClient,
-        });
+      const snapshot = await prepareAndPersistV10RecipientSnapshot({
+        db,
+        batchId: mongoBatchId,
+        indexerClient,
+        algodClient,
+      });
 
+      return NextResponse.json(
+        toActionResponse({
+          action,
+          batchId: mongoBatchId,
+          batchStatus: snapshot.toStatus,
+        }),
+      );
+    }
+
+    if (
+      action === 'prepare_deposit' ||
+      action === 'prepare_unallocated_usdc_deposit'
+    ) {
+      if (!depositorAddress) {
         return NextResponse.json(
-            toActionResponse({
-            action,
-            batchId: mongoBatchId,
-            batchStatus: snapshot.toStatus,
-            }),
+          {
+            success: false,
+            error:
+              'depositorAddress must be a valid connected Algorand wallet address.',
+          },
+          { status: 400 },
         );
-        }
+      }
 
-    if (action === 'prepare_deposit') {
-        if (!depositorAddress) {
-            return NextResponse.json(
-            {
-                success: false,
-                error:
-                'depositorAddress must be a valid connected Algorand wallet address.',
-            },
-            { status: 400 },
-            );
-        }
+      const prepared = await prepareAndPersistV10DepositAttempt({
+        db,
+        batchId: mongoBatchId,
+        depositType:
+          action === 'prepare_unallocated_usdc_deposit'
+            ? 'usdc'
+            : 'held',
+        preflightOptions: {
+          depositorAddress,
+          algodClient,
+          network:
+            process.env.ALGORAND_NETWORK ||
+            process.env.NEXT_PUBLIC_ALGORAND_NETWORK ||
+            'testnet',
+        },
+      });
 
-        const prepared = await prepareAndPersistV10DepositAttempt({
-            db,
-            batchId: mongoBatchId,
-            preflightOptions: {
-            depositorAddress,
-            algodClient,
-            network:
-                process.env.ALGORAND_NETWORK ||
-                process.env.NEXT_PUBLIC_ALGORAND_NETWORK ||
-                'testnet',
-            },
-        });
+      return NextResponse.json(
+        toActionResponse({
+          action,
+          batchId: mongoBatchId,
+          batchStatus: prepared.status,
+          depositAttempt: prepared.depositAttempt,
+          includeUnsignedTransactions: true,
+        }),
+      );
+    }
 
-        return NextResponse.json(
-            toActionResponse({
-            action,
-            batchId: mongoBatchId,
-            batchStatus: prepared.status,
-            depositAttempt: prepared.depositAttempt,
-            includeUnsignedTransactions: true,
-            }),
-        );
-        }
+		if (action === 'reset_expired_deposit_preparation') {
+			const reset = await resetExpiredV10DepositPreparation({
+				db,
+				batchId: mongoBatchId,
+			});
+
+			return NextResponse.json(
+				toActionResponse({
+					action,
+					batchId: mongoBatchId,
+					batchStatus: reset.status,
+				}),
+			);
+		}
 
     if (action === 'mark_submitted') {
       const submitted = await persistSubmittedV10DepositAttempt({
@@ -359,7 +383,7 @@ export async function POST(request) {
         mongoBatchId,
         algodClient,
         indexerClient,
-			});
+      });
 
       return NextResponse.json(
         toActionResponse({
@@ -373,11 +397,11 @@ export async function POST(request) {
 
     if (action === 'confirm_deposit') {
       const recovery = await readRecovery({
-				db,
-				mongoBatchId,
-				algodClient,
-				indexerClient,
-			});
+        db,
+        mongoBatchId,
+        algodClient,
+        indexerClient,
+      });
 
       if (recovery.outcome !== 'confirmed') {
         return NextResponse.json(

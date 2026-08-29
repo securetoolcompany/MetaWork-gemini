@@ -35,6 +35,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 
 const USDC_ASSET_ID = Number(process.env.NEXT_PUBLIC_USDC_ASSET_ID);
 
@@ -72,6 +80,19 @@ export default function PoolAdminPage() {
         useState(false);
     const [settlementBatchesError, setSettlementBatchesError] =
         useState(null);
+    const [eligibleLedgerRows, setEligibleLedgerRows] = useState([]);
+    const [isLoadingEligibleLedgerRows, setIsLoadingEligibleLedgerRows] =
+        useState(false);
+    const [eligibleLedgerRowsError, setEligibleLedgerRowsError] =
+        useState(null);
+
+    const [selectedEligibleLedgerRowId, setSelectedEligibleLedgerRowId] =
+        useState('');
+
+    const [isCreateBatchDialogOpen, setIsCreateBatchDialogOpen] =
+        useState(false);
+    const [isCreatingSettlementBatch, setIsCreatingSettlementBatch] =
+        useState(false);
     const [v7SettlementState, setV7SettlementState] = useState({
         status: 'idle',
         error: null,
@@ -102,6 +123,27 @@ export default function PoolAdminPage() {
     });
 
     const [isFunding, setIsFunding] = useState(false);
+
+    const [
+        isSubmittingPreparedUsdcDeposit,
+        setIsSubmittingPreparedUsdcDeposit,
+    ] = useState(false);
+
+    const [
+        isUsdcDepositSubmissionDialogOpen,
+        setIsUsdcDepositSubmissionDialogOpen,
+    ] = useState(false);
+
+    const [
+        isResettingPreparedUsdcDeposit,
+        setIsResettingPreparedUsdcDeposit,
+    ] = useState(false);
+
+    const [
+        isResetPreparedUsdcDepositDialogOpen,
+        setIsResetPreparedUsdcDepositDialogOpen,
+    ] = useState(false);
+
     const [isPreparingRecipientSnapshot, setIsPreparingRecipientSnapshot] =
         useState(false);
     const [isConfirmingDeposit, setIsConfirmingDeposit] = useState(false);
@@ -118,6 +160,10 @@ export default function PoolAdminPage() {
     const selectedSettlementBatch = settlementBatches.find(
         (batch) => batch.batchId === selectedSettlementBatchId
     ) || null;
+    const selectedEligibleLedgerRow =
+        eligibleLedgerRows.find(
+            (row) => row.ledgerRowId === selectedEligibleLedgerRowId
+        ) || null;
     const getSafeAppAddress = (id) => {
         if (!id) return '';
 
@@ -148,6 +194,28 @@ export default function PoolAdminPage() {
 
             return Number(id) === targetId;
         });
+    };
+
+    const getPreparedUsdcDepositType = (depositAttempt) => {
+        if (!depositAttempt || typeof depositAttempt !== 'object') {
+            return null;
+        }
+
+        if (depositAttempt.depositType === 'usdc') {
+            return 'usdc';
+        }
+
+        // Compatibility for the one existing prepared proposal created by
+        // the new “Prepare unallocated USDC deposit” workflow before the
+        // depositType field was persisted.
+        if (
+            depositAttempt.depositType === undefined ||
+            depositAttempt.depositType === null
+        ) {
+            return 'usdc';
+        }
+
+        return null;
     };
 
     const toAtomicUnitsString = (value) => {
@@ -692,6 +760,61 @@ export default function PoolAdminPage() {
         }
     };
 
+    const loadEligibleLedgerRows = async (poolKey) => {
+        if (!poolKey) {
+            setEligibleLedgerRows([]);
+            setSelectedEligibleLedgerRowId('');
+            setEligibleLedgerRowsError(null);
+            return;
+        }
+
+        setIsLoadingEligibleLedgerRows(true);
+        setEligibleLedgerRowsError(null);
+
+        try {
+            const response = await fetch(
+                `/api/admin/revenue-settlement/eligible?poolKey=${encodeURIComponent(
+                    poolKey
+                )}`,
+                {
+                    headers: getAuthHeader(),
+                    cache: 'no-store',
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(
+                    data.error || 'Unable to load eligible revenue rows.'
+                );
+            }
+
+            const rows = Array.isArray(data.rows) ? data.rows : [];
+
+            setEligibleLedgerRows(rows);
+
+            setSelectedEligibleLedgerRowId((previousLedgerRowId) =>
+                rows.some(
+                    (row) => row.ledgerRowId === previousLedgerRowId
+                )
+                    ? previousLedgerRowId
+                    : ''
+            );
+        } catch (error) {
+            console.error('Eligible ledger row load error:', error);
+
+            setEligibleLedgerRows([]);
+            setSelectedEligibleLedgerRowId('');
+
+            setEligibleLedgerRowsError(
+                error.message || 'Unable to load eligible revenue rows.'
+            );
+        } finally {
+            setIsLoadingEligibleLedgerRows(false);
+        }
+    };
+
     const loadSettlementBatches = async (poolKey) => {
         if (!poolKey) {
             setSettlementBatches([]);
@@ -739,6 +862,62 @@ export default function PoolAdminPage() {
             );
         } finally {
             setIsLoadingSettlementBatches(false);
+        }
+    };
+
+    const handleCreateSettlementBatch = async () => {
+        if (!selectedEligibleLedgerRow) {
+            return toast.error(
+                'Select one eligible revenue row before creating a settlement batch.'
+            );
+        }
+
+        setIsCreatingSettlementBatch(true);
+
+        try {
+            const response = await fetch(
+                '/api/admin/revenue-settlement/batches',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader(),
+                    },
+                    body: JSON.stringify({
+                        orderId: selectedEligibleLedgerRow.orderId,
+                    }),
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(
+                    data.error || 'Unable to create settlement batch.'
+                );
+            }
+
+            toast.success(
+                `Settlement batch created for ${data.batch.rowCount} ledger row(s).`
+            );
+
+            setIsCreateBatchDialogOpen(false);
+            setSelectedEligibleLedgerRowId('');
+
+            await Promise.all([
+                loadEligibleLedgerRows(selectedIpId),
+                loadSettlementBatches(selectedIpId),
+            ]);
+
+            setSelectedSettlementBatchId(data.batch.batchId);
+        } catch (error) {
+            console.error('Settlement batch creation failed:', error);
+
+            toast.error(
+                error.message || 'Unable to create settlement batch.'
+            );
+        } finally {
+            setIsCreatingSettlementBatch(false);
         }
     };
 
@@ -1088,6 +1267,8 @@ export default function PoolAdminPage() {
                 );
             }
 
+            setIsUsdcDepositSubmissionDialogOpen(false);
+
             toast.success(
                 'Held USDC deposit submitted. Confirmation, ledger materialization, payout-round creation, and distribution remain separate steps.'
             );
@@ -1102,6 +1283,339 @@ export default function PoolAdminPage() {
             );
         } finally {
             setIsFunding(false);
+        }
+    };
+
+    const handlePrepareUnallocatedUsdcDeposit = async () => {
+        if (!isConnected || !accountAddress) {
+            return toast.error(
+                'Connect the authorized pool-proxy or administrator wallet before preparing an unallocated USDC deposit.'
+            );
+        }
+
+        if (!selectedSettlementBatch) {
+            return toast.error(
+                'Select a frozen settlement batch before preparing an unallocated USDC deposit.'
+            );
+        }
+
+        if (
+            selectedSettlementBatch.status !==
+            'recipient_snapshot_prepared'
+        ) {
+            return toast.error(
+                'Unallocated USDC deposits can only be prepared for batches with status "recipient_snapshot_prepared".'
+            );
+        }
+
+        setIsFunding(true);
+
+        try {
+            const response = await fetch(
+                '/api/admin/revenue-settlement',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader(),
+                    },
+                    body: JSON.stringify({
+                        action: 'prepare_unallocated_usdc_deposit',
+                        batchId: selectedSettlementBatch.batchId,
+                        depositorAddress: accountAddress,
+                    }),
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(
+                    data.error ||
+                        'Unable to prepare the unallocated USDC deposit.'
+                );
+            }
+
+            const depositAttempt = data.depositAttempt;
+
+            if (
+                !depositAttempt ||
+                depositAttempt.status !== 'prepared' ||
+                !Array.isArray(
+                    depositAttempt.unsignedTransactionsBase64
+                ) ||
+                depositAttempt.unsignedTransactionsBase64.length !== 2 ||
+                depositAttempt.usdcTransferTransactionIndex !== 0 ||
+                depositAttempt.appCallTransactionIndex !== 1 ||
+                !depositAttempt.transactionIds?.appCall ||
+                !depositAttempt.transactionIds?.usdcTransfer
+            ) {
+                throw new Error(
+                    'Prepared unallocated-USDC deposit metadata is incomplete or inconsistent.'
+                );
+            }
+
+            toast.success(
+                'Unallocated USDC deposit proposal prepared. Review the unsigned two-transaction group before signing or submitting it.'
+            );
+
+            await loadSettlementBatches(selectedIpId);
+            await fetchData();
+        } catch (error) {
+            console.error(
+                'V10 unallocated USDC deposit preparation failed:',
+                error
+            );
+
+            toast.error(
+                error?.message ||
+                    'Unable to prepare the unallocated USDC deposit.'
+            );
+        } finally {
+            setIsFunding(false);
+        }
+    };
+
+    const handleSignAndSubmitPreparedUsdcDeposit = async () => {
+            console.log(
+                '[V10 USDC] submit clicked',
+                selectedSettlementBatch,
+                accountAddress
+            );
+
+            console.log('[V10 USDC] connection state', {
+                isConnected,
+                accountAddress,
+            });
+
+            console.log('[V10 USDC] batch state', {
+                batchId: selectedSettlementBatch?.batchId,
+                status: selectedSettlementBatch?.status,
+                depositAttempt: selectedSettlementBatch?.depositAttempt,
+                resolvedDepositType: getPreparedUsdcDepositType(
+                    selectedSettlementBatch?.depositAttempt
+                ),
+            });
+
+            toast.info('V10 USDC deposit submission handler started.');
+        if (!isConnected || !accountAddress) {
+            return toast.error(
+                'Connect the authorized administrator or pool-proxy wallet before submitting the prepared USDC deposit.'
+            );
+        }
+
+        if (!selectedSettlementBatch) {
+            return toast.error(
+                'Select a prepared settlement batch before submitting its USDC deposit.'
+            );
+        }
+
+        if (selectedSettlementBatch.status !== 'deposit_prepared') {
+            return toast.error(
+                'Only a batch with status "deposit_prepared" can be submitted.'
+            );
+        }
+
+        const depositAttempt = selectedSettlementBatch.depositAttempt;
+        const preparedDepositType = getPreparedUsdcDepositType(depositAttempt);
+
+        console.log('[V10 USDC] deposit attempt validation fields', {
+            attemptStatus: depositAttempt?.status,
+            preparedDepositType,
+            hasUnsignedTransactions: Array.isArray(
+                depositAttempt?.unsignedTransactionsBase64
+            ),
+            unsignedTransactionCount:
+                depositAttempt?.unsignedTransactionsBase64?.length,
+            usdcTransferTransactionIndex:
+                depositAttempt?.usdcTransferTransactionIndex,
+            appCallTransactionIndex:
+                depositAttempt?.appCallTransactionIndex,
+            hasGroupId: Boolean(depositAttempt?.groupId),
+            hasUsdcTransferTransactionId: Boolean(
+                depositAttempt?.transactionIds?.usdcTransfer
+            ),
+            hasAppCallTransactionId: Boolean(
+                depositAttempt?.transactionIds?.appCall
+            ),
+        });
+
+        if (
+            !depositAttempt ||
+            depositAttempt.status !== 'prepared' ||
+            preparedDepositType !== 'usdc' ||
+            !Array.isArray(depositAttempt.unsignedTransactionsBase64) ||
+            depositAttempt.unsignedTransactionsBase64.length !== 2 ||
+            depositAttempt.usdcTransferTransactionIndex !== 0 ||
+            depositAttempt.appCallTransactionIndex !== 1 ||
+            !depositAttempt.groupId ||
+            !depositAttempt.transactionIds?.usdcTransfer ||
+            !depositAttempt.transactionIds?.appCall
+        ) {
+            console.error(
+                '[V10 USDC] local deposit proposal validation failed',
+                depositAttempt
+            );
+
+            alert(
+                'Blocked before wallet signing. Open DevTools Console and copy the [V10 USDC] deposit attempt validation fields object.'
+            );
+
+            return;
+        }
+
+        setIsSubmittingPreparedUsdcDeposit(true);
+
+        try {
+            console.log(
+                '[V10 USDC] local validation passed; calling signTransactionGroup',
+                {
+                    groupId: depositAttempt.groupId,
+                    transactionCount:
+                        depositAttempt.unsignedTransactionsBase64.length,
+                    amountUsdcAtomicUnits:
+                        depositAttempt.amountUsdcAtomicUnits,
+                }
+            );
+            const signedTransactions = await signTransactionGroup(
+                depositAttempt.unsignedTransactionsBase64.map(
+                    (encodedTransaction) =>
+                        new Uint8Array(
+                            Buffer.from(encodedTransaction, 'base64')
+                        )
+                )
+            );
+
+            if (!signedTransactions || signedTransactions.length !== 2) {
+                throw new Error(
+                    'USDC deposit signing was cancelled or incomplete.'
+                );
+            }
+
+            const algod = new algosdk.Algodv2(
+                '',
+                'https://testnet-api.algonode.cloud',
+                ''
+            );
+
+            await algod.sendRawTransaction(signedTransactions).do();
+
+            const submittedResponse = await fetch(
+                '/api/admin/revenue-settlement',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader(),
+                    },
+                    body: JSON.stringify({
+                        action: 'mark_submitted',
+                        batchId: selectedSettlementBatch.batchId,
+                    }),
+                }
+            );
+
+            const submittedData = await submittedResponse.json();
+
+            if (!submittedResponse.ok || !submittedData.success) {
+                throw new Error(
+                    submittedData.error ||
+                        'The USDC group broadcast, but submitted state could not be recorded. Do not prepare a new deposit; recover using the existing app-call transaction ID.'
+                );
+            }
+
+            toast.success(
+                'Prepared USDC deposit submitted. Wait for confirmation before materializing it.'
+            );
+
+            await loadSettlementBatches(selectedIpId);
+            await fetchData();
+        } catch (error) {
+            console.error('Prepared V10 USDC deposit submission failed:', error);
+
+            toast.error(
+                error?.message ||
+                    'Unable to submit the prepared USDC deposit.'
+            );
+        } finally {
+            setIsSubmittingPreparedUsdcDeposit(false);
+        }
+    };
+
+    const handleResetExpiredPreparedUsdcDeposit = async () => {
+        if (!selectedSettlementBatch) {
+            return toast.error(
+                'Select a prepared settlement batch before rebuilding its USDC proposal.'
+            );
+        }
+
+        if (selectedSettlementBatch.status !== 'deposit_prepared') {
+            return toast.error(
+                'Only a prepared deposit can be rebuilt with fresh network parameters.'
+            );
+        }
+
+        const depositAttempt = selectedSettlementBatch.depositAttempt;
+
+        if (
+            !depositAttempt ||
+            depositAttempt.status !== 'prepared' ||
+            !depositAttempt.groupId ||
+            !depositAttempt.unsignedTransactionHash
+        ) {
+            return toast.error(
+                'The prepared deposit metadata is incomplete. Refresh before retrying.'
+            );
+        }
+
+        setIsResettingPreparedUsdcDeposit(true);
+
+        try {
+            const response = await fetch(
+                '/api/admin/revenue-settlement',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader(),
+                    },
+                    body: JSON.stringify({
+                        action: 'reset_expired_deposit_preparation',
+                        batchId: selectedSettlementBatch.batchId,
+                    }),
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(
+                    data.error ||
+                        'Unable to clear the expired prepared USDC deposit.'
+                );
+            }
+
+            setIsResetPreparedUsdcDepositDialogOpen(false);
+            setIsUsdcDepositSubmissionDialogOpen(false);
+
+            toast.success(
+                'Expired USDC proposal cleared. Prepare a fresh USDC proposal and sign it promptly.'
+            );
+
+            await loadSettlementBatches(selectedIpId);
+            await fetchData();
+        } catch (error) {
+            console.error(
+                'Expired prepared V10 USDC deposit reset failed:',
+                error
+            );
+
+            toast.error(
+                error?.message ||
+                    'Unable to clear the expired prepared USDC deposit.'
+            );
+        } finally {
+            setIsResettingPreparedUsdcDeposit(false);
         }
     };
 
@@ -1573,6 +2087,7 @@ export default function PoolAdminPage() {
                                     onValueChange={(poolKey) => {
                                         setSelectedIpId(poolKey);
                                         loadSettlementBatches(poolKey);
+                                        loadEligibleLedgerRows(poolKey);
                                     }}
                                     value={selectedIpId}
                                 >
@@ -1603,6 +2118,109 @@ export default function PoolAdminPage() {
                                     </SelectContent>
                                 </Select>
                                 <div className="space-y-2">
+                                    <div className="space-y-3 rounded border border-amber-200 bg-amber-50 p-3">
+                                        <div>
+                                            <p className="font-medium text-amber-950">
+                                                Eligible revenue awaiting batching
+                                            </p>
+
+                                            <p className="mt-1 text-xs text-amber-900">
+                                                These rows completed their return hold. Creating a settlement
+                                                batch is a database-only step: it freezes the selected row(s)
+                                                for settlement but does not deposit USDC, create a payout
+                                                round, sign, or submit a transaction.
+                                            </p>
+                                        </div>
+
+                                        {isLoadingEligibleLedgerRows ? (
+                                            <div className="flex items-center gap-2 text-sm text-amber-900">
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                Loading eligible revenue…
+                                            </div>
+                                        ) : eligibleLedgerRows.length === 0 ? (
+                                            <p className="text-sm text-amber-900">
+                                                No release-eligible, unbatched revenue is available for this
+                                                selected pool.
+                                            </p>
+                                        ) : (
+                                            <>
+                                                <Select
+                                                    value={selectedEligibleLedgerRowId}
+                                                    onValueChange={setSelectedEligibleLedgerRowId}
+                                                >
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select eligible revenue row..." />
+                                                    </SelectTrigger>
+
+                                                    <SelectContent>
+                                                        {eligibleLedgerRows.map((row) => (
+                                                            <SelectItem
+                                                                key={row.ledgerRowId}
+                                                                value={row.ledgerRowId}
+                                                            >
+                                                                Order {row.orderNumber || row.orderId} — $
+                                                                {(Number(row.allocationCents) / 100).toFixed(2)}
+                                                                {' '}— {row.usdcAtomicUnits} atomic USDC
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+
+                                                {selectedEligibleLedgerRow && (
+                                                    <div className="grid gap-1 rounded border border-amber-200 bg-white/70 p-3 text-xs text-amber-950">
+                                                        <p>
+                                                            Order:{' '}
+                                                            <span className="font-mono">
+                                                                {selectedEligibleLedgerRow.orderNumber ||
+                                                                    selectedEligibleLedgerRow.orderId}
+                                                            </span>
+                                                        </p>
+
+                                                        <p>
+                                                            Ledger row:{' '}
+                                                            <span className="break-all font-mono">
+                                                                {selectedEligibleLedgerRow.ledgerRowId}
+                                                            </span>
+                                                        </p>
+
+                                                        <p>
+                                                            Allocation: $
+                                                            {(
+                                                                Number(
+                                                                    selectedEligibleLedgerRow.allocationCents
+                                                                ) / 100
+                                                            ).toFixed(2)}
+                                                        </p>
+
+                                                        <p>
+                                                            USDC atomic units:{' '}
+                                                            <span className="font-mono">
+                                                                {selectedEligibleLedgerRow.usdcAtomicUnits}
+                                                            </span>
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={() => setIsCreateBatchDialogOpen(true)}
+                                                    disabled={
+                                                        !selectedEligibleLedgerRow ||
+                                                        isCreatingSettlementBatch
+                                                    }
+                                                >
+                                                    Create settlement batch
+                                                </Button>
+                                            </>
+                                        )}
+
+                                        {eligibleLedgerRowsError && (
+                                            <p className="text-xs text-red-600">
+                                                {eligibleLedgerRowsError}
+                                            </p>
+                                        )}
+                                    </div>
                                     <label className="text-xs font-medium text-muted-foreground">
                                         Select settlement batch
                                     </label>
@@ -1816,6 +2434,62 @@ export default function PoolAdminPage() {
                                         'Prepare and submit held deposit'
                                     )}
                                     <ArrowRight className="ml-1 h-4 w-4" />
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handlePrepareUnallocatedUsdcDeposit}
+                                    disabled={
+                                        isFunding ||
+                                        !isConnected ||
+                                        !poolInfo?.isOptedIn ||
+                                        !selectedSettlementBatch ||
+                                        selectedSettlementBatch.status !==
+                                            'recipient_snapshot_prepared'
+                                    }
+                                >
+                                    {isFunding ? (
+                                        <Loader2 className="animate-spin" />
+                                    ) : (
+                                        'Prepare unallocated USDC deposit'
+                                    )}
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    onClick={() => setIsUsdcDepositSubmissionDialogOpen(true)}
+                                    disabled={
+                                        isSubmittingPreparedUsdcDeposit ||
+                                        !isConnected ||
+                                        !accountAddress ||
+                                        !selectedSettlementBatch ||
+                                        selectedSettlementBatch.status !== 'deposit_prepared' ||
+                                        selectedSettlementBatch.depositAttempt?.status !== 'prepared' ||
+                                        getPreparedUsdcDepositType(
+                                            selectedSettlementBatch.depositAttempt
+                                        ) !== 'usdc'
+                                    }
+                                >
+                                    Sign and submit prepared USDC deposit
+                                </Button>
+
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() =>
+                                        setIsResetPreparedUsdcDepositDialogOpen(true)
+                                    }
+                                    disabled={
+                                        isResettingPreparedUsdcDeposit ||
+                                        isSubmittingPreparedUsdcDeposit ||
+                                        !selectedSettlementBatch ||
+                                        selectedSettlementBatch.status !== 'deposit_prepared' ||
+                                        selectedSettlementBatch.depositAttempt?.status !== 'prepared'
+                                    }
+                                >
+                                    Rebuild expired USDC proposal
                                 </Button>
 
                                 <Button
@@ -2087,6 +2761,401 @@ export default function PoolAdminPage() {
                         )}
                 </CardContent>
             </Card>
+            <Dialog
+                open={isCreateBatchDialogOpen}
+                onOpenChange={(open) => {
+                    if (!isCreatingSettlementBatch) {
+                        setIsCreateBatchDialogOpen(open);
+                    }
+                }}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Create settlement batch?</DialogTitle>
+
+                        <DialogDescription>
+                            This creates a database settlement batch and changes the
+                            selected revenue-ledger row from release_eligible to batched.
+                            It does not deposit USDC, create a payout round, or submit
+                            any blockchain transaction.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedEligibleLedgerRow && (
+                        <div className="space-y-2 rounded border bg-muted p-3 text-sm">
+                            <p>
+                                Order:{' '}
+                                <span className="font-mono">
+                                    {selectedEligibleLedgerRow.orderNumber ||
+                                        selectedEligibleLedgerRow.orderId}
+                                </span>
+                            </p>
+
+                            <p>
+                                Ledger row:{' '}
+                                <span className="break-all font-mono text-xs">
+                                    {selectedEligibleLedgerRow.ledgerRowId}
+                                </span>
+                            </p>
+
+                            <p>
+                                Allocation: $
+                                {(
+                                    Number(
+                                        selectedEligibleLedgerRow.allocationCents
+                                    ) / 100
+                                ).toFixed(2)}
+                            </p>
+
+                            <p>
+                                USDC atomic units:{' '}
+                                <span className="font-mono">
+                                    {selectedEligibleLedgerRow.usdcAtomicUnits}
+                                </span>
+                            </p>
+
+                            <p>
+                                Pool key:{' '}
+                                <span className="break-all font-mono text-xs">
+                                    {selectedEligibleLedgerRow.poolKey}
+                                </span>
+                            </p>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsCreateBatchDialogOpen(false)}
+                            disabled={isCreatingSettlementBatch}
+                        >
+                            Cancel
+                        </Button>
+
+                        <Button
+                            type="button"
+                            onClick={handleCreateSettlementBatch}
+                            disabled={
+                                !selectedEligibleLedgerRow ||
+                                isCreatingSettlementBatch
+                            }
+                        >
+                            {isCreatingSettlementBatch ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Creating batch…
+                                </>
+                            ) : (
+                                'Create database batch'
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <Dialog
+                open={isUsdcDepositSubmissionDialogOpen}
+                onOpenChange={(open) => {
+                    if (!isSubmittingPreparedUsdcDeposit) {
+                        setIsUsdcDepositSubmissionDialogOpen(open);
+                    }
+                }}
+            >
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>
+                            Submit prepared V10 USDC deposit?
+                        </DialogTitle>
+
+                        <DialogDescription>
+                            This will ask your connected wallet to sign and then broadcast
+                            the exact prepared two-transaction group. It transfers USDC
+                            into the revenue pool using the <code>deposit_usdc</code>{' '}
+                            application action.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedSettlementBatch?.depositAttempt && (
+                        <div className="space-y-4 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                            <div className="grid gap-3 md:grid-cols-2">
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        Connected signer
+                                    </p>
+
+                                    <p className="mt-1 break-all font-mono text-xs">
+                                        {accountAddress}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        Deposit type
+                                    </p>
+
+                                    <p className="mt-1 font-mono">
+                                        {getPreparedUsdcDepositType(
+                                            selectedSettlementBatch.depositAttempt
+                                        ) || 'unknown'}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        App action
+                                    </p>
+
+                                    <p className="mt-1 font-mono">
+                                        deposit_usdc
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        USDC amount
+                                    </p>
+
+                                    <p className="mt-1 font-mono">
+                                        {
+                                            selectedSettlementBatch.depositAttempt
+                                                .amountUsdcAtomicUnits
+                                        }{' '}
+                                        atomic USDC
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        Transaction group
+                                    </p>
+
+                                    <p className="mt-1 font-mono">
+                                        2 transactions
+                                    </p>
+
+                                    <p className="mt-1 text-xs text-amber-900">
+                                        USDC transfer: index 0 · App call: index 1
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        Pool key
+                                    </p>
+
+                                    <p className="mt-1 break-all font-mono text-xs">
+                                        {selectedSettlementBatch.poolKey}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-xs font-medium text-amber-800">
+                                    Settlement batch ID
+                                </p>
+
+                                <p className="mt-1 break-all font-mono text-xs">
+                                    {selectedSettlementBatch.batchId}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-xs font-medium text-amber-800">
+                                    Prepared group ID
+                                </p>
+
+                                <p className="mt-1 break-all font-mono text-xs">
+                                    {selectedSettlementBatch.depositAttempt.groupId}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-xs font-medium text-amber-800">
+                                    USDC transfer transaction ID
+                                </p>
+
+                                <p className="mt-1 break-all font-mono text-xs">
+                                    {
+                                        selectedSettlementBatch.depositAttempt
+                                            .transactionIds?.usdcTransfer
+                                    }
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-xs font-medium text-amber-800">
+                                    Application-call transaction ID
+                                </p>
+
+                                <p className="mt-1 break-all font-mono text-xs">
+                                    {
+                                        selectedSettlementBatch.depositAttempt
+                                            .transactionIds?.appCall
+                                    }
+                                </p>
+                            </div>
+
+                            <p className="border-t border-amber-200 pt-3 text-xs text-amber-900">
+                                Confirm only if the connected wallet is the V10
+                                administrator or the exact configured pool-proxy wallet,
+                                and the amount is the intended frozen batch amount.
+                                Once broadcast, do not prepare another deposit group for
+                                this batch.
+                            </p>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() =>
+                                setIsUsdcDepositSubmissionDialogOpen(false)
+                            }
+                            disabled={isSubmittingPreparedUsdcDeposit}
+                        >
+                            Cancel
+                        </Button>
+
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={handleSignAndSubmitPreparedUsdcDeposit}
+                            disabled={
+                                isSubmittingPreparedUsdcDeposit ||
+                                !selectedSettlementBatch?.depositAttempt ||
+                                getPreparedUsdcDepositType(
+                                    selectedSettlementBatch.depositAttempt
+                                ) !== 'usdc'
+                            }
+                        >
+                            {isSubmittingPreparedUsdcDeposit ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Signing and submitting…
+                                </>
+                            ) : (
+                                'Sign and broadcast USDC deposit'
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <Dialog
+                open={isResetPreparedUsdcDepositDialogOpen}
+                onOpenChange={(open) => {
+                    if (!isResettingPreparedUsdcDeposit) {
+                        setIsResetPreparedUsdcDepositDialogOpen(open);
+                    }
+                }}
+            >
+                <DialogContent className="max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle>
+                            Rebuild expired USDC proposal?
+                        </DialogTitle>
+
+                        <DialogDescription>
+                            This clears the existing unsigned proposal because its Algorand
+                            validity window has expired. It does not move USDC, sign a
+                            transaction, change recipients, or change the frozen batch
+                            amount.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedSettlementBatch?.depositAttempt && (
+                        <div className="space-y-3 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                            <div className="grid gap-3 md:grid-cols-2">
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        Batch ID
+                                    </p>
+
+                                    <p className="mt-1 break-all font-mono text-xs">
+                                        {selectedSettlementBatch.batchId}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        Amount preserved
+                                    </p>
+
+                                    <p className="mt-1 font-mono">
+                                        {
+                                            selectedSettlementBatch.depositAttempt
+                                                .amountUsdcAtomicUnits
+                                        }{' '}
+                                        atomic USDC
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        Existing group ID
+                                    </p>
+
+                                    <p className="mt-1 break-all font-mono text-xs">
+                                        {
+                                            selectedSettlementBatch.depositAttempt
+                                                .groupId
+                                        }
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        Current status
+                                    </p>
+
+                                    <p className="mt-1 font-mono">
+                                        {selectedSettlementBatch.status}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <p className="border-t border-amber-200 pt-3 text-xs text-amber-900">
+                                The frozen recipient snapshot, recipient hash, pool key,
+                                and 800000-atomic-USDC batch amount remain unchanged.
+                                After reset, you must prepare a new USDC proposal and
+                                promptly review and sign its newly generated group.
+                            </p>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() =>
+                                setIsResetPreparedUsdcDepositDialogOpen(false)
+                            }
+                            disabled={isResettingPreparedUsdcDeposit}
+                        >
+                            Cancel
+                        </Button>
+
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={handleResetExpiredPreparedUsdcDeposit}
+                            disabled={
+                                isResettingPreparedUsdcDeposit ||
+                                !selectedSettlementBatch?.depositAttempt
+                            }
+                        >
+                            {isResettingPreparedUsdcDeposit ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Clearing proposal…
+                                </>
+                            ) : (
+                                'Clear expired proposal'
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
