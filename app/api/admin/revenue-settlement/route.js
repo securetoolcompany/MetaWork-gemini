@@ -14,10 +14,15 @@ import {
   materializeConfirmedDepositIntoLedger,
   createPayoutRoundFromMaterializedDeposit,
   preparePayoutRoundDistribution,
+	prepareCreatePayoutRoundSubmission,
+	persistSubmittedV10CreatePayoutRoundSubmission
 } from '@/lib/revenue-settlement-service';
 import {
   readV10DepositRecoveryState,
 } from '@/lib/revenue-pool-v10-deposit-recovery';
+import {
+  preflightLiveV10CreatePayoutRound,
+} from '@/lib/revenue-pool-v10-payout-preflight-live';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +36,8 @@ const SUPPORTED_ACTIONS = new Set([
   'confirm_deposit',
   'materialize_deposit',
   'create_payout_round',
+  'prepare_payout_round_submission',
+  'mark_payout_round_submitted',
   'prepare_distribution',
 ]);
 
@@ -155,11 +162,51 @@ function toDepositAttemptResponse(depositAttempt, {
   return result;
 }
 
+function toPayoutSubmissionAttemptResponse(
+  payoutSubmissionAttempt,
+  { includeUnsignedTransactions = false } = {},
+) {
+  if (!payoutSubmissionAttempt) {
+    return null;
+  }
+
+  const result = {
+    attemptKey: payoutSubmissionAttempt.attemptKey,
+    operation: payoutSubmissionAttempt.operation,
+    status: payoutSubmissionAttempt.status,
+    payoutRoundKey: payoutSubmissionAttempt.payoutRoundKey,
+    totalUsdcAtomicUnits:
+      payoutSubmissionAttempt.totalUsdcAtomicUnits,
+    roundPayeesHash: payoutSubmissionAttempt.roundPayeesHash,
+    nextRoundId: payoutSubmissionAttempt.nextRoundId,
+    sender: payoutSubmissionAttempt.sender,
+    groupId: payoutSubmissionAttempt.groupId,
+    unsignedTransactionHash:
+      payoutSubmissionAttempt.unsignedTransactionHash,
+    transactionIds: payoutSubmissionAttempt.transactionIds,
+    roundBoxMbrMicroalgos:
+      payoutSubmissionAttempt.roundBoxMbrMicroalgos,
+    preparedAt: payoutSubmissionAttempt.preparedAt,
+    submittedAt: payoutSubmissionAttempt.submittedAt,
+    confirmedAt: payoutSubmissionAttempt.confirmedAt,
+    failureCode: payoutSubmissionAttempt.failureCode ?? null,
+    failureMessage: payoutSubmissionAttempt.failureMessage ?? null,
+  };
+
+  if (includeUnsignedTransactions) {
+    result.unsignedTransactionsBase64 =
+      payoutSubmissionAttempt.unsignedTransactionsBase64;
+  }
+
+  return result;
+}
+
 function toActionResponse({
   action,
   batchId,
   batchStatus = null,
   depositAttempt = null,
+  payoutSubmissionAttempt = null,
   recovery = null,
   materialization = null,
   payoutRound = null,
@@ -174,6 +221,12 @@ function toActionResponse({
     depositAttempt: toDepositAttemptResponse(depositAttempt, {
       includeUnsignedTransactions,
     }),
+    payoutSubmissionAttempt: toPayoutSubmissionAttemptResponse(
+      payoutSubmissionAttempt,
+      {
+        includeUnsignedTransactions,
+      },
+    ),
     recovery,
     materialization,
     payoutRound,
@@ -471,6 +524,59 @@ export async function POST(request) {
         }),
       );
     }
+
+		if (action === 'prepare_payout_round_submission') {
+			if (!depositorAddress) {
+				return NextResponse.json(
+					{
+						success: false,
+						error:
+							'depositorAddress must be a valid connected Algorand wallet address.',
+					},
+					{ status: 400 },
+				);
+			}
+
+			const suggestedParams = await algodClient
+				.getTransactionParams()
+				.do();
+
+			const prepared = await prepareCreatePayoutRoundSubmission({
+				db,
+				batchId: mongoBatchId,
+				sender: depositorAddress,
+				suggestedParams,
+				algodClient,
+			});
+
+			return NextResponse.json(
+				toActionResponse({
+					action,
+					batchId: mongoBatchId,
+					batchStatus: prepared.status,
+					payoutSubmissionAttempt: prepared,
+					includeUnsignedTransactions: true,
+				}),
+			);
+		}
+
+		if (action === 'mark_payout_round_submitted') {
+			const submitted =
+				await persistSubmittedV10CreatePayoutRoundSubmission({
+					db,
+					batchId: mongoBatchId,
+				});
+
+			return NextResponse.json(
+				toActionResponse({
+					action,
+					batchId: mongoBatchId,
+					batchStatus: submitted.status,
+					payoutSubmissionAttempt:
+						submitted.payoutSubmissionAttempt,
+				}),
+			);
+		}
 
     const distribution = await preparePayoutRoundDistribution({
       db,

@@ -103,6 +103,41 @@ function toBatchSummary(batch) {
       }
     : null;
 
+	const payoutSubmissionAttempt = batch.payoutSubmissionAttempt
+		? {
+				attemptKey: batch.payoutSubmissionAttempt.attemptKey,
+				operation: batch.payoutSubmissionAttempt.operation,
+				status: batch.payoutSubmissionAttempt.status,
+				payoutRoundKey:
+					batch.payoutSubmissionAttempt.payoutRoundKey,
+				totalUsdcAtomicUnits:
+					batch.payoutSubmissionAttempt.totalUsdcAtomicUnits,
+				roundPayeesHash:
+					batch.payoutSubmissionAttempt.roundPayeesHash,
+				nextRoundId:
+					batch.payoutSubmissionAttempt.nextRoundId,
+				sender: batch.payoutSubmissionAttempt.sender,
+				groupId: batch.payoutSubmissionAttempt.groupId,
+				unsignedTransactionHash:
+					batch.payoutSubmissionAttempt.unsignedTransactionHash,
+				unsignedTransactionsBase64:
+					batch.payoutSubmissionAttempt
+						.unsignedTransactionsBase64 ?? null,
+				transactionIds:
+					batch.payoutSubmissionAttempt.transactionIds,
+				roundBoxMbrMicroalgos:
+					batch.payoutSubmissionAttempt
+						.roundBoxMbrMicroalgos,
+				preparedAt: batch.payoutSubmissionAttempt.preparedAt,
+				submittedAt: batch.payoutSubmissionAttempt.submittedAt,
+				confirmedAt: batch.payoutSubmissionAttempt.confirmedAt,
+				failureCode:
+					batch.payoutSubmissionAttempt.failureCode ?? null,
+				failureMessage:
+					batch.payoutSubmissionAttempt.failureMessage ?? null,
+			}
+		: null;
+
   return {
     batchId: String(batch._id),
     batchKey: batch.batchKey,
@@ -115,7 +150,14 @@ function toBatchSummary(batch) {
     totalAllocationCents: batch.totalAllocationCents,
     totalUsdcAtomicUnits: batch.totalUsdcAtomicUnits,
 
+    roundPayeesHash: batch.roundPayeesHash ?? null,
+    roundPayeeCount: Array.isArray(batch.roundPayees)
+      ? batch.roundPayees.length
+      : null,
+    
     depositAttempt,
+    payoutSubmissionAttempt,
+
     usdcDepositTxId: batch.usdcDepositTxId ?? null,
     usdcDepositConfirmedAt: batch.usdcDepositConfirmedAt ?? null,
 
