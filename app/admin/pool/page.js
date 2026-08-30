@@ -135,6 +135,16 @@ export default function PoolAdminPage() {
     ] = useState(false);
 
     const [
+        isPayoutRoundSubmissionDialogOpen,
+        setIsPayoutRoundSubmissionDialogOpen,
+    ] = useState(false);
+
+    const [
+        isSubmittingPayoutRound,
+        setIsSubmittingPayoutRound,
+    ] = useState(false);
+
+    const [
         isResettingPreparedUsdcDeposit,
         setIsResettingPreparedUsdcDeposit,
     ] = useState(false);
@@ -1114,6 +1124,204 @@ export default function PoolAdminPage() {
             toast.error(error.message || 'Unable to create the payout round.');
         } finally {
             setIsCreatingPayoutRound(false);
+        }
+    };
+
+    const handleReleaseUsdcForClaim = async () => {
+        if (!isConnected || !accountAddress) {
+            return toast.error(
+                'Connect the administrator wallet before releasing USDC for claim.'
+            );
+        }
+
+        if (!selectedSettlementBatch) {
+            return toast.error(
+                'Select a payout round before releasing USDC for claim.'
+            );
+        }
+
+        if (
+            selectedSettlementBatch.status !== 'round_created' &&
+            selectedSettlementBatch.status !== 'payout_prepared'
+        ) {
+            return toast.error(
+                'USDC can only be released from a created or prepared payout round.'
+            );
+        }
+
+        setIsSubmittingPayoutRound(true);
+
+        try {
+            let payoutSubmissionAttempt =
+                selectedSettlementBatch.payoutSubmissionAttempt;
+
+            if (
+                selectedSettlementBatch.status === 'round_created' ||
+                !payoutSubmissionAttempt ||
+                payoutSubmissionAttempt.status !== 'prepared' ||
+                !Array.isArray(
+                    payoutSubmissionAttempt.unsignedTransactionsBase64
+                )
+            ) {
+                const prepareResponse = await fetch(
+                    '/api/admin/revenue-settlement',
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...getAuthHeader(),
+                        },
+                        body: JSON.stringify({
+                            action: 'prepare_payout_round_submission',
+                            batchId: selectedSettlementBatch.batchId,
+                            depositorAddress: accountAddress,
+                        }),
+                    }
+                );
+
+                const prepareData = await prepareResponse.json();
+
+                if (!prepareResponse.ok || !prepareData.success) {
+                    throw new Error(
+                        prepareData.error ||
+                            'Unable to prepare the payout-round release.'
+                    );
+                }
+
+                payoutSubmissionAttempt =
+                    prepareData.payoutSubmissionAttempt;
+            }
+
+            if (
+                !payoutSubmissionAttempt ||
+                payoutSubmissionAttempt.status !== 'prepared' ||
+                !Array.isArray(
+                    payoutSubmissionAttempt.unsignedTransactionsBase64
+                ) ||
+                payoutSubmissionAttempt.unsignedTransactionsBase64.length !==
+                    2 ||
+                !payoutSubmissionAttempt.groupId ||
+                !payoutSubmissionAttempt.transactionIds?.appCall
+            ) {
+                throw new Error(
+                    'Prepared payout-round metadata is incomplete or inconsistent.'
+                );
+            }
+
+            setIsPayoutRoundSubmissionDialogOpen(true);
+
+            await loadSettlementBatches(selectedIpId);
+        } catch (error) {
+            console.error(
+                'V10 payout-round release preparation failed:',
+                error
+            );
+
+            toast.error(
+                error?.message ||
+                    'Unable to prepare USDC release for claim.'
+            );
+        } finally {
+            setIsSubmittingPayoutRound(false);
+        }
+    };
+
+    const handleSignAndSubmitPayoutRound = async () => {
+        if (!isConnected || !accountAddress || !selectedSettlementBatch) {
+            return toast.error(
+                'Connect the administrator wallet and select a payout round.'
+            );
+        }
+
+        const payoutSubmissionAttempt =
+            selectedSettlementBatch.payoutSubmissionAttempt;
+
+        if (
+            selectedSettlementBatch.status !== 'payout_prepared' ||
+            !payoutSubmissionAttempt ||
+            payoutSubmissionAttempt.status !== 'prepared' ||
+            !Array.isArray(
+                payoutSubmissionAttempt.unsignedTransactionsBase64
+            ) ||
+            payoutSubmissionAttempt.unsignedTransactionsBase64.length !== 2 ||
+            !payoutSubmissionAttempt.groupId ||
+            !payoutSubmissionAttempt.transactionIds?.appCall
+        ) {
+            return toast.error(
+                'Refresh the settlement batch before signing the payout release.'
+            );
+        }
+
+        setIsSubmittingPayoutRound(true);
+
+        try {
+            const signedTransactions = await signTransactionGroup(
+                payoutSubmissionAttempt.unsignedTransactionsBase64.map(
+                    (encodedTransaction) =>
+                        new Uint8Array(
+                            Buffer.from(encodedTransaction, 'base64')
+                        )
+                )
+            );
+
+            if (!signedTransactions || signedTransactions.length !== 2) {
+                throw new Error(
+                    'Payout-round signing was cancelled or incomplete.'
+                );
+            }
+
+            const algod = new algosdk.Algodv2(
+                '',
+                'https://testnet-api.algonode.cloud',
+                ''
+            );
+
+            await algod.sendRawTransaction(signedTransactions).do();
+
+            const submittedResponse = await fetch(
+                '/api/admin/revenue-settlement',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeader(),
+                    },
+                    body: JSON.stringify({
+                        action: 'mark_payout_round_submitted',
+                        batchId: selectedSettlementBatch.batchId,
+                    }),
+                }
+            );
+
+            const submittedData = await submittedResponse.json();
+
+            if (!submittedResponse.ok || !submittedData.success) {
+                throw new Error(
+                    submittedData.error ||
+                        'The payout group broadcast, but submitted state could not be recorded.'
+                );
+            }
+
+            setIsPayoutRoundSubmissionDialogOpen(false);
+
+            toast.success(
+                'USDC release submitted. Recipients can claim after the payout round confirms.'
+            );
+
+            await loadSettlementBatches(selectedIpId);
+            await fetchData();
+        } catch (error) {
+            console.error(
+                'Prepared V10 payout-round submission failed:',
+                error
+            );
+
+            toast.error(
+                error?.message ||
+                    'Unable to submit the USDC release for claim.'
+            );
+        } finally {
+            setIsSubmittingPayoutRound(false);
         }
     };
 
@@ -2554,6 +2762,31 @@ export default function PoolAdminPage() {
 
                                 <Button
                                     type="button"
+                                    variant="destructive"
+                                    onClick={handleReleaseUsdcForClaim}
+                                    disabled={
+                                        isSubmittingPayoutRound ||
+                                        !isConnected ||
+                                        !accountAddress ||
+                                        !selectedSettlementBatch ||
+                                        (
+                                            selectedSettlementBatch.status !== 'round_created' &&
+                                            selectedSettlementBatch.status !== 'payout_prepared'
+                                        )
+                                    }
+                                >
+                                    {isSubmittingPayoutRound ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Preparing release...
+                                        </>
+                                    ) : (
+                                        'Release USDC for claim'
+                                    )}
+                                </Button>
+
+                                <Button
+                                    type="button"
                                     variant="outline"
                                     onClick={handlePrepareDistribution}
                                     disabled={
@@ -3036,6 +3269,163 @@ export default function PoolAdminPage() {
                                 </>
                             ) : (
                                 'Sign and broadcast USDC deposit'
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <Dialog
+                open={isPayoutRoundSubmissionDialogOpen}
+                onOpenChange={(open) => {
+                    if (!isSubmittingPayoutRound) {
+                        setIsPayoutRoundSubmissionDialogOpen(open);
+                    }
+                }}
+            >
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Release USDC for claim?</DialogTitle>
+
+                        <DialogDescription>
+                            This will ask your connected wallet to sign and then broadcast
+                            the exact prepared two-transaction payout group. Broadcasting
+                            creates the payout round on-chain and makes the released USDC
+                            available for eligible recipients to claim.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {selectedSettlementBatch?.payoutSubmissionAttempt && (
+                        <div className="space-y-4 rounded border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                            <div className="grid gap-3 md:grid-cols-2">
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        Connected signer
+                                    </p>
+
+                                    <p className="mt-1 break-all font-mono text-xs">
+                                        {accountAddress}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        Payout-round key
+                                    </p>
+
+                                    <p className="mt-1 break-all font-mono text-xs">
+                                        {
+                                            selectedSettlementBatch
+                                                .payoutSubmissionAttempt
+                                                .payoutRoundKey
+                                        }
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        USDC amount
+                                    </p>
+
+                                    <p className="mt-1 font-mono">
+                                        {
+                                            selectedSettlementBatch
+                                                .payoutSubmissionAttempt
+                                                .totalUsdcAtomicUnits
+                                        }{' '}
+                                        atomic USDC
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <p className="text-xs font-medium text-amber-800">
+                                        Transaction group
+                                    </p>
+
+                                    <p className="mt-1 font-mono">
+                                        2 transactions
+                                    </p>
+
+                                    <p className="mt-1 text-xs text-amber-900">
+                                        USDC transfer: index 0 · App call: index 1
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-xs font-medium text-amber-800">
+                                    Settlement batch ID
+                                </p>
+
+                                <p className="mt-1 break-all font-mono text-xs">
+                                    {selectedSettlementBatch.batchId}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-xs font-medium text-amber-800">
+                                    Prepared group ID
+                                </p>
+
+                                <p className="mt-1 break-all font-mono text-xs">
+                                    {
+                                        selectedSettlementBatch
+                                            .payoutSubmissionAttempt
+                                            .groupId
+                                    }
+                                </p>
+                            </div>
+
+                            <div>
+                                <p className="text-xs font-medium text-amber-800">
+                                    Application-call transaction ID
+                                </p>
+
+                                <p className="mt-1 break-all font-mono text-xs">
+                                    {
+                                        selectedSettlementBatch
+                                            .payoutSubmissionAttempt
+                                            .transactionIds?.appCall
+                                    }
+                                </p>
+                            </div>
+
+                            <p className="border-t border-amber-200 pt-3 text-xs text-amber-900">
+                                Confirm only if the connected wallet is authorized to
+                                create this payout round and the amount matches the frozen
+                                settlement batch. This broadcast releases the batch USDC
+                                for recipient claims.
+                            </p>
+                        </div>
+                    )}
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() =>
+                                setIsPayoutRoundSubmissionDialogOpen(false)
+                            }
+                            disabled={isSubmittingPayoutRound}
+                        >
+                            Cancel
+                        </Button>
+
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={handleSignAndSubmitPayoutRound}
+                            disabled={
+                                isSubmittingPayoutRound ||
+                                !selectedSettlementBatch?.payoutSubmissionAttempt
+                            }
+                        >
+                            {isSubmittingPayoutRound ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Signing and submitting…
+                                </>
+                            ) : (
+                                'Sign and broadcast USDC release'
                             )}
                         </Button>
                     </DialogFooter>
