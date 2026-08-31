@@ -9,7 +9,8 @@ import {
   Palette, LayoutGrid, Terminal, Menu, ChevronDown, Dumbbell,
   GraduationCap, Coffee, HeartHandshake, ShoppingCart,
   Wrench, FileText, DollarSignIcon, Wallet, Shield, Coins,
-  FolderOpen, Package, User, Factory, Swords, Music, Star, Sparkles
+  FolderOpen, Package, User, Factory, Swords, Music, Star, Sparkles, 
+  HandCoins, Landmark, ClipboardList
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
@@ -164,103 +165,134 @@ const NavContent = ({ isAuthenticated, menuItems, menuTitle, pathname, logout, r
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, loading, logout } = useAuth();
+  const { isAuthenticated, loading, logout, user } = useAuth();
 
+  const isAdmin = user?.isAdmin === true || user?.role === 'admin';
   const dashboardMenuItems = [
     // 1. Dashboard
     { icon: LayoutDashboard, label: 'Global Dashboard', href: '/dashboard' },
 
-    // 2. IP & Assets — full lifecycle group
+    // 2. Payouts
+    { icon: HandCoins, label: 'Payouts', href: '/claim' },
+
+    // 3. IP & Assets — full lifecycle group
     {
       icon: FolderOpen,
       label: 'IP / Assets',
       href: '/my-ip',
       subItems: [
-        { icon: FolderOpen,  label: 'Manage IP Assets',       href: '/my-ip' },
-        { icon: Shield,      label: 'Minting Authentication', href: '/mint-authentication' },
-        { icon: Coins,       label: 'Revenue Tokenization',   href: '/revenue-tokenization' },
+        { icon: FolderOpen, label: 'Manage IP Assets', href: '/my-ip' },
+        { icon: Shield, label: 'Minting Authentication', href: '/mint-authentication' },
+        { icon: Coins, label: 'Revenue Tokenization', href: '/revenue-tokenization' },
       ],
     },
 
-    // 3. Products
+    // 4. Products
     {
       icon: Package,
       label: 'Manage Products',
       href: '/my-products',
       subItems: [
-        { icon: Package, label: 'My Products',    href: '/my-products' },
+        { icon: Package, label: 'My Products', href: '/my-products' },
         { icon: Palette, label: 'Create Product', href: '/products/creator' },
       ],
     },
 
-    // 4. Sales & Marketing — includes public profile
+    // 5. Sales & Marketing
     {
       icon: Store,
       label: 'Sales / Marketing',
       href: '/sales',
       subItems: [
-        { icon: Store,       label: 'Aisle Creator',          href: '/aisle-settings' },
-        { icon: Gift,        label: 'Promotions & Marketing', href: '/promotions' },
-        { icon: TrendingUp,  label: 'Earnings',               href: '/earnings' },
-        { icon: User,        label: 'Profile Editor',         href: '/profile-settings' },
+        { icon: Store, label: 'Aisle Creator', href: '/aisle-settings' },
+        { icon: Gift, label: 'Promotions & Marketing', href: '/promotions' },
+        { icon: TrendingUp, label: 'Earnings', href: '/earnings' },
+        { icon: User, label: 'Profile Editor', href: '/profile-settings' },
       ],
     },
 
-    // 5. Account Management — now points to the real page
+    // 6. Account Management
     { icon: Settings, label: 'Account Management', href: '/account-management' },
+
+    // 7. Admin — visible only to logged-in admins
+    ...(isAdmin
+      ? [
+          {
+            icon: Shield,
+            label: 'Admin',
+            href: '/admin/pool',
+            subItems: [
+              {
+                icon: Landmark,
+                label: 'Pool Dashboard',
+                href: '/admin/pool',
+              },
+              {
+                icon: ClipboardList,
+                label: 'Order Management',
+                href: '/admin/orders',
+              },
+            ],
+          },
+        ]
+      : []),
   ];
 
   const publicMenuItems = [
     { icon: Home, label: 'System Home', href: '/' },
+
+    // Payouts immediately below System Home
+    { icon: HandCoins, label: 'Payouts', href: '/claim' },
+
     {
       icon: Terminal,
       label: 'MetaWork Overview',
       href: '/metawork-overview',
       subItems: [
-        { icon: Shield,   label: 'IP Minting',  href: '/metawork-overview/minting-process' },
-        { icon: Coins,   label: 'Asset Tokenization',  href: '/metawork-overview/tokenization' },
-        { icon: Factory,   label: 'MetaManufacturing',   href: '/metawork-overview/product-creation' },
+        { icon: Shield, label: 'IP Minting', href: '/metawork-overview/minting-process' },
+        { icon: Coins, label: 'Asset Tokenization', href: '/metawork-overview/tokenization' },
+        { icon: Factory, label: 'MetaManufacturing', href: '/metawork-overview/product-creation' },
         { icon: Store, label: 'MetaCommerce Engine', href: '/metawork-overview/selling' },
-      ]
+      ],
     },
     {
       icon: Wrench,
       label: 'The Toolbox',
       href: '/tools',
       subItems: [
-        { icon: Box,           label: 'Manufacturing Catalog', href: '/catalog' },
-        { icon: DollarSignIcon, label: 'Tokenization',         href: '/tutorials/minting' },
-        { icon: Wallet,        label: 'Secure Wallet',         href: '/wallet-guide' },
-      ]
+        { icon: Box, label: 'Manufacturing Catalog', href: '/catalog' },
+        { icon: DollarSignIcon, label: 'Tokenization', href: '/tutorials/minting' },
+        { icon: Wallet, label: 'Secure Wallet', href: '/wallet-guide' },
+      ],
     },
     {
       icon: Globe,
       label: 'Industries We Serve',
       href: '/industries',
       subItems: [
-      { icon: Swords,         label: 'Fighters',                href: '/industries/fighters' },
-      { icon: Zap,            label: 'Extreme Athletes',        href: '/industries/extreme-athletes' },
-      { icon: Dumbbell,       label: 'Gyms & Fitness',          href: '/industries/gyms-fitness' },
-      { icon: Music,          label: 'Musicians',               href: '/industries/musicians' },
-      { icon: Star,           label: 'Influencers',             href: '/industries/influencers' },
-      { icon: Palette,        label: 'Creators & IP',           href: '/industries/creators' },
-      { icon: GraduationCap,  label: 'Education',               href: '/industries/education' },
-      { icon: HeartHandshake, label: 'Non-Profits',             href: '/industries/non-profits' },
-      { icon: Coffee,         label: 'Food & Beverage',         href: '/industries/food-beverage' },
-      { icon: Sparkles,       label: 'Beauty & Personal Care',  href: '/industries/beauty-personal-care' },
-      { icon: ShoppingCart,   label: 'Retailers & LGS',         href: '/industries/retailers' },
-      { icon: Gift,           label: 'B2B & Promo',             href: '/industries/gifts-promo' },
-    ]
+        { icon: Swords, label: 'Fighters', href: '/industries/fighters' },
+        { icon: Zap, label: 'Extreme Athletes', href: '/industries/extreme-athletes' },
+        { icon: Dumbbell, label: 'Gyms & Fitness', href: '/industries/gyms-fitness' },
+        { icon: Music, label: 'Musicians', href: '/industries/musicians' },
+        { icon: Star, label: 'Influencers', href: '/industries/influencers' },
+        { icon: Palette, label: 'Creators & IP', href: '/industries/creators' },
+        { icon: GraduationCap, label: 'Education', href: '/industries/education' },
+        { icon: HeartHandshake, label: 'Non-Profits', href: '/industries/non-profits' },
+        { icon: Coffee, label: 'Food & Beverage', href: '/industries/food-beverage' },
+        { icon: Sparkles, label: 'Beauty & Personal Care', href: '/industries/beauty-personal-care' },
+        { icon: ShoppingCart, label: 'Retailers & LGS', href: '/industries/retailers' },
+        { icon: Gift, label: 'B2B & Promo', href: '/industries/gifts-promo' },
+      ],
     },
     { icon: LayoutGrid, label: 'Global Showroom', href: '/showroom' },
-    { icon: Info,       label: 'About Us',        href: '/about-us' },
-    { icon: FileText,   label: 'Official Whitepaper', href: '/whitepaper' },
+    { icon: Info, label: 'About Us', href: '/about-us' },
+    { icon: FileText, label: 'Official Whitepaper', href: '/whitepaper' },
   ];
 
   if (loading) return null;
 
   const menuItems = isAuthenticated ? dashboardMenuItems : publicMenuItems;
-  const menuTitle = isAuthenticated ? "System / Creator" : "System / Explore";
+  const menuTitle = isAuthenticated ? 'System / Creator' : 'System / Explore';
 
   return (
     <>

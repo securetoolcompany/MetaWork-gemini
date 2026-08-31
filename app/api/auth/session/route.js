@@ -67,7 +67,10 @@ export async function GET(request) {
         name: user.profile?.displayName || user.name,
         image: user.profile?.avatar || user.image,
         username: user.username,
-        membershipTier: user.membershipTier
+        membershipTier: user.membershipTier,
+
+        role: user.role,
+        isAdmin: user.isAdmin === true || user.role === 'admin',
       }
     });
   } catch (error) {
