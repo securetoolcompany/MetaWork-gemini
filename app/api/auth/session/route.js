@@ -62,13 +62,13 @@ export async function GET(request) {
     return NextResponse.json({
       user: {
         id: user.id || user._id,
-        walletAddress: user.walletAddress,
+        walletAddress: user.walletAddress || null,
+        wallets: Array.isArray(user.wallets) ? user.wallets : [],
         email: user.email,
         name: user.profile?.displayName || user.name,
         image: user.profile?.avatar || user.image,
         username: user.username,
         membershipTier: user.membershipTier,
-
         role: user.role,
         isAdmin: user.isAdmin === true || user.role === 'admin',
       }

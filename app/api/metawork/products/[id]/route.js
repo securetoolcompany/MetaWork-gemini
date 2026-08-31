@@ -58,7 +58,21 @@ function createOwnershipFilter(productFilter, userId) {
   };
 }
 
-const toCents = (value) => Math.round(Number(value || 0) * 100);
+function toCents(value, fieldName = 'value') {
+  if (value === null || value === undefined || value === '') {
+    throw new Error(`${fieldName} is required.`);
+  }
+
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue) || numericValue < 0) {
+    throw new Error(
+      `${fieldName} must be a valid non-negative amount.`
+    );
+  }
+
+  return Math.round(numericValue * 100);
+}
 
 const getLockedLicensingFeeCents = (product) =>
   (Array.isArray(product?.licensedRevenueTerms)
@@ -76,7 +90,10 @@ const getVariantCostCents = (variant) => {
     return null;
   }
 
-  const cents = toCents(value);
+  const cents = toCents(
+    value,
+    'variant canonical cost'
+  );
 
   if (!Number.isFinite(cents) || cents < 0) {
     return null;
@@ -84,6 +101,56 @@ const getVariantCostCents = (variant) => {
 
   return cents;
 };
+
+function getVariantPricingSummary({
+  product,
+  variant,
+  retailPrice,
+}) {
+  const supplierCostCents = getVariantCostCents(variant);
+
+  if (supplierCostCents === null) {
+    throw new Error(
+      `Cannot price ${variant?.name || variant?.size || 'a variant'} without a canonical supplier cost.`
+    );
+  }
+
+  const lockedIpFeesCents = getLockedLicensingFeeCents(product);
+
+  const retailPriceCents = toCents(
+    retailPrice,
+    'variant retail_price'
+  );
+
+  if (!Number.isSafeInteger(retailPriceCents) || retailPriceCents < 0) {
+    throw new Error(
+      `${variant?.name || variant?.size || 'A variant'} has an invalid retail_price.`
+    );
+  }
+
+  const minimumRetailPriceCents =
+    supplierCostCents + lockedIpFeesCents;
+
+  if (retailPriceCents < minimumRetailPriceCents) {
+    throw new Error(
+      `${variant?.name || variant?.size || 'A variant'} must be priced at ` +
+        `$${(minimumRetailPriceCents / 100).toFixed(2)} or more. ` +
+        `Its canonical base cost is $${(supplierCostCents / 100).toFixed(2)} and ` +
+        `the product has $${(lockedIpFeesCents / 100).toFixed(2)} in locked IP licensing fees.`
+    );
+  }
+
+  const creatorProfitPerUnitCents =
+    retailPriceCents - minimumRetailPriceCents;
+
+  return {
+    retailPriceCents,
+    supplierCostCents,
+    lockedIpFeesCents,
+    minimumRetailPriceCents,
+    creatorProfitPerUnitCents,
+  };
+}
 
 function getVariantKey(variant) {
   const value =
@@ -131,8 +198,11 @@ function getCanonicalProductVariants(product) {
   return [];
 }
 
-function applyCanonicalVariantPricing(existingVariants, requestedVariants) {
-  const canonicalVariants = Array.isArray(existingVariants)
+function applyCanonicalVariantPricing(
+  currentProduct,
+  existingVariants,
+  requestedVariants
+) {  const canonicalVariants = Array.isArray(existingVariants)
     ? existingVariants
     : [];
 
@@ -185,39 +255,64 @@ function applyCanonicalVariantPricing(existingVariants, requestedVariants) {
     throw new Error(`Variant ${key} has an invalid retail_price.`);
   }
 
+  const pricingSummary = getVariantPricingSummary({
+    product: currentProduct,
+    variant: canonicalVariant,
+    retailPrice,
+  });
+
   return {
     ...canonicalVariant,
+
     retail_price: Number(retailPrice.toFixed(2)),
+
+    creatorProfitPerUnitCents:
+      pricingSummary.creatorProfitPerUnitCents,
+
+    creatorProfit:
+      Number(
+        (
+          pricingSummary.creatorProfitPerUnitCents / 100
+        ).toFixed(2)
+      ),
+
+    pricingSnapshot: {
+      pricingVersion: 'product_creator_profit_v1',
+
+      retailPriceCents:
+        pricingSummary.retailPriceCents,
+
+      canonicalBaseCostCents:
+        pricingSummary.supplierCostCents,
+
+      lockedIpFeesCents:
+        pricingSummary.lockedIpFeesCents,
+
+      minimumRetailPriceCents:
+        pricingSummary.minimumRetailPriceCents,
+
+      creatorProfitPerUnitCents:
+        pricingSummary.creatorProfitPerUnitCents,
+
+      calculatedAt: new Date().toISOString(),
+    },
   };
 });
 }
 
 const assertProductCanBeSold = ({ product, variants }) => {
   if (!Array.isArray(variants) || variants.length === 0) {
-    throw new Error('Cannot publish a product without at least one sellable variant.');
+    throw new Error(
+      'Cannot publish a product without at least one sellable variant.'
+    );
   }
-  const lockedLicensingFeeCents = getLockedLicensingFeeCents(product);
 
   for (const variant of variants) {
-    const retailPriceCents = toCents(variant?.retail_price);
-    const supplierCostCents = getVariantCostCents(variant);
-
-    if (supplierCostCents === null) {
-      throw new Error(
-        `Cannot publish ${variant?.name || variant?.size || 'a variant'} without a supplier cost.`
-      );
-    }
-
-    const minimumPriceCents = supplierCostCents + lockedLicensingFeeCents;
-
-    if (retailPriceCents < minimumPriceCents) {
-      throw new Error(
-        `${variant?.name || variant?.size || 'A variant'} must be priced at ` +
-          `$${(minimumPriceCents / 100).toFixed(2)} or more. ` +
-          `Its supplier cost is $${(supplierCostCents / 100).toFixed(2)} and ` +
-          `the product has $${(lockedLicensingFeeCents / 100).toFixed(2)} in locked IP licensing fees.`
-      );
-    }
+    getVariantPricingSummary({
+      product,
+      variant,
+      retailPrice: variant?.retail_price,
+    });
   }
 };
 
@@ -363,6 +458,7 @@ export async function PUT(request, { params }) {
     // --- PRESERVE CANONICAL VARIANT COSTS; ACCEPT RETAIL PRICE ONLY ---
     if (Array.isArray(updates.variants) && updates.variants.length > 0) {
       updates.variants = applyCanonicalVariantPricing(
+        existingProduct,
         getCanonicalProductVariants(existingProduct),
         updates.variants
       );
@@ -413,8 +509,14 @@ export async function PUT(request, { params }) {
 
             return (
               storedVariant &&
-              toCents(updatedVariant.retail_price) !==
-                toCents(storedVariant.retail_price)
+              toCents(
+                updatedVariant.retail_price,
+                'updated variant retail_price'
+              ) !==
+                toCents(
+                  storedVariant.retail_price,
+                  'stored variant retail_price'
+                )
             );
           }
         );

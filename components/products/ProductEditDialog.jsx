@@ -34,6 +34,111 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+function formatMoney(value) {
+  const amount = Number(value);
+
+  return Number.isFinite(amount)
+    ? `$${amount.toFixed(2)}`
+    : '—';
+}
+
+
+function centsToMoney(cents) {
+  const value = Number(cents);
+
+  return Number.isSafeInteger(value)
+    ? formatMoney(value / 100)
+    : '—';
+}
+
+
+function getLockedIpFeesCents(product) {
+  return (Array.isArray(product?.licensedRevenueTerms)
+    ? product.licensedRevenueTerms
+    : []
+  ).reduce((total, term) => {
+    const feeCents = Number(term?.licensingFeeCents);
+
+    return (
+      total +
+      (Number.isSafeInteger(feeCents) && feeCents > 0
+        ? feeCents
+        : 0)
+    );
+  }, 0);
+}
+
+
+function getVariantMinimumPriceCents(
+  product,
+  variant
+) {
+  const storedMinimum = Number(
+    variant?.pricingSnapshot?.minimumRetailPriceCents
+  );
+
+  if (
+    Number.isSafeInteger(storedMinimum) &&
+    storedMinimum >= 0
+  ) {
+    return storedMinimum;
+  }
+
+  const canonicalBaseCost = Number(
+    variant?.cost ??
+      variant?.printfulCost ??
+      variant?.supplierCost
+  );
+
+  if (
+    !Number.isFinite(canonicalBaseCost) ||
+    canonicalBaseCost < 0
+  ) {
+    return null;
+  }
+
+  return (
+    Math.round(canonicalBaseCost * 100) +
+    getLockedIpFeesCents(product)
+  );
+}
+
+
+function getVariantCreatorProfitCents(
+  product,
+  variant
+) {
+  const storedProfit = Number(
+    variant?.creatorProfitPerUnitCents
+  );
+
+  if (
+    Number.isSafeInteger(storedProfit) &&
+    storedProfit >= 0
+  ) {
+    return storedProfit;
+  }
+
+  const minimumPriceCents = getVariantMinimumPriceCents(
+    product,
+    variant
+  );
+
+  const retailPrice = Number(variant?.retail_price);
+
+  if (
+    minimumPriceCents === null ||
+    !Number.isFinite(retailPrice)
+  ) {
+    return null;
+  }
+
+  return Math.max(
+    Math.round(retailPrice * 100) - minimumPriceCents,
+    0
+  );
+}
+
 const CATEGORY_UI_MAP = {
   'accessories': { title: 'Accessories & Apparel', icon: '🎽' },
   'home': { title: 'Home & Office', icon: '🏠' },
@@ -97,6 +202,8 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [selectedVariantSize, setSelectedVariantSize] =
+    useState(null);
   const fileInputRef = useRef(null);
   
   const [groupedCategories, setGroupedCategories] = useState({});
@@ -294,65 +401,6 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
     }
   }, [open, product]);
 
-      // EDM‑aware costAnalysis: printfulBase + placementCost + platformBase
-  const costAnalysis = product?.costAnalysis || {};
-
-  const printfulBase = parseFloat(costAnalysis.printfulBase ?? 0) || 0;
-  const placementCost = parseFloat(costAnalysis.placementCost ?? 0) || 0;
-  const platformBase = parseFloat(costAnalysis.platformBase ?? 0) || 0;
-
-  // Legacy fallback for older products that only have a single base cost
-  const legacyBaseCost = parseFloat(
-    product?.baseProductCost ??
-    costAnalysis.base ??
-    0
-  ) || 0;
-
-  // Effective base production cost used in the breakdown:
-  // printful base + placement + platform overhead (if present),
-  // otherwise fall back to legacyBaseCost.
-  const baseProductCost =
-    printfulBase > 0 || platformBase > 0
-      ? printfulBase + placementCost + (platformBase > 0 ? (platformBase - printfulBase) : 0)
-      : legacyBaseCost;
-
-  console.log('[ProductEditDialog] cost fields:', {
-    printfulBase,
-    placementCost,
-    platformBase,
-    legacyBaseCost,
-    baseProductCost,
-    costAnalysis,
-  });
-
-  const ipCosts = (() => {
-    if (product?.ipUsages && Array.isArray(product.ipUsages)) {
-      return product.ipUsages.map(usage => ({
-        name: usage.name || usage.ipAssetId || 'IP Asset',
-        cost: (parseFloat(usage.licensingFee) || 0) * (usage.quantity || 1),
-        licensingFee: parseFloat(usage.licensingFee) || 0,
-        quantity: usage.quantity || 1
-      }));
-    }
-    if (product?.ipCosts && Array.isArray(product.ipCosts)) {
-      return product.ipCosts.map(ip => ({
-        name: ip.name || 'IP Asset',
-        cost: parseFloat(ip.cost) || parseFloat(ip.licensingFee) || 0,
-        licensingFee: parseFloat(ip.licensingFee) || parseFloat(ip.cost) || 0,
-        quantity: 1
-      }));
-    }
-    return [];
-  })();
-  
-  const totalIPCost = ipCosts.reduce((sum, ip) => sum + ip.cost, 0);
-  const totalProductionCost = baseProductCost + totalIPCost;
-  const suggestedPrice = (totalProductionCost * 2.5).toFixed(2); 
-  const profit = (formData.price - totalProductionCost).toFixed(2);
-  const profitMargin = formData.price > 0
-    ? (((formData.price - totalProductionCost) / formData.price) * 100).toFixed(1)
-    : 0;
-
   // Derive unique sizes for the pricing UI
   // --- REPLACEMENT BLOCK START ---
   const uniqueSizeVariants = [];
@@ -367,18 +415,44 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
     if (!seenSizes.has(rawSize)) {
       seenSizes.add(rawSize);
 
-      const baseVariantCost = parseFloat(variant.cost || variant.price || 0) || 0;
-      const extraFromPlatform =
-        platformBase > 0 && printfulBase > 0
-          ? platformBase - printfulBase
-          : 0;
+      const minimumPriceCents = getVariantMinimumPriceCents(
+        product,
+        variant
+      );
+
+      const creatorProfitCents = getVariantCreatorProfitCents(
+        product,
+        variant
+      );
+
+      const canonicalBaseCost = Number(
+        variant?.pricingSnapshot?.canonicalBaseCostCents
+      );
+
+      const fallbackCost = Number(
+        variant?.cost ??
+          variant?.printfulCost ??
+          variant?.supplierCost
+      );
 
       uniqueSizeVariants.push({
         ...variant,
+
         displaySize: rawSize,
-        baseVariantCost,
-        // Effective production cost including placements + platform overhead
-        cleanCost: baseVariantCost + placementCost + extraFromPlatform,
+
+        minimumPriceCents,
+        creatorProfitCents,
+
+        /*
+        * Legacy compatibility only. New UI values use minimumPriceCents and
+        * creatorProfitCents. This fallback prevents an empty display for
+        * historical products without a stored pricingSnapshot.
+        */
+        cleanCost: Number.isSafeInteger(canonicalBaseCost)
+          ? canonicalBaseCost / 100
+          : Number.isFinite(fallbackCost)
+            ? fallbackCost
+            : null,
       });
     }
   });
@@ -391,64 +465,135 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
     return a.displaySize.localeCompare(b.displaySize);
   });
 
+  /*
+   * The product’s saved licensedRevenueTerms and canonical variants are the
+   * accounting source of truth. Do not calculate royalties from legacy
+   * costAnalysis, ipUsages, or ipCosts fields.
+   */
+  const breakdownVariant =
+  uniqueSizeVariants.find(
+    (variant) =>
+      variant.displaySize === selectedVariantSize
+  ) ||
+  uniqueSizeVariants[0] ||
+  formData.variants?.[0] ||
+  null;
+
+  const breakdownRetailPrice = Number(
+    breakdownVariant?.retail_price ?? formData.price
+  );
+
+  const breakdownRetailPriceCents = Number.isFinite(
+    breakdownRetailPrice
+  )
+    ? Math.round(breakdownRetailPrice * 100)
+    : null;
+
+  const breakdownMinimumPriceCents = breakdownVariant
+    ? getVariantMinimumPriceCents(product, breakdownVariant)
+    : null;
+
+  const breakdownLockedIpFeesCents = Number(
+    breakdownVariant?.pricingSnapshot?.lockedIpFeesCents ??
+      getLockedIpFeesCents(product)
+  );
+
+  const normalizedBreakdownLockedIpFeesCents =
+    Number.isSafeInteger(breakdownLockedIpFeesCents) &&
+    breakdownLockedIpFeesCents >= 0
+      ? breakdownLockedIpFeesCents
+      : 0;
+
+  const breakdownCanonicalBaseCostCents = Number(
+    breakdownVariant?.pricingSnapshot?.canonicalBaseCostCents
+  );
+
+  const normalizedBreakdownCanonicalBaseCostCents =
+    Number.isSafeInteger(breakdownCanonicalBaseCostCents) &&
+    breakdownCanonicalBaseCostCents >= 0
+      ? breakdownCanonicalBaseCostCents
+      : breakdownMinimumPriceCents !== null
+        ? breakdownMinimumPriceCents -
+          normalizedBreakdownLockedIpFeesCents
+        : null;
+
+  const breakdownCreatorProfitCents = breakdownVariant
+    ? getVariantCreatorProfitCents(product, breakdownVariant)
+    : null;
+
+  const creatorProfitMargin =
+    breakdownRetailPriceCents !== null &&
+    breakdownRetailPriceCents > 0 &&
+    breakdownCreatorProfitCents !== null
+      ? (
+          (breakdownCreatorProfitCents /
+            breakdownRetailPriceCents) *
+          100
+        ).toFixed(1)
+      : null;
+
+  const suggestedPrice =
+    breakdownMinimumPriceCents !== null
+      ? ((breakdownMinimumPriceCents / 100) * 2.5).toFixed(2)
+      : '—';
+
   // 2. Safely handle price changes without cursor jumping or NaN crashes
-  const handleVariantPriceChange = (sizeName, newRetailPriceStr) => {
-    setFormData(prev => {
-      // Find the variant the user is actively typing in
-      const editedVariant = prev.variants.find(v => {
-        let s = v.size || v.name || 'Default';
-        if (s.includes(' / ')) s = s.split(' / ')[1];
-        if (s.includes(' - ')) s = s.split(' - ')[1];
-        return s.trim() === sizeName;
-      });
+  const handleVariantPriceChange = (
+    sizeName,
+    newRetailPriceStr
+  ) => {
+  setSelectedVariantSize(sizeName);
+  setFormData((previousFormData) => {
+    const updatedVariants = (
+      previousFormData.variants || []
+    ).map((variant) => {
+      let variantSize =
+        variant.size ||
+        variant.name ||
+        'Default';
 
-      if (!editedVariant) return prev;
-
-      const numericPrice = parseFloat(newRetailPriceStr);
-      
-      // If the box is cleared (empty string), don't do math, just clear the targeted sizes
-      if (isNaN(numericPrice)) {
-        const clearedVariants = prev.variants.map(v => {
-          let s = v.size || v.name || 'Default';
-          if (s.includes(' / ')) s = s.split(' / ')[1];
-          if (s.includes(' - ')) s = s.split(' - ')[1];
-          if (s.trim() === sizeName) {
-            return { ...v, retail_price: newRetailPriceStr };
-          }
-          return v;
-        });
-        return { ...prev, variants: clearedVariants };
+      if (variantSize.includes(' / ')) {
+        variantSize = variantSize.split(' / ')[1];
       }
 
-      const baseCost = parseFloat(editedVariant.cost || editedVariant.price || 0);
-      const markup = numericPrice - baseCost;
+      if (variantSize.includes(' - ')) {
+        variantSize = variantSize.split(' - ')[1];
+      }
 
-      const updatedVariants = prev.variants.map(variant => {
-        let s = variant.size || variant.name || 'Default';
-        if (s.includes(' / ')) s = s.split(' / ')[1];
-        if (s.includes(' - ')) s = s.split(' - ')[1];
-        s = s.trim();
+      if (variantSize.trim() !== sizeName) {
+        return variant;
+      }
 
-        // Exactly preserve the string for the size being typed in (prevents cursor jump)
-        if (s === sizeName) {
-          return { ...variant, retail_price: newRetailPriceStr };
-        }
+      return {
+        ...variant,
 
-        // Apply synchronized math to all other sizes
-        const vCost = parseFloat(variant.cost || variant.price || 0);
-        return {
-          ...variant,
-          retail_price: parseFloat((vCost + markup).toFixed(2)),
-        };
-      });
-
-      const newBasePrice = updatedVariants.length > 0
-        ? (parseFloat(updatedVariants[0].retail_price) || 0)
-        : numericPrice;
-
-      return { ...prev, variants: updatedVariants, price: newBasePrice };
+        /*
+         * Preserve the exact string while typing. This avoids cursor jumps
+         * and lets the existing client/server validation handle incomplete,
+         * empty, and invalid values when the creator saves.
+         */
+        retail_price: newRetailPriceStr,
+      };
     });
-  };
+
+    const firstVariantPrice = Number(
+      updatedVariants[0]?.retail_price
+    );
+
+    return {
+      ...previousFormData,
+      variants: updatedVariants,
+
+      /*
+       * Retained for legacy consumers of formData.price. Individual variant
+       * prices are the authoritative editing values.
+       */
+      price: Number.isFinite(firstVariantPrice)
+        ? firstVariantPrice
+        : previousFormData.price,
+    };
+  });
+};
   // --- REPLACEMENT BLOCK END ---
 
   const handleSelectCategory = (categoryName) => {
@@ -536,8 +681,39 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
       return;
     }
 
-    if (formData.price < totalProductionCost) {
-      toast.error('Price too low!', { description: `Price must be at least $${totalProductionCost.toFixed(2)} to cover costs` });
+    const underpricedVariant = (formData.variants || []).find(
+      (variant) => {
+        const minimumPriceCents = getVariantMinimumPriceCents(
+          product,
+          variant
+        );
+
+        const retailPrice = Number(variant?.retail_price);
+
+        if (
+          minimumPriceCents === null ||
+          !Number.isFinite(retailPrice)
+        ) {
+          return false;
+        }
+
+        return Math.round(retailPrice * 100) < minimumPriceCents;
+      }
+    );
+
+    if (underpricedVariant) {
+      const minimumPriceCents = getVariantMinimumPriceCents(
+        product,
+        underpricedVariant
+      );
+
+      toast.error('Price too low!', {
+        description:
+          `${underpricedVariant.size || underpricedVariant.name || 'This variant'} ` +
+          `must be priced at least ${centsToMoney(minimumPriceCents)} ` +
+          `to cover its canonical cost and locked IP licensing fees.`,
+      });
+
       return;
     }
 
@@ -573,8 +749,11 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
 
       const data = await response.json();
 
-      if (!response.ok) throw new Error(data.error || 'Failed to update product');
-
+      if (!response.ok || data?.success !== true) {
+        throw new Error(
+          data?.error || 'Failed to update product'
+        );
+      }
       if (product?.isPublic && !formData.isPublic) {
         toast.success('Product unlisted from Aisle!');
       } else if (!product?.isPublic && formData.isPublic) {
@@ -862,18 +1041,42 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
                   {uniqueSizeVariants.length > 0 ? (
                     uniqueSizeVariants.map((variant, index) => (
                       <div key={variant.displaySize || index} className="flex items-center justify-between gap-4">
-                        <span className="text-sm font-medium">
-                          {variant.displaySize.toUpperCase()} <span className="text-muted-foreground text-xs">(Cost: ${variant.cleanCost})</span>
-                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">
+                            {variant.displaySize.toUpperCase()}
+                          </p>
+
+                          <p className="text-xs text-muted-foreground">
+                            Minimum price:{' '}
+                            {variant.minimumPriceCents !== null
+                              ? centsToMoney(variant.minimumPriceCents)
+                              : formatMoney(variant.cleanCost)}
+                          </p>
+
+                          <p className="text-xs text-emerald-500">
+                            Your profit:{' '}
+                            {variant.creatorProfitCents !== null
+                              ? centsToMoney(variant.creatorProfitCents)
+                              : '—'}
+                          </p>
+                        </div>
                         <div className="relative w-32">
                           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                          <Input 
-                            type="number" 
-                            step="0.01" 
-                            value={variant.retail_price ?? ''} 
-                            onChange={(e) => handleVariantPriceChange(variant.displaySize, e.target.value)} 
-                            className="pl-7 bg-background border-border" 
-                            disabled={isLoading} 
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={variant.retail_price ?? ''}
+                            onFocus={() =>
+                              setSelectedVariantSize(variant.displaySize)
+                            }
+                            onChange={(e) =>
+                              handleVariantPriceChange(
+                                variant.displaySize,
+                                e.target.value
+                              )
+                            }
+                            className="pl-7 bg-background border-border"
+                            disabled={isLoading}
                           />
                         </div>
                       </div>
@@ -898,64 +1101,138 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
             </Card>
 
             {/* 3. Cost Breakdown Card */}
-            <Card className="border-border bg-card">
-              <CardHeader><CardTitle className="text-lg flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" /> Cost Breakdown</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">Base Product</span><span className="font-medium">${baseProductCost.toFixed(2)}</span></div>
-                
-                {ipCosts.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm"><span className="text-muted-foreground">IP Royalties</span><span className="font-medium">${totalIPCost.toFixed(2)}</span></div>
-                    <div className="pl-4 space-y-1">
-                      {ipCosts.map((ip, index) => (
-                        <div key={index} className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground flex items-center gap-2">
-                            <Badge variant="secondary" className="h-5 px-2 text-xs">IP</Badge>
-                            {ip.name}
-                            {ip.quantity > 1 && <span className="text-primary">×{ip.quantity}</span>}
-                          </span>
-                          <span className="text-muted-foreground">
-                            ${ip.licensingFee.toFixed(2)} {ip.quantity > 1 && `× ${ip.quantity} = $${ip.cost.toFixed(2)}`}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {ipCosts.length === 0 && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">IP Royalties</span>
-                    <span className="text-muted-foreground">$0.00</span>
-                  </div>
-                )}
+              <Card className="border-border bg-card">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    Pricing Breakdown
+                  </CardTitle>
+                </CardHeader>
 
-                <Separator className="bg-border" />
-                <div className="flex items-center justify-between font-semibold"><span>Total Production Cost</span><span className="text-orange-500">${totalProductionCost.toFixed(2)}</span></div>
-                <Separator className="bg-border" />
-                <div className="flex items-center justify-between font-semibold"><span>Profit per Sale</span><span className={profit >= 0 ? 'text-green-500' : 'text-red-500'}>${profit}</span></div>
-                
-                {/* Margin Display */}
-                <div className="p-3 rounded-lg mt-4" style={{
-                  background: profitMargin >= 40 ? 'rgba(34, 197, 94, 0.1)' : 
-                             profitMargin >= 20 ? 'rgba(234, 179, 8, 0.1)' : 'rgba(239, 68, 68, 0.1)'
-                }}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Profit Margin</span>
-                    <span className={`text-lg font-bold ${
-                      profitMargin >= 40 ? 'text-green-500' : 
-                      profitMargin >= 20 ? 'text-yellow-500' : 'text-red-500'
-                    }`}>
-                      {profitMargin}%
+                <CardContent className="space-y-3">
+                  <div className="rounded-md border border-border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Breakdown for the selected variant
+                    </p>
+
+                    <p className="mt-1 text-sm font-medium">
+                      {breakdownVariant?.displaySize?.toUpperCase() ||
+                        breakdownVariant?.size?.toUpperCase() ||
+                        'PRIMARY VARIANT'}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Your retail price
+                    </span>
+
+                    <span className="font-medium">
+                      {breakdownRetailPriceCents !== null
+                        ? centsToMoney(breakdownRetailPriceCents)
+                        : '—'}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {profitMargin >= 40 ? '✓ Excellent margin' : 
-                     profitMargin >= 20 ? '⚠ Acceptable margin' : '⚠ Low margin - consider raising price'}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+
+                  <Separator className="bg-border" />
+
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Canonical base cost
+                    </span>
+
+                    <span className="font-medium">
+                      {normalizedBreakdownCanonicalBaseCostCents !== null
+                        ? centsToMoney(
+                            normalizedBreakdownCanonicalBaseCostCents
+                          )
+                        : '—'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Locked IP royalty
+                    </span>
+
+                    <span className="font-medium">
+                      {centsToMoney(
+                        normalizedBreakdownLockedIpFeesCents
+                      )}
+                    </span>
+                  </div>
+
+                  <Separator className="bg-border" />
+
+                  <div className="flex items-center justify-between text-sm font-semibold">
+                    <span>Minimum price</span>
+
+                    <span className="text-orange-500">
+                      {breakdownMinimumPriceCents !== null
+                        ? centsToMoney(breakdownMinimumPriceCents)
+                        : '—'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>Creator profit per sale</span>
+
+                    <span
+                      className={
+                        breakdownCreatorProfitCents !== null &&
+                        breakdownCreatorProfitCents >= 0
+                          ? 'text-green-500'
+                          : 'text-red-500'
+                      }
+                    >
+                      {breakdownCreatorProfitCents !== null
+                        ? centsToMoney(breakdownCreatorProfitCents)
+                        : '—'}
+                    </span>
+                  </div>
+
+                  <div
+                    className="rounded-lg p-3"
+                    style={{
+                      background:
+                        creatorProfitMargin !== null &&
+                        Number(creatorProfitMargin) >= 40
+                          ? 'rgba(34, 197, 94, 0.1)'
+                          : creatorProfitMargin !== null &&
+                              Number(creatorProfitMargin) >= 20
+                            ? 'rgba(234, 179, 8, 0.1)'
+                            : 'rgba(239, 68, 68, 0.1)',
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">
+                        Creator profit margin
+                      </span>
+
+                      <span
+                        className={`text-lg font-bold ${
+                          creatorProfitMargin !== null &&
+                          Number(creatorProfitMargin) >= 40
+                            ? 'text-green-500'
+                            : creatorProfitMargin !== null &&
+                                Number(creatorProfitMargin) >= 20
+                              ? 'text-yellow-500'
+                              : 'text-red-500'
+                        }`}
+                      >
+                        {creatorProfitMargin !== null
+                          ? `${creatorProfitMargin}%`
+                          : '—'}
+                      </span>
+                    </div>
+
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Your profit is calculated after the canonical base cost
+                      and all locked IP licensing costs.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
 
             {/* 4. Performance Stats Card */}
             <Card className="border-border bg-card">

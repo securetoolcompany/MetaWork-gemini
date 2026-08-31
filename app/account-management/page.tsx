@@ -19,8 +19,10 @@ import { useWalletLink } from '@/lib/hooks/useWalletLink';
 
 interface WalletEntry {
   address: string;
+  chain?: string;
   verified?: boolean;
   isDefault?: boolean;
+  linkedAt?: string | Date;
 }
 
 interface NotificationPrefs {
@@ -129,13 +131,28 @@ export default function AccountManagement() {
   // --- WALLET CONNECT ---
   const handlePeraConnect = async () => {
     try {
-      const addr = await connect();
-      if (addr && user) {
-        await linkWallet('algorand');
-        toast.success('Wallet connected and linked!');
-      }
+      await connect();
+    } catch (error) {
+      console.error('Pera wallet connection failed:', error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Wallet connection failed'
+      );
+    }
+  };
+
+
+  const handleLinkConnectedWallet = async () => {
+    if (!accountAddress) {
+      toast.error('Connect a wallet before linking it.');
+      return;
+    }
+
+    try {
+      await linkWallet('algorand');
     } catch {
-      toast.error('Wallet connection failed');
+      toast.error('Wallet linking failed');
     }
   };
 
@@ -195,8 +212,33 @@ export default function AccountManagement() {
     }
   };
 
-  const activeWalletAlreadyLinked =
-    accountAddress && user?.wallets?.some((w) => w.address === accountAddress);
+  const uniqueWallets = Array.from(
+    new Map(
+      (user?.wallets ?? [])
+        .filter((wallet) => wallet?.address)
+        .map((wallet) => {
+          const address = wallet.address.trim().toUpperCase();
+
+          return [
+            `${wallet.chain || 'algorand'}:${address}`,
+            {
+              ...wallet,
+              address,
+              chain: wallet.chain || 'algorand',
+            },
+          ];
+        })
+    ).values()
+  );
+
+  const activeWalletAlreadyLinked = Boolean(
+    accountAddress &&
+    uniqueWallets.some(
+      (wallet) =>
+        wallet.address === accountAddress.trim().toUpperCase() &&
+        wallet.chain === 'algorand'
+    )
+  );
 
   const notificationItems: { key: keyof NotificationPrefs; label: string; description: string }[] = [
     { key: 'sales',     label: 'Sales Alerts',         description: 'Notify me when a product sells' },
@@ -313,8 +355,8 @@ export default function AccountManagement() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {user?.wallets && user.wallets.length > 0 ? (
-                user.wallets.map((w) => (
+              {uniqueWallets.length > 0 ? (
+                uniqueWallets.map((w) => (
                   <div key={w.address} className="flex justify-between items-center p-3 border rounded-lg">
                     <span className="font-mono text-sm">
                       {w.address.slice(0, 8)}…{w.address.slice(-8)}
@@ -340,12 +382,36 @@ export default function AccountManagement() {
                 </div>
               )}
 
-              <Button onClick={handlePeraConnect} className="w-full" disabled={isLinking}>
-                {isLinking
-                  ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  : <Plus className="mr-2 h-4 w-4" />}
-                {isConnected ? 'Link Another Wallet' : 'Connect Wallet (Pera QR)'}
-              </Button>
+              {!isConnected ? (
+                <Button
+                  onClick={handlePeraConnect}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Connect Wallet (Pera QR)
+                </Button>
+              ) : activeWalletAlreadyLinked ? (
+                <Button
+                  onClick={handlePeraConnect}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Connect Another Wallet
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleLinkConnectedWallet}
+                  className="w-full"
+                  disabled={isLinking}
+                >
+                  {isLinking ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wallet className="mr-2 h-4 w-4" />
+                  )}
+                  Link Connected Wallet
+                </Button>
+              )}
 
               {isConnected && (
                 <Button
@@ -410,8 +476,8 @@ export default function AccountManagement() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {user?.wallets && user.wallets.length > 0 ? (
-                user.wallets.map((w) => (
+              {uniqueWallets.length > 0 ? (
+                uniqueWallets.map((w) => (
                   <div
                     key={w.address}
                     onClick={() => setDefaultWallet(w.address)}

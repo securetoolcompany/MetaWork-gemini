@@ -75,6 +75,345 @@ function getFirstValue(...values) {
   ) || null;
 }
 
+function toFiniteNumber(value, fallback = null) {
+  if (value === null || value === undefined || value === '') {
+    return fallback;
+  }
+
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue)
+    ? numberValue
+    : fallback;
+}
+
+
+function sumNumbers(values) {
+  return values.reduce(
+    (total, value) => total + (toFiniteNumber(value, 0) || 0),
+    0,
+  );
+}
+
+
+function getCurrency(order) {
+  return (
+    getFirstValue(
+      order.pricing?.currency,
+      order.financialSummary?.currency,
+      order.fulfillmentCosts?.currency,
+      order.currency,
+      order.paymentCurrency,
+      order.payment?.currency,
+    ) || 'USD'
+  ).toUpperCase();
+}
+
+
+function normalizeShipment(shipment) {
+  if (!shipment || typeof shipment !== 'object') {
+    return null;
+  }
+
+  return {
+    id: getFirstValue(
+      shipment.id,
+      shipment._id,
+      shipment.packageId,
+      shipment.package_id,
+      shipment.trackingNumber,
+    ),
+
+    provider: getFirstValue(
+      shipment.provider,
+      shipment.fulfillmentSource,
+      shipment.source,
+      shipment.supplierName,
+    ),
+
+    supplierName: getFirstValue(
+      shipment.supplierName,
+      shipment.supplier,
+    ),
+
+    status: getFirstValue(
+      shipment.status,
+      shipment.deliveryStatus,
+      shipment.fulfillmentStatus,
+    ),
+
+    carrier: getFirstValue(
+      shipment.carrier,
+      shipment.carrierName,
+    ),
+
+    service: getFirstValue(
+      shipment.service,
+      shipment.shippingService,
+    ),
+
+    trackingNumber: getFirstValue(
+      shipment.trackingNumber,
+      shipment.tracking_number,
+      shipment.trackingCode,
+    ),
+
+    trackingUrl: getFirstValue(
+      shipment.trackingUrl,
+      shipment.tracking_url,
+      shipment.trackingLink,
+    ),
+
+    shippedAt: getFirstValue(
+      shipment.shippedAt,
+      shipment.shipped_at,
+      shipment.createdAt,
+    ),
+
+    deliveredAt: getFirstValue(
+      shipment.deliveredAt,
+      shipment.delivered_at,
+    ),
+
+    expectedDeliveryAt: getFirstValue(
+      shipment.expectedDeliveryAt,
+      shipment.estimatedDeliveryAt,
+      shipment.estimated_delivery_at,
+    ),
+  };
+}
+
+
+function getFinancialSummary(order) {
+  const pricing = order.pricing || {};
+  const legacyTotals = order.totals || {};
+  const fulfillmentCosts = order.fulfillmentCosts || {};
+  const existingSummary = order.financialSummary || {};
+
+  const customerPaidTotal = getFirstValue(
+    toFiniteNumber(pricing.customerPaidTotal),
+    toFiniteNumber(pricing.total),
+    toFiniteNumber(order.customerPaidTotal),
+    toFiniteNumber(order.total),
+    toFiniteNumber(order.amountTotal),
+    toFiniteNumber(order.amount),
+    toFiniteNumber(order.totalAmount),
+    toFiniteNumber(legacyTotals.total),
+    toFiniteNumber(order.payment?.amount),
+  );
+
+  const refundedTotal =
+    getFirstValue(
+      toFiniteNumber(pricing.refundedTotal),
+      toFiniteNumber(order.refundedTotal),
+      toFiniteNumber(order.refundAmount),
+      toFiniteNumber(order.payment?.refundedTotal),
+    ) || 0;
+
+  const netCollected =
+    getFirstValue(
+      toFiniteNumber(pricing.netCollected),
+      toFiniteNumber(existingSummary.netCollected),
+    ) ??
+    (customerPaidTotal !== null
+      ? Math.max(customerPaidTotal - refundedTotal, 0)
+      : null);
+
+  const processorFeeTotal =
+    getFirstValue(
+      toFiniteNumber(pricing.paymentProcessorFee),
+      toFiniteNumber(pricing.processorFeeTotal),
+      toFiniteNumber(existingSummary.processorFeeTotal),
+      toFiniteNumber(order.paymentProcessorFee),
+      toFiniteNumber(order.stripeFee),
+    ) || 0;
+
+  const productCost =
+    getFirstValue(
+      toFiniteNumber(fulfillmentCosts.productCost),
+      toFiniteNumber(fulfillmentCosts.blankCost),
+      toFiniteNumber(order.productCost),
+      toFiniteNumber(order.blankCost),
+    ) || 0;
+
+  const shippingCost =
+    getFirstValue(
+      toFiniteNumber(fulfillmentCosts.shippingCost),
+      toFiniteNumber(order.supplierShippingCost),
+      toFiniteNumber(order.shippingCost),
+    ) || 0;
+
+  const packagingCost =
+    getFirstValue(
+      toFiniteNumber(fulfillmentCosts.packagingCost),
+      toFiniteNumber(order.packagingCost),
+    ) || 0;
+
+  const handlingCost =
+    getFirstValue(
+      toFiniteNumber(fulfillmentCosts.handlingCost),
+      toFiniteNumber(order.handlingCost),
+    ) || 0;
+
+  const customsDutyCost =
+    getFirstValue(
+      toFiniteNumber(fulfillmentCosts.customsDutyCost),
+      toFiniteNumber(order.customsDutyCost),
+    ) || 0;
+
+  const explicitSupplierCostTotal = getFirstValue(
+    toFiniteNumber(fulfillmentCosts.totalSupplierCost),
+    toFiniteNumber(existingSummary.supplierCostTotal),
+    toFiniteNumber(order.totalSupplierCost),
+  );
+
+  const totalFulfillmentCost =
+    explicitSupplierCostTotal ??
+    sumNumbers([
+      productCost,
+      shippingCost,
+      packagingCost,
+      handlingCost,
+      customsDutyCost,
+    ]);
+
+  const hasRecordedCost =
+    explicitSupplierCostTotal !== null ||
+    productCost > 0 ||
+    shippingCost > 0 ||
+    packagingCost > 0 ||
+    handlingCost > 0 ||
+    customsDutyCost > 0;
+
+  const costStatus =
+    getFirstValue(
+      fulfillmentCosts.costStatus,
+      existingSummary.costStatus,
+      order.costStatus,
+    ) || (hasRecordedCost ? 'estimated' : 'missing');
+
+  const explicitDistributableRevenue = getFirstValue(
+    toFiniteNumber(existingSummary.distributableRevenue),
+    toFiniteNumber(order.distributableRevenue),
+    toFiniteNumber(order.revenueAllocation?.distributableAmount),
+  );
+
+  const distributableRevenue =
+    explicitDistributableRevenue ??
+    (netCollected !== null
+      ? netCollected - processorFeeTotal - totalFulfillmentCost
+      : null);
+
+  const calculationStatus =
+    getFirstValue(
+      existingSummary.calculationStatus,
+      order.financialCalculationStatus,
+    ) ||
+    (netCollected === null
+      ? 'incomplete'
+      : !hasRecordedCost
+        ? 'incomplete'
+        : distributableRevenue !== null && distributableRevenue < 0
+          ? 'negative'
+          : costStatus === 'actual'
+            ? 'ready'
+            : 'estimated');
+
+  return {
+    currency: getCurrency(order),
+
+    customerPaidTotal,
+    refundedTotal,
+    netCollected,
+
+    processorFeeTotal,
+
+    productCost,
+    shippingCost,
+    packagingCost,
+    handlingCost,
+    customsDutyCost,
+    totalFulfillmentCost,
+
+    costStatus,
+    distributableRevenue,
+    calculationStatus,
+  };
+}
+
+
+function getRevenueAllocation(order, financialSummary) {
+  const allocation =
+    order.revenueAllocation ||
+    order.revenuePoolAllocation ||
+    {};
+
+  return {
+    poolKey: getFirstValue(
+      allocation.poolKey,
+      order.revenuePoolKey,
+      order.poolKey,
+    ),
+
+    poolName: getFirstValue(
+      allocation.poolName,
+      order.revenuePoolName,
+      order.poolName,
+    ),
+
+    projectId: getFirstValue(
+      allocation.projectId,
+      order.projectId,
+    ),
+
+    revenueTokenId: getFirstValue(
+      allocation.revenueTokenId,
+      order.revenueTokenId,
+    ),
+
+    status: getFirstValue(
+      allocation.status,
+      order.revenueAllocationStatus,
+      order.revenueLedgerStatus,
+    ) || 'not_allocated',
+
+    heldAmount: getFirstValue(
+      toFiniteNumber(allocation.heldAmount),
+      toFiniteNumber(order.heldRevenueAmount),
+      toFiniteNumber(
+        allocation.status === 'held'
+          ? allocation.distributableAmount
+          : null,
+      ),
+      toFiniteNumber(
+        order.revenueLedgerStatus === 'created'
+          ? financialSummary.distributableRevenue
+          : null,
+      ),
+    ),
+
+    settlementBatchId: getFirstValue(
+      allocation.settlementBatchId,
+      order.settlementBatchId,
+    ),
+
+    claimRoundId: getFirstValue(
+      allocation.claimRoundId,
+      order.claimRoundId,
+    ),
+
+    ledgerStatus: getFirstValue(
+      order.revenueLedgerStatus,
+      allocation.ledgerStatus,
+    ),
+
+    ledgerRowCount: getFirstValue(
+      toFiniteNumber(order.revenueLedgerRowCount),
+      toFiniteNumber(allocation.ledgerRowCount),
+    ),
+  };
+}
+
 function normalizeAddress(order) {
   return getFirstValue(
     order.shippingAddress,
@@ -92,7 +431,17 @@ function toOrderResponse(order) {
     order.printfulOrderId !== undefined;
 
   const shippingAddress = normalizeAddress(order);
+  const financialSummary = getFinancialSummary(order);
+  const revenueAllocation = getRevenueAllocation(
+    order,
+    financialSummary,
+  );
 
+  const shipments = Array.isArray(order.shipments)
+    ? order.shipments
+        .map(normalizeShipment)
+        .filter(Boolean)
+    : [];
   return {
     id: String(order._id),
 
@@ -118,11 +467,101 @@ function toOrderResponse(order) {
 
     deliveredAt: order.deliveredAt || null,
 
+		paidAt: getFirstValue(
+      order.paidAt,
+      order.payment?.paidAt,
+      order.paymentIntentCreatedAt,
+    ),
+
+    cancelledAt: order.cancelledAt || null,
+    refundedAt: order.refundedAt || null,
+
     isPrintfulOrder,
 
     printfulOrderId: isPrintfulOrder
       ? String(order.printfulOrderId)
       : null,
+
+		fulfillmentProvider: getFirstValue(
+      order.fulfillment?.provider,
+      order.fulfillmentProvider,
+      order.fulfillmentSource,
+      isPrintfulOrder ? 'printful' : 'manual',
+    ),
+
+    supplierName: getFirstValue(
+      order.fulfillmentCosts?.supplierName,
+      order.manualFulfillment?.supplierName,
+      order.supplierName,
+      isPrintfulOrder ? 'Printful' : null,
+    ),
+
+    supplierOrderReference: getFirstValue(
+      order.fulfillmentCosts?.supplierOrderReference,
+      order.manualFulfillment?.supplierOrderReference,
+      order.supplierOrderReference,
+      order.fulfillment?.externalOrderId,
+    ),
+
+    shipments,
+
+    shipmentCount: shipments.length,
+
+    latestShipment:
+      shipments.length > 0
+        ? shipments
+            .slice()
+            .sort((left, right) => {
+              const leftDate = new Date(
+                left.shippedAt || left.deliveredAt || 0,
+              ).getTime();
+
+              const rightDate = new Date(
+                right.shippedAt || right.deliveredAt || 0,
+              ).getTime();
+
+              return rightDate - leftDate;
+            })[0]
+        : null,
+
+    financialSummary,
+
+    revenueAllocation,
+
+    flags: {
+      needsSupplierAssignment:
+        !isPrintfulOrder &&
+        !getFirstValue(
+          order.manualFulfillment?.supplierName,
+          order.supplierName,
+          order.fulfillmentCosts?.supplierName,
+        ),
+
+      needsCostEntry:
+        financialSummary.customerPaidTotal !== null &&
+        financialSummary.costStatus === 'missing',
+
+      needsActualCost:
+        financialSummary.costStatus === 'estimated',
+
+      hasNegativeDistributableRevenue:
+        financialSummary.distributableRevenue !== null &&
+        financialSummary.distributableRevenue < 0,
+
+      needsRevenuePoolMapping:
+        financialSummary.distributableRevenue !== null &&
+        financialSummary.distributableRevenue > 0 &&
+        !revenueAllocation.poolKey,
+
+      hasMultipleShipments: shipments.length > 1,
+
+      requiresReview:
+        order.fulfillmentStatus === 'on_hold' ||
+        order.fulfillmentStatus === 'failed' ||
+        order.fulfillmentStatus === 'returned' ||
+        order.refundStatus === 'refunded' ||
+        financialSummary.calculationStatus === 'negative',
+    },
 
     customerName: getFirstValue(
       order.customerName,
@@ -174,6 +613,12 @@ function toOrderResponse(order) {
             item.productId ||
             null,
 
+          productId: getFirstValue(
+            item.productId,
+            item.product?.id,
+            item.product?._id,
+          ),
+
           name: getFirstValue(
             item.name,
             item.productName,
@@ -200,7 +645,44 @@ function toOrderResponse(order) {
           variant: getFirstValue(
             item.variantName,
             item.variant?.name,
+            item.variant,
             item.size,
+          ),
+
+          size: getFirstValue(
+            item.size,
+            item.selectedSize,
+            item.options?.size,
+            item.variant?.size,
+          ),
+
+          color: getFirstValue(
+            item.color,
+            item.selectedColor,
+            item.options?.color,
+            item.variant?.color,
+          ),
+
+          imageUrl: getFirstValue(
+            item.imageUrl,
+            item.image,
+            item.mockupUrl,
+            item.thumbnailUrl,
+            item.product?.imageUrl,
+            item.product?.image,
+            item.product?.thumbnailUrl,
+            item.variant?.imageUrl,
+          ),
+
+          unitPrice: getFirstValue(
+            toFiniteNumber(item.unitPrice),
+            toFiniteNumber(item.price),
+            toFiniteNumber(item.amount),
+          ),
+
+          lineTotal: getFirstValue(
+            toFiniteNumber(item.lineTotal),
+            toFiniteNumber(item.total),
           ),
         }))
       : [],
@@ -287,6 +769,64 @@ export async function GET(request) {
             deliveredAt: 1,
 
             printfulOrderId: 1,
+
+						fulfillment: 1,
+            shipments: 1,
+
+            paidAt: 1,
+            cancelledAt: 1,
+            refundedAt: 1,
+
+            currency: 1,
+            paymentCurrency: 1,
+            payment: 1,
+
+            subtotal: 1,
+            total: 1,
+            amount: 1,
+            amountTotal: 1,
+            totalAmount: 1,
+            totals: 1,
+
+            customerPaidTotal: 1,
+            refundedTotal: 1,
+            refundAmount: 1,
+
+            pricing: 1,
+
+            productCost: 1,
+            blankCost: 1,
+            supplierShippingCost: 1,
+            shippingCost: 1,
+            packagingCost: 1,
+            handlingCost: 1,
+            customsDutyCost: 1,
+            totalSupplierCost: 1,
+            costStatus: 1,
+
+            fulfillmentCosts: 1,
+            financialSummary: 1,
+
+            supplierName: 1,
+            supplierOrderReference: 1,
+            manualFulfillment: 1,
+
+            revenueAllocation: 1,
+            revenuePoolAllocation: 1,
+            revenuePoolKey: 1,
+            revenuePoolName: 1,
+            poolKey: 1,
+            poolName: 1,
+            projectId: 1,
+            revenueTokenId: 1,
+
+            revenueAllocationStatus: 1,
+            revenueLedgerStatus: 1,
+            revenueLedgerRowCount: 1,
+            heldRevenueAmount: 1,
+
+            settlementBatchId: 1,
+            claimRoundId: 1,
 
             customerName: 1,
             customerEmail: 1,

@@ -67,8 +67,8 @@ export async function POST(request) {
     
     // verifySignature should be chain-aware or handled by chain-specific helpers
     const isValid = await verifySignature(
-      signatureBytes,
       nonceRecord.message,
+      signatureBytes,
       walletAddress
     );
     
