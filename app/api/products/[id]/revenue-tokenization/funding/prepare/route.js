@@ -462,7 +462,24 @@ export async function POST(request, { params }) {
         index: 0,
         txnBase64,
         signers: [selectedWallet.address],
-      },
+
+        type: 'pay',
+        senderAddress: selectedWallet.address,
+        receiverAddress,
+        amountMicroAlgos,
+
+        feeMicroAlgos: Number(fundingTxn.fee),
+        firstValidRound: Number(fundingTxn.firstValid),
+        lastValidRound: Number(fundingTxn.lastValid),
+
+        genesisId: fundingTxn.genesisID,
+        genesisHashBase64: Buffer.from(fundingTxn.genesisHash).toString(
+            'base64'
+        ),
+
+        closeRemainderTo: null,
+        reKeyTo: null,
+        },
 
       preparedAt: now,
       expiresAt,

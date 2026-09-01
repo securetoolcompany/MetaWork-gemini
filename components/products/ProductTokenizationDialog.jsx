@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/AuthContext";
-
+import { useWallet } from "@/lib/WalletContext";
+import algosdk from "algosdk";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -45,12 +46,23 @@ function getAttachedIpCount(product) {
   return 0;
 }
 
+function bytesToBase64(bytes) {
+  let binary = "";
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return window.btoa(binary);
+}
+
 export default function ProductTokenizationDialog({
   product,
   open,
   onOpenChange,
 }) {
   const { isAuthenticated, getAuthHeader } = useAuth();
+	const { signTransactionGroup } = useWallet();
   const [selectedWalletAddress, setSelectedWalletAddress] = useState("");
   const [walletConnection, setWalletConnection] = useState({
     isReady: false,
@@ -65,6 +77,9 @@ export default function ProductTokenizationDialog({
   
 	const [fundingPreparation, setFundingPreparation] = useState(null);
   const [isPreparingFunding, setIsPreparingFunding] = useState(false);
+	const [isSigningFunding, setIsSigningFunding] = useState(false);
+	const [isSubmittingFunding, setIsSubmittingFunding] = useState(false);
+	const fundingSubmissionInFlightRef = useRef(false);
   const [isLoadingActiveFunding, setIsLoadingActiveFunding] =
     useState(false);
 	const activeFundingRequestKeyRef = useRef(null);
@@ -76,10 +91,13 @@ export default function ProductTokenizationDialog({
 
     setPreparedRevenuePool(product?.productRevenuePool || null);
     setFundingPreparation(null);
-    setIsPreparing(false);
-    setIsPreparingFunding(false);
-    activeFundingRequestKeyRef.current = null;
-  }, [
+		setIsPreparing(false);
+		setIsPreparingFunding(false);
+		setIsSigningFunding(false);
+		setIsSubmittingFunding(false);
+		fundingSubmissionInFlightRef.current = false;
+		activeFundingRequestKeyRef.current = null;
+			}, [
     open,
     product?.id,
     product?._id,
@@ -259,7 +277,7 @@ export default function ProductTokenizationDialog({
     onOpenChange(nextOpen);
   };
 
-	  const handlePrepareFunding = async () => {
+	const handlePrepareFunding = async () => {
     const productId =
       product?.id ||
       product?._id?.toString?.() ||
@@ -322,6 +340,170 @@ export default function ProductTokenizationDialog({
       setIsPreparingFunding(false);
     }
   };
+
+	const handleSignAndSubmitFunding = async () => {
+  if (fundingSubmissionInFlightRef.current) {
+    return;
+  }
+
+  const productId =
+    product?.id ||
+    product?._id?.toString?.() ||
+    product?.externalProductId;
+
+  const transaction = fundingPreparation?.transactions?.[0];
+  const expectedTransactionId =
+    fundingPreparation?.funding?.expectedTransactionId;
+  const fundingAttemptId = fundingPreparation?.fundingAttempt?.id;
+  const expectedOwnerAddress =
+    fundingPreparation?.funding?.ownerAddress;
+
+  if (!productId) {
+    toast.error("This product is missing a durable product identifier.");
+    return;
+  }
+
+  if (!isAuthenticated) {
+    toast.error("Please sign in before submitting product funding.");
+    return;
+  }
+
+  if (
+    !walletConnection.isReady ||
+    !walletConnection.hasVerifiedWallets ||
+    !selectedWalletAddress ||
+    !walletConnection.connectedAddress
+  ) {
+    toast.error(
+      "Connect the selected verified Algorand wallet before submitting funding."
+    );
+    return;
+  }
+
+  if (
+    selectedWalletAddress !== walletConnection.connectedAddress ||
+    selectedWalletAddress !== expectedOwnerAddress
+  ) {
+    toast.error(
+      "The connected wallet must match the wallet used to prepare this funding payment."
+    );
+    return;
+  }
+
+  if (
+    !transaction?.txnBase64 ||
+    !expectedTransactionId ||
+    !fundingAttemptId
+  ) {
+    toast.error(
+      "The prepared funding request is incomplete. Refresh and try again."
+    );
+    return;
+  }
+
+  fundingSubmissionInFlightRef.current = true;
+
+  try {
+    const unsignedTransactionBytes = Uint8Array.from(
+      window.atob(transaction.txnBase64),
+      (character) => character.charCodeAt(0)
+    );
+
+    const unsignedTransaction = algosdk.decodeUnsignedTransaction(
+      unsignedTransactionBytes
+    );
+
+    if (unsignedTransaction.txID() !== expectedTransactionId) {
+      throw new Error(
+        "The prepared funding transaction does not match the expected payment."
+      );
+    }
+
+    setIsSigningFunding(true);
+
+    const signedTransactionGroup = await signTransactionGroup([
+			unsignedTransactionBytes,
+		]);
+
+    const signedTransactionBytes = signedTransactionGroup?.[0];
+
+    if (
+      !signedTransactionBytes ||
+      !(signedTransactionBytes instanceof Uint8Array) ||
+      signedTransactionBytes.length === 0
+    ) {
+      throw new Error("Pera did not return a signed funding transaction.");
+    }
+
+    setIsSigningFunding(false);
+    setIsSubmittingFunding(true);
+
+    const response = await fetch(
+      `/api/products/${encodeURIComponent(
+        String(productId)
+      )}/revenue-tokenization/funding/submit`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeader(),
+        },
+        body: JSON.stringify({
+          fundingAttemptId,
+          expectedTransactionId,
+          signedTransactionBase64: bytesToBase64(
+            signedTransactionBytes
+          ),
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok || data?.success !== true) {
+      throw new Error(
+        data?.error || "Unable to submit the signed funding payment."
+      );
+    }
+
+    setFundingPreparation(null);
+
+    setPreparedRevenuePool((currentPool) => ({
+      ...currentPool,
+      tokenizationStatus:
+        data?.product?.tokenizationStatus ||
+        currentPool?.tokenizationStatus,
+      fundingAttempt: {
+        ...(currentPool?.fundingAttempt || {}),
+        ...(data?.fundingAttempt || {}),
+      },
+    }));
+
+    if (data?.fundingAttempt?.status === "confirmed") {
+      toast.success("Funding payment confirmed on Algorand.");
+    } else {
+      toast.message(
+        "Funding payment submitted. Waiting for Algorand confirmation."
+      );
+    }
+  } catch (error) {
+    const message =
+      error?.message ||
+      "Unable to sign and submit the funding payment.";
+
+    if (/cancel|reject|deny|decline|abort/i.test(message)) {
+      toast.message(
+        "Funding signature cancelled. Your prepared payment is still available."
+      );
+    } else {
+      toast.error(message);
+    }
+  } finally {
+    setIsSigningFunding(false);
+    setIsSubmittingFunding(false);
+    fundingSubmissionInFlightRef.current = false;
+  }
+};
 
   const handlePrepareTokenization = async () => {
     const productId =
@@ -433,11 +615,16 @@ export default function ProductTokenizationDialog({
           </div>
 
           <VerifiedWalletSelector
-            selectedAddress={selectedWalletAddress}
-            onSelectedAddressChange={setSelectedWalletAddress}
-            onConnectionReadyChange={setWalletConnection}
-            disabled={isPreparing}
-          />
+						selectedAddress={selectedWalletAddress}
+						onSelectedAddressChange={setSelectedWalletAddress}
+						onConnectionReadyChange={setWalletConnection}
+						disabled={
+							isPreparing ||
+							isPreparingFunding ||
+							isSigningFunding ||
+							isSubmittingFunding
+						}
+					/>
 
           <div className="flex gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -526,7 +713,12 @@ export default function ProductTokenizationDialog({
             type="button"
             variant="outline"
             onClick={() => handleOpenChange(false)}
-            disabled={isPreparing}
+            disabled={
+							isPreparing ||
+							isPreparingFunding ||
+							isSigningFunding ||
+							isSubmittingFunding
+						}
           >
             Cancel
           </Button>
@@ -546,10 +738,34 @@ export default function ProductTokenizationDialog({
               ) : null}
               Prepare Tokenization
             </Button>
-          ) : fundingPreparation ? (
-            <Button type="button" disabled>
-              Funding Submission Not Implemented
-            </Button>
+          ) : fundingPreparation?.fundingAttempt?.status === "awaiting_signature" ? (
+						<Button
+							type="button"
+							onClick={handleSignAndSubmitFunding}
+							disabled={
+								isSigningFunding ||
+								isSubmittingFunding ||
+								isLoadingActiveFunding ||
+								!walletConnection.isReady ||
+								!walletConnection.hasVerifiedWallets ||
+								!selectedWalletAddress ||
+								selectedWalletAddress !== walletConnection.connectedAddress
+							}
+						>
+							{isSigningFunding ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Waiting for Pera
+								</>
+							) : isSubmittingFunding ? (
+								<>
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+									Submitting Funding
+								</>
+							) : (
+								"Sign and Submit Funding"
+							)}
+						</Button>
           ) : preparedRevenuePool.tokenizationStatus ===
             "pending_funding" ? (
             <Button
@@ -568,12 +784,19 @@ export default function ProductTokenizationDialog({
               Prepare Funding
             </Button>
           ) : (
-            <Button type="button" disabled>
-              {isLoadingActiveFunding
-                ? "Checking Funding Request"
-                : "Funding Signature Pending"}
-            </Button>
-          )}
+						<Button type="button" disabled>
+							{isLoadingActiveFunding
+								? "Checking Funding Request"
+								: fundingPreparation?.fundingAttempt?.status === "submitting"
+									? "Submitting Funding"
+									: fundingPreparation?.fundingAttempt?.status === "submitted" ||
+											fundingPreparation?.fundingAttempt?.status === "confirming"
+										? "Funding Pending Confirmation"
+										: fundingPreparation?.fundingAttempt?.status === "confirmed"
+											? "Funding Confirmed"
+											: "Funding Signature Pending"}
+						</Button>
+					)}
         </DialogFooter>
       </DialogContent>
     </Dialog>

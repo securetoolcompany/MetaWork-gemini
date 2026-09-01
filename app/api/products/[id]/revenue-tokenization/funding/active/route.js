@@ -281,28 +281,38 @@ export async function GET(request, { params }) {
     }
 
     if (
-      productRevenuePool.tokenizationStatus !==
-      'awaiting_funding_signature'
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            'This product does not have an active funding signature request.',
-        },
-        { status: 409 }
-      );
-    }
+        ![
+            'awaiting_funding_signature',
+            'creating',
+        ].includes(productRevenuePool.tokenizationStatus)
+        ) {
+        return NextResponse.json(
+            {
+            success: false,
+            error:
+                'This product does not have a recoverable funding request.',
+            },
+            { status: 409 }
+        );
+        }
 
-    if (fundingAttempt.status !== 'awaiting_signature') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'The active funding attempt is not awaiting signature.',
-        },
-        { status: 409 }
-      );
-    }
+    if (
+        ![
+            'awaiting_signature',
+            'submitting',
+            'submitted',
+            'confirming',
+            'confirmed',
+        ].includes(fundingAttempt.status)
+        ) {
+        return NextResponse.json(
+            {
+            success: false,
+            error: 'The active funding attempt is not recoverable.',
+            },
+            { status: 409 }
+        );
+        }
 
     const attemptOwnerAddress = normalizeAlgorandAddress(
       fundingAttempt.ownerAddress
@@ -331,7 +341,10 @@ export async function GET(request, { params }) {
       );
     }
 
-    if (expiresAt.getTime() <= Date.now()) {
+		if (
+			fundingAttempt.status === 'awaiting_signature' &&
+			expiresAt.getTime() <= Date.now()
+		) {
       const now = new Date();
 
       await db.collection('products').updateOne(
@@ -435,6 +448,7 @@ export async function GET(request, { params }) {
             product.title ||
             product.externalProductId ||
             'Untitled product',
+					tokenizationStatus: productRevenuePool.tokenizationStatus,
         },
 
         fundingAttempt: {
