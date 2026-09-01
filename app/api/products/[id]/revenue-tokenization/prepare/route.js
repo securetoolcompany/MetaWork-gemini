@@ -8,20 +8,17 @@ import {
   createProductRevenuePoolKey,
 } from '@/lib/product-revenue-tokenization';
 
-
 export const dynamic = 'force-dynamic';
-
 
 function getToken(request) {
   const authorization = request.headers.get('authorization');
 
   const bearerToken = authorization?.startsWith('Bearer ')
-    ? authorization.slice(7)
+    ? authorization.slice(7).trim()
     : null;
 
   return bearerToken || request.cookies.get('auth_token')?.value || null;
 }
-
 
 function getAuthenticatedUserId(request) {
   const token = getToken(request);
@@ -41,6 +38,33 @@ function getAuthenticatedUserId(request) {
   }
 }
 
+function normalizeAlgorandAddress(address) {
+  return String(address || '').trim().toUpperCase();
+}
+
+function createUserIdentityFilter(userId) {
+  const normalizedUserId = String(userId || '').trim();
+
+  if (!normalizedUserId) {
+    return null;
+  }
+
+  const filters = [
+    { _id: normalizedUserId },
+    { id: normalizedUserId },
+    { userId: normalizedUserId },
+  ];
+
+  if (ObjectId.isValid(normalizedUserId)) {
+    filters.unshift({
+      _id: new ObjectId(normalizedUserId),
+    });
+  }
+
+  return {
+    $or: filters,
+  };
+}
 
 function createProductIdFilter(id) {
   const normalizedId = String(id || '').trim();
@@ -65,7 +89,6 @@ function createProductIdFilter(id) {
   };
 }
 
-
 function createOwnedProductFilter(productFilter, userId) {
   return {
     $and: [
@@ -80,6 +103,30 @@ function createOwnedProductFilter(productFilter, userId) {
   };
 }
 
+function getVerifiedAlgorandWallets(user) {
+  const walletsByAddress = new Map();
+
+  for (const wallet of user?.wallets || []) {
+    const address = normalizeAlgorandAddress(wallet?.address);
+    const chain = String(wallet?.chain || 'algorand')
+      .trim()
+      .toLowerCase();
+
+    if (!address || chain !== 'algorand' || wallet?.verified !== true) {
+      continue;
+    }
+
+    if (!walletsByAddress.has(address)) {
+      walletsByAddress.set(address, {
+        ...wallet,
+        address,
+        chain: 'algorand',
+      });
+    }
+  }
+
+  return Array.from(walletsByAddress.values());
+}
 
 function serialize(value) {
   return JSON.parse(
@@ -89,10 +136,9 @@ function serialize(value) {
       }
 
       return nestedValue;
-    }),
+    })
   );
 }
-
 
 export async function POST(request, { params }) {
   try {
@@ -104,12 +150,11 @@ export async function POST(request, { params }) {
           success: false,
           error: 'Authentication is required.',
         },
-        { status: 401 },
+        { status: 401 }
       );
     }
 
     const { id } = await params;
-
     const productFilter = createProductIdFilter(id);
 
     if (!productFilter) {
@@ -118,25 +163,87 @@ export async function POST(request, { params }) {
           success: false,
           error: 'A valid product ID is required.',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     const body = await request.json();
 
+    const requestedWalletAddress = normalizeAlgorandAddress(
+      body?.walletAddress
+    );
+
     const stakeholders = Array.isArray(body?.stakeholders)
       ? body.stakeholders
       : [];
 
-    const walletAddress = body?.walletAddress
-      ? String(body.walletAddress).trim()
-      : null;
+    if (!requestedWalletAddress) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Select and connect a verified Algorand wallet before preparing product tokenization.',
+        },
+        { status: 400 }
+      );
+    }
 
     const { db } = await connectToDatabase();
 
+    const userIdentityFilter = createUserIdentityFilter(userId);
+
+    if (!userIdentityFilter) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unable to resolve the authenticated user.',
+        },
+        { status: 401 }
+      );
+    }
+
+    const user = await db.collection('users').findOne(
+      userIdentityFilter,
+      {
+        projection: {
+          _id: 1,
+          id: 1,
+          userId: 1,
+          wallets: 1,
+        },
+      }
+    );
+
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Authenticated user was not found.',
+        },
+        { status: 404 }
+      );
+    }
+
+    const verifiedAlgorandWallets = getVerifiedAlgorandWallets(user);
+
+    const selectedVerifiedWallet = verifiedAlgorandWallets.find(
+      (wallet) => wallet.address === requestedWalletAddress
+    );
+
+    if (!selectedVerifiedWallet) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Choose a verified Algorand wallet linked to your MetaWork account.',
+        },
+        { status: 403 }
+      );
+    }
+
     const ownershipFilter = createOwnedProductFilter(
       productFilter,
-      userId,
+      userId
     );
 
     const product = await db
@@ -149,7 +256,7 @@ export async function POST(request, { params }) {
           success: false,
           error: 'Product not found.',
         },
-        { status: 404 },
+        { status: 404 }
       );
     }
 
@@ -166,29 +273,18 @@ export async function POST(request, { params }) {
           error:
             'This product already has an active or in-progress revenue pool.',
         },
-        { status: 409 },
-      );
-    }
-
-    if (!walletAddress) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            'Connect an Algorand wallet before preparing product revenue tokenization.',
-        },
-        { status: 400 },
+        { status: 409 }
       );
     }
 
     const normalizedStakeholders = stakeholders.map(
       (stakeholder, index) => ({
         ...stakeholder,
-
-        address:
+        address: normalizeAlgorandAddress(
           stakeholder?.address ||
-          (index === 0 ? walletAddress : ''),
-      }),
+            (index === 0 ? selectedVerifiedWallet.address : '')
+        ),
+      })
     );
 
     const poolDraft = buildProductRevenuePoolDraft({
@@ -201,6 +297,8 @@ export async function POST(request, { params }) {
 
     const tokenizationDraft = {
       ...poolDraft,
+
+      ownerAddress: selectedVerifiedWallet.address,
 
       mbrPaidMicroAlgos: null,
       mbrPaymentTxId: null,
@@ -220,7 +318,7 @@ export async function POST(request, { params }) {
           productRevenuePool: tokenizationDraft,
           updatedAt: new Date(),
         },
-      },
+      }
     );
 
     return NextResponse.json(
@@ -239,6 +337,8 @@ export async function POST(request, { params }) {
         productRevenuePool: {
           poolKey,
 
+          ownerAddress: tokenizationDraft.ownerAddress,
+
           displayName: tokenizationDraft.displayName,
 
           tokenizationStatus:
@@ -251,12 +351,12 @@ export async function POST(request, { params }) {
 
           mbr: tokenizationDraft.mbr,
         },
-      }),
+      })
     );
   } catch (error) {
     console.error(
       '[products/revenue-tokenization/prepare] failed:',
-      error,
+      error
     );
 
     return NextResponse.json(
@@ -266,7 +366,7 @@ export async function POST(request, { params }) {
           error?.message ||
           'Unable to prepare product revenue tokenization.',
       },
-      { status: 400 },
+      { status: 400 }
     );
   }
 }

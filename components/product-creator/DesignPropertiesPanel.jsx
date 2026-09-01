@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function DesignPropertiesPanel({
   selectedIPs,
@@ -47,6 +48,7 @@ export default function DesignPropertiesPanel({
 
   const router = useRouter();
   const isMobile = useIsMobile();
+  const { isAuthenticated, getAuthHeader } = useAuth();
 
   const getLicensingFeeDollars = (ip) => {
   const licensingFeeCents = Number(ip?.licensingFeeCents);
@@ -213,6 +215,12 @@ export default function DesignPropertiesPanel({
       const { titleOverride, resolvedTemplateId: resolvedTemplateIdArg } =
         options;
       const title = titleOverride || pendingTitle.trim();
+
+      if (!isAuthenticated) {
+        toast.error("Please sign in before saving a product draft");
+        return;
+      }
+
       if (!title) {
         toast.error("Please enter a working title");
         return;
@@ -227,7 +235,10 @@ export default function DesignPropertiesPanel({
       try {
         const res = await fetch("/api/products/save-draft", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeader(),
+          },
           body: JSON.stringify({
             externalProductId,
             printfulTemplateId: finalTemplateId,
@@ -269,6 +280,8 @@ export default function DesignPropertiesPanel({
       costAnalysis,
       router,
       originalPlacementAssets,
+      isAuthenticated,
+      getAuthHeader,
     ]
   );
 

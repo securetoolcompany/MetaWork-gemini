@@ -854,27 +854,49 @@ async function getTemplateSelectedVariantIds(printfulTemplateId) {
   ];
 }
 
+function getBearerToken(request) {
+  const authorization = request.headers.get('authorization') || '';
+
+  if (!authorization.startsWith('Bearer ')) {
+    return null;
+  }
+
+  return authorization.slice('Bearer '.length).trim();
+}
+
+function getAuthenticatedUserId(request) {
+  const token = getBearerToken(request);
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const decoded = verifyToken(token);
+
+    return decoded?.userId
+      ? String(decoded.userId)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request) {
   try {
+    const authenticatedUserId = getAuthenticatedUserId(request);
+
+    if (!authenticatedUserId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Please sign in before saving a product draft.',
+        },
+        { status: 401 }
+      );
+    }
+
     const authHeader = request.headers.get("authorization");
-    const cookieHeader = request.headers.get("cookie");
-    const authCookie =
-      cookieHeader?.match(/auth_token=([^;]+)/)?.[1] || null;
-    const token =
-      authHeader?.substring(7) || authCookie;
-
-    if (!token)
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
-
-    const decoded = verifyToken(token);
-    if (!decoded || !decoded.userId)
-      return NextResponse.json(
-        { error: "Invalid token" },
-        { status: 401 }
-      );
 
     const body = await request.json();
     const {
@@ -905,7 +927,7 @@ export async function POST(request) {
     const now = new Date();
 
     const existingProduct = await products.findOne({
-      userId: decoded.userId,
+      userId: authenticatedUserId,
       externalProductId,
     });
 
@@ -951,7 +973,7 @@ export async function POST(request) {
           db,
           selectedIPs: effectiveSelectedIPs,
           existingLockedTerms: existingProduct?.licensedRevenueTerms,
-          productOwnerId: decoded.userId,
+          productOwnerId: authenticatedUserId,
           lockedAt: now,
         });
 
@@ -1102,10 +1124,11 @@ export async function POST(request) {
     console.log("[save-draft] computed designAssets", designAssets);
 
     const result = await products.findOneAndUpdate(
-      { userId: decoded.userId, externalProductId },
+      { userId: authenticatedUserId, externalProductId },
       {
         $set: {
-          userId: decoded.userId,
+          userId: authenticatedUserId,
+          ownerId: authenticatedUserId,
           externalProductId,
           catalogProductId,
           printfulTemplateId: printfulTemplateId || null,
@@ -1174,7 +1197,10 @@ export async function POST(request) {
           }
 
           await products.updateOne(
-            { externalProductId },
+            {
+              userId: authenticatedUserId,
+              externalProductId,
+            },
             { $set: update }
           );
 

@@ -16,6 +16,7 @@ import { Palette, Edit, BarChart3, Trash2, Grid3x3, List, ExternalLink, Wand2, L
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import ProductEditDialog from '@/components/products/ProductEditDialog';
+import ProductTokenizationDialog from '@/components/products/ProductTokenizationDialog';
 import { cn } from '@/lib/utils';
 import TutorialOverlay from '@/components/onboarding/TutorialOverlay';
 import { toast } from 'sonner';
@@ -42,6 +43,8 @@ function MyProductsInner() {
   const [viewMode, setViewMode] = useState('grid');
   const [editingProduct, setEditingProduct] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [tokenizingProduct, setTokenizingProduct] = useState(null);
+  const [tokenizationDialogOpen, setTokenizationDialogOpen] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -132,6 +135,11 @@ function MyProductsInner() {
       setTimeout(() => setTutorialStep(3), 1200);
     }
   };
+
+    const handleTokenize = (product) => {
+      setTokenizingProduct(product);
+      setTokenizationDialogOpen(true);
+    };
 
   const handleEditDialogClose = () => {
     setEditDialogOpen(false);
@@ -309,11 +317,28 @@ function MyProductsInner() {
                     <div className="font-semibold text-green-500 text-sm sm:text-base">
                       ${product.earnings.toFixed(2)} earned
                     </div>
-                    <div className="flex gap-2 pt-2">
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => handleEdit(product)}>
-                        <Edit className="h-3 w-3 sm:mr-1" />
-                        <span className="hidden sm:inline">Edit</span>
-                      </Button>
+                                <div className="flex gap-2 pt-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={() => handleEdit(product)}
+                                  >
+                                    <Edit className="h-3 w-3 sm:mr-1" />
+                                    <span className="hidden sm:inline">Edit</span>
+                                  </Button>
+
+                                  {!['confirmed', 'tokenized'].includes(product.status) ? (
+                                    <Button
+                                      size="sm"
+                                      variant="secondary"
+                                      className="gap-1"
+                                      onClick={() => handleTokenize(product)}
+                                      title="Tokenize product"
+                                    >
+                                      <span className="text-xs">Tokenize</span>
+                                    </Button>
+                                  ) : null}
                       {product.externalProductId ? (
                         <Link href={`/products/creator?externalProductId=${product.externalProductId}&printfulTemplateId=${product.printfulTemplateId || ''}`}>
                           <Button size="sm" variant="outline" className="gap-1" title="Edit in Creator">
@@ -377,10 +402,24 @@ function MyProductsInner() {
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2 mt-2">
-                          <Button size="sm" variant="outline" onClick={() => handleEdit(product)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEdit(product)}
+                          >
                             <Edit className="h-3 w-3 mr-1" />
                             Edit
                           </Button>
+
+                          {!['confirmed', 'tokenized'].includes(product.status) ? (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => handleTokenize(product)}
+                            >
+                              Tokenize
+                            </Button>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -411,6 +450,12 @@ function MyProductsInner() {
         open={editDialogOpen}
         onOpenChange={handleEditDialogClose}
         tutorialStep={tutorialStep}
+      />
+
+      <ProductTokenizationDialog
+        product={tokenizingProduct}
+        open={tokenizationDialogOpen}
+        onOpenChange={setTokenizationDialogOpen}
       />
 
       {shouldShowTutorial && (
