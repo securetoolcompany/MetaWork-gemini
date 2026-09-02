@@ -122,7 +122,6 @@ export async function GET(request) {
 
         const eligibleIpAssets = ipAssets
             .map((asset) => {
-                const id = asset._id.toString();
                 const normalizedAsset = {
                     mongoId: asset._id.toString(),
                     id: asset.id || null,
@@ -141,10 +140,48 @@ export async function GET(request) {
             })
             .filter((asset) => asset.resolvedPoolIpId);
 
+        const products = await db
+            .collection('products')
+            .find({
+                'productRevenuePool.tokenizationStatus': 'active',
+                'productRevenuePool.revenuePoolAppId': {
+                    $in: [
+                        configuredRevenuePoolAppId,
+                        String(configuredRevenuePoolAppId),
+                    ],
+                },
+                'productRevenuePool.revenueTokenAssetId': { $gt: 0 },
+                'productRevenuePool.poolKey': { $type: 'string' },
+            })
+            .sort({ 'productRevenuePool.poolCreatedAt': -1 })
+            .toArray();
+
+        const eligibleProductPools = products
+            .map((product) => {
+                const pool = product.productRevenuePool;
+
+                return {
+                    mongoId: product._id.toString(),
+                    id: pool.poolKey,
+                    name:
+                        product.name ||
+                        product.title ||
+                        product.externalProductId ||
+                        'Untitled product',
+                    ipId: pool.poolKey,
+                    tokenizedIpId: null,
+                    assetId: null,
+                    revenuePoolAppId: Number(pool.revenuePoolAppId),
+                    revenueTokenAssetId: Number(pool.revenueTokenAssetId),
+                    resolvedPoolIpId: pool.poolKey,
+                };
+            })
+            .filter((product) => product.resolvedPoolIpId);
+            
         return NextResponse.json({
             success: true,
             revenuePoolAppId: configuredRevenuePoolAppId,
-            ipAssets: eligibleIpAssets,
+            ipAssets: [...eligibleIpAssets, ...eligibleProductPools],
         });
     } catch (error) {
         console.error(
