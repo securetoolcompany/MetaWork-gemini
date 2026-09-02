@@ -79,6 +79,8 @@ export default function ProductTokenizationDialog({
   const [isPreparingFunding, setIsPreparingFunding] = useState(false);
 	const [isSigningFunding, setIsSigningFunding] = useState(false);
 	const [isSubmittingFunding, setIsSubmittingFunding] = useState(false);
+	const [isCreatingRevenuePool, setIsCreatingRevenuePool] =
+  	useState(false);
 	const fundingSubmissionInFlightRef = useRef(false);
   const [isLoadingActiveFunding, setIsLoadingActiveFunding] =
     useState(false);
@@ -95,6 +97,7 @@ export default function ProductTokenizationDialog({
 		setIsPreparingFunding(false);
 		setIsSigningFunding(false);
 		setIsSubmittingFunding(false);
+		setIsCreatingRevenuePool(false);
 		fundingSubmissionInFlightRef.current = false;
 		activeFundingRequestKeyRef.current = null;
 			}, [
@@ -503,7 +506,82 @@ export default function ProductTokenizationDialog({
     setIsSubmittingFunding(false);
     fundingSubmissionInFlightRef.current = false;
   }
-};
+	};
+
+	const handleCreateRevenuePool = async () => {
+		const productId =
+			product?.id ||
+			product?._id?.toString?.() ||
+			product?.externalProductId;
+
+		if (!productId) {
+			toast.error("This product is missing a durable product identifier.");
+			return;
+		}
+
+		if (!isAuthenticated) {
+			toast.error("Please sign in before creating the revenue pool.");
+			return;
+		}
+
+		if (isCreatingRevenuePool) {
+			return;
+		}
+
+		setIsCreatingRevenuePool(true);
+
+		try {
+			const response = await fetch(
+				`/api/products/${encodeURIComponent(
+					String(productId)
+				)}/revenue-tokenization/create`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						...getAuthHeader(),
+					},
+				}
+			);
+
+			const data = await response.json();
+
+			if (!response.ok || data?.success !== true) {
+				throw new Error(
+					data?.error || "Unable to create the product revenue pool."
+				);
+			}
+
+			setPreparedRevenuePool((currentPool) => ({
+				...currentPool,
+				...(data?.productRevenuePool || {}),
+				tokenizationStatus:
+					data?.product?.tokenizationStatus ||
+					data?.productRevenuePool?.tokenizationStatus ||
+					currentPool?.tokenizationStatus,
+			}));
+
+			if (data?.confirmed) {
+				toast.success(
+					"Revenue pool created and revenue token ASA is active."
+				);
+			} else if (data?.pending) {
+				toast.message(
+					"Revenue pool creation was submitted and is awaiting confirmation."
+				);
+			} else if (data?.recovered) {
+				toast.message("Recovered the existing revenue pool creation.");
+			} else {
+				toast.message("Revenue pool creation is in progress.");
+			}
+		} catch (error) {
+			toast.error(
+				error?.message || "Unable to create the product revenue pool."
+			);
+		} finally {
+			setIsCreatingRevenuePool(false);
+		}
+	};
 
   const handlePrepareTokenization = async () => {
     const productId =
@@ -706,6 +784,25 @@ export default function ProductTokenizationDialog({
               </p>
             </div>
           ) : null}
+					{preparedRevenuePool?.tokenizationStatus === "creating" ? (
+						<div className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 text-sm">
+							<p className="font-medium">Funding confirmed</p>
+							<p className="mt-1 text-muted-foreground">
+								Your funding payment is confirmed. Create the product revenue pool
+								and its revenue-token ASA to complete tokenization.
+							</p>
+						</div>
+					) : null}
+
+					{preparedRevenuePool?.tokenizationStatus === "active" ? (
+						<div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm">
+							<p className="font-medium">Product revenue pool active</p>
+							<p className="mt-1 text-muted-foreground">
+								Revenue token ASA:{" "}
+								{preparedRevenuePool?.revenueTokenAssetId || "—"}
+							</p>
+						</div>
+					) : null}
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
@@ -766,7 +863,22 @@ export default function ProductTokenizationDialog({
 								"Sign and Submit Funding"
 							)}
 						</Button>
-          ) : preparedRevenuePool.tokenizationStatus ===
+						) : preparedRevenuePool?.tokenizationStatus === "creating" ? (
+							<Button
+								type="button"
+								onClick={handleCreateRevenuePool}
+								disabled={isCreatingRevenuePool}
+							>
+								{isCreatingRevenuePool ? (
+									<>
+										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+										Creating Revenue Pool
+									</>
+								) : (
+									"Create Revenue Pool"
+								)}
+							</Button>
+					) : preparedRevenuePool.tokenizationStatus ===
             "pending_funding" ? (
             <Button
               type="button"
@@ -783,7 +895,11 @@ export default function ProductTokenizationDialog({
               ) : null}
               Prepare Funding
             </Button>
-          ) : (
+          ) : preparedRevenuePool?.tokenizationStatus === "active" ? (
+						<Button type="button" disabled>
+							Revenue Pool Active
+						</Button>
+					) : (
 						<Button type="button" disabled>
 							{isLoadingActiveFunding
 								? "Checking Funding Request"
