@@ -328,6 +328,87 @@ export async function GET(request) {
 
     items.sort((a, b) => a.ipName.localeCompare(b.ipName));
 
+    const activeProductRevenuePools = await db
+      .collection("products")
+      .find(
+        {
+          "productRevenuePool.tokenizationStatus": "active",
+          "productRevenuePool.revenuePoolAppId": { $gt: 0 },
+          "productRevenuePool.revenueTokenAssetId": { $gt: 0 },
+          "productRevenuePool.poolKey": { $type: "string" },
+        },
+        {
+          projection: {
+            _id: 1,
+            name: 1,
+            title: 1,
+            imageUrl: 1,
+            images: 1,
+            productRevenuePool: 1,
+          },
+        },
+      )
+      .toArray();
+
+    for (const product of activeProductRevenuePools) {
+      const productRevenuePool = product.productRevenuePool;
+
+      const poolKey = String(productRevenuePool?.poolKey || "").trim();
+      const revenueTokenId = Number(productRevenuePool?.revenueTokenAssetId || 0);
+
+      if (!poolKey || revenueTokenId <= 0) {
+        continue;
+      }
+
+      const stakeholder = (productRevenuePool.stakeholders || []).find(
+        (entry) =>
+          String(entry?.address || "").trim().toUpperCase() ===
+          userAddress.toUpperCase(),
+      );
+
+      if (!stakeholder) {
+        continue;
+      }
+
+      const stakeholderBps = Number(stakeholder.bps || 0);
+
+      if (!Number.isInteger(stakeholderBps) || stakeholderBps <= 0) {
+        continue;
+      }
+
+      const userAsset = findUserAssetHolding(userAssets, revenueTokenId);
+
+      const existingBalance = Number(userAsset?.amount || 0);
+      const claimableAmount = Math.max(0, stakeholderBps - existingBalance);
+      const hasOptedIn = Boolean(userAsset);
+      const needsOptIn = claimableAmount > 0 && !hasOptedIn;
+      const onChainClaimed = existingBalance >= stakeholderBps;
+
+      items.push({
+        ipId: poolKey,
+        ipName:
+          String(product.name || product.title || "").trim() || "Untitled product",
+        imageUrl:
+          product.imageUrl ||
+          product.images?.[0]?.url ||
+          product.images?.[0] ||
+          null,
+        status: productRevenuePool.tokenizationStatus,
+        claimableAmount,
+        allocatedTokens: stakeholderBps,
+        existingBalance,
+        stakeholderBps,
+        stakeholderPercentage: stakeholderBps / 100,
+        needsOptIn,
+        hasOptedIn,
+        revenueTokenId,
+        onChainClaimed,
+        allocatedTokensDisplay: stakeholderBps.toLocaleString(),
+        existingBalanceDisplay: existingBalance.toLocaleString(),
+        claimedAmount: existingBalance,
+      });
+    }
+
     return NextResponse.json(
       safeJson({
         success: true,

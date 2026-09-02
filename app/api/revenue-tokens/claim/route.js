@@ -155,11 +155,30 @@ async function findIpRecord(db, rawIpId) {
 
   const ip = await db.collection('ip_assets').findOne(resolveIpQuery(ipId));
 
-  if (!ip) {
-    throw new Error(`IP Asset ${ipId} not found in DB.`);
+  if (ip) {
+    return ip;
   }
 
-  return ip;
+  const product = await db.collection('products').findOne({
+    'productRevenuePool.tokenizationStatus': 'active',
+    'productRevenuePool.poolKey': ipId,
+    'productRevenuePool.revenuePoolAppId': { $gt: 0 },
+    'productRevenuePool.revenueTokenAssetId': { $gt: 0 },
+  });
+
+  if (!product?.productRevenuePool) {
+    throw new Error(`Revenue token pool ${ipId} not found in DB.`);
+  }
+
+  return {
+    id: product.productRevenuePool.poolKey,
+    ipId: product.productRevenuePool.poolKey,
+    tokenizedIpId: product.productRevenuePool.poolKey,
+    revenuePoolAppId: product.productRevenuePool.revenuePoolAppId,
+    revenueTokenAssetId: product.productRevenuePool.revenueTokenAssetId,
+    stakeholders: product.productRevenuePool.stakeholders || [],
+    sourceType: 'product',
+  };
 }
 
 function extractPoolConfig(ip) {
@@ -191,7 +210,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const userAddr = normalizeAddress(body?.userAddress || body?.accountAddress);
-    const requestedIpId = normalizeIpId(body?.ipId);
+    const requestedIpId = normalizeIpId(body?.poolKey || body?.ipId);
 
     if (!userAddr || !algosdk.isValidAddress(userAddr)) {
       return NextResponse.json(
@@ -288,7 +307,7 @@ export async function PUT(request) {
   try {
     const body = await request.json();
     userAddr = normalizeAddress(body?.userAddress);
-    const requestedIpId = normalizeIpId(body?.ipId);
+    const requestedIpId = normalizeIpId(body?.poolKey || body?.ipId);
     const signedTxnBase64 = getSingleSignedTxn(body);
 
     if (!userAddr || !algosdk.isValidAddress(userAddr)) {

@@ -234,9 +234,33 @@ export async function GET(request) {
 
     const candidateIps = await ipAssetsCursor.toArray();
 
+    const candidateProducts = await db
+      .collection('products')
+      .find({
+        'productRevenuePool.tokenizationStatus': 'active',
+        'productRevenuePool.revenuePoolAppId': { $gt: 0 },
+        'productRevenuePool.revenueTokenAssetId': { $gt: 0 },
+        'productRevenuePool.poolKey': { $type: 'string' },
+      })
+      .toArray();
+
     const pools = [];
 
-    for (const ip of candidateIps) {
+    for (const source of [
+      ...candidateIps,
+      ...candidateProducts.map((product) => ({
+        name: product.name || product.title || 'Untitled product',
+        imageUrl:
+          product.imageUrl ||
+          product.images?.[0]?.url ||
+          product.images?.[0] ||
+          null,
+        revenuePoolAppId: product.productRevenuePool.revenuePoolAppId,
+        revenueTokenAssetId: product.productRevenuePool.revenueTokenAssetId,
+        ipId: product.productRevenuePool.poolKey,
+      })),
+    ]) {
+      const ip = source;
       const revenuePoolAppId = Number(
         ip.revenuePoolAppId || ip.appId || 0
       );

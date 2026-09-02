@@ -448,7 +448,7 @@ export default function ClaimPage() {
       }
 
       // ── 2) Stakeholder pools via REV ASA holdings (fallback) ───────────────
-      if (!controller.signal.aborted && poolsWithClaimInfo.length === 0) {
+      if (!controller.signal.aborted) {
         try {
           const stakeholderRes = await fetch(
             `/api/revenue-pool/stakeholder-pools?userAddress=${accountAddress}`,
@@ -564,7 +564,23 @@ export default function ClaimPage() {
 
       // ── 3) Final state update ───────────────────────────────────────────────
       if (!controller.signal.aborted) {
-        setRevenuePools(poolsWithClaimInfo);
+        const uniquePools = Array.from(
+          new Map(
+            poolsWithClaimInfo.map((pool) => {
+              const poolKey = String(
+                pool?.claimInfo?.poolKey ||
+                  pool?.poolKey ||
+                  pool?.revenuePool?.poolKey ||
+                  pool?.resolvedIpId ||
+                  resolvePoolIpId(pool)
+              ).trim();
+
+              return [poolKey, pool];
+            })
+          ).values()
+        );
+
+        setRevenuePools(uniquePools);
       }
     } catch (error) {
       if (error.name !== 'AbortError') {
