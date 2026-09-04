@@ -4,11 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useWallet } from '@/lib/WalletContext';
 import { useAuth } from '@/lib/AuthContext';
 import algosdk from 'algosdk';
-import { readV7PoolState } from '@/lib/revenue-pool-v7-pool-state';
-import { readV7ActiveRoundState } from '@/lib/revenue-pool-v7-round-state';
-import { preflightV7ReleaseHeld } from '@/lib/revenue-pool-v7-preflight';
-import { signApprovedV7ReleaseHeldGroup } from '@/lib/revenue-pool-v7-signing';
-import { submitApprovedV7ReleaseHeldGroup } from '@/lib/revenue-pool-v7-submission';
 import { toast } from 'sonner';
 import {
     Loader2,
@@ -45,10 +40,6 @@ import {
 } from '@/components/ui/dialog';
 
 const USDC_ASSET_ID = Number(process.env.NEXT_PUBLIC_USDC_ASSET_ID);
-
-const V7_RELEASE_SUBMISSION_ENABLED =
-    process.env.NEXT_PUBLIC_ALGORAND_NETWORK === 'testnet' &&
-    process.env.NEXT_PUBLIC_V7_RELEASE_SUBMISSION_ENABLED === 'true';
 
 const resolvePoolIpId = (item) =>
     String(
@@ -93,37 +84,7 @@ export default function PoolAdminPage() {
         useState(false);
     const [isCreatingSettlementBatch, setIsCreatingSettlementBatch] =
         useState(false);
-    const [v7SettlementState, setV7SettlementState] = useState({
-        status: 'idle',
-        error: null,
-        suggestedFeeAtomicUnits: null,
-        outerFeesAtomicUnits: null,
-        poolMbrAtomicUnits: null,
-        poolState: null,
-        roundState: null,
-    });
-
-    const [preflightResult, setPreflightResult] = useState(null);
-    const [preflightError, setPreflightError] = useState(null);
-    const [isPreparingRelease, setIsPreparingRelease] = useState(false);
-
-    const [signedResult, setSignedResult] = useState(null);
-    const [signingError, setSigningError] = useState(null);
-    const [isSigningRelease, setIsSigningRelease] = useState(false);
-
-    const [isSubmissionDialogOpen, setIsSubmissionDialogOpen] = useState(false);
-    const [isSubmittingRelease, setIsSubmittingRelease] = useState(false);
-    const [submissionResult, setSubmissionResult] = useState({
-        outcome: 'disabled',
-        reasons: [
-            'V7 settlement submission is disabled by configuration.',
-        ],
-        transactionId: null,
-        confirmedRound: null,
-    });
-
-    const [isFunding, setIsFunding] = useState(false);
-
+    
     const [
         isSubmittingPreparedUsdcDeposit,
         setIsSubmittingPreparedUsdcDeposit,
@@ -153,6 +114,10 @@ export default function PoolAdminPage() {
         isResetPreparedUsdcDepositDialogOpen,
         setIsResetPreparedUsdcDepositDialogOpen,
     ] = useState(false);
+    const [
+    isPreparingUnallocatedDeposit,
+    setIsPreparingUnallocatedDeposit,
+] = useState(false);
 
     const [isPreparingRecipientSnapshot, setIsPreparingRecipientSnapshot] =
         useState(false);
@@ -257,518 +222,88 @@ export default function PoolAdminPage() {
     };
 
     const fetchData = useCallback(async () => {
-        if (!appId || !appAddress) return;
+    if (!appId || !appAddress) return;
 
-        const revenuePoolAppId = Number(appId);
+    const revenuePoolAppId = Number(appId);
 
-        if (!Number.isSafeInteger(revenuePoolAppId) || revenuePoolAppId < 1) {
-            setV7SettlementState({
-                status: 'error',
-                error: 'NEXT_PUBLIC_REVENUE_POOL_APP_ID must be a positive safe integer.',
-                suggestedFeeAtomicUnits: null,
-                outerFeesAtomicUnits: null,
-                poolMbrAtomicUnits: null,
-                poolState: null,
-                roundState: null,
-            });
+    if (!Number.isSafeInteger(revenuePoolAppId) || revenuePoolAppId < 1) {
+        console.error(
+            'NEXT_PUBLIC_REVENUE_POOL_APP_ID must be a positive safe integer.'
+        );
+        return;
+    }
 
-            return;
-        }
+    setIsRefreshing(true);
 
-        setPreflightResult(null);
-        setPreflightError(null);
-        setSignedResult(null);
-        setSigningError(null);
-        setIsSubmissionDialogOpen(false);
-        setSubmissionResult({
-            outcome: 'disabled',
-            reasons: [
-                V7_RELEASE_SUBMISSION_ENABLED
-                    ? 'A fresh preflight and signature are required before submission.'
-                    : 'V7 settlement submission is disabled by configuration.',
-            ],
-            transactionId: null,
-            confirmedRound: null,
-        });
-        
-        setIsRefreshing(true);
-
-        setV7SettlementState((previous) => ({
-            ...previous,
-            status: selectedIpId ? 'loading' : 'idle',
-            error: null,
-            poolState: null,
-            roundState: null,
-        }));
-
+    try {
         const algod = new algosdk.Algodv2(
             '',
             'https://testnet-api.algonode.cloud',
             ''
         );
 
-        try {
-            const suggestedParams = await algod.getTransactionParams().do();
+        const poolAcct = await algod.accountInformation(appAddress).do();
+        const poolUsdc = findAsset(poolAcct.assets, USDC_ASSET_ID);
 
-            const poolAcct = await algod.accountInformation(appAddress).do();
-            const poolUsdc = findAsset(poolAcct.assets, USDC_ASSET_ID);
+        setPoolInfo({
+            algoBalance: Number(poolAcct.amount) / 1_000_000,
+            usdcBalance: poolUsdc
+                ? Number(poolUsdc.amount) / 1_000_000
+                : 0,
+            isOptedIn: Boolean(poolUsdc),
+        });
 
-            setPoolInfo({
-                algoBalance: Number(poolAcct.amount) / 1000000,
-                usdcBalance: poolUsdc ? Number(poolUsdc.amount) / 1000000 : 0,
-                isOptedIn: !!poolUsdc,
+        if (accountAddress) {
+            const userAcct = await algod
+                .accountInformation(accountAddress)
+                .do();
+
+            const userUsdc = findAsset(userAcct.assets, USDC_ASSET_ID);
+
+            setUserInfo({
+                algo: Number(userAcct.amount) / 1_000_000,
+                usdc: userUsdc
+                    ? Number(userUsdc.amount) / 1_000_000
+                    : 0,
             });
-
-            if (accountAddress) {
-                const userAcct = await algod.accountInformation(accountAddress).do();
-                const userUsdc = findAsset(userAcct.assets, USDC_ASSET_ID);
-
-                setUserInfo({
-                    algo: Number(userAcct.amount) / 1000000,
-                    usdc: userUsdc ? Number(userUsdc.amount) / 1000000 : 0,
-                });
-            }
-
-            const ipRes = await fetch('/api/admin/revenue-pool/ip-assets', {
-                headers: getAuthHeader(),
-                cache: 'no-store',
-            });
-
-           const ipData = await ipRes.json();
-
-            if (!ipRes.ok) {
-                throw new Error(
-                    ipData.error || 'Unable to load IP assets for pool administration.'
-                );
-            }
-
-            setIps(ipData.ipAssets || []);
-
-            const suggestedFeeAtomicUnits = toAtomicUnitsBigInt(
-                suggestedParams.minFee ?? suggestedParams.fee
-            );
-
-            const poolMbrAtomicUnits = toAtomicUnitsBigInt(
-                poolAcct['min-balance'] ?? poolAcct.minBalance
-            );
-
-            if (!selectedIpId) {
-                setV7SettlementState({
-                    status: 'idle',
-                    error: null,
-                    suggestedFeeAtomicUnits,
-                    outerFeesAtomicUnits: suggestedFeeAtomicUnits * 2n,
-                    poolMbrAtomicUnits,
-                    poolState: null,
-                    roundState: null,
-                });
-
-                return;
-            }
-
-            try {
-                const poolState = await readV7PoolState({
-                    algodClient: algod,
-                    revenuePoolAppId,
-                    expectedRevenuePoolAppId: revenuePoolAppId,
-                    ipAssetId: selectedIpId,
-                });
-
-                const roundState = await readV7ActiveRoundState({
-                    algodClient: algod,
-                    revenuePoolAppId,
-                    expectedRevenuePoolAppId: revenuePoolAppId,
-                    ipAssetId: selectedIpId,
-                    poolState,
-                });
-
-                setV7SettlementState({
-                    status: 'ready',
-                    error: null,
-                    suggestedFeeAtomicUnits,
-                    outerFeesAtomicUnits: suggestedFeeAtomicUnits * 2n,
-                    poolMbrAtomicUnits,
-                    poolState,
-                    roundState,
-                });
-            } catch (error) {
-                console.error('V7 settlement read error:', error);
-
-                setV7SettlementState({
-                    status: 'error',
-                    error:
-                        error.message ||
-                        'Unable to read V7 pool settlement state.',
-                    suggestedFeeAtomicUnits,
-                    outerFeesAtomicUnits: suggestedFeeAtomicUnits * 2n,
-                    poolMbrAtomicUnits,
-                    poolState: null,
-                    roundState: null,
-                });
-            }
-        } catch (error) {
-            console.error('Fetch Error:', error);
-            toast.error(`Failed to refresh data: ${error.message}`);
-
-            setV7SettlementState({
-                status: 'error',
-                error:
-                    error.message ||
-                    'Unable to refresh settlement read state.',
-                suggestedFeeAtomicUnits: null,
-                outerFeesAtomicUnits: null,
-                poolMbrAtomicUnits: null,
-                poolState: null,
-                roundState: null,
-            });
-        } finally {
-            setIsRefreshing(false);
+        } else {
+            setUserInfo({ algo: 0, usdc: 0 });
         }
-    }, [
-        appAddress,
-        appId,
-        accountAddress,
-        getAuthHeader,
-        selectedIpId,
-    ]);
+
+        const ipRes = await fetch('/api/admin/revenue-pool/ip-assets', {
+            headers: getAuthHeader(),
+            cache: 'no-store',
+        });
+
+        const ipData = await ipRes.json();
+
+        if (!ipRes.ok) {
+            throw new Error(
+                ipData.error ||
+                    'Unable to load IP assets for pool administration.'
+            );
+        }
+
+        setIps(ipData.ipAssets || []);
+    } catch (error) {
+        console.error('Admin Pool refresh failed:', error);
+
+        toast.error(
+            error?.message || 'Unable to refresh Admin Pool data.'
+        );
+    } finally {
+        setIsRefreshing(false);
+    }
+}, [
+    appAddress,
+    appId,
+    accountAddress,
+    getAuthHeader,
+]);
 
     useEffect(() => {
         fetchData();
     }, [fetchData]);
-
-    const handlePrepareRelease = async () => {
-        if (!isConnected || !accountAddress) {
-            return toast.error(
-                'Connect the administrator wallet before preparing a release.'
-            );
-        }
-
-        if (!selectedIpId) {
-            return toast.error('Select an IP asset before preparing a release.');
-        }
-
-        if (!appId || !appAddress) {
-            return toast.error('Revenue-pool application configuration is unavailable.');
-        }
-
-        const revenuePoolAppId = Number(appId);
-
-        if (!Number.isSafeInteger(revenuePoolAppId) || revenuePoolAppId < 1) {
-            return toast.error(
-                'NEXT_PUBLIC_REVENUE_POOL_APP_ID must be a positive safe integer.'
-            );
-        }
-
-        setIsPreparingRelease(true);
-        setPreflightError(null);
-        setPreflightResult(null);
-        setSignedResult(null);
-        setSigningError(null);
-        setIsSubmissionDialogOpen(false);
-        setSubmissionResult({
-            outcome: 'disabled',
-            reasons: [
-                V7_RELEASE_SUBMISSION_ENABLED
-                    ? 'A fresh signature is required after preparing a new release.'
-                    : 'V7 settlement submission is disabled by configuration.',
-            ],
-            transactionId: null,
-            confirmedRound: null,
-        });
-
-        try {
-            const algod = new algosdk.Algodv2(
-                '',
-                'https://testnet-api.algonode.cloud',
-                ''
-            );
-
-            const [suggestedParams, adminAccount, poolAccount] =
-                await Promise.all([
-                    algod.getTransactionParams().do(),
-                    algod.accountInformation(accountAddress).do(),
-                    algod.accountInformation(appAddress).do(),
-                ]);
-
-            const poolState = await readV7PoolState({
-                algodClient: algod,
-                revenuePoolAppId,
-                expectedRevenuePoolAppId: revenuePoolAppId,
-                ipAssetId: selectedIpId,
-            });
-
-            const roundState = await readV7ActiveRoundState({
-                algodClient: algod,
-                revenuePoolAppId,
-                expectedRevenuePoolAppId: revenuePoolAppId,
-                ipAssetId: selectedIpId,
-                poolState,
-            });
-
-            const suggestedFeeAtomicUnits = toAtomicUnitsBigInt(
-                suggestedParams.minFee ?? suggestedParams.fee
-            );
-            const poolMbrAtomicUnits = toAtomicUnitsBigInt(
-                poolAccount['min-balance'] ?? poolAccount.minBalance
-            );
-
-            setUserInfo({
-                algo: Number(adminAccount.amount) / 1000000,
-                usdc: findAsset(adminAccount.assets, USDC_ASSET_ID)
-                    ? Number(
-                          findAsset(adminAccount.assets, USDC_ASSET_ID).amount
-                      ) / 1000000
-                    : 0,
-            });
-
-            setV7SettlementState({
-                status: 'ready',
-                error: null,
-                suggestedFeeAtomicUnits,
-                outerFeesAtomicUnits: suggestedFeeAtomicUnits * 2n,
-                poolMbrAtomicUnits,
-                poolState,
-                roundState,
-            });
-
-            const result = preflightV7ReleaseHeld({
-                revenuePoolAppId,
-                expectedRevenuePoolAppId: revenuePoolAppId,
-                usdcAssetId: USDC_ASSET_ID,
-                adminAddress: accountAddress,
-                ipAssetId: selectedIpId,
-                suggestedParams,
-                poolState,
-                releaseState: roundState,
-                adminAccountBalanceMicroAlgos: toAtomicUnitsBigInt(
-                    adminAccount.amount
-                ),
-            });
-
-            if (!result.ok) {
-                setPreflightError(result.reasons);
-                return;
-            }
-
-            setPreflightResult(result);
-            toast.success('Release preflight prepared. Signing remains disabled.');
-        } catch (error) {
-            console.error('V7 release preflight error:', error);
-
-            setPreflightError([
-                {
-                    code: 'PREPARE_FAILED',
-                    message:
-                        error.message || 'Unable to prepare release from live state.',
-                },
-            ]);
-        } finally {
-            setIsPreparingRelease(false);
-        }
-    };
-
-    const handleSignRelease = async () => {
-    if (
-        !isConnected ||
-        !accountAddress ||
-        !preflightResult?.ok ||
-        !preflightResult.unsignedGroup ||
-        !preflightResult.proposedGroup?.groupId
-    ) {
-        return toast.error(
-            'Connect the administrator wallet and prepare a successful release before signing.'
-        );
-    }
-
-    setIsSigningRelease(true);
-    setSigningError(null);
-    setSignedResult(null);
-    setIsSubmissionDialogOpen(false);
-    setSubmissionResult({
-        outcome: 'disabled',
-        reasons: [
-            V7_RELEASE_SUBMISSION_ENABLED
-                ? 'Submission requires final confirmation after signing.'
-                : 'V7 settlement submission is disabled by configuration.',
-        ],
-        transactionId: null,
-        confirmedRound: null,
-    });
-
-    try {
-        const signedResult = await signApprovedV7ReleaseHeldGroup({
-            approvedGroup: preflightResult.unsignedGroup,
-            expectedGroupId: preflightResult.proposedGroup.groupId,
-            signTransactionGroup,
-        });
-
-        setSignedResult(signedResult);
-        toast.success('Release group signed. Submission remains disabled.');
-    } catch (error) {
-        console.error('V7 release signing error:', error);
-
-        setSigningError(
-            error.message || 'Release signing was cancelled or rejected.'
-        );
-    } finally {
-        setIsSigningRelease(false);
-    }
-};
-    
-    const refreshV7ReleasePreflight = async () => {
-        if (!isConnected || !accountAddress) {
-            throw new Error(
-                'Connect the administrator wallet before refreshing submission state.'
-            );
-        }
-
-        if (!selectedIpId) {
-            throw new Error('Select an IP asset before refreshing submission state.');
-        }
-
-        if (!appId || !appAddress) {
-            throw new Error('Revenue-pool application configuration is unavailable.');
-        }
-
-        const revenuePoolAppId = Number(appId);
-
-        if (!Number.isSafeInteger(revenuePoolAppId) || revenuePoolAppId < 1) {
-            throw new Error(
-                'NEXT_PUBLIC_REVENUE_POOL_APP_ID must be a positive safe integer.'
-            );
-        }
-
-        const algod = new algosdk.Algodv2(
-            '',
-            'https://testnet-api.algonode.cloud',
-            ''
-        );
-
-        const [suggestedParams, adminAccount] = await Promise.all([
-            algod.getTransactionParams().do(),
-            algod.accountInformation(accountAddress).do(),
-        ]);
-
-        const poolState = await readV7PoolState({
-            algodClient: algod,
-            revenuePoolAppId,
-            expectedRevenuePoolAppId: revenuePoolAppId,
-            ipAssetId: selectedIpId,
-        });
-
-        const roundState = await readV7ActiveRoundState({
-            algodClient: algod,
-            revenuePoolAppId,
-            expectedRevenuePoolAppId: revenuePoolAppId,
-            ipAssetId: selectedIpId,
-            poolState,
-        });
-
-        return preflightV7ReleaseHeld({
-            revenuePoolAppId,
-            expectedRevenuePoolAppId: revenuePoolAppId,
-            usdcAssetId: USDC_ASSET_ID,
-            adminAddress: accountAddress,
-            ipAssetId: selectedIpId,
-            suggestedParams,
-            poolState,
-            releaseState: roundState,
-            adminAccountBalanceMicroAlgos: toAtomicUnitsBigInt(
-                adminAccount.amount
-            ),
-            buildUnsignedGroup: false,
-        });
-    };
-
-    const handleSubmitSignedRelease = async () => {
-        if (
-            !signedResult ||
-            !preflightResult?.ok ||
-            !preflightResult.proposedGroup?.groupId
-        ) {
-            setSubmissionResult({
-                outcome: 'stale_preflight',
-                reasons: [
-                    'A matching in-memory signed result and successful preflight are required.',
-                ],
-                transactionId: null,
-                confirmedRound: null,
-            });
-            setIsSubmissionDialogOpen(false);
-            return;
-        }
-
-        setIsSubmittingRelease(true);
-
-        try {
-            const algod = new algosdk.Algodv2(
-                '',
-                'https://testnet-api.algonode.cloud',
-                ''
-            );
-
-            const result = await submitApprovedV7ReleaseHeldGroup({
-                enabled: V7_RELEASE_SUBMISSION_ENABLED,
-                userConfirmedSubmission: true,
-                signedResult,
-                preflightResult,
-                refreshPreflight: refreshV7ReleasePreflight,
-                algodClient: algod,
-                maxConfirmationAttempts: 20,
-                confirmationPollIntervalMilliseconds: 1000,
-            });
-
-            setSubmissionResult(result);
-            setIsSubmissionDialogOpen(false);
-
-            if (result.outcome === 'confirmed') {
-                toast.success(
-                    `Release confirmed in round ${result.confirmedRound}.`
-                );
-                setSignedResult(null);
-                setPreflightResult(null);
-                await fetchData();
-                return;
-            }
-
-            if (result.outcome === 'pending') {
-                toast.success(
-                    `Release submitted as ${result.transactionId}; confirmation is pending.`
-                );
-                setSignedResult(null);
-                setPreflightResult(null);
-                return;
-            }
-
-            if (result.outcome === 'stale_preflight') {
-                setSignedResult(null);
-                setPreflightResult(null);
-                toast.error(
-                    'Live state changed. Prepare and sign a new release group.'
-                );
-                return;
-            }
-
-            toast.error(
-                result.reasons?.join(' ') ||
-                    `Release submission ended with ${result.outcome}.`
-            );
-        } catch (error) {
-            console.error('V7 release submission error:', error);
-
-            setSubmissionResult({
-                outcome: 'network_error',
-                reasons: [
-                    error.message || 'Unable to submit the signed release group.',
-                ],
-                transactionId: null,
-                confirmedRound: null,
-            });
-            setIsSubmissionDialogOpen(false);
-        } finally {
-            setIsSubmittingRelease(false);
-        }
-    };
 
     const loadEligibleLedgerRows = async (poolKey) => {
         if (!poolKey) {
@@ -1008,7 +543,7 @@ export default function PoolAdminPage() {
 
     const handleConfirmDeposit = async () => {
         if (!selectedSettlementBatch) {
-            return toast.error('Select a settlement batch before confirming its held deposit.');
+            return toast.error('Select a settlement batch before confirming its unallocated usdc.');
         }
 
         if (selectedSettlementBatch.status !== 'deposit_submitted') {
@@ -1368,132 +903,6 @@ export default function PoolAdminPage() {
         }
     };
 
-    const handleFund = async () => {
-        if (!isConnected || !accountAddress) {
-            return toast.error(
-                'Connect the administrator wallet before preparing a held deposit.'
-            );
-        }
-
-        if (!selectedSettlementBatch) {
-            return toast.error(
-                'Select a frozen settlement batch before preparing a held deposit.'
-            );
-        }
-
-        setIsFunding(true);
-
-        try {
-            const prepareResponse = await fetch(
-                '/api/admin/revenue-settlement',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...getAuthHeader(),
-                    },
-                    body: JSON.stringify({
-                        action: 'prepare_deposit',
-                        batchId: selectedSettlementBatch.batchId,
-                        depositorAddress: accountAddress,
-                    }),
-                }
-            );
-
-            const prepareData = await prepareResponse.json();
-
-            if (!prepareResponse.ok || !prepareData.success) {
-                throw new Error(
-                    prepareData.error ||
-                        'Unable to prepare the durable held USDC deposit.'
-                );
-            }
-
-            const depositAttempt = prepareData.depositAttempt;
-
-            if (
-                !depositAttempt ||
-                depositAttempt.status !== 'prepared' ||
-                !Array.isArray(
-                    depositAttempt.unsignedTransactionsBase64
-                ) ||
-                depositAttempt.unsignedTransactionsBase64.length !== 2 ||
-                depositAttempt.usdcTransferTransactionIndex !== 0 ||
-                depositAttempt.appCallTransactionIndex !== 1 ||
-                !depositAttempt.transactionIds?.appCall ||
-                !depositAttempt.transactionIds?.usdcTransfer
-            ) {
-                throw new Error(
-                    'Prepared held-deposit metadata is incomplete or inconsistent.'
-                );
-            }
-
-            const signedTransactions = await signTransactionGroup(
-                depositAttempt.unsignedTransactionsBase64.map(
-                    (encodedTransaction) =>
-                        new Uint8Array(
-                            Buffer.from(encodedTransaction, 'base64')
-                        )
-                )
-            );
-
-            if (!signedTransactions || signedTransactions.length !== 2) {
-                throw new Error(
-                    'Held-deposit signing was cancelled or incomplete.'
-                );
-            }
-
-            const algod = new algosdk.Algodv2(
-                '',
-                'https://testnet-api.algonode.cloud',
-                ''
-            );
-
-            await algod.sendRawTransaction(signedTransactions).do();
-
-            const submittedResponse = await fetch(
-                '/api/admin/revenue-settlement',
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        ...getAuthHeader(),
-                    },
-                    body: JSON.stringify({
-                        action: 'mark_submitted',
-                        batchId: selectedSettlementBatch.batchId,
-                    }),
-                }
-            );
-
-            const submittedData = await submittedResponse.json();
-
-            if (!submittedResponse.ok || !submittedData.success) {
-                throw new Error(
-                    submittedData.error ||
-                        'The held deposit broadcast, but the durable submission state could not be recorded.'
-                );
-            }
-
-            setIsUsdcDepositSubmissionDialogOpen(false);
-
-            toast.success(
-                'Held USDC deposit submitted. Confirmation, ledger materialization, payout-round creation, and distribution remain separate steps.'
-            );
-
-            await loadSettlementBatches(selectedIpId);
-            await fetchData();
-        } catch (error) {
-            console.error('V10 held deposit failed:', error);
-
-            toast.error(
-                error?.message || 'Unable to submit the held USDC deposit.'
-            );
-        } finally {
-            setIsFunding(false);
-        }
-    };
-
     const handlePrepareUnallocatedUsdcDeposit = async () => {
         if (!isConnected || !accountAddress) {
             return toast.error(
@@ -1516,7 +925,7 @@ export default function PoolAdminPage() {
             );
         }
 
-        setIsFunding(true);
+        setIsPreparingUnallocatedDeposit(true);
 
         try {
             const response = await fetch(
@@ -1580,7 +989,7 @@ export default function PoolAdminPage() {
                     'Unable to prepare the unallocated USDC deposit.'
             );
         } finally {
-            setIsFunding(false);
+            setIsPreparingUnallocatedDeposit(false);
         }
     };
 
@@ -1891,313 +1300,6 @@ export default function PoolAdminPage() {
                 </CardContent>
             </Card>
 
-            <div className="flex flex-col gap-3 rounded border border-blue-200 bg-blue-50 p-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <p className="font-medium text-blue-950">Release preparation</p>
-                    <p className="text-sm text-blue-900">
-                        Refreshes live state and builds a preflight-approved unsigned
-                        group only. It does not open Pera or submit a transaction.
-                    </p>
-                </div>
-
-                <Button
-                    type="button"
-                    onClick={handlePrepareRelease}
-                    disabled={
-                        isPreparingRelease ||
-                        !isConnected ||
-                        !accountAddress ||
-                        !selectedIpId
-                    }
-                >
-                    {isPreparingRelease ? (
-                        <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Preparing...
-                        </>
-                    ) : (
-                        'Prepare release'
-                    )}
-                </Button>
-
-                <Button
-                type="button"
-                onClick={handleSignRelease}
-                disabled={
-                    isSigningRelease ||
-                    !preflightResult?.ok ||
-                    !preflightResult?.unsignedGroup ||
-                    !preflightResult?.proposedGroup?.groupId
-                }
-            >
-                Sign release
-            </Button>
-
-            <Button
-                type="button"
-                variant="destructive"
-                onClick={() => setIsSubmissionDialogOpen(true)}
-                disabled={
-                    !V7_RELEASE_SUBMISSION_ENABLED ||
-                    !signedResult ||
-                    !preflightResult?.ok ||
-                    signedResult.groupId !== preflightResult.proposedGroup?.groupId ||
-                    isSubmittingRelease
-                }
-            >
-                Submit signed release
-            </Button>
-            </div>
-
-            {preflightError?.length > 0 && (
-                <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                    <p className="mb-2 font-medium">Release preflight blocked</p>
-
-                    <div className="space-y-1">
-                        {preflightError.map(({ code, message }, index) => (
-                            <p key={`${code}-${index}`}>
-                                <span className="font-mono font-medium">{code}:</span>{' '}
-                                {message}
-                            </p>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {submissionResult?.outcome && (
-    <div
-        className={`rounded border p-3 text-sm ${
-            submissionResult.outcome === 'confirmed'
-                ? 'border-green-200 bg-green-50 text-green-950'
-                : submissionResult.outcome === 'pending'
-                  ? 'border-yellow-200 bg-yellow-50 text-yellow-950'
-                  : submissionResult.outcome === 'disabled'
-                    ? 'border-slate-200 bg-slate-50 text-slate-700'
-                    : 'border-red-200 bg-red-50 text-red-800'
-        }`}
-    >
-        <p className="font-medium">
-            Submission status: {submissionResult.outcome}
-        </p>
-
-        {submissionResult.transactionId && (
-            <p className="mt-1 break-all font-mono text-xs">
-                Transaction ID: {submissionResult.transactionId}
-            </p>
-        )}
-
-        {submissionResult.confirmedRound && (
-            <p className="mt-1 font-mono">
-                Confirmed round: {submissionResult.confirmedRound}
-            </p>
-        )}
-
-        {submissionResult.reasons?.map((reason, index) => (
-            <p key={`${reason}-${index}`} className="mt-1">
-                {reason}
-            </p>
-        ))}
-    </div>
-)}
-
-            {isSubmissionDialogOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-                    <Card className="w-full max-w-2xl">
-                        <CardHeader>
-                            <CardTitle>Submit signed V7 release?</CardTitle>
-
-                            <CardDescription>
-                                This is the final broadcast confirmation. The signed group
-                                will first be checked against fresh live state. If any
-                                state changed, submission will be rejected.
-                            </CardDescription>
-                        </CardHeader>
-
-                        <CardContent className="space-y-4">
-                            <div className="grid gap-3 text-sm md:grid-cols-2">
-                                <div>
-                                    <p className="text-muted-foreground">Pool key</p>
-                                    <p className="break-all font-mono">{selectedIpId}</p>
-                                </div>
-
-                                <div>
-                                    <p className="text-muted-foreground">
-                                        Held USDC atomic units
-                                    </p>
-                                    <p className="font-mono">
-                                        {toAtomicUnitsString(
-                                            v7SettlementState.poolState
-                                                ?.heldUsdcAtomicUnits
-                                        )}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-muted-foreground">Current round</p>
-                                    <p className="font-mono">
-                                        {preflightResult?.currentRoundId}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-muted-foreground">Next round</p>
-                                    <p className="font-mono">
-                                        {preflightResult?.nextRoundId}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-muted-foreground">
-                                        Required MBR atomic units
-                                    </p>
-                                    <p className="font-mono">
-                                        {preflightResult?.requiredMbrMicroAlgos}
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-muted-foreground">
-                                        Required outer fees atomic units
-                                    </p>
-                                    <p className="font-mono">
-                                        {preflightResult?.requiredFeesMicroAlgos}
-                                    </p>
-                                </div>
-
-                                <div className="md:col-span-2">
-                                    <p className="text-muted-foreground">
-                                        Signed group ID
-                                    </p>
-                                    <p className="break-all font-mono text-xs">
-                                        {signedResult?.groupId}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex justify-end gap-2">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() => setIsSubmissionDialogOpen(false)}
-                                    disabled={isSubmittingRelease}
-                                >
-                                    Cancel
-                                </Button>
-
-                                <Button
-                                    type="button"
-                                    variant="destructive"
-                                    onClick={handleSubmitSignedRelease}
-                                    disabled={isSubmittingRelease}
-                                >
-                                    {isSubmittingRelease ? (
-                                        <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Submitting...
-                                        </>
-                                    ) : (
-                                        'Submit signed group'
-                                    )}
-                                </Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
-
-            {preflightResult?.ok && (
-                <div className="rounded border border-green-200 bg-green-50 p-3 text-sm text-green-950">
-                    <p className="mb-3 font-medium">
-                        Release preflight approved — signing is enabled; submission remains disabled
-                    </p>
-
-                    <div className="grid gap-3 md:grid-cols-2">
-                        <div>
-                            <p className="text-xs font-medium text-green-800">
-                                Pool key
-                            </p>
-                            <p className="mt-1 break-all font-mono">
-                                {selectedIpId}
-                            </p>
-                        </div>
-
-                        <div>
-                            <p className="text-xs font-medium text-green-800">
-                                Held USDC atomic units
-                            </p>
-                            <p className="mt-1 break-all font-mono">
-                                {toAtomicUnitsString(
-                                    v7SettlementState.poolState?.heldUsdcAtomicUnits
-                                )}
-                            </p>
-                        </div>
-
-                        <div>
-                            <p className="text-xs font-medium text-green-800">
-                                Current round
-                            </p>
-                            <p className="mt-1 font-mono">
-                                {preflightResult.currentRoundId}
-                            </p>
-                        </div>
-
-                        <div>
-                            <p className="text-xs font-medium text-green-800">
-                                Next round
-                            </p>
-                            <p className="mt-1 font-mono">
-                                {preflightResult.nextRoundId}
-                            </p>
-                        </div>
-
-                        <div>
-                            <p className="text-xs font-medium text-green-800">
-                                Required round MBR atomic units
-                            </p>
-                            <p className="mt-1 font-mono">
-                                {preflightResult.requiredMbrMicroAlgos}
-                            </p>
-                        </div>
-
-                        <div>
-                            <p className="text-xs font-medium text-green-800">
-                                Required outer fees atomic units
-                            </p>
-                            <p className="mt-1 font-mono">
-                                {preflightResult.requiredFeesMicroAlgos}
-                            </p>
-                        </div>
-
-                        <div>
-                            <p className="text-xs font-medium text-green-800">
-                                Total required ALGO atomic units
-                            </p>
-                            <p className="mt-1 font-mono">
-                                {preflightResult.requiredTotalMicroAlgos}
-                            </p>
-                        </div>
-
-                        <div>
-                            <p className="text-xs font-medium text-green-800">
-                                Unsigned transaction count
-                            </p>
-                            <p className="mt-1 font-mono">
-                                {preflightResult.proposedGroup.transactionCount}
-                            </p>
-                        </div>
-
-                        <div className="md:col-span-2">
-                            <p className="text-xs font-medium text-green-800">
-                                Approved group ID
-                            </p>
-                            <p className="mt-1 break-all font-mono text-xs">
-                                {preflightResult.proposedGroup.groupId}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
-            
             <div className="grid gap-6 md:grid-cols-2">
                 <Card>
                     <CardHeader>
@@ -2253,6 +1355,11 @@ export default function PoolAdminPage() {
                                 </h3>
 
                                 <div className="flex gap-2">
+                                    <p className="rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+                                        Current-holder snapshot payouts use unallocated USDC only.
+                                        Legacy held deposits and release-held settlement are intentionally unavailable here
+                                        because they allocate to the original pool stakeholders rather than current REV holders.
+                                    </p>
                                     <Input
                                         type="password"
                                         placeholder="Admin Secret"
@@ -2283,7 +1390,7 @@ export default function PoolAdminPage() {
                         <div className="space-y-3">
                             <h3 className="flex items-center gap-2 font-medium text-green-600">
                                 <Coins className="h-4 w-4" />
-                                Step 1: Prepare recipient snapshot and Step 2: Prepare held USDC deposit
+                                Step 1: Freeze current REV-holder snapshot and Step 2: Prepare unallocated USDC deposit
                             </h3>
 
                             <div className="space-y-2">
@@ -2487,7 +1594,7 @@ export default function PoolAdminPage() {
                                         </p>
 
                                         <p>
-                                            Held deposit amount:{' '}
+                                            Settlement amount:{' '}
                                             <span className="font-mono">
                                                 {selectedSettlementBatch.totalUsdcAtomicUnits}
                                             </span>{' '}
@@ -2580,7 +1687,7 @@ export default function PoolAdminPage() {
                                     </div>
 
                                     <p className="mt-2 text-xs text-blue-900">
-                                        A held deposit does not pay recipients. Confirmation,
+                                        A unallocated usdc does not pay recipients. Confirmation,
                                         ledger materialization, payout-round creation, and distribution
                                         remain separate steps.
                                     </p>
@@ -2608,7 +1715,7 @@ export default function PoolAdminPage() {
                                 </div>
                             )}
 
-                                                        <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap gap-2">
                                 <Button
                                     onClick={handlePrepareRecipientSnapshot}
                                     disabled={
@@ -2626,30 +1733,11 @@ export default function PoolAdminPage() {
                                 </Button>
 
                                 <Button
-                                    onClick={handleFund}
-                                    disabled={
-                                        isFunding ||
-                                        !isConnected ||
-                                        !poolInfo?.isOptedIn ||
-                                        !selectedSettlementBatch ||
-                                        selectedSettlementBatch.status !==
-                                            'recipient_snapshot_prepared'
-                                    }
-                                >
-                                    {isFunding ? (
-                                        <Loader2 className="animate-spin" />
-                                    ) : (
-                                        'Prepare and submit held deposit'
-                                    )}
-                                    <ArrowRight className="ml-1 h-4 w-4" />
-                                </Button>
-
-                                <Button
                                     type="button"
                                     variant="outline"
                                     onClick={handlePrepareUnallocatedUsdcDeposit}
                                     disabled={
-                                        isFunding ||
+                                        isPreparingUnallocatedDeposit ||
                                         !isConnected ||
                                         !poolInfo?.isOptedIn ||
                                         !selectedSettlementBatch ||
@@ -2657,7 +1745,7 @@ export default function PoolAdminPage() {
                                             'recipient_snapshot_prepared'
                                     }
                                 >
-                                    {isFunding ? (
+                                    {isPreparingUnallocatedDeposit ? (
                                         <Loader2 className="animate-spin" />
                                     ) : (
                                         'Prepare unallocated USDC deposit'
@@ -2716,7 +1804,7 @@ export default function PoolAdminPage() {
                                             Confirming...
                                         </>
                                     ) : (
-                                        'Confirm held deposit'
+                                        'Confirm USDC deposit'
                                     )}
                                 </Button>
 
@@ -2806,9 +1894,8 @@ export default function PoolAdminPage() {
                                 </Button>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                First prepare the recipient snapshot to freeze the recipient allocation.
-                                Then prepare and submit the held USDC deposit. Depositing funds the
-                                pool&apos;s held balance; it does not pay recipients.
+                                Freeze the current REV-holder snapshot first. Then prepare an unallocated
+                                USDC deposit for the exact frozen batch amount.
                             </p>
                             {userInfo.usdc === 0 && isConnected && (
                                 <div className="flex gap-2 rounded bg-red-50 p-2 text-xs text-red-600">
@@ -2824,176 +1911,6 @@ export default function PoolAdminPage() {
                 </Card>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>V7 Release-Held Read State</CardTitle>
-
-                    <CardDescription>
-                        Inspect live settlement state for one selected IP asset, then
-                        explicitly prepare a release preflight. Preparation does not sign
-                        or submit a transaction.
-                    </CardDescription>
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                    <div className="grid gap-3 text-sm md:grid-cols-2">
-                        <div className="rounded border bg-muted p-3">
-                            <p className="text-xs font-medium text-muted-foreground">
-                                Selected IP asset
-                            </p>
-
-                            <p className="mt-1 break-all font-mono">
-                                {selectedIpId || 'Select an IP asset above'}
-                            </p>
-                        </div>
-
-                        <div className="rounded border bg-muted p-3">
-                            <p className="text-xs font-medium text-muted-foreground">
-                                Revenue-pool app ID
-                            </p>
-
-                            <p className="mt-1 font-mono">{appId}</p>
-                        </div>
-                    </div>
-
-                    {!selectedIpId && (
-                        <div className="rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-                            Select one IP asset in the existing funding panel to
-                            load its V7 pool box and active settlement-round
-                            state.
-                        </div>
-                    )}
-
-                    {selectedIpId &&
-                        v7SettlementState.status === 'loading' && (
-                            <div className="flex items-center gap-2 rounded border bg-muted p-3 text-sm">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Reading V7 pool and active settlement-round
-                                state...
-                            </div>
-                        )}
-
-                    {selectedIpId &&
-                        v7SettlementState.status === 'error' && (
-                            <div className="flex gap-2 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                                <span>{v7SettlementState.error}</span>
-                            </div>
-                        )}
-
-                    {selectedIpId &&
-                        v7SettlementState.status === 'ready' && (
-                            <>
-                                <div className="grid gap-3 md:grid-cols-2">
-                                    <div className="rounded border p-3">
-                                        <p className="text-xs font-medium text-muted-foreground">
-                                            Held USDC atomic units
-                                        </p>
-
-                                        <p className="mt-1 break-all font-mono text-lg font-bold">
-                                            {toAtomicUnitsString(
-                                                v7SettlementState.poolState
-                                                    ?.heldUsdcAtomicUnits
-                                            )}
-                                        </p>
-                                    </div>
-
-                                    <div className="rounded border p-3">
-                                        <p className="text-xs font-medium text-muted-foreground">
-                                            Current round ID
-                                        </p>
-
-                                        <p className="mt-1 break-all font-mono text-lg font-bold">
-                                            {toAtomicUnitsString(
-                                                v7SettlementState.poolState
-                                                    ?.currentRoundId
-                                            )}
-                                        </p>
-                                    </div>
-
-                                    <div className="rounded border p-3">
-                                        <p className="text-xs font-medium text-muted-foreground">
-                                            Release status
-                                        </p>
-
-                                        <p className="mt-1 font-mono text-lg font-bold">
-                                            {v7SettlementState.roundState
-                                                ?.releaseStatus || 'unknown'}
-                                        </p>
-                                    </div>
-
-                                    <div className="rounded border p-3">
-                                        <p className="text-xs font-medium text-muted-foreground">
-                                            Stakeholder count
-                                        </p>
-
-                                        <p className="mt-1 font-mono text-lg font-bold">
-                                            {v7SettlementState.poolState
-                                                ?.stakeholderCount ?? '0'}
-                                        </p>
-                                    </div>
-
-                                    <div className="rounded border p-3">
-                                        <p className="text-xs font-medium text-muted-foreground">
-                                            Pool MBR atomic units
-                                        </p>
-
-                                        <p className="mt-1 break-all font-mono text-lg font-bold">
-                                            {toAtomicUnitsString(
-                                                v7SettlementState.poolMbrAtomicUnits
-                                            )}
-                                        </p>
-                                    </div>
-
-                                    <div className="rounded border p-3">
-                                        <p className="text-xs font-medium text-muted-foreground">
-                                            Suggested fee per outer transaction
-                                        </p>
-
-                                        <p className="mt-1 break-all font-mono text-lg font-bold">
-                                            {toAtomicUnitsString(
-                                                v7SettlementState.suggestedFeeAtomicUnits
-                                            )}
-                                        </p>
-                                    </div>
-
-                                    <div className="rounded border p-3 md:col-span-2">
-                                        <p className="text-xs font-medium text-muted-foreground">
-                                            Two-transaction outer-fee baseline
-                                            atomic units
-                                        </p>
-
-                                        <p className="mt-1 break-all font-mono text-lg font-bold">
-                                            {toAtomicUnitsString(
-                                                v7SettlementState.outerFeesAtomicUnits
-                                            )}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {v7SettlementState.roundState?.reasons
-                                    ?.length > 0 && (
-                                    <div className="rounded border bg-muted p-3 text-sm">
-                                        <p className="mb-1 font-medium">
-                                            Release-state details
-                                        </p>
-
-                                        {v7SettlementState.roundState.reasons.map(
-                                            (reason) => (
-                                                <p
-                                                    key={reason}
-                                                    className="text-muted-foreground"
-                                                >
-                                                    {reason}
-                                                </p>
-                                            )
-                                        )}
-                                    </div>
-                                )}
-                            </>
-                        )}
-                </CardContent>
-            </Card>
             <Dialog
                 open={isCreateBatchDialogOpen}
                 onOpenChange={(open) => {
