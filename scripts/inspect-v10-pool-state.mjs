@@ -62,7 +62,13 @@ loadEnvLocal();
 
 // Current TestNet operational constants (local to this script only).
 const appId = 769218532;
-const poolKey = '6a8731a7cf853e8374a571c8';
+const poolKey = process.argv[2]?.trim();
+
+if (!poolKey) {
+  throw new Error(
+    'Usage: node scripts/inspect-v10-pool-state.mjs <poolKey>'
+  );
+}
 const expectedSender =
   '2F7AVO5UOVAECY5WXURXNOCYBXMSB7MVSMXCD4ZFLSAN62WIQGDERT7JTY';
 const usdcAssetId = 10458941;
@@ -124,7 +130,28 @@ function toUint8Array(value) {
 //   byte 40      stakeholder count
 function readPoolBox(value) {
   const rawValue = toUint8Array(value);
-  const view = new DataView(rawValue.buffer, rawValue.byteOffset, rawValue.byteLength);
+
+  if (rawValue.byteLength < 73) {
+    throw new Error(
+      `Malformed pool box: expected at least 73 bytes, received ${rawValue.byteLength}.`,
+    );
+  }
+
+  const stakeholderCount = rawValue[40] ?? 0;
+  const expectedPoolBoxLength = 73 + stakeholderCount * 35;
+
+  if (rawValue.byteLength !== expectedPoolBoxLength) {
+    throw new Error(
+      `Malformed pool box: expected ${expectedPoolBoxLength} bytes for ` +
+        `${stakeholderCount} stakeholder(s), received ${rawValue.byteLength}.`,
+    );
+  }
+
+  const view = new DataView(
+    rawValue.buffer,
+    rawValue.byteOffset,
+    rawValue.byteLength,
+  );
 
   return {
     revenueTokenId: Number(view.getBigUint64(0, false)),
@@ -132,7 +159,7 @@ function readPoolBox(value) {
     totalClaimed: Number(view.getBigUint64(16, false)),
     heldUsdc: Number(view.getBigUint64(24, false)),
     currentRoundId: Number(view.getBigUint64(32, false)),
-    stakeholderCount: rawValue[40] ?? 0,
+    stakeholderCount,
   };
 }
 
@@ -221,11 +248,11 @@ console.log(
       appAddress,
       sender,
       pool: {
-        revenueTokenId: pool.revenueTokenId,
-        unallocatedUsdcAtomicUnits: pool.unallocatedUsdc,
-        heldUsdcAtomicUnits: pool.heldUsdc,
-        totalClaimedUsdcAtomicUnits: pool.totalClaimed,
-        currentRoundId: pool.currentRoundId,
+        revenueTokenId: pool.revenueTokenId.toString(),
+        unallocatedUsdcAtomicUnits: pool.unallocatedUsdc.toString(),
+        heldUsdcAtomicUnits: pool.heldUsdc.toString(),
+        totalClaimedUsdcAtomicUnits: pool.totalClaimed.toString(),
+        currentRoundId: pool.currentRoundId.toString(),
         stakeholderCount: pool.stakeholderCount,
       },
       appAccount: {

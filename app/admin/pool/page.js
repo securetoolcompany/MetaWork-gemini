@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useWallet } from '@/lib/WalletContext';
 import { useAuth } from '@/lib/AuthContext';
 import algosdk from 'algosdk';
+import { Buffer } from 'buffer';
 import { toast } from 'sonner';
 import {
     Loader2,
@@ -39,7 +40,24 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 
+const REVENUE_POOL_APP_ID = Number(
+    process.env.NEXT_PUBLIC_REVENUE_POOL_APP_ID
+);
+
 const USDC_ASSET_ID = Number(process.env.NEXT_PUBLIC_USDC_ASSET_ID);
+
+if (!USDC_ASSET_ID) {
+    throw new Error('USDC_ASSET_ID is not configured');
+}
+
+if (!REVENUE_POOL_APP_ID) {
+    throw new Error('REVENUE_POOL_APP_ID is not configured');
+}
+
+const revenuePoolAppAddress = algosdk
+    .getApplicationAddress(REVENUE_POOL_APP_ID)
+    .toString();
+
 
 const resolvePoolIpId = (item) =>
     String(
@@ -52,8 +70,195 @@ const resolvePoolIpId = (item) =>
             ''
     ).trim();
 
-if (!USDC_ASSET_ID) {
-    throw new Error('USDC_ASSET_ID is not configured');
+function decodePreparedTransactions(unsignedTransactionsBase64) {
+    if (
+        !Array.isArray(unsignedTransactionsBase64) ||
+        unsignedTransactionsBase64.length !== 2
+    ) {
+        throw new Error('Expected exactly two unsigned transactions.');
+    }
+
+    return unsignedTransactionsBase64.map((encodedTransaction) =>
+        algosdk.decodeUnsignedTransaction(
+            new Uint8Array(Buffer.from(encodedTransaction, 'base64'))
+        )
+    );
+}
+
+function transactionAddress(publicKey) {
+    if (!publicKey) {
+        return null;
+    }
+
+    return algosdk.encodeAddress(publicKey);
+}
+
+function validatePreparedUnallocatedUsdcDeposit({
+    depositAttempt,
+    batch,
+    appId,
+    usdcAssetId,
+    appAddress,
+    depositorAddress,
+}) {
+    const transactions = decodePreparedTransactions(
+        depositAttempt?.unsignedTransactionsBase64
+    );
+
+    const [transferTxn, appCallTxn] = transactions;
+
+    if (transferTxn.type !== 'axfer') {
+        throw new Error('Deposit group transaction 0 must be a USDC asset transfer.');
+    }
+
+    if (appCallTxn.type !== 'appl') {
+        throw new Error('Deposit group transaction 1 must be an application call.');
+    }
+
+    if (!transferTxn.assetTransfer?.receiver?.publicKey) {
+        throw new Error(
+            'Decoded USDC asset transfer does not expose a receiver address.'
+        );
+    }
+
+    const decodedTransferReceiver = transactionAddress(
+        transferTxn.assetTransfer.receiver.publicKey
+    );
+
+    console.warn('[V10 USDC] receiver comparison', {
+        expectedRevenuePoolAppAddress: appAddress,
+        decodedTransferReceiver,
+        transferTransactionId: transferTxn.txID?.(),
+    });
+
+    if (decodedTransferReceiver !== appAddress) {
+        throw new Error(
+            'Deposit USDC transfer receiver is not the revenue-pool app address.'
+        );
+    }
+
+    if (
+        String(transferTxn.assetTransfer?.assetIndex) !==
+        String(usdcAssetId)
+    ) {
+        throw new Error('Deposit transfer asset is not the configured TestNet USDC ASA.');
+    }
+
+    const decodedTransferAmount = String(
+        transferTxn.assetTransfer?.amount ?? ''
+    );
+
+    const frozenBatchAmount = String(
+        batch?.totalUsdcAtomicUnits ?? ''
+    );
+
+    console.warn('[V10 USDC] amount comparison', {
+        decodedTransferAmount,
+        frozenBatchAmount,
+        batchId: batch?.batchId,
+        transferTransactionId: transferTxn.txID?.(),
+    });
+
+    if (decodedTransferAmount !== frozenBatchAmount) {
+        throw new Error(
+            'Deposit transfer amount does not equal the frozen batch total.'
+        );
+    }
+
+    if (
+        transferTxn.assetTransfer?.closeRemainderTo ||
+        transferTxn.assetTransfer?.assetSender
+    ) {
+        throw new Error('Deposit USDC transfer must not use close-out or clawback fields.');
+    }
+
+if (
+    String(appCallTxn.applicationCall?.appIndex) !== String(appId)
+) {
+    throw new Error(
+        'Deposit app call targets the wrong revenue-pool application.'
+    );
+}
+
+    const action = Buffer.from(
+        appCallTxn.applicationCall?.appArgs?.[0] ?? []
+    ).toString('utf8');
+
+    const poolKey = Buffer.from(
+        appCallTxn.applicationCall?.appArgs?.[1] ?? []
+    ).toString('utf8');
+
+    if (action !== 'deposit_usdc') {
+        throw new Error(
+            'Deposit app call must use the deposit_usdc action.'
+        );
+    }
+
+    if (poolKey !== batch.poolKey) {
+        throw new Error(
+            'Deposit app-call pool key does not match the frozen batch.'
+        );
+    }
+
+    if (action !== 'deposit_usdc') {
+        throw new Error('Deposit app call must use the deposit_usdc action.');
+    }
+
+    if (poolKey !== batch.poolKey) {
+        throw new Error('Deposit app-call pool key does not match the frozen batch.');
+    }
+
+    const transferGroup = Buffer.from(transferTxn.group || []).toString('base64');
+    const appCallGroup = Buffer.from(appCallTxn.group || []).toString('base64');
+
+    if (
+        !transferGroup ||
+        transferGroup !== appCallGroup ||
+        transferGroup !== depositAttempt.groupId
+    ) {
+        throw new Error('Prepared deposit group ID does not match the persisted group.');
+    }
+
+    if (
+        transferTxn.txID() !== depositAttempt.transactionIds?.usdcTransfer
+    ) {
+        throw new Error(
+            'Prepared USDC transfer transaction ID does not match the persisted attempt.'
+        );
+    }
+
+    if (
+        appCallTxn.txID() !== depositAttempt.transactionIds?.appCall
+    ) {
+        throw new Error(
+            'Prepared deposit app-call transaction ID does not match the persisted attempt.'
+        );
+    }
+
+    return [
+        {
+            index: 0,
+            type: 'axfer',
+            sender: transactionAddress(transferTxn.sender.publicKey),
+            receiver: transactionAddress(
+                transferTxn.assetTransfer.receiver.publicKey
+            ),
+            assetId: String(transferTxn.assetTransfer.assetIndex),
+            amountUsdcAtomicUnits: String(transferTxn.assetTransfer.amount),
+            txId: transferTxn.txID(),
+            groupId: transferGroup,
+        },
+        {
+            index: 1,
+            type: 'appl',
+            sender: transactionAddress(appCallTxn.sender?.publicKey),
+            appId: String(appCallTxn.applicationCall.appIndex),
+            action,
+            poolKey,
+            txId: appCallTxn.txID(),
+            groupId: appCallGroup,
+        },
+    ];
 }
 
 export default function PoolAdminPage() {
@@ -200,7 +405,7 @@ export default function PoolAdminPage() {
     };
 
     const isPreparedUnallocatedUsdcDeposit = (depositAttempt) =>
-    depositAttempt?.operation === 'prepare_unallocated_usdc_deposit';
+    depositAttempt?.operation === 'v10_usdc_deposit';
 
     const fetchData = useCallback(async () => {
     if (!appId || !appAddress) return;
@@ -977,11 +1182,11 @@ export default function PoolAdminPage() {
     };
 
     const handleSignAndSubmitPreparedUsdcDeposit = async () => {
-            console.log(
-                '[V10 USDC] submit clicked',
-                selectedSettlementBatch,
-                accountAddress
-            );
+            console.log('[V10 USDC] submit clicked', {
+                batchId: selectedSettlementBatch?.batchId,
+                status: selectedSettlementBatch?.status,
+                accountAddress,
+            });
 
             console.log('[V10 USDC] connection state', {
                 isConnected,
@@ -1054,16 +1259,48 @@ export default function PoolAdminPage() {
             !depositAttempt.transactionIds?.usdcTransfer ||
             !depositAttempt.transactionIds?.appCall
         ) {
-            console.error(
-                '[V10 USDC] local deposit proposal validation failed',
-                depositAttempt
-            );
+            console.error('[V10 USDC] local deposit proposal validation failed', {
+                batchId: selectedSettlementBatch?.batchId,
+                attemptStatus: depositAttempt?.status,
+                operation: depositAttempt?.operation,
+                groupId: depositAttempt?.groupId,
+                usdcTransferTransactionIndex:
+                    depositAttempt?.usdcTransferTransactionIndex,
+                appCallTransactionIndex:
+                    depositAttempt?.appCallTransactionIndex,
+                transactionIds: depositAttempt?.transactionIds,
+            });
 
             alert(
                 'Blocked before wallet signing. Open DevTools Console and copy the [V10 USDC] deposit attempt validation fields object.'
             );
 
             return;
+        }
+
+        let reviewedDepositTransactions;
+
+        try {
+            reviewedDepositTransactions =
+                validatePreparedUnallocatedUsdcDeposit({
+                    depositAttempt,
+                    batch: selectedSettlementBatch,
+                    appId: REVENUE_POOL_APP_ID,
+                    usdcAssetId: USDC_ASSET_ID,
+                    appAddress: revenuePoolAppAddress,
+                    depositorAddress: accountAddress,
+                });
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : String(error);
+
+            console.error(
+                `[V10 USDC] blocked before signing: decoded group mismatch: ${message}`
+            );
+
+            return toast.error(
+                message || 'Prepared USDC deposit failed pre-sign transaction validation.'
+            );
         }
 
         setIsSubmittingPreparedUsdcDeposit(true);
@@ -2405,8 +2642,9 @@ export default function PoolAdminPage() {
                             </div>
 
                             <p className="border-t border-amber-200 pt-3 text-xs text-amber-900">
-                                The frozen recipient snapshot, recipient hash, pool key,
-                                and 800000-atomic-USDC batch amount remain unchanged.
+                                The frozen recipient snapshot, recipient hash, pool key, and{' '}
+                                {selectedSettlementBatch?.totalUsdcAtomicUnits ?? 'unknown'}-atomic-USDC batch
+                                amount remain unchanged.
                                 After reset, you must prepare a new USDC proposal and
                                 promptly review and sign its newly generated group.
                             </p>
