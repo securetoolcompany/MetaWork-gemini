@@ -374,10 +374,6 @@ export async function POST(request) {
       const prepared = await prepareAndPersistV10DepositAttempt({
         db,
         batchId: mongoBatchId,
-        depositType:
-          action === 'prepare_unallocated_usdc_deposit'
-            ? 'usdc'
-            : 'held',
         preflightOptions: {
           depositorAddress,
           algodClient,

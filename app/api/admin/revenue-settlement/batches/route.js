@@ -80,7 +80,6 @@ function toBatchSummary(batch) {
     ? {
         attemptKey: batch.depositAttempt.attemptKey,
         operation: batch.depositAttempt.operation,
-				depositType: batch.depositAttempt.depositType ?? null,
         status: batch.depositAttempt.status,
         groupId: batch.depositAttempt.groupId,
         unsignedTransactionHash:

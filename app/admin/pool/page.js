@@ -171,28 +171,6 @@ export default function PoolAdminPage() {
         });
     };
 
-    const getPreparedUsdcDepositType = (depositAttempt) => {
-        if (!depositAttempt || typeof depositAttempt !== 'object') {
-            return null;
-        }
-
-        if (depositAttempt.depositType === 'usdc') {
-            return 'usdc';
-        }
-
-        // Compatibility for the one existing prepared proposal created by
-        // the new “Prepare unallocated USDC deposit” workflow before the
-        // depositType field was persisted.
-        if (
-            depositAttempt.depositType === undefined ||
-            depositAttempt.depositType === null
-        ) {
-            return 'usdc';
-        }
-
-        return null;
-    };
-
     const toAtomicUnitsString = (value) => {
         if (typeof value === 'bigint') return value.toString();
 
@@ -220,6 +198,9 @@ export default function PoolAdminPage() {
 
         return 0n;
     };
+
+    const isPreparedUnallocatedUsdcDeposit = (depositAttempt) =>
+    depositAttempt?.operation === 'prepare_unallocated_usdc_deposit';
 
     const fetchData = useCallback(async () => {
     if (!appId || !appAddress) return;
@@ -547,7 +528,7 @@ export default function PoolAdminPage() {
         }
 
         if (selectedSettlementBatch.status !== 'deposit_submitted') {
-            return toast.error('The held deposit can only be confirmed for batches with status "deposit_submitted".');
+            return toast.error('The unallocated USDC deposit can only be confirmed for batches with status "deposit_submitted".');
         }
 
         setIsConfirmingDeposit(true);
@@ -568,15 +549,17 @@ export default function PoolAdminPage() {
             const data = await response.json();
 
             if (!response.ok || !data.success) {
-                throw new Error(data.error || 'Unable to confirm the held deposit.');
+                throw new Error(data.error || 'Unable to confirm the unallocated USDC deposit.');
             }
 
-            toast.success('Held deposit confirmed.');
+            toast.success('Unallocated USDC deposit confirmed.');
             await loadSettlementBatches(selectedIpId);
         } catch (error) {
             console.error('V10 deposit confirmation failed', error);
-            toast.error(error.message || 'Unable to confirm the held deposit.');
-        } finally {
+            toast.error(
+                error.message || 'Unable to confirm the unallocated USDC deposit.'
+            );
+            } finally {
             setIsConfirmingDeposit(false);
         }
     };
@@ -1009,9 +992,10 @@ export default function PoolAdminPage() {
                 batchId: selectedSettlementBatch?.batchId,
                 status: selectedSettlementBatch?.status,
                 depositAttempt: selectedSettlementBatch?.depositAttempt,
-                resolvedDepositType: getPreparedUsdcDepositType(
-                    selectedSettlementBatch?.depositAttempt
-                ),
+                isPreparedUnallocatedUsdcDeposit:
+                    isPreparedUnallocatedUsdcDeposit(
+                        selectedSettlementBatch?.depositAttempt
+                    ),
             });
 
             toast.info('V10 USDC deposit submission handler started.');
@@ -1034,11 +1018,12 @@ export default function PoolAdminPage() {
         }
 
         const depositAttempt = selectedSettlementBatch.depositAttempt;
-        const preparedDepositType = getPreparedUsdcDepositType(depositAttempt);
+        const hasPreparedUnallocatedUsdcDeposit =
+            isPreparedUnallocatedUsdcDeposit(depositAttempt);
 
         console.log('[V10 USDC] deposit attempt validation fields', {
             attemptStatus: depositAttempt?.status,
-            preparedDepositType,
+            hasPreparedUnallocatedUsdcDeposit,
             hasUnsignedTransactions: Array.isArray(
                 depositAttempt?.unsignedTransactionsBase64
             ),
@@ -1060,7 +1045,7 @@ export default function PoolAdminPage() {
         if (
             !depositAttempt ||
             depositAttempt.status !== 'prepared' ||
-            preparedDepositType !== 'usdc' ||
+            !hasPreparedUnallocatedUsdcDeposit ||
             !Array.isArray(depositAttempt.unsignedTransactionsBase64) ||
             depositAttempt.unsignedTransactionsBase64.length !== 2 ||
             depositAttempt.usdcTransferTransactionIndex !== 0 ||
@@ -1357,7 +1342,7 @@ export default function PoolAdminPage() {
                                 <div className="flex gap-2">
                                     <p className="rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
                                         Current-holder snapshot payouts use unallocated USDC only.
-                                        Legacy held deposits and release-held settlement are intentionally unavailable here
+                                        Legacy chain operations are intentionally unavailable here
                                         because they allocate to the original pool stakeholders rather than current REV holders.
                                     </p>
                                     <Input
@@ -1763,9 +1748,9 @@ export default function PoolAdminPage() {
                                         !selectedSettlementBatch ||
                                         selectedSettlementBatch.status !== 'deposit_prepared' ||
                                         selectedSettlementBatch.depositAttempt?.status !== 'prepared' ||
-                                        getPreparedUsdcDepositType(
+                                        !isPreparedUnallocatedUsdcDeposit(
                                             selectedSettlementBatch.depositAttempt
-                                        ) !== 'usdc'
+                                        )
                                     }
                                 >
                                     Sign and submit prepared USDC deposit
@@ -2040,13 +2025,11 @@ export default function PoolAdminPage() {
 
                                 <div>
                                     <p className="text-xs font-medium text-amber-800">
-                                        Deposit type
+                                        Deposit operation
                                     </p>
 
                                     <p className="mt-1 font-mono">
-                                        {getPreparedUsdcDepositType(
-                                            selectedSettlementBatch.depositAttempt
-                                        ) || 'unknown'}
+                                        prepare_unallocated_usdc_deposit
                                     </p>
                                 </div>
 
@@ -2174,9 +2157,9 @@ export default function PoolAdminPage() {
                             disabled={
                                 isSubmittingPreparedUsdcDeposit ||
                                 !selectedSettlementBatch?.depositAttempt ||
-                                getPreparedUsdcDepositType(
+                                !isPreparedUnallocatedUsdcDeposit(
                                     selectedSettlementBatch.depositAttempt
-                                ) !== 'usdc'
+                                )
                             }
                         >
                             {isSubmittingPreparedUsdcDeposit ? (
