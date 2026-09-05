@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useRef, useState, useEffect, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
-import { Upload, Info, Globe, Lock } from 'lucide-react';
+import { Upload, Info, Globe, Lock, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -18,6 +18,14 @@ import { useAuth } from '@/lib/AuthContext';
 import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
 import { getTransactionParams } from "@/lib/algorand";
 import algosdk from "algosdk";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 // ── Shared category taxonomy (mirrors showroom IP_FILTER_GROUPS) ──────────────
 export const IP_CATEGORY_GROUPS = [
@@ -56,6 +64,9 @@ function UploadIPInner() {
   const [charCount, setCharCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
+  const [shareholderDialogOpen, setShareholderDialogOpen] = useState(false);
+  const [shareholderDraft, setShareholderDraft] = useState([]);
+  const [shareholderError, setShareholderError] = useState('');
   const [expandedGroups, setExpandedGroups] = useState({
     type: true,
     style: false,
@@ -66,6 +77,8 @@ function UploadIPInner() {
   const [stakeholders, setStakeholders] = useState([
     { address: '', percentage: 100, name: 'Creator' },
   ]);
+
+  const tokenizationOperationKeyRef = useRef(null);
 
   useEffect(() => {
     if (!accountAddress) return;
@@ -131,6 +144,222 @@ function UploadIPInner() {
     });
   };
 
+  const openShareholderDialog = () => {
+    const draft = stakeholders.map((stakeholder, index) => ({
+      name: stakeholder.name || (index === 0 ? 'Creator' : ''),
+      address: index === 0 ? accountAddress || stakeholder.address : stakeholder.address,
+      percentage: String(stakeholder.percentage ?? ''),
+    }));
+
+    setShareholderDraft(
+      draft.length > 0
+        ? draft
+        : [{
+            name: 'Creator',
+            address: accountAddress || '',
+            percentage: '100',
+          }],
+    );
+    setShareholderError('');
+    setShareholderDialogOpen(true);
+  };
+
+  const updateShareholderDraft = (index, patch) => {
+    setShareholderDraft((previous) => {
+      const next = previous.map((stakeholder, rowIndex) =>
+        rowIndex === index
+          ? { ...stakeholder, ...patch }
+          : stakeholder,
+      );
+
+      const collaboratorBps = next.slice(1).reduce(
+        (sum, stakeholder) => {
+          const percentage = String(stakeholder.percentage ?? '').trim();
+
+          if (!/^\d+(?:\.\d{1,2})?$/.test(percentage)) {
+            return sum;
+          }
+
+          const [whole, fraction = ''] = percentage.split('.');
+
+          return (
+            sum +
+            Number(whole) * 100 +
+            Number(fraction.padEnd(2, '0'))
+          );
+        },
+        0,
+      );
+
+      next[0] = {
+        ...next[0],
+        name: 'Creator',
+        address: accountAddress || next[0].address || '',
+        percentage: (Math.max(0, 10000 - collaboratorBps) / 100).toFixed(2),
+      };
+
+      return next;
+    });
+
+    setShareholderError('');
+  };
+
+  const addShareholderDraft = () => {
+    setShareholderDraft((previous) => [
+      ...previous,
+      {
+        name: '',
+        address: '',
+        percentage: '',
+      },
+    ]);
+
+    setShareholderError('');
+  };
+
+  const removeShareholderDraft = (index) => {
+    if (index === 0) return;
+
+    setShareholderDraft((previous) => {
+      const next = previous.filter((_, rowIndex) => rowIndex !== index);
+
+      const collaboratorBps = next.slice(1).reduce(
+        (sum, stakeholder) => {
+          const percentage = String(stakeholder.percentage ?? '').trim();
+
+          if (!/^\d+(?:\.\d{1,2})?$/.test(percentage)) {
+            return sum;
+          }
+
+          const [whole, fraction = ''] = percentage.split('.');
+
+          return (
+            sum +
+            Number(whole) * 100 +
+            Number(fraction.padEnd(2, '0'))
+          );
+        },
+        0,
+      );
+
+      next[0] = {
+        ...next[0],
+        name: 'Creator',
+        address: accountAddress || next[0].address || '',
+        percentage: (Math.max(0, 10000 - collaboratorBps) / 100).toFixed(2),
+      };
+
+      return next;
+    });
+
+    setShareholderError('');
+  };
+
+  const shareholderDraftTotalBps = shareholderDraft.reduce(
+    (sum, stakeholder) => {
+      const percentage = String(stakeholder.percentage ?? '').trim();
+
+      if (!/^\d+(?:\.\d{1,2})?$/.test(percentage)) {
+        return sum;
+      }
+
+      const [whole, fraction = ''] = percentage.split('.');
+
+      return (
+        sum +
+        Number(whole) * 100 +
+        Number(fraction.padEnd(2, '0'))
+      );
+    },
+    0,
+  );
+
+  const saveShareholders = () => {
+    const preparedStakeholders = shareholderDraft.map((stakeholder, index) => ({
+      name: (stakeholder.name || (index === 0 ? 'Creator' : '')).trim(),
+      address: (
+        index === 0 ? accountAddress : stakeholder.address || ''
+      ).trim(),
+      percentage: String(stakeholder.percentage ?? '').trim(),
+    }));
+
+    const missingStakeholder = preparedStakeholders.find(
+      (stakeholder) =>
+        !stakeholder.address ||
+        !stakeholder.percentage,
+    );
+
+    if (missingStakeholder) {
+      setShareholderError(
+        'Every stakeholder must include a wallet address and allocation percentage.',
+      );
+      return;
+    }
+
+    const invalidPercentage = preparedStakeholders.find(
+      (stakeholder) =>
+        !/^\d+(?:\.\d{1,2})?$/.test(stakeholder.percentage),
+    );
+
+    if (invalidPercentage) {
+      setShareholderError(
+        'Stakeholder percentages must be non-negative values with at most two decimal places.',
+      );
+      return;
+    }
+
+    const canonicalStakeholders = preparedStakeholders.map((stakeholder) => {
+      const [whole, fraction = ''] = stakeholder.percentage.split('.');
+
+      return {
+        ...stakeholder,
+        bps: Number(whole) * 100 + Number(fraction.padEnd(2, '0')),
+      };
+    });
+
+    const invalidStakeholder = canonicalStakeholders.find(
+      (stakeholder) =>
+        !algosdk.isValidAddress(stakeholder.address) ||
+        !Number.isSafeInteger(stakeholder.bps) ||
+        stakeholder.bps <= 0,
+    );
+
+    if (invalidStakeholder) {
+      setShareholderError(
+        'Each stakeholder needs a valid Algorand wallet address and allocation greater than 0%.',
+      );
+      return;
+    }
+
+    const normalizedAddresses = canonicalStakeholders.map((stakeholder) =>
+      stakeholder.address.toUpperCase(),
+    );
+
+    if (new Set(normalizedAddresses).size !== normalizedAddresses.length) {
+      setShareholderError('Duplicate stakeholder addresses are not allowed.');
+      return;
+    }
+
+    const totalBps = canonicalStakeholders.reduce(
+      (sum, stakeholder) => sum + stakeholder.bps,
+      0,
+    );
+
+    if (totalBps !== 10000) {
+      setShareholderError('Stakeholder allocations must total exactly 100.00%.');
+      return;
+    }
+
+    setStakeholders(
+      canonicalStakeholders.map(({ bps, ...stakeholder }) => ({
+        ...stakeholder,
+        percentage: Number(stakeholder.percentage),
+      })),
+    );
+    setShareholderDialogOpen(false);
+    setShareholderError('');
+  };
+
   const totalStakeholderPercentage = stakeholders.reduce(
     (sum, s) => sum + Number(s.percentage || 0),
     0
@@ -168,8 +397,9 @@ function UploadIPInner() {
     }
   };
 
-    const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!formData.name || formData.category.length === 0 || !file) {
       toast.error('Missing fields', {
         description:
@@ -177,11 +407,16 @@ function UploadIPInner() {
       });
       return;
     }
+
     if (!accountAddress) {
       toast.error('Wallet not connected', {
         description: 'Please connect your Pera wallet first.',
       });
       return;
+    }
+
+    if (!tokenizationOperationKeyRef.current) {
+      tokenizationOperationKeyRef.current = crypto.randomUUID();
     }
 
     const authHeaders = getAuthHeader();
@@ -227,42 +462,81 @@ function UploadIPInner() {
       const ipfsHash = pinataJson.IpfsHash;
 
       // 3) Prepare mint payload (for tokenization API)
-      const cleanedStakeholders = stakeholders
-        .map((s, index) => ({
-          name: (s.name || (index === 0 ? 'Creator' : '')).trim(),
-          address: (index === 0 ? accountAddress : s.address || '').trim(),
-          percentage: Number(s.percentage || 0),
-        }))
-        .filter((s) => s.address && s.percentage > 0);
+      const preparedStakeholders = stakeholders.map((stakeholder, index) => ({
+        name: (stakeholder.name || (index === 0 ? 'Creator' : '')).trim(),
+        address: (
+          index === 0 ? accountAddress : stakeholder.address || ''
+        ).trim(),
+        percentage: String(stakeholder.percentage ?? '').trim(),
+      }));
 
-      const collaboratorTotal = cleanedStakeholders
-        .slice(1)
-        .reduce((sum, s) => sum + Number(s.percentage || 0), 0);
-
-      if (collaboratorTotal > 100) {
-        toast.error('Collaborator percentages cannot exceed 100%');
-        setIsLoading(false);
-        return;
-      }
-      
-        const totalPercentage = cleanedStakeholders.reduce(
-        (sum, s) => sum + s.percentage,
-        0
+      const missingStakeholder = preparedStakeholders.find(
+        (stakeholder) =>
+          !stakeholder.address ||
+          !stakeholder.percentage,
       );
 
-      if (Math.round(totalPercentage * 100) !== 10000) {
-        toast.error('Stakeholder split must total exactly 100%');
-        setIsLoading(false);
+      if (missingStakeholder) {
+        toast.error(
+          'Every stakeholder must include a wallet address and allocation percentage.',
+        );
         return;
       }
 
-      const invalidStakeholder = cleanedStakeholders.find(
-        (s, index) => index > 0 && !algosdk.isValidAddress(s.address)
+      const invalidPercentage = preparedStakeholders.find(
+        (stakeholder) =>
+          !/^\d+(?:\.\d{1,2})?$/.test(stakeholder.percentage),
+      );
+
+      if (invalidPercentage) {
+        toast.error(
+          'Stakeholder percentages must be non-negative values with at most two decimal places.',
+        );
+        return;
+      }
+
+      const stakeholdersForRequest = preparedStakeholders.map((stakeholder) => {
+        const [whole, fraction = ''] = stakeholder.percentage.split('.');
+
+        return {
+          name: stakeholder.name,
+          address: stakeholder.address,
+          bps:
+            Number(whole) * 100 +
+            Number(fraction.padEnd(2, '0')),
+        };
+      });
+
+      const invalidStakeholder = stakeholdersForRequest.find(
+        (stakeholder) =>
+          !algosdk.isValidAddress(stakeholder.address) ||
+          !Number.isSafeInteger(stakeholder.bps) ||
+          stakeholder.bps <= 0,
       );
 
       if (invalidStakeholder) {
-        toast.error(`Invalid Algorand address for stakeholder "${invalidStakeholder.name || invalidStakeholder.address}"`);
-        setIsLoading(false);
+        toast.error(
+          'Each stakeholder needs a valid Algorand wallet address and allocation greater than 0%.',
+        );
+        return;
+      }
+
+      const normalizedAddresses = stakeholdersForRequest.map((stakeholder) =>
+        stakeholder.address.toUpperCase(),
+      );
+
+      if (new Set(normalizedAddresses).size !== normalizedAddresses.length) {
+        toast.error('Duplicate stakeholder addresses are not allowed.');
+        return;
+      }
+
+      const totalBps = stakeholdersForRequest.reduce(
+        (sum, stakeholder) => sum + stakeholder.bps,
+        0,
+      );
+
+      if (totalBps !== 10000) {
+        toast.error('Stakeholder allocations must total exactly 100.00%.');
         return;
       }
 
@@ -271,6 +545,7 @@ function UploadIPInner() {
         : 0;
 
       const mintPayload = {
+        operationKey: tokenizationOperationKeyRef.current,
         walletAddress: accountAddress,
         name: formData.name,
         description: formData.description,
@@ -280,7 +555,7 @@ function UploadIPInner() {
         licensingFeeCents,
         licenseFeeUsd: licensingFeeCents / 100,
         image: ipfsHash,
-        stakeholders: cleanedStakeholders,
+        stakeholders: preparedStakeholders,
       };
 
       // 4) Create IP asset + NFT mint txn (credits checked here)
@@ -292,6 +567,24 @@ function UploadIPInner() {
       });
       const step1 = await res1.json();
       if (!res1.ok) throw new Error(step1.error || 'Deployment failed');
+
+      if (step1.step === 'complete') {
+        toast.success('IP is already tokenized.', { id: toastId });
+        tokenizationOperationKeyRef.current = null;
+        router.push('/my-ip');
+        return;
+      }
+
+      if (
+        step1.step !== 'mint_nft' ||
+        !step1.ipAssetId ||
+        !step1.mbrMicroAlgos ||
+        !step1.transaction
+      ) {
+        throw new Error(
+          'Tokenization preparation did not return a valid pending mint operation.',
+        );
+      }
 
       // 5) Build & sign MBR payment from user → platform
       // Use the MBR computed by the backend (pool + round-buffer + small buffer)
@@ -354,6 +647,7 @@ function UploadIPInner() {
       if (!res2.ok) throw new Error(step2.error || 'NFT/Pool Confirmation failed');
 
       toast.success('IP Successfully Minted and Tokenized!', { id: toastId });
+      tokenizationOperationKeyRef.current = null;
       setTimeout(() => router.push('/my-ip'), 1000);
     } catch (error) {
       console.error(error);
@@ -691,96 +985,43 @@ function UploadIPInner() {
               </div>
 
               {/* Stakeholders */}
-              <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/20">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label className="text-foreground">Stakeholders</Label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Add everyone who should receive revenue tokens. Percentages must total 100%.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={addStakeholder}
-                  >
-                    Add Stakeholder
-                  </Button>
-                </div>
-
-                <div className="space-y-3">
-                  {stakeholders.map((stakeholder, index) => (
-                    <div
-                      key={index}
-                      className="grid grid-cols-1 md:grid-cols-12 gap-3 p-3 rounded-md border border-border bg-background"
-                    >
-                      <div className="md:col-span-3">
-                        <Label className="text-xs text-muted-foreground">Name</Label>
-                        <Input
-                          value={stakeholder.name}
-                          onChange={(e) => updateStakeholder(index, { name: e.target.value })}
-                          placeholder={index === 0 ? 'Creator' : 'Stakeholder'}
-                          disabled={index === 0}
-                        />
-                      </div>
-
-                      <div className="md:col-span-6">
-                        <Label className="text-xs text-muted-foreground">Wallet Address</Label>
-                        <Input
-                          value={stakeholder.address}
-                          onChange={(e) =>
-                            updateStakeholder(index, { address: e.target.value.trim() })
-                          }
-                          placeholder="Algorand wallet address"
-                          disabled={index === 0}
-                        />
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <Label className="text-xs text-muted-foreground">%</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={stakeholder.percentage}
-                          disabled={index === 0}
-                          onChange={(e) =>
-                            updateStakeholder(index, {
-                              percentage: Number(e.target.value || 0),
-                            })
-                          }
-                        />
-                      </div>
-
-                      <div className="md:col-span-1 flex items-end">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="w-full"
-                          disabled={index === 0 || stakeholders.length === 1}
-                          onClick={() => removeStakeholder(index)}
-                        >
-                          Remove
-                        </Button>
-                      </div>
+                <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <Label className="text-foreground">Stakeholders</Label>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Configure everyone who should receive revenue tokens. Allocation is
+                        locked after tokenization.
+                      </p>
                     </div>
-                  ))}
-                </div>
 
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Total Allocation</span>
-                  <Badge
-                    variant={
-                      Math.round(totalStakeholderPercentage * 100) === 10000
-                        ? 'default'
-                        : 'destructive'
-                    }
-                  >
-                    {totalStakeholderPercentage.toFixed(2)}%
-                  </Badge>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={openShareholderDialog}
+                      disabled={isLoading || !accountAddress}
+                    >
+                      Configure Stakeholders
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      {stakeholders.length} stakeholder
+                      {stakeholders.length === 1 ? '' : 's'}
+                    </span>
+
+                    <Badge
+                      variant={
+                        Math.round(totalStakeholderPercentage * 100) === 10000
+                          ? 'default'
+                          : 'destructive'
+                      }
+                    >
+                      {totalStakeholderPercentage.toFixed(2)}% allocated
+                    </Badge>
+                  </div>
                 </div>
-              </div>
 
               {/* Submit */}
               <div className="relative">
@@ -796,6 +1037,146 @@ function UploadIPInner() {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog
+        open={shareholderDialogOpen}
+        onOpenChange={(open) => {
+          setShareholderDialogOpen(open);
+
+          if (!open) {
+            setShareholderError('');
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Configure Stakeholders</DialogTitle>
+            <DialogDescription>
+              Add every wallet that should receive revenue tokens. Allocations must
+              total exactly 100.00%.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+            {shareholderDraft.map((stakeholder, index) => (
+              <div
+                key={`${index}-${stakeholder.address}`}
+                className="grid grid-cols-1 gap-3 rounded-md border border-border bg-background p-3 md:grid-cols-12"
+              >
+                <div className="md:col-span-3">
+                  <Label className="text-xs text-muted-foreground">Name</Label>
+                  <Input
+                    value={stakeholder.name}
+                    placeholder={index === 0 ? 'Creator' : 'Stakeholder'}
+                    disabled={index === 0 || isLoading}
+                    onChange={(event) =>
+                      updateShareholderDraft(index, {
+                        name: event.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="md:col-span-6">
+                  <Label className="text-xs text-muted-foreground">
+                    Wallet Address
+                  </Label>
+                  <Input
+                    value={index === 0 ? accountAddress || '' : stakeholder.address}
+                    placeholder="Algorand wallet address"
+                    disabled={index === 0 || isLoading}
+                    onChange={(event) =>
+                      updateShareholderDraft(index, {
+                        address: event.target.value.trim(),
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <Label className="text-xs text-muted-foreground">
+                    Allocation %
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={stakeholder.percentage}
+                    disabled={isLoading}
+                    onChange={(event) =>
+                      updateShareholderDraft(index, {
+                        percentage: event.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-end md:col-span-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="w-full"
+                    disabled={index === 0 || isLoading}
+                    onClick={() => removeShareholderDraft(index)}
+                    aria-label={`Remove stakeholder ${index + 1}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {shareholderError && (
+            <p className="text-sm text-destructive">{shareholderError}</p>
+          )}
+
+          <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
+            <span className="text-muted-foreground">Total Allocation</span>
+
+            <Badge
+              variant={
+                shareholderDraftTotalBps === 10000
+                  ? 'default'
+                  : 'destructive'
+              }
+            >
+              {(shareholderDraftTotalBps / 100).toFixed(2)}%
+            </Badge>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isLoading}
+              onClick={() => setShareholderDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isLoading}
+              onClick={addShareholderDraft}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Stakeholder
+            </Button>
+
+            <Button
+              type="button"
+              disabled={isLoading}
+              onClick={saveShareholders}
+            >
+              Save Allocation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <InsufficientCreditsModal
         open={showCreditsModal}

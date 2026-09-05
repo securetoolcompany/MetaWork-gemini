@@ -13,6 +13,7 @@ import { verifyToken } from "@/lib/auth";
 import { uploadJsonToPinata, createARC3Metadata } from "@/lib/pinata";
 import { safeJson } from "@/lib/utils";
 import crypto from "crypto";
+import { CREDIT_COSTS } from '@/lib/credit-costs';
 
 // V10 server-side revenue-pool configuration.
 function getRevenuePoolAppId() {
@@ -95,7 +96,8 @@ export async function POST(request) {
     const { db } = await connectToDatabase();
     const body = await request.json();
 
-        const {
+    const {
+      operationKey,
       name,
       assetType,
       description,
@@ -128,28 +130,6 @@ export async function POST(request) {
     const avatar =
       user.profile?.avatar || user.avatar || user.profileImage || "";
 
-    // --- CREDITS CHECK & DEDUCTION (TOKENIZATION PRICE) ---
-    const MINT_COST_TOKEN = 25;
-    if ((user.credits || 0) < MINT_COST_TOKEN) {
-      return NextResponse.json(
-        { error: "Insufficient credits to mint" },
-        { status: 402 },
-      );
-    }
-
-    const creditUpdate = await db.collection("users").findOneAndUpdate(
-      { ...userQuery, credits: { $gte: MINT_COST_TOKEN } },
-      { $inc: { credits: -MINT_COST_TOKEN } },
-      { returnDocument: "after" },
-    );
-
-    if (!creditUpdate) {
-      return NextResponse.json(
-        { error: "Insufficient credits (race condition prevented)" },
-        { status: 402 },
-      );
-    }
-
     const senderWallet = connectedWallet || user.walletAddress;
     if (!senderWallet || !algosdk.isValidAddress(senderWallet)) {
       return NextResponse.json(
@@ -177,67 +157,113 @@ export async function POST(request) {
     }
 
     // 1. Validate stakeholders
-    let norm = (incomingStakeholders || []).map((s, index) => ({
-      name: String(s.name || (index === 0 ? "Creator" : "")).trim(),
-      address: String(s.address || (index === 0 ? senderWallet : "")).trim(),
-      perc: parseFloat(s.percentage ?? s.perc ?? 0),
+    const rawStakeholders =
+      Array.isArray(incomingStakeholders) && incomingStakeholders.length > 0
+        ? incomingStakeholders
+        : [{ name: "Creator", address: senderWallet, percentage: 100 }];
+
+    const norm = rawStakeholders.map((stakeholder, index) => ({
+      name: String(
+        stakeholder.name || (index === 0 ? "Creator" : ""),
+      ).trim(),
+      address: String(
+        stakeholder.address || (index === 0 ? senderWallet : ""),
+      ).trim(),
+      percentage: String(
+        stakeholder.percentage ?? stakeholder.perc ?? "",
+      ).trim(),
     }));
 
-    if (!norm.length) {
-      norm = [{ name: "Creator", address: senderWallet, perc: 100 }];
-    }
-
-    norm = norm.filter((s) => s.address && Number(s.perc) > 0);
-
-    if (!norm.length) {
+    if (norm[0]?.address !== senderWallet) {
       return NextResponse.json(
-        { error: "At least one stakeholder is required" },
-        { status: 400 }
+        { error: "The creator stakeholder must use the connected wallet address." },
+        { status: 400 },
       );
     }
 
-    const invalidStakeholder = norm.find((s) => !algosdk.isValidAddress(s.address));
+    const missingStakeholderField = norm.find(
+      (stakeholder) =>
+        !stakeholder.address ||
+        !stakeholder.percentage,
+    );
+
+    if (missingStakeholderField) {
+      return NextResponse.json(
+        {
+          error:
+            "Every stakeholder must include an Algorand wallet address and allocation percentage.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const invalidPercentage = norm.find(
+      (stakeholder) =>
+        !/^\d+(?:\.\d{1,2})?$/.test(stakeholder.percentage),
+    );
+
+    if (invalidPercentage) {
+      return NextResponse.json(
+        {
+          error:
+            "Stakeholder percentages must be non-negative values with at most two decimal places.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const stakeholdersForContract = norm.map((stakeholder) => {
+      const [whole, fraction = ""] = stakeholder.percentage.split(".");
+      const bps =
+        Number(whole) * 100 +
+        Number(fraction.padEnd(2, "0"));
+
+      return {
+        address: stakeholder.address,
+        bps,
+      };
+    });
+
+    const invalidStakeholder = stakeholdersForContract.find(
+      (stakeholder) =>
+        !algosdk.isValidAddress(stakeholder.address) ||
+        !Number.isSafeInteger(stakeholder.bps) ||
+        stakeholder.bps <= 0,
+    );
+
     if (invalidStakeholder) {
       return NextResponse.json(
         {
-          error: `Invalid stakeholder address: ${invalidStakeholder.address}`,
+          error:
+            "Each stakeholder must have a valid Algorand wallet address and an allocation greater than 0%.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const normalizedAddresses = norm.map((s) => s.address.toUpperCase());
-    const uniqueAddresses = new Set(normalizedAddresses);
+    const normalizedAddresses = stakeholdersForContract.map(
+      (stakeholder) => stakeholder.address.toUpperCase(),
+    );
 
-    if (uniqueAddresses.size !== normalizedAddresses.length) {
+    if (new Set(normalizedAddresses).size !== normalizedAddresses.length) {
       return NextResponse.json(
         { error: "Duplicate stakeholder addresses are not allowed" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const totalPerc = norm.reduce((sum, s) => sum + Number(s.perc || 0), 0);
-    if (Math.round(totalPerc * 100) !== 10000) {
-      return NextResponse.json(
-        {
-          error: `Stakeholder percentages must total exactly 100%. Got ${totalPerc.toFixed(2)}%`,
-        },
-        { status: 400 }
-      );
-    }
+    const totalBps = stakeholdersForContract.reduce(
+      (sum, stakeholder) => sum + stakeholder.bps,
+      0,
+    );
 
-    const stakeholdersForContract = norm.map((s) => ({
-      address: s.address,
-      bps: Math.round(Number(s.perc) * 100),
-    }));
-
-    const totalBps = stakeholdersForContract.reduce((sum, s) => sum + s.bps, 0);
     if (totalBps !== 10000) {
       return NextResponse.json(
         {
-          error: `Stakeholder BPS must total exactly 10000. Got ${totalBps}`,
+          error:
+            "Stakeholder allocations must total exactly 100.00%.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -250,6 +276,82 @@ export async function POST(request) {
             "image must be an IPFS CID, not a URL. Pin via /api/ipfs/upload first.",
         },
         { status: 400 },
+      );
+    }
+
+    if (
+      typeof operationKey !== "string" ||
+      !/^[a-f0-9-]{36}$/i.test(operationKey)
+    ) {
+      return NextResponse.json(
+        { error: "A valid tokenization operation key is required." },
+        { status: 400 },
+      );
+    }
+
+    const existingIpAsset = await db.collection("ip_assets").findOne({
+      ownerId: decoded.userId,
+      tokenizationOperationKey: operationKey,
+    });
+
+    if (existingIpAsset) {
+      if (existingIpAsset.status === 'active') {
+        return NextResponse.json(
+          safeJson({
+            success: true,
+            step: 'complete',
+            ipAssetId: existingIpAsset.id,
+            revenueTokenId: existingIpAsset.revenueTokenAssetId,
+          }),
+        );
+      }
+
+      if (
+        existingIpAsset.status === 'pending_nft_mint' &&
+        existingIpAsset.mbrMicroAlgos &&
+        existingIpAsset.preparedNftTransaction
+      ) {
+        return NextResponse.json(
+          safeJson({
+            success: true,
+            step: 'mint_nft',
+            ipAssetId: existingIpAsset.id,
+            mbrMicroAlgos: existingIpAsset.mbrMicroAlgos,
+            transaction: existingIpAsset.preparedNftTransaction,
+            resumed: true,
+          }),
+        );
+      }
+
+      return NextResponse.json(
+        {
+          error:
+            'An existing tokenization operation is not in a resumable state. Please contact support.',
+        },
+        { status: 409 },
+      );
+    }
+
+    // --- CREDITS CHECK & DEDUCTION (TOKENIZATION PRICE) ---
+    const mintCostToken = CREDIT_COSTS.MINT_IP;
+
+    if ((user.credits || 0) < mintCostToken) {
+      return NextResponse.json(
+        { error: "Insufficient credits to mint" },
+        { status: 402 },
+      );
+    }
+
+    const creditUpdate = await db.collection("users").findOneAndUpdate(
+      { ...userQuery, credits: { $gte: mintCostToken } },
+      { $inc: { credits: -mintCostToken } },
+      { returnDocument: "after" },
+    );
+
+    if (!creditUpdate) {
+      return NextResponse.json(
+        { error: "Insufficient credits (race condition prevented)" },
+        { status: 402 },
       );
     }
 
@@ -292,6 +394,27 @@ export async function POST(request) {
       suggestedParams: params,
     });
 
+    const preparedNftTransaction = Buffer.from(
+      algosdk.encodeUnsignedTransaction(nftTxn),
+    ).toString("base64");
+
+    // Compute MBR that user must fund up front:
+    // - pool MBR (one-time)
+    // - round-buffer MBR (recycled for every future claim round)
+    const shCount = stakeholdersForContract.length;
+    const poolMbrAmount = poolMbr(ipAssetId, shCount);
+    const roundMbrAmount = roundMbr(ipAssetId, shCount);
+    const usdcAssetMbr = 100_000; // App account opts into USDC
+    const revenueAssetMbr = 100_000; // App account creates/holds revenue ASA
+    const poolFundingBuffer = 10_000; // 0.01 ALGO safety margin
+
+    const mbrMicroAlgos =
+      poolMbrAmount +
+      roundMbrAmount +
+      usdcAssetMbr +
+      revenueAssetMbr +
+      poolFundingBuffer;
+
     // 5. Persist ip_asset (tokenized)
     const ipAsset = {
       id: ipAssetId,
@@ -320,38 +443,17 @@ export async function POST(request) {
       stakeholders: stakeholdersForContract, // { address, bps }
       type: "tokenized",
       status: "pending_nft_mint",
+
+      tokenizationOperationKey: operationKey,
+      creditCost: mintCostToken,
+      creditStatus: "consumed",
+      mbrMicroAlgos,
+      preparedNftTransaction,
+      updatedAt: new Date(),
       createdAt: new Date(),
     };
 
     await db.collection("ip_assets").insertOne(ipAsset);
-
-    // Compute MBR that user must fund up front:
-    // - pool MBR (one-time)
-    // - round-buffer MBR (recycled for every future claim round)
-    const shCount = stakeholdersForContract.length;
-    const poolMbrAmount = poolMbr(ipAssetId, shCount);
-    const roundMbrAmount = roundMbr(ipAssetId, shCount);
-    const usdcAssetMbr = 100_000; // App account opts into USDC
-    const revenueAssetMbr = 100_000; // App account creates/holds revenue ASA
-    const poolFundingBuffer = 10_000; // 0.01 ALGO safety margin
-
-    const mbrMicroAlgos =
-      poolMbrAmount +
-      roundMbrAmount +
-      usdcAssetMbr +
-      revenueAssetMbr +
-      poolFundingBuffer;
-
-    console.log("Revenue tokenization MBR calculation", {
-      ipAssetId,
-      shCount,
-      poolMbrAmount,
-      roundMbrAmount,
-      usdcAssetMbr,
-      revenueAssetMbr,
-      poolFundingBuffer,
-      mbrMicroAlgos,
-    });
 
     return NextResponse.json(
       safeJson({
@@ -359,9 +461,7 @@ export async function POST(request) {
         step: "mint_nft",
         ipAssetId,
         mbrMicroAlgos, // <-- NEW: tell frontend how much ALGO to charge
-        transaction: Buffer.from(
-          algosdk.encodeUnsignedTransaction(nftTxn),
-        ).toString("base64"),
+        transaction: preparedNftTransaction,
       }),
     );
   } catch (e) {
