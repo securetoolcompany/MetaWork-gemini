@@ -64,9 +64,9 @@ function UploadIPInner() {
   const [charCount, setCharCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
-  const [shareholderDialogOpen, setShareholderDialogOpen] = useState(false);
-  const [shareholderDraft, setShareholderDraft] = useState([]);
-  const [shareholderError, setShareholderError] = useState('');
+  const [stakeholderDialogOpen, setStakeholderDialogOpen] = useState(false);
+  const [stakeholderDraft, setStakeholderDraft] = useState([]);
+  const [stakeholderError, setStakeholderError] = useState('');
   const [expandedGroups, setExpandedGroups] = useState({
     type: true,
     style: false,
@@ -93,65 +93,14 @@ function UploadIPInner() {
     });
   }, [accountAddress]);
 
-  const updateStakeholder = (index, patch) => {
-    setStakeholders((prev) => {
-      const next = prev.map((row, i) =>
-        i === index ? { ...row, ...patch } : row
-      );
-
-      const othersTotal = next.slice(1).reduce(
-        (sum, s) => sum + Number(s.percentage || 0),
-        0
-      );
-
-      next[0] = {
-        ...next[0],
-        address: accountAddress || next[0].address,
-        name: 'Creator',
-        percentage: Math.max(0, Number((100 - othersTotal).toFixed(2))),
-      };
-
-      return next;
-    });
-  };
-
-  const addStakeholder = () => {
-    setStakeholders((prev) => [
-      ...prev,
-      { address: '', percentage: 0, name: '' },
-    ]);
-  };
-
-  const removeStakeholder = (index) => {
-    setStakeholders((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-
-      const othersTotal = next.slice(1).reduce(
-        (sum, s) => sum + Number(s.percentage || 0),
-        0
-      );
-
-      if (next[0]) {
-        next[0] = {
-          ...next[0],
-          address: accountAddress || next[0].address,
-          name: 'Creator',
-          percentage: Math.max(0, Number((100 - othersTotal).toFixed(2))),
-        };
-      }
-
-      return next;
-    });
-  };
-
-  const openShareholderDialog = () => {
+  const openStakeholderDialog = () => {
     const draft = stakeholders.map((stakeholder, index) => ({
       name: stakeholder.name || (index === 0 ? 'Creator' : ''),
       address: index === 0 ? accountAddress || stakeholder.address : stakeholder.address,
       percentage: String(stakeholder.percentage ?? ''),
     }));
 
-    setShareholderDraft(
+    setStakeholderDraft(
       draft.length > 0
         ? draft
         : [{
@@ -160,12 +109,12 @@ function UploadIPInner() {
             percentage: '100',
           }],
     );
-    setShareholderError('');
-    setShareholderDialogOpen(true);
+    setStakeholderError('');
+    setStakeholderDialogOpen(true);
   };
 
-  const updateShareholderDraft = (index, patch) => {
-    setShareholderDraft((previous) => {
+  const updateStakeholderDraft = (index, patch) => {
+    setStakeholderDraft((previous) => {
       const next = previous.map((stakeholder, rowIndex) =>
         rowIndex === index
           ? { ...stakeholder, ...patch }
@@ -201,11 +150,11 @@ function UploadIPInner() {
       return next;
     });
 
-    setShareholderError('');
+    setStakeholderError('');
   };
 
-  const addShareholderDraft = () => {
-    setShareholderDraft((previous) => [
+  const addStakeholderDraft = () => {
+    setStakeholderDraft((previous) => [
       ...previous,
       {
         name: '',
@@ -214,13 +163,13 @@ function UploadIPInner() {
       },
     ]);
 
-    setShareholderError('');
+    setStakeholderError('');
   };
 
-  const removeShareholderDraft = (index) => {
+  const removeStakeholderDraft = (index) => {
     if (index === 0) return;
 
-    setShareholderDraft((previous) => {
+    setStakeholderDraft((previous) => {
       const next = previous.filter((_, rowIndex) => rowIndex !== index);
 
       const collaboratorBps = next.slice(1).reduce(
@@ -252,10 +201,10 @@ function UploadIPInner() {
       return next;
     });
 
-    setShareholderError('');
+    setStakeholderError('');
   };
 
-  const shareholderDraftTotalBps = shareholderDraft.reduce(
+  const stakeholderDraftTotalBps = stakeholderDraft.reduce(
     (sum, stakeholder) => {
       const percentage = String(stakeholder.percentage ?? '').trim();
 
@@ -274,8 +223,8 @@ function UploadIPInner() {
     0,
   );
 
-  const saveShareholders = () => {
-    const preparedStakeholders = shareholderDraft.map((stakeholder, index) => ({
+  const saveStakeholders = () => {
+    const preparedStakeholders = stakeholderDraft.map((stakeholder, index) => ({
       name: (stakeholder.name || (index === 0 ? 'Creator' : '')).trim(),
       address: (
         index === 0 ? accountAddress : stakeholder.address || ''
@@ -290,7 +239,7 @@ function UploadIPInner() {
     );
 
     if (missingStakeholder) {
-      setShareholderError(
+      setStakeholderError(
         'Every stakeholder must include a wallet address and allocation percentage.',
       );
       return;
@@ -302,7 +251,7 @@ function UploadIPInner() {
     );
 
     if (invalidPercentage) {
-      setShareholderError(
+      setStakeholderError(
         'Stakeholder percentages must be non-negative values with at most two decimal places.',
       );
       return;
@@ -325,7 +274,7 @@ function UploadIPInner() {
     );
 
     if (invalidStakeholder) {
-      setShareholderError(
+      setStakeholderError(
         'Each stakeholder needs a valid Algorand wallet address and allocation greater than 0%.',
       );
       return;
@@ -336,7 +285,7 @@ function UploadIPInner() {
     );
 
     if (new Set(normalizedAddresses).size !== normalizedAddresses.length) {
-      setShareholderError('Duplicate stakeholder addresses are not allowed.');
+      setStakeholderError('Duplicate stakeholder addresses are not allowed.');
       return;
     }
 
@@ -346,7 +295,7 @@ function UploadIPInner() {
     );
 
     if (totalBps !== 10000) {
-      setShareholderError('Stakeholder allocations must total exactly 100.00%.');
+      setStakeholderError('Stakeholder allocations must total exactly 100.00%.');
       return;
     }
 
@@ -356,8 +305,8 @@ function UploadIPInner() {
         percentage: Number(stakeholder.percentage),
       })),
     );
-    setShareholderDialogOpen(false);
-    setShareholderError('');
+    setStakeholderDialogOpen(false);
+    setStakeholderError('');
   };
 
   const totalStakeholderPercentage = stakeholders.reduce(
@@ -998,7 +947,7 @@ function UploadIPInner() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={openShareholderDialog}
+                      onClick={openStakeholderDialog}
                       disabled={isLoading || !accountAddress}
                     >
                       Configure Stakeholders
@@ -1039,12 +988,12 @@ function UploadIPInner() {
       </div>
 
       <Dialog
-        open={shareholderDialogOpen}
+        open={stakeholderDialogOpen}
         onOpenChange={(open) => {
-          setShareholderDialogOpen(open);
+          setStakeholderDialogOpen(open);
 
           if (!open) {
-            setShareholderError('');
+            setStakeholderError('');
           }
         }}
       >
@@ -1058,7 +1007,7 @@ function UploadIPInner() {
           </DialogHeader>
 
           <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
-            {shareholderDraft.map((stakeholder, index) => (
+            {stakeholderDraft.map((stakeholder, index) => (
               <div
                 key={`${index}-${stakeholder.address}`}
                 className="grid grid-cols-1 gap-3 rounded-md border border-border bg-background p-3 md:grid-cols-12"
@@ -1070,7 +1019,7 @@ function UploadIPInner() {
                     placeholder={index === 0 ? 'Creator' : 'Stakeholder'}
                     disabled={index === 0 || isLoading}
                     onChange={(event) =>
-                      updateShareholderDraft(index, {
+                      updateStakeholderDraft(index, {
                         name: event.target.value,
                       })
                     }
@@ -1086,7 +1035,7 @@ function UploadIPInner() {
                     placeholder="Algorand wallet address"
                     disabled={index === 0 || isLoading}
                     onChange={(event) =>
-                      updateShareholderDraft(index, {
+                      updateStakeholderDraft(index, {
                         address: event.target.value.trim(),
                       })
                     }
@@ -1105,7 +1054,7 @@ function UploadIPInner() {
                     value={stakeholder.percentage}
                     disabled={isLoading}
                     onChange={(event) =>
-                      updateShareholderDraft(index, {
+                      updateStakeholderDraft(index, {
                         percentage: event.target.value,
                       })
                     }
@@ -1119,7 +1068,7 @@ function UploadIPInner() {
                     size="icon"
                     className="w-full"
                     disabled={index === 0 || isLoading}
-                    onClick={() => removeShareholderDraft(index)}
+                    onClick={() => removeStakeholderDraft(index)}
                     aria-label={`Remove stakeholder ${index + 1}`}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -1129,8 +1078,8 @@ function UploadIPInner() {
             ))}
           </div>
 
-          {shareholderError && (
-            <p className="text-sm text-destructive">{shareholderError}</p>
+          {stakeholderError && (
+            <p className="text-sm text-destructive">{stakeholderError}</p>
           )}
 
           <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
@@ -1138,12 +1087,12 @@ function UploadIPInner() {
 
             <Badge
               variant={
-                shareholderDraftTotalBps === 10000
+                stakeholderDraftTotalBps === 10000
                   ? 'default'
                   : 'destructive'
               }
             >
-              {(shareholderDraftTotalBps / 100).toFixed(2)}%
+              {(stakeholderDraftTotalBps / 100).toFixed(2)}%
             </Badge>
           </div>
 
@@ -1152,7 +1101,7 @@ function UploadIPInner() {
               type="button"
               variant="outline"
               disabled={isLoading}
-              onClick={() => setShareholderDialogOpen(false)}
+              onClick={() => setStakeholderDialogOpen(false)}
             >
               Cancel
             </Button>
@@ -1161,7 +1110,7 @@ function UploadIPInner() {
               type="button"
               variant="outline"
               disabled={isLoading}
-              onClick={addShareholderDraft}
+              onClick={addStakeholderDraft}
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Stakeholder
@@ -1170,7 +1119,7 @@ function UploadIPInner() {
             <Button
               type="button"
               disabled={isLoading}
-              onClick={saveShareholders}
+              onClick={saveStakeholders}
             >
               Save Allocation
             </Button>

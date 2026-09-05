@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  Plus,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/AuthContext";
 import { useWallet } from "@/lib/WalletContext";
@@ -70,6 +76,14 @@ export default function ProductTokenizationDialog({
     connectedAddress: null,
     hasVerifiedWallets: false,
   });
+  const [stakeholderDraft, setStakeholderDraft] = useState([
+    {
+      name: 'Product creator',
+      address: '',
+      percentage: '100',
+    },
+  ]);
+  const [stakeholderError, setStakeholderError] = useState('');
   const [isPreparing, setIsPreparing] = useState(false);
   const [preparedRevenuePool, setPreparedRevenuePool] = useState(
     product?.productRevenuePool || null
@@ -107,6 +121,34 @@ export default function ProductTokenizationDialog({
     product?.externalProductId,
     product?.productRevenuePool,
   ]);
+
+  useEffect(() => {
+    if (!selectedWalletAddress) {
+      return;
+    }
+
+    setStakeholderDraft((previous) => {
+      if (previous.length === 0) {
+        return [
+          {
+            name: 'Product creator',
+            address: selectedWalletAddress,
+            percentage: '100.00',
+          },
+        ];
+      }
+
+      const next = [...previous];
+
+      next[0] = {
+        ...next[0],
+        name: 'Product creator',
+        address: selectedWalletAddress,
+      };
+
+      return next;
+    });
+  }, [selectedWalletAddress]);
 
 	useEffect(() => {
     const tokenizationStatus =
@@ -278,6 +320,177 @@ export default function ProductTokenizationDialog({
     }
 
     onOpenChange(nextOpen);
+  };
+
+  const percentageToBps = (percentage) => {
+    const value = String(percentage ?? '').trim();
+
+    if (!/^\d+(?:\.\d{1,2})?$/.test(value)) {
+      return null;
+    }
+
+    const [whole, fraction = ''] = value.split('.');
+
+    return Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+  };
+
+  const updateStakeholderDraft = (index, patch) => {
+    setStakeholderDraft((previous) => {
+      const next = previous.map((stakeholder, rowIndex) =>
+        rowIndex === index
+          ? { ...stakeholder, ...patch }
+          : stakeholder,
+      );
+
+      const collaboratorBps = next.slice(1).reduce(
+        (sum, stakeholder) => {
+          const bps = percentageToBps(stakeholder.percentage);
+          return bps === null ? sum : sum + bps;
+        },
+        0,
+      );
+
+      next[0] = {
+        ...next[0],
+        name: 'Product creator',
+        address: selectedWalletAddress || '',
+        percentage: ((10000 - collaboratorBps) / 100).toFixed(2),
+      };
+
+      return next;
+    });
+
+    setStakeholderError('');
+  };
+
+  const addStakeholderDraft = () => {
+    setStakeholderDraft((previous) => [
+      ...previous,
+      {
+        name: '',
+        address: '',
+        percentage: '',
+      },
+    ]);
+
+    setStakeholderError('');
+  };
+
+  const removeStakeholderDraft = (index) => {
+    if (index === 0) {
+      return;
+    }
+
+    setStakeholderDraft((previous) => {
+      const next = previous.filter((_, rowIndex) => rowIndex !== index);
+
+      const collaboratorBps = next.slice(1).reduce(
+        (sum, stakeholder) => {
+          const bps = percentageToBps(stakeholder.percentage);
+          return bps === null ? sum : sum + bps;
+        },
+        0,
+      );
+
+      next[0] = {
+        ...next[0],
+        name: 'Product creator',
+        address: selectedWalletAddress || '',
+        percentage: ((10000 - collaboratorBps) / 100).toFixed(2),
+      };
+
+      return next;
+    });
+
+    setStakeholderError('');
+  };
+
+  const stakeholderDraftTotalBps = stakeholderDraft.reduce(
+    (sum, stakeholder) => {
+      const bps = percentageToBps(stakeholder.percentage);
+      return bps === null ? sum : sum + bps;
+    },
+    0,
+  );
+
+  const validateStakeholderDraft = () => {
+    const normalizedStakeholders = stakeholderDraft.map(
+      (stakeholder, index) => ({
+        name: (
+          stakeholder.name ||
+          (index === 0 ? 'Product creator' : '')
+        ).trim(),
+        address: (
+          index === 0
+            ? selectedWalletAddress
+            : stakeholder.address || ''
+        ).trim(),
+        percentage: String(stakeholder.percentage ?? '').trim(),
+      }),
+    );
+
+    const missingStakeholder = normalizedStakeholders.find(
+      (stakeholder) =>
+        !stakeholder.address ||
+        !stakeholder.percentage,
+    );
+
+    if (missingStakeholder) {
+      return {
+        error:
+          'Every stakeholder must include a wallet address and allocation percentage.',
+      };
+    }
+
+    const invalidPercentage = normalizedStakeholders.find(
+      (stakeholder) =>
+        percentageToBps(stakeholder.percentage) === null ||
+        percentageToBps(stakeholder.percentage) <= 0,
+    );
+
+    if (invalidPercentage) {
+      return {
+        error:
+          'Stakeholder allocations must be greater than 0% and use at most two decimal places.',
+      };
+    }
+
+    const invalidAddress = normalizedStakeholders.find(
+      (stakeholder) => !algosdk.isValidAddress(stakeholder.address),
+    );
+
+    if (invalidAddress) {
+      return {
+        error:
+          'Each stakeholder must use a valid Algorand wallet address.',
+      };
+    }
+
+    const addresses = normalizedStakeholders.map((stakeholder) =>
+      stakeholder.address.toUpperCase(),
+    );
+
+    if (new Set(addresses).size !== addresses.length) {
+      return {
+        error: 'Duplicate stakeholder addresses are not allowed.',
+      };
+    }
+
+    const totalBps = normalizedStakeholders.reduce(
+      (sum, stakeholder) =>
+        sum + percentageToBps(stakeholder.percentage),
+      0,
+    );
+
+    if (totalBps !== 10000) {
+      return {
+        error: 'Stakeholder allocations must total exactly 100.00%.',
+      };
+    }
+
+    return {
+      stakeholders: normalizedStakeholders,
+    };
   };
 
 	const handlePrepareFunding = async () => {
@@ -606,6 +819,14 @@ export default function ProductTokenizationDialog({
       return;
     }
 
+    const stakeholderValidation = validateStakeholderDraft();
+
+    if (stakeholderValidation.error) {
+      setStakeholderError(stakeholderValidation.error);
+      toast.error(stakeholderValidation.error);
+      return;
+    }
+
     setIsPreparing(true);
 
     try {
@@ -621,13 +842,7 @@ export default function ProductTokenizationDialog({
           },
           body: JSON.stringify({
             walletAddress: selectedWalletAddress,
-            stakeholders: [
-              {
-                name: "Product creator",
-                address: selectedWalletAddress,
-                percentage: 100,
-              },
-            ],
+            stakeholders: stakeholderValidation.stakeholders,
           }),
         }
       );
@@ -703,6 +918,123 @@ export default function ProductTokenizationDialog({
 							isSubmittingFunding
 						}
 					/>
+
+          {!preparedRevenuePool ? (
+            <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+              <div>
+                <p className="text-sm font-medium">Stakeholders</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Add everyone who should receive product revenue tokens. The creator
+                  wallet is the selected verified wallet. Allocations must total 100.00%.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {stakeholderDraft.map((stakeholder, index) => (
+                  <div
+                    key={`${index}-${stakeholder.address}`}
+                    className="grid grid-cols-1 gap-3 rounded-md border border-border bg-background p-3 sm:grid-cols-12"
+                  >
+                    <div className="sm:col-span-3">
+                      <label className="text-xs text-muted-foreground">Name</label>
+                      <input
+                        value={stakeholder.name}
+                        placeholder={index === 0 ? 'Product creator' : 'Stakeholder'}
+                        disabled={index === 0 || isPreparing}
+                        onChange={(event) =>
+                          updateStakeholderDraft(index, {
+                            name: event.target.value,
+                          })
+                        }
+                        className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-5">
+                      <label className="text-xs text-muted-foreground">
+                        Wallet Address
+                      </label>
+                      <input
+                        value={
+                          index === 0
+                            ? selectedWalletAddress || ''
+                            : stakeholder.address
+                        }
+                        placeholder="Algorand wallet address"
+                        disabled={index === 0 || isPreparing}
+                        onChange={(event) =>
+                          updateStakeholderDraft(index, {
+                            address: event.target.value.trim(),
+                          })
+                        }
+                        className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="text-xs text-muted-foreground">
+                        Allocation %
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={stakeholder.percentage}
+                        disabled={index === 0 || isPreparing}
+                        onChange={(event) =>
+                          updateStakeholderDraft(index, {
+                            percentage: event.target.value,
+                          })
+                        }
+                        className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                      />
+                    </div>
+
+                    <div className="flex items-end sm:col-span-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full"
+                        disabled={index === 0 || isPreparing}
+                        onClick={() => removeStakeholderDraft(index)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isPreparing}
+                  onClick={addStakeholderDraft}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Stakeholder
+                </Button>
+
+                <span
+                  className={
+                    stakeholderDraftTotalBps === 10000
+                      ? 'text-sm text-emerald-600'
+                      : 'text-sm text-destructive'
+                  }
+                >
+                  {(stakeholderDraftTotalBps / 100).toFixed(2)}% allocated
+                </span>
+              </div>
+
+              {stakeholderError ? (
+                <p className="text-sm text-destructive">{stakeholderError}</p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="flex gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
@@ -827,7 +1159,8 @@ export default function ProductTokenizationDialog({
               disabled={
                 isPreparing ||
                 !walletConnection.isReady ||
-                !selectedWalletAddress
+                !selectedWalletAddress ||
+                stakeholderDraftTotalBps !== 10000
               }
             >
               {isPreparing ? (

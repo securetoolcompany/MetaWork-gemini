@@ -7,6 +7,7 @@ import {
   buildProductRevenuePoolDraft,
   createProductRevenuePoolKey,
 } from '@/lib/product-revenue-tokenization';
+import { CREDIT_COSTS } from '@/lib/credit-costs';
 
 export const dynamic = 'force-dynamic';
 
@@ -210,10 +211,10 @@ export async function POST(request, { params }) {
           id: 1,
           userId: 1,
           wallets: 1,
+          credits: 1,
         },
       }
     );
-
     if (!user) {
       return NextResponse.json(
         {
@@ -277,6 +278,35 @@ export async function POST(request, { params }) {
       );
     }
 
+    if (
+      currentPoolStatus === 'pending_funding' &&
+      product?.productRevenuePool?.creditStatus === 'consumed'
+    ) {
+      return NextResponse.json(
+        serialize({
+          success: true,
+          product: {
+            id: String(product._id),
+            name:
+              product.name ||
+              product.title ||
+              product.externalProductId ||
+              'Untitled product',
+          },
+          productRevenuePool: {
+            poolKey: product.productRevenuePool.poolKey,
+            ownerAddress: product.productRevenuePool.ownerAddress,
+            displayName: product.productRevenuePool.displayName,
+            tokenizationStatus: product.productRevenuePool.tokenizationStatus,
+            tokenizationVersion: product.productRevenuePool.tokenizationVersion,
+            stakeholders: product.productRevenuePool.stakeholders,
+            mbr: product.productRevenuePool.mbr,
+          },
+          resumed: true,
+        })
+      );
+    }
+
     const normalizedStakeholders = stakeholders.map(
       (stakeholder, index) => ({
         ...stakeholder,
@@ -293,12 +323,45 @@ export async function POST(request, { params }) {
       stakeholders: normalizedStakeholders,
     });
 
+    const mintCostToken = CREDIT_COSTS.MINT_IP;
+
+    if ((user.credits || 0) < mintCostToken) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Insufficient credits to tokenize this product.',
+          code: 'INSUFFICIENT_CREDITS',
+        },
+        { status: 402 }
+      );
+    }
+
+    const creditUpdate = await db.collection('users').findOneAndUpdate(
+      { ...userIdentityFilter, credits: { $gte: mintCostToken } },
+      { $inc: { credits: -mintCostToken } },
+      { returnDocument: 'after' }
+    );
+
+    if (!creditUpdate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Insufficient credits (race condition prevented).',
+          code: 'INSUFFICIENT_CREDITS',
+        },
+        { status: 402 }
+      );
+    }
+
     const poolKey = createProductRevenuePoolKey(product);
 
     const tokenizationDraft = {
       ...poolDraft,
 
       ownerAddress: selectedVerifiedWallet.address,
+
+      creditCost: mintCostToken,
+      creditStatus: 'consumed',
 
       mbrPaidMicroAlgos: null,
       mbrPaymentTxId: null,
