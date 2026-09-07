@@ -64,6 +64,9 @@ function UploadIPInner() {
   const [charCount, setCharCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
+  const [showTokenizationConfirm, setShowTokenizationConfirm] = useState(false);
+  const [tokenizationConfirmed, setTokenizationConfirmed] = useState(false);
+  const [creditBalance, setCreditBalance] = useState(null);
   const [stakeholderDialogOpen, setStakeholderDialogOpen] = useState(false);
   const [stakeholderDraft, setStakeholderDraft] = useState([]);
   const [stakeholderError, setStakeholderError] = useState('');
@@ -346,6 +349,48 @@ function UploadIPInner() {
     }
   };
 
+  const loadCreditBalance = async () => {
+  try {
+    const response = await fetch('/api/auth/session', {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        ...getAuthHeader(),
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error || 'Unable to retrieve your credit balance.',
+      );
+    }
+
+    const balance = Number(
+      data?.user?.credits ??
+        data?.credits ??
+        data?.user?.creditBalance,
+    );
+
+    if (!Number.isFinite(balance)) {
+      throw new Error(
+        'Your credit balance is unavailable. Please refresh and try again.',
+      );
+    }
+
+    setCreditBalance(balance);
+
+    return balance;
+  } catch (error) {
+    toast.error(
+      error?.message || 'Unable to retrieve your credit balance.',
+    );
+
+    return null;
+  }
+};
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -361,6 +406,12 @@ function UploadIPInner() {
       toast.error('Wallet not connected', {
         description: 'Please connect your Pera wallet first.',
       });
+      return;
+    }
+
+    if (!tokenizationConfirmed) {
+      await loadCreditBalance();
+      setShowTokenizationConfirm(true);
       return;
     }
 
@@ -586,6 +637,7 @@ function UploadIPInner() {
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
         body: JSON.stringify({
           step: 'confirm_nft',
+          operationKey: tokenizationOperationKeyRef.current,
           ipAssetId: step1.ipAssetId,
           signedTxns: signedNft.map((t) =>
             Buffer.from(t).toString('base64'),
@@ -1127,9 +1179,134 @@ function UploadIPInner() {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={showTokenizationConfirm}
+        onOpenChange={(open) => {
+          setShowTokenizationConfirm(open);
+
+          if (!open) {
+            setTokenizationConfirmed(false);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm IP tokenization charge</DialogTitle>
+            <DialogDescription>
+              Tokenizing this IP costs 25 credits ($0.25).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 text-sm">
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Current balance</span>
+                <span className="font-semibold">
+                  {creditBalance === null
+                    ? 'Loading…'
+                    : `${creditBalance.toLocaleString()} credits`}
+                </span>
+              </div>
+
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-muted-foreground">IP tokenization</span>
+                <span className="font-semibold text-destructive">
+                  −25 credits
+                </span>
+              </div>
+
+              <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+                <span className="text-muted-foreground">
+                  Balance after tokenization
+                </span>
+                <span className="font-semibold">
+                  {creditBalance === null
+                    ? '—'
+                    : `${Math.max(0, creditBalance - 25).toLocaleString()} credits`}
+                </span>
+              </div>
+            </div>
+
+            {creditBalance !== null && creditBalance < 25 ? (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3">
+                <p className="font-medium text-destructive">
+                  You need more credits
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  IP tokenization requires 25 credits. Your current balance is{' '}
+                  {creditBalance.toLocaleString()} credits.
+                </p>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">
+                Your credit will only be deducted after the NFT mint and revenue
+                pool are successfully created. Retrying the same pending
+                tokenization should not use another credit.
+              </p>
+            )}
+
+            <p className="text-muted-foreground">
+              Your connected Pera wallet will be used to fund and sign the
+              on-chain IP tokenization transactions.
+            </p>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isLoading}
+              onClick={() => {
+                setShowTokenizationConfirm(false);
+                setTokenizationConfirmed(false);
+              }}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={isLoading}
+              onClick={() => setShowCreditsModal(true)}
+            >
+              Buy Credits
+            </Button>
+
+            <Button
+              type="button"
+              disabled={
+                isLoading ||
+                creditBalance === null ||
+                creditBalance < 25
+              }
+              onClick={() => {
+                setShowTokenizationConfirm(false);
+                setTokenizationConfirmed(true);
+
+                setTimeout(() => {
+                  document.querySelector('form')?.requestSubmit();
+                }, 0);
+              }}
+            >
+              Use 25 Credits and Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <InsufficientCreditsModal
         open={showCreditsModal}
-        onClose={() => setShowCreditsModal(false)}
+        onClose={async () => {
+          setShowCreditsModal(false);
+
+          await new Promise((resolve) => setTimeout(resolve, 750));
+          await loadCreditBalance();
+        }}
+        onSuccess={async () => {
+          await new Promise((resolve) => setTimeout(resolve, 750));
+          await loadCreditBalance();
+        }}
       />
     </div>
   );

@@ -342,15 +342,14 @@ export async function POST(request) {
       );
     }
 
-    const creditUpdate = await db.collection("users").findOneAndUpdate(
+    const userWithEnoughCredits = await db.collection("users").findOne(
       { ...userQuery, credits: { $gte: mintCostToken } },
-      { $inc: { credits: -mintCostToken } },
-      { returnDocument: "after" },
+      { projection: { _id: 1 } },
     );
 
-    if (!creditUpdate) {
+    if (!userWithEnoughCredits) {
       return NextResponse.json(
-        { error: "Insufficient credits (race condition prevented)" },
+        { error: "Insufficient credits to mint" },
         { status: 402 },
       );
     }
@@ -446,7 +445,8 @@ export async function POST(request) {
 
       tokenizationOperationKey: operationKey,
       creditCost: mintCostToken,
-      creditStatus: "consumed",
+      creditStatus: "pending",
+      creditChargedAt: null,
       mbrMicroAlgos,
       preparedNftTransaction,
       updatedAt: new Date(),
@@ -488,9 +488,22 @@ export async function PUT(request) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const { step, ipAssetId, signedTxn, signedTxns } = await request.json();
+    const { step, operationKey, ipAssetId, signedTxn, signedTxns } =
+      await request.json();
     const { db } = await connectToDatabase();
     const algodClient = getAlgodClient();
+    const { ObjectId } = await import("mongodb");
+
+    let userQuery;
+    try {
+      userQuery = {
+        $or: [{ id: decoded.userId }, { _id: new ObjectId(decoded.userId) }],
+      };
+    } catch {
+      userQuery = { id: decoded.userId };
+    }
+
+    const mintCostToken = CREDIT_COSTS.MINT_IP;
 
     const ipAsset = await db.collection("ip_assets").findOne({ id: ipAssetId });
     if (!ipAsset) {
@@ -499,6 +512,16 @@ export async function PUT(request) {
 
     if (String(ipAsset.ownerId) !== String(decoded.userId)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    if (
+      typeof operationKey !== "string" ||
+      operationKey !== ipAsset.tokenizationOperationKey
+    ) {
+      return NextResponse.json(
+        { error: "Invalid tokenization operation key" },
+        { status: 400 },
+      );
     }
 
     // -----------------------------------------------------
@@ -641,7 +664,7 @@ export async function PUT(request) {
         boxBytes.byteLength,
       );
       const revenueTokenId = Number(view.getBigUint64(0, false));
-
+      
       await db.collection("ip_assets").updateOne(
         { id: ipAssetId },
         {
@@ -651,6 +674,7 @@ export async function PUT(request) {
             revenuePoolAddress: algosdk.getApplicationAddress(poolAppId),
             revenueTokenAssetId: revenueTokenId,
             status: "active",
+            tokenizationCompletedAt: new Date(),
           },
         },
       );
