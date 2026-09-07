@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import VerifiedWalletSelector from "@/components/wallet/VerifiedWalletSelector";
+import BuyCreditsModal from "@/components/credits/BuyCreditsModal";
 
 function formatMoney(value) {
   const amount = Number(value);
@@ -100,6 +101,13 @@ export default function ProductTokenizationDialog({
     useState(false);
 	const activeFundingRequestKeyRef = useRef(null);
 
+  const [showCreditConfirmation, setShowCreditConfirmation] = useState(false);
+  const TOKENIZATION_CREDIT_COST = 25;
+
+  const [creditBalance, setCreditBalance] = useState(null);
+  const [lastCreditCharge, setLastCreditCharge] = useState(null);
+  const [showBuyCreditsModal, setShowBuyCreditsModal] = useState(false);
+
   useEffect(() => {
     if (!open) {
       return;
@@ -112,6 +120,8 @@ export default function ProductTokenizationDialog({
 		setIsSigningFunding(false);
 		setIsSubmittingFunding(false);
 		setIsCreatingRevenuePool(false);
+    setLastCreditCharge(null);
+    setCreditBalance(null);
 		fundingSubmissionInFlightRef.current = false;
 		activeFundingRequestKeyRef.current = null;
 			}, [
@@ -317,6 +327,7 @@ export default function ProductTokenizationDialog({
   const handleOpenChange = (nextOpen) => {
     if (!nextOpen) {
       setIsPreparing(false);
+      setShowCreditConfirmation(false);
     }
 
     onOpenChange(nextOpen);
@@ -796,6 +807,52 @@ export default function ProductTokenizationDialog({
 		}
 	};
 
+  const loadCreditBalance = async () => {
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  try {
+    const response = await fetch("/api/auth/session", {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        ...getAuthHeader(),
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error || "Unable to retrieve your credit balance."
+      );
+    }
+
+    const balance = Number(
+      data?.user?.credits ??
+        data?.credits ??
+        data?.user?.creditBalance
+    );
+
+    if (!Number.isFinite(balance)) {
+      throw new Error(
+        "Your credit balance is unavailable. Please refresh and try again."
+      );
+    }
+
+    setCreditBalance(balance);
+
+    return balance;
+  } catch (error) {
+    toast.error(
+      error?.message || "Unable to retrieve your credit balance."
+    );
+
+    return null;
+  }
+};
+
   const handlePrepareTokenization = async () => {
     const productId =
       product?.id ||
@@ -857,9 +914,31 @@ export default function ProductTokenizationDialog({
 
       setPreparedRevenuePool(data.productRevenuePool);
 
-      toast.success(
-        "Product tokenization prepared. Funding can now be prepared."
-      );
+      const chargedCredits = Number(data?.credits?.charged || 0);
+      const remainingCredits = Number(data?.credits?.remaining);
+
+      if (Number.isFinite(remainingCredits)) {
+        setCreditBalance(remainingCredits);
+      }
+
+      if (chargedCredits > 0) {
+        setLastCreditCharge({
+          charged: chargedCredits,
+          remaining: Number.isFinite(remainingCredits)
+            ? remainingCredits
+            : null,
+        });
+
+        toast.success(
+          Number.isFinite(remainingCredits)
+            ? `${chargedCredits} credits used. ${remainingCredits} credits remaining.`
+            : `${chargedCredits} credits used for product tokenization.`
+        );
+      } else {
+        toast.success(
+          "Product tokenization resumed. No additional credits were used."
+        );
+      }
     } catch (error) {
       toast.error(
         error?.message || "Unable to prepare product tokenization."
@@ -870,6 +949,7 @@ export default function ProductTokenizationDialog({
   };
 
   return (
+   <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
@@ -1054,6 +1134,20 @@ export default function ProductTokenizationDialog({
               </p>
             </div>
           ) : null}
+          {lastCreditCharge ? (
+            <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm">
+              <p className="font-medium">
+                {lastCreditCharge.charged} credits used for tokenization preparation
+              </p>
+
+              {lastCreditCharge.remaining !== null ? (
+                <p className="mt-1 text-muted-foreground">
+                  Remaining balance:{" "}
+                  {lastCreditCharge.remaining.toLocaleString()} credits.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
 					{preparedRevenuePool?.tokenizationStatus === "pending_funding" ? (
             <div className="rounded-lg border border-blue-500/40 bg-blue-500/10 p-3 text-sm">
               <p className="font-medium">
@@ -1155,7 +1249,15 @@ export default function ProductTokenizationDialog({
           {!preparedRevenuePool ? (
             <Button
               type="button"
-              onClick={handlePrepareTokenization}
+              onClick={async () => {
+                const balance = await loadCreditBalance();
+
+                if (balance === null) {
+                  return;
+                }
+
+                setShowCreditConfirmation(true);
+              }}
               disabled={
                 isPreparing ||
                 !walletConnection.isReady ||
@@ -1166,7 +1268,7 @@ export default function ProductTokenizationDialog({
               {isPreparing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
-              Prepare Tokenization
+              Prepare Tokenization — 25 Credits
             </Button>
           ) : fundingPreparation?.fundingAttempt?.status === "awaiting_signature" ? (
 						<Button
@@ -1248,6 +1350,131 @@ export default function ProductTokenizationDialog({
 					)}
         </DialogFooter>
       </DialogContent>
+        </Dialog>
+
+    <Dialog
+      open={showCreditConfirmation}
+      onOpenChange={setShowCreditConfirmation}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Confirm tokenization charge</DialogTitle>
+          <DialogDescription>
+            Preparing this product’s revenue tokenization costs 25 credits
+            ($0.25).
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 text-sm">
+          <div className="rounded-lg border border-border bg-muted/30 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Current balance</span>
+              <span className="font-semibold">
+                {creditBalance === null
+                  ? "Loading…"
+                  : `${creditBalance.toLocaleString()} credits`}
+              </span>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-muted-foreground">
+                Tokenization preparation
+              </span>
+              <span className="font-semibold text-destructive">
+                −{TOKENIZATION_CREDIT_COST} credits
+              </span>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+              <span className="text-muted-foreground">
+                Balance after preparation
+              </span>
+              <span className="font-semibold">
+                {creditBalance === null
+                  ? "—"
+                  : `${Math.max(
+                      0,
+                      creditBalance - TOKENIZATION_CREDIT_COST
+                    ).toLocaleString()} credits`}
+              </span>
+            </div>
+          </div>
+
+          {creditBalance !== null &&
+          creditBalance < TOKENIZATION_CREDIT_COST ? (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3">
+              <p className="font-medium text-destructive">
+                You need more credits
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                Tokenization preparation requires {TOKENIZATION_CREDIT_COST} credits.
+                Your current balance is {creditBalance.toLocaleString()} credits.
+              </p>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">
+              You will be charged once only after MetaWork successfully prepares the
+              product revenue-pool draft. Resuming the same tokenization will not
+              charge you again.
+            </p>
+          )}
+
+          <p className="text-muted-foreground">
+            Your connected Algorand wallet will be used later to sign the on-chain
+            funding transaction.
+          </p>
+        </div>
+
+        <DialogFooter className="gap-2 sm:gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowCreditConfirmation(false)}
+            disabled={isPreparing}
+          >
+            Cancel
+          </Button>
+
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setShowBuyCreditsModal(true)}
+            disabled={isPreparing}
+          >
+            Buy Credits
+          </Button>
+
+          <Button
+            type="button"
+            disabled={
+              isPreparing ||
+              creditBalance === null ||
+              creditBalance < TOKENIZATION_CREDIT_COST
+            }
+            onClick={async () => {
+              setShowCreditConfirmation(false);
+              await handlePrepareTokenization();
+            }}
+          >
+            {isPreparing ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Preparing Tokenization
+              </>
+            ) : (
+              `Use ${TOKENIZATION_CREDIT_COST} Credits and Continue`
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
-  );
+    <BuyCreditsModal
+      open={showBuyCreditsModal}
+      onClose={() => {
+        setShowBuyCreditsModal(false);
+        loadCreditBalance();
+      }}
+    />
+  </>
+);
 }

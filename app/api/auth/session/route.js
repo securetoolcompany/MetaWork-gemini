@@ -70,6 +70,7 @@ export async function GET(request) {
         username: user.username,
         membershipTier: user.membershipTier,
         role: user.role,
+        credits: Number(user.credits || 0),
         isAdmin: user.isAdmin === true || user.role === 'admin',
       }
     });

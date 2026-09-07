@@ -113,6 +113,9 @@ export default function AdminOrdersPage() {
   const [reason, setReason] = useState('');
   const [nextStatus, setNextStatus] = useState('shipped');
   const [isSaving, setIsSaving] = useState(false);
+  const [releaseOrder, setReleaseOrder] = useState(null);
+  const [releaseReason, setReleaseReason] = useState('');
+  const [isReleasingRevenue, setIsReleasingRevenue] = useState(false);
 
   const loadOrders = useCallback(async () => {
     setIsLoading(true);
@@ -245,6 +248,111 @@ export default function AdminOrdersPage() {
       );
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  function openReleaseRevenueDialog(order) {
+    setReleaseOrder(order);
+    setReleaseReason('');
+    setError(null);
+  }
+
+  function closeReleaseRevenueDialog() {
+    if (isReleasingRevenue) {
+      return;
+    }
+
+    setReleaseOrder(null);
+    setReleaseReason('');
+  }
+
+  async function submitRevenueRelease() {
+    if (!releaseOrder) {
+      return;
+    }
+
+    const orderId = String(releaseOrder.id || '').trim();
+    const trimmedReason = releaseReason.trim();
+
+    if (!orderId) {
+      setError('This order is missing a valid ID.');
+      return;
+    }
+
+    if (!trimmedReason) {
+      setError('A manual release reason is required.');
+      return;
+    }
+
+    setIsReleasingRevenue(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/admin/orders/${encodeURIComponent(
+          orderId
+        )}/release-revenue-ledger`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          },
+          body: JSON.stringify({
+            reason: trimmedReason,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || data?.success !== true) {
+        throw new Error(
+          data?.error || 'Unable to release revenue for this order.'
+        );
+      }
+
+      const transitionedCount = Number(
+        data?.release?.transitionedCount || 0
+      );
+
+      const existingEligibleCount = Number(
+        data?.release?.existingEligibleCount || 0
+      );
+
+      if (transitionedCount > 0) {
+        window.alert(
+          `${transitionedCount} revenue-ledger ${
+            transitionedCount === 1 ? 'row is' : 'rows are'
+          } now claimable for order ${
+            releaseOrder.orderNumber || orderId
+          }.`
+        );
+      } else if (existingEligibleCount > 0) {
+        window.alert(
+          `${
+            existingEligibleCount === 1
+              ? 'The revenue-ledger row is'
+              : `${existingEligibleCount} revenue-ledger rows are`
+          } already claimable for order ${
+            releaseOrder.orderNumber || orderId
+          }.`
+        );
+      } else {
+        window.alert(
+          'No held revenue-ledger rows were found for this order.'
+        );
+      }
+
+      closeReleaseRevenueDialog();
+      await loadOrders();
+    } catch (releaseError) {
+      setError(
+        releaseError.message ||
+          'Unable to release revenue for this order.'
+      );
+    } finally {
+      setIsReleasingRevenue(false);
     }
   }
 
@@ -500,6 +608,15 @@ export default function AdminOrdersPage() {
                           Mark delivered
                         </Button>
                       )}
+                      {order.fulfillmentStatus === 'delivered' && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => openReleaseRevenueDialog(order)}
+                        >
+                          Release revenue (test)
+                        </Button>
+                      )}
                     </div>
                   </div>
 
@@ -601,6 +718,70 @@ export default function AdminOrdersPage() {
               {nextStatus === 'delivered'
                 ? 'Confirm delivery'
                 : 'Save status'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={Boolean(releaseOrder)}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeReleaseRevenueDialog();
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Release revenue ledger</DialogTitle>
+            <DialogDescription>
+              This is a test-only administrator override. It bypasses the normal
+              revenue hold period and makes held revenue-ledger rows for this order
+              claimable. It does not create a new sale, charge the customer, or
+              submit an Algorand transaction.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded bg-amber-500/10 p-3 text-sm">
+              <p className="font-mono">
+                Order: {releaseOrder?.orderNumber || releaseOrder?.id}
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                Fulfillment status: {releaseOrder?.fulfillmentStatus}
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                Only use this for deliberate testnet/test settlement verification.
+              </p>
+            </div>
+
+            <Input
+              value={releaseReason}
+              onChange={(event) => setReleaseReason(event.target.value)}
+              placeholder="Reason for manual test revenue release"
+              maxLength={500}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeReleaseRevenueDialog}
+              disabled={isReleasingRevenue}
+            >
+              Cancel
+            </Button>
+
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={submitRevenueRelease}
+              disabled={isReleasingRevenue || !releaseReason.trim()}
+            >
+              {isReleasingRevenue && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Release revenue now
             </Button>
           </DialogFooter>
         </DialogContent>

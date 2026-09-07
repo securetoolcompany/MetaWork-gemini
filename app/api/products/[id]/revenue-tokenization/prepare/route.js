@@ -8,6 +8,11 @@ import {
   createProductRevenuePoolKey,
 } from '@/lib/product-revenue-tokenization';
 import { CREDIT_COSTS } from '@/lib/credit-costs';
+import {
+  createTokenizationWithCredits,
+  InsufficientCreditsError,
+  TokenizationConflictError,
+} from '@/lib/tokenization-credits';
 
 export const dynamic = 'force-dynamic';
 
@@ -141,6 +146,46 @@ function serialize(value) {
   );
 }
 
+function buildProductResponse(
+  product,
+  productRevenuePool,
+  {
+    resumed = false,
+    creditCharged = 0,
+    creditsRemaining = null,
+  } = {}
+) {
+  return serialize({
+    success: true,
+
+    product: {
+      id: String(product._id),
+      name:
+        product.name ||
+        product.title ||
+        product.externalProductId ||
+        'Untitled product',
+    },
+
+    productRevenuePool: {
+      poolKey: productRevenuePool.poolKey,
+      ownerAddress: productRevenuePool.ownerAddress,
+      displayName: productRevenuePool.displayName,
+      tokenizationStatus: productRevenuePool.tokenizationStatus,
+      tokenizationVersion: productRevenuePool.tokenizationVersion,
+      stakeholders: productRevenuePool.stakeholders,
+      mbr: productRevenuePool.mbr,
+    },
+
+    credits: {
+      charged: creditCharged,
+      remaining: creditsRemaining,
+    },
+
+    ...(resumed ? { resumed: true } : {}),
+  });
+}
+
 export async function POST(request, { params }) {
   try {
     const userId = getAuthenticatedUserId(request);
@@ -189,7 +234,7 @@ export async function POST(request, { params }) {
       );
     }
 
-    const { db } = await connectToDatabase();
+    const { client, db } = await connectToDatabase();
 
     const userIdentityFilter = createUserIdentityFilter(userId);
 
@@ -215,6 +260,7 @@ export async function POST(request, { params }) {
         },
       }
     );
+
     if (!user) {
       return NextResponse.json(
         {
@@ -283,27 +329,15 @@ export async function POST(request, { params }) {
       product?.productRevenuePool?.creditStatus === 'consumed'
     ) {
       return NextResponse.json(
-        serialize({
-          success: true,
-          product: {
-            id: String(product._id),
-            name:
-              product.name ||
-              product.title ||
-              product.externalProductId ||
-              'Untitled product',
-          },
-          productRevenuePool: {
-            poolKey: product.productRevenuePool.poolKey,
-            ownerAddress: product.productRevenuePool.ownerAddress,
-            displayName: product.productRevenuePool.displayName,
-            tokenizationStatus: product.productRevenuePool.tokenizationStatus,
-            tokenizationVersion: product.productRevenuePool.tokenizationVersion,
-            stakeholders: product.productRevenuePool.stakeholders,
-            mbr: product.productRevenuePool.mbr,
-          },
-          resumed: true,
-        })
+        buildProductResponse(
+          product,
+          product.productRevenuePool,
+          {
+            resumed: true,
+            creditCharged: 0,
+            creditsRemaining: Number(user.credits || 0),
+          }
+        )
       );
     }
 
@@ -323,44 +357,16 @@ export async function POST(request, { params }) {
       stakeholders: normalizedStakeholders,
     });
 
-    const mintCostToken = CREDIT_COSTS.MINT_IP;
-
-    if ((user.credits || 0) < mintCostToken) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Insufficient credits to tokenize this product.',
-          code: 'INSUFFICIENT_CREDITS',
-        },
-        { status: 402 }
-      );
-    }
-
-    const creditUpdate = await db.collection('users').findOneAndUpdate(
-      { ...userIdentityFilter, credits: { $gte: mintCostToken } },
-      { $inc: { credits: -mintCostToken } },
-      { returnDocument: 'after' }
-    );
-
-    if (!creditUpdate) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Insufficient credits (race condition prevented).',
-          code: 'INSUFFICIENT_CREDITS',
-        },
-        { status: 402 }
-      );
-    }
-
+    const creditCost = CREDIT_COSTS.MINT_IP;
     const poolKey = createProductRevenuePoolKey(product);
 
     const tokenizationDraft = {
       ...poolDraft,
 
+      poolKey,
       ownerAddress: selectedVerifiedWallet.address,
 
-      creditCost: mintCostToken,
+      creditCost,
       creditStatus: 'consumed',
 
       mbrPaidMicroAlgos: null,
@@ -374,46 +380,140 @@ export async function POST(request, { params }) {
       updatedAt: new Date(),
     };
 
-    await db.collection('products').updateOne(
-      ownershipFilter,
-      {
-        $set: {
-          productRevenuePool: tokenizationDraft,
-          updatedAt: new Date(),
+    try {
+      const creditTransaction = await createTokenizationWithCredits({
+        client,
+        db,
+        userFilter: userIdentityFilter,
+        creditCost,
+        operation: 'product_revenue_tokenization',
+        persist: async ({
+          session,
+          creditCost: chargedCreditCost,
+          user: updatedUser,
+        }) => {
+          const productUpdate = await db.collection('products').updateOne(
+            {
+              $and: [
+                ownershipFilter,
+                {
+                  $or: [
+                    {
+                      'productRevenuePool.tokenizationStatus': {
+                        $exists: false,
+                      },
+                    },
+                    {
+                      'productRevenuePool.tokenizationStatus': {
+                        $nin: [
+                          'active',
+                          'creating',
+                          'pending_funding',
+                        ],
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              $set: {
+                productRevenuePool: {
+                  ...tokenizationDraft,
+                  creditCost: chargedCreditCost,
+                  creditStatus: 'consumed',
+                },
+                updatedAt: new Date(),
+              },
+            },
+            { session }
+          );
+
+          if (productUpdate.matchedCount !== 1) {
+            throw new TokenizationConflictError(
+              'Product tokenization was already prepared or changed by another request.'
+            );
+          }
+          return {
+            remainingCredits: Number(updatedUser.credits || 0),
+          };
         },
+      });
+      const remainingCredits = Number(
+        creditTransaction?.remainingCredits
+      );
+
+      return NextResponse.json(
+        buildProductResponse(product, tokenizationDraft, {
+          creditCharged: creditCost,
+          creditsRemaining: Number.isFinite(remainingCredits)
+            ? remainingCredits
+            : null,
+        })
+      );
+    } catch (error) {
+      if (error instanceof InsufficientCreditsError) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Insufficient credits to tokenize this product.',
+            code: 'INSUFFICIENT_CREDITS',
+          },
+          { status: 402 }
+        );
       }
-    );
+
+      if (error instanceof TokenizationConflictError) {
+        const latestProduct = await db
+          .collection('products')
+          .findOne(ownershipFilter);
+
+        if (
+          latestProduct?.productRevenuePool?.tokenizationStatus ===
+            'pending_funding' &&
+          latestProduct?.productRevenuePool?.creditStatus === 'consumed'
+        ) {
+          const latestUser = await db.collection('users').findOne(
+            userIdentityFilter,
+            {
+              projection: {
+                credits: 1,
+              },
+            }
+          );
+
+          return NextResponse.json(
+            buildProductResponse(
+              latestProduct,
+              latestProduct.productRevenuePool,
+              {
+                resumed: true,
+                creditCharged: 0,
+                creditsRemaining: Number(latestUser?.credits || 0),
+              }
+            )
+          );
+        }
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: error.message,
+            code: 'TOKENIZATION_CONFLICT',
+          },
+          { status: 409 }
+        );
+      }
+
+      throw error;
+    }
 
     return NextResponse.json(
-      serialize({
-        success: true,
-
-        product: {
-          id: String(product._id),
-          name:
-            product.name ||
-            product.title ||
-            product.externalProductId ||
-            'Untitled product',
-        },
-
-        productRevenuePool: {
-          poolKey,
-
-          ownerAddress: tokenizationDraft.ownerAddress,
-
-          displayName: tokenizationDraft.displayName,
-
-          tokenizationStatus:
-            tokenizationDraft.tokenizationStatus,
-
-          tokenizationVersion:
-            tokenizationDraft.tokenizationVersion,
-
-          stakeholders: tokenizationDraft.stakeholders,
-
-          mbr: tokenizationDraft.mbr,
-        },
+      buildProductResponse(product, tokenizationDraft, {
+        creditCharged: creditCost,
+        creditsRemaining: Number(
+          creditTransaction?.remainingCredits ?? 0
+        ),
       })
     );
   } catch (error) {
@@ -429,7 +529,7 @@ export async function POST(request, { params }) {
           error?.message ||
           'Unable to prepare product revenue tokenization.',
       },
-      { status: 400 }
+      { status: 500 }
     );
   }
 }
