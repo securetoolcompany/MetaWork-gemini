@@ -245,6 +245,7 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   const [isUploading, setIsUploading] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [fullProductData, setFullProductData] = useState(null);
+  const [ipOnChainById, setIpOnChainById] = useState({});
   const [selectedVariantSize, setSelectedVariantSize] =
     useState(null);
   const fileInputRef = useRef(null);
@@ -284,6 +285,7 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   useEffect(() => {
     if (open && product) {
       setFullProductData(null);
+      setIpOnChainById({});
       const targetId = product.id || product._id;
       
       // 1. Fetch the full, deep product object (identical to your curl command)
@@ -293,9 +295,93 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
           if (data.success && data.product) {
             const fullProduct = data.product;
 
-            setFullProductData(fullProduct);
+          setFullProductData(fullProduct);
 
-            const isProductLive =
+          const licensedIpIds = Array.from(
+            new Set(
+              [
+                ...(fullProduct.licensedRevenueTerms || []).map(
+                  (term) => term.ipAssetId
+                ),
+                ...(fullProduct.licensedIPs || []).map(
+                  (ip) => ip.id || ip._id || ip.ipId
+                ),
+              ]
+                .filter(Boolean)
+                .map(String)
+            )
+          );
+
+          if (licensedIpIds.length === 0) {
+            setIpOnChainById({});
+          } else {
+            Promise.all(
+              licensedIpIds.map(async (ipId) => {
+                const response = await fetch(`/api/ip/${ipId}`);
+
+                if (!response.ok) {
+                  throw new Error(
+                    `Failed to load canonical IP record: ${ipId}`
+                  );
+                }
+
+                const payload = await response.json();
+
+                console.log('Canonical IP API payload:', {
+                  ipId,
+                  payload,
+                  resolvedIp:
+                    payload.ipAsset ||
+                    payload.ip ||
+                    payload.data ||
+                    payload,
+                });
+
+                // Supports common API response shapes.
+                return payload.ipAsset || payload.ip || payload.data || payload;
+              })
+            )
+              .then((ipAssets) => {
+                const nextIpOnChainById = ipAssets.reduce(
+                  (result, ipAsset) => {
+                    if (!ipAsset) {
+                      return result;
+                    }
+
+                    /*
+                    * Product.licensedRevenueTerms[].ipAssetId uses the public IP ID,
+                    * which is ipAsset.id in the canonical /api/ip/[id] response.
+                    * Index by every available identifier for backward compatibility.
+                    */
+                    const lookupIds = [
+                      ipAsset.id,
+                      ipAsset.ipId,
+                      ipAsset._id,
+                    ]
+                      .filter(Boolean)
+                      .map(String);
+
+                    lookupIds.forEach((lookupId) => {
+                      result[lookupId] = ipAsset;
+                    });
+
+                    return result;
+                  },
+                  {}
+                );
+                setIpOnChainById(nextIpOnChainById);
+              })
+              .catch((error) => {
+                console.error(
+                  'Failed to load canonical IP on-chain details:',
+                  error
+                );
+
+                setIpOnChainById({});
+              });
+          }
+
+          const isProductLive =
               fullProduct.isPublic ??
               fullProduct.isVisible ??
               (fullProduct.status === 'live') ??
@@ -1424,17 +1510,34 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
 
                   {/* Each IP licensed into the product */}
                   {licensedRevenueTerms.map((term, index) => {
-                    const linkedIp =
+                    const embeddedIp =
                       licensedIPs.find(
                         (ip) =>
                           String(ip.id || ip._id || ip.ipId) ===
                           String(term.ipAssetId)
                       ) || {};
 
+                    const canonicalIp =
+                      ipOnChainById[String(term.ipAssetId)] || {};
+
+                    const linkedIp = {
+                      ...embeddedIp,
+                      ...canonicalIp,
+                    };
+
                     const ipName =
                       linkedIp.title ||
                       linkedIp.name ||
                       `Licensed IP ${index + 1}`;
+
+                    const ipOwnershipTokenId =
+                      canonicalIp.algorandAssetId ||
+                      canonicalIp.assetId ||
+                      canonicalIp.nftAssetId ||
+                      linkedIp.algorandAssetId ||
+                      linkedIp.assetId ||
+                      linkedIp.nftAssetId ||
+                      null;
 
                     const ipRevenueTokenId =
                       term.revenueTokenAssetId ||
@@ -1460,6 +1563,18 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
                         <p className="text-sm font-medium truncate">
                           Licensed IP: {ipName}
                         </p>
+
+                        <div className="flex items-center justify-between gap-4 text-sm">
+                          <span className="text-muted-foreground">
+                            IP Ownership Token
+                          </span>
+
+                          <AlgoExplorerLink
+                            label={`${ipName} IP Ownership Token`}
+                            id={ipOwnershipTokenId}
+                            type="asset"
+                          />
+                        </div>
 
                         {ipRevenueTokenId && (
                           <div className="flex items-center justify-between gap-4 text-sm">
