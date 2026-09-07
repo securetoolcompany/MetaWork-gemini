@@ -563,6 +563,21 @@ export async function PUT(request) {
         throw new Error("NFT mint confirmed but asset-index missing.");
       }
 
+      await db.collection("ip_assets").updateOne(
+        {
+          id: ipAssetId,
+          ownerId: decoded.userId,
+          tokenizationOperationKey: operationKey,
+        },
+        {
+          $set: {
+            nftAssetId: Number(nftAssetId),
+            nftMintConfirmedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        },
+      );
+
       // 2) Ensure user has paid MBR via /pool-funding
       if (!ipAsset.mbrPaidMicroAlgos || !ipAsset.mbrPaymentTxId) {
         throw new Error(
@@ -675,9 +690,73 @@ export async function PUT(request) {
             revenueTokenAssetId: revenueTokenId,
             status: "active",
             tokenizationCompletedAt: new Date(),
+            updatedAt: new Date(),
           },
         },
       );
+
+      const creditClaim = await db.collection("ip_assets").findOneAndUpdate(
+        {
+          id: ipAssetId,
+          ownerId: decoded.userId,
+          tokenizationOperationKey: operationKey,
+          status: "active",
+          creditStatus: "pending",
+        },
+        {
+          $set: {
+            creditStatus: "charging",
+            creditChargeStartedAt: new Date(),
+          },
+        },
+        { returnDocument: "after" },
+      );
+
+      if (creditClaim) {
+        const creditUpdate = await db.collection("users").findOneAndUpdate(
+          {
+            $or: [
+              { id: decoded.userId },
+              { _id: new (await import("mongodb")).ObjectId(decoded.userId) },
+            ],
+            credits: { $gte: creditClaim.creditCost },
+          },
+          {
+            $inc: { credits: -creditClaim.creditCost },
+          },
+          { returnDocument: "after" },
+        );
+
+        if (!creditUpdate) {
+          await db.collection("ip_assets").updateOne(
+            { id: ipAssetId, creditStatus: "charging" },
+            {
+              $set: {
+                creditStatus: "charge_recovery_required",
+                creditChargeFailedAt: new Date(),
+              },
+            },
+          );
+
+          throw new Error(
+            "IP tokenization completed, but credit charging needs review. Please contact support with IP asset ID: " +
+              ipAssetId,
+          );
+        }
+
+        await db.collection("ip_assets").updateOne(
+          { id: ipAssetId, creditStatus: "charging" },
+          {
+            $set: {
+              creditStatus: "consumed",
+              creditChargedAt: new Date(),
+              creditChargeOperationKey: operationKey,
+              creditBalanceAfterCharge: creditUpdate.credits,
+              updatedAt: new Date(),
+            },
+          },
+        );
+      }
 
       return NextResponse.json(
         safeJson({
