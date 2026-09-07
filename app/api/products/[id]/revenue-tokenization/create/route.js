@@ -244,8 +244,16 @@ function createResponse(product, extra = {}) {
       mbrPaidMicroAlgos: pool.mbrPaidMicroAlgos || null,
       poolCreationTxId: pool.poolCreationTxId || null,
       poolCreatedAt: pool.poolCreatedAt || null,
-    },
-
+      creditCost: pool.creditCost || null,
+      creditStatus: pool.creditStatus || null,
+      creditChargedAt: pool.creditChargedAt || null,
+      creditChargeStartedAt: pool.creditChargeStartedAt || null,
+      creditChargeOperationKey:
+        pool.creditChargeOperationKey || null,
+      creditBalanceAfterCharge:
+        pool.creditBalanceAfterCharge ?? null,
+      creditChargeFailedAt: pool.creditChargeFailedAt || null,
+          },
     ...extra,
   });
 }
@@ -332,6 +340,36 @@ export async function POST(request, { params }) {
         );
       }
 
+      if (
+        productRevenuePool.tokenizationStatus === 'active' &&
+        productRevenuePool.revenueTokenAssetId &&
+        productRevenuePool.creditStatus === 'charge_recovery_required'
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'This product revenue pool is active, but its credit charge requires manual recovery.',
+            code: 'TOKENIZATION_CREDIT_RECOVERY_REQUIRED',
+          },
+          { status: 409 }
+        );
+      }
+
+      if (
+        productRevenuePool.tokenizationStatus === 'active' &&
+        productRevenuePool.revenueTokenAssetId &&
+        productRevenuePool.creditStatus === 'charging'
+      ) {
+        return NextResponse.json(
+          createResponse(product, {
+            pending: true,
+            billingPending: true,
+          }),
+          { status: 202 }
+        );
+      }
+
       const isActivePoolAwaitingBilling =
         productRevenuePool.tokenizationStatus === 'active' &&
         productRevenuePool.revenueTokenAssetId &&
@@ -380,6 +418,10 @@ export async function POST(request, { params }) {
 
     const boxName = poolBoxName(poolKey);
 
+    let finalizedRevenueTokenAssetId = Number(
+      productRevenuePool.revenueTokenAssetId || 0
+    );
+
     /*
      * Reconcile before creating: if the pool box is already present,
      * store its ASA ID instead of submitting another creation group.
@@ -395,6 +437,8 @@ export async function POST(request, { params }) {
       if (existingBoxValue) {
         const revenueTokenAssetId =
           getPoolBoxRevenueTokenId(existingBoxValue);
+
+        finalizedRevenueTokenAssetId = revenueTokenAssetId;
 
         const now = new Date();
 
@@ -450,6 +494,218 @@ export async function POST(request, { params }) {
       if (Number(error?.status) !== 404) {
         throw error;
       }
+    }
+
+    if (
+      finalizedRevenueTokenAssetId > 0 &&
+      productRevenuePool.tokenizationStatus === 'active' &&
+      productRevenuePool.creditStatus === 'pending'
+    ) {
+      const billingClaimedAt = new Date();
+
+      const billingClaimResult = await db
+        .collection('products')
+        .findOneAndUpdate(
+          {
+            _id: product._id,
+            'productRevenuePool.poolKey': poolKey,
+            'productRevenuePool.tokenizationStatus': 'active',
+            'productRevenuePool.revenueTokenAssetId':
+              finalizedRevenueTokenAssetId,
+            'productRevenuePool.creditStatus': 'pending',
+          },
+          {
+            $set: {
+              'productRevenuePool.creditStatus': 'charging',
+              'productRevenuePool.creditChargeStartedAt':
+                billingClaimedAt,
+              'productRevenuePool.updatedAt': billingClaimedAt,
+              updatedAt: billingClaimedAt,
+            },
+          },
+          {
+            returnDocument: 'after',
+          }
+        );
+
+      const billingClaimedProduct =
+        billingClaimResult?.value || billingClaimResult || null;
+
+      if (!billingClaimedProduct) {
+        const latestProduct = await db
+          .collection('products')
+          .findOne({
+            _id: product._id,
+          });
+
+        const latestCreditStatus =
+          latestProduct?.productRevenuePool?.creditStatus;
+
+        if (latestCreditStatus === 'consumed') {
+          return NextResponse.json(
+            createResponse(latestProduct, {
+              recovered: true,
+            })
+          );
+        }
+
+        if (latestCreditStatus === 'charging') {
+          return NextResponse.json(
+            createResponse(latestProduct, {
+              pending: true,
+              billingPending: true,
+            }),
+            { status: 202 }
+          );
+        }
+
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'The recovered product revenue pool billing state could not be claimed safely.',
+            code: 'TOKENIZATION_BILLING_CLAIM_FAILED',
+          },
+          { status: 409 }
+        );
+      }
+
+      const userIdentityFilter = createUserIdentityFilter(userId);
+
+      if (!userIdentityFilter) {
+        throw new Error('Unable to resolve the authenticated user.');
+      }
+
+      const chargedAt = new Date();
+
+      const creditDebitResult = await db
+        .collection('users')
+        .findOneAndUpdate(
+          {
+            $and: [
+              userIdentityFilter,
+              {
+                credits: { $gte: creditCost },
+              },
+            ],
+          },
+          {
+            $inc: {
+              credits: -creditCost,
+            },
+          },
+          {
+            returnDocument: 'after',
+          }
+        );
+
+      const chargedUser =
+        creditDebitResult?.value || creditDebitResult || null;
+
+      if (!chargedUser) {
+        await db.collection('products').updateOne(
+          {
+            _id: product._id,
+            'productRevenuePool.poolKey': poolKey,
+            'productRevenuePool.creditStatus': 'charging',
+          },
+          {
+            $set: {
+              'productRevenuePool.creditStatus':
+                'charge_recovery_required',
+              'productRevenuePool.creditChargeFailedAt': chargedAt,
+              'productRevenuePool.updatedAt': chargedAt,
+              updatedAt: chargedAt,
+            },
+          }
+        );
+
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'The recovered revenue pool is active, but the credit charge could not be finalized safely.',
+            code: 'TOKENIZATION_CREDIT_RECOVERY_REQUIRED',
+          },
+          { status: 500 }
+        );
+      }
+
+      const consumedAt = new Date();
+
+      const consumedResult = await db
+        .collection('products')
+        .findOneAndUpdate(
+          {
+            _id: product._id,
+            'productRevenuePool.poolKey': poolKey,
+            'productRevenuePool.tokenizationStatus': 'active',
+            'productRevenuePool.revenueTokenAssetId':
+              finalizedRevenueTokenAssetId,
+            'productRevenuePool.creditStatus': 'charging',
+          },
+          {
+            $set: {
+              'productRevenuePool.creditCost': creditCost,
+              'productRevenuePool.creditStatus': 'consumed',
+              'productRevenuePool.creditChargedAt': consumedAt,
+              'productRevenuePool.creditChargeOperationKey': poolKey,
+              'productRevenuePool.creditBalanceAfterCharge': Number(
+                chargedUser.credits || 0
+              ),
+              'productRevenuePool.updatedAt': consumedAt,
+              updatedAt: consumedAt,
+            },
+          },
+          {
+            returnDocument: 'after',
+          }
+        );
+
+      const consumedProduct =
+        consumedResult?.value || consumedResult || null;
+
+      if (!consumedProduct) {
+        const recoveryAt = new Date();
+
+        await db.collection('products').updateOne(
+          {
+            _id: product._id,
+            'productRevenuePool.poolKey': poolKey,
+            'productRevenuePool.creditStatus': 'charging',
+          },
+          {
+            $set: {
+              'productRevenuePool.creditStatus':
+                'charge_recovery_required',
+              'productRevenuePool.creditChargeFailedAt': recoveryAt,
+              'productRevenuePool.updatedAt': recoveryAt,
+              updatedAt: recoveryAt,
+            },
+          }
+        );
+
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'The recovered credit charge succeeded, but its audit record requires manual recovery.',
+            code: 'TOKENIZATION_CREDIT_AUDIT_RECOVERY_REQUIRED',
+          },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json(
+        createResponse(consumedProduct, {
+          confirmed: true,
+          recovered: true,
+          credits: {
+            charged: creditCost,
+            remaining: Number(chargedUser.credits || 0),
+          },
+        })
+      );
     }
 
     /*

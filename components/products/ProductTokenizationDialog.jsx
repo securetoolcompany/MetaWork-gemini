@@ -1137,7 +1137,7 @@ export default function ProductTokenizationDialog({
           {lastCreditCharge ? (
             <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm">
               <p className="font-medium">
-                {lastCreditCharge.charged} credits used for tokenization preparation
+                {lastCreditCharge.charged} credits used for product tokenization
               </p>
 
               {lastCreditCharge.remaining !== null ? (
@@ -1360,8 +1360,7 @@ export default function ProductTokenizationDialog({
         <DialogHeader>
           <DialogTitle>Confirm tokenization charge</DialogTitle>
           <DialogDescription>
-            Preparing this product’s revenue tokenization costs 25 credits
-            ($0.25).
+            Tokenizing this product costs 25 credits ($0.25). Credits are deducted only after the revenue pool and revenue-token ASA are successfully created.
           </DialogDescription>
         </DialogHeader>
 
@@ -1387,7 +1386,7 @@ export default function ProductTokenizationDialog({
 
             <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
               <span className="text-muted-foreground">
-                Balance after preparation
+                Balance after successful tokenization
               </span>
               <span className="font-semibold">
                 {creditBalance === null
@@ -1413,8 +1412,7 @@ export default function ProductTokenizationDialog({
             </div>
           ) : (
             <p className="text-muted-foreground">
-              You will be charged once only after MetaWork successfully prepares the
-              product revenue-pool draft. Resuming the same tokenization will not
+              You will be charged once only after MetaWork successfully creates the product revenue pool and revenue-token ASA. Resuming the same tokenization will not
               charge you again.
             </p>
           )}
