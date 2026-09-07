@@ -8,11 +8,6 @@ import {
   createProductRevenuePoolKey,
 } from '@/lib/product-revenue-tokenization';
 import { CREDIT_COSTS } from '@/lib/credit-costs';
-import {
-  createTokenizationWithCredits,
-  InsufficientCreditsError,
-  TokenizationConflictError,
-} from '@/lib/tokenization-credits';
 
 export const dynamic = 'force-dynamic';
 
@@ -326,7 +321,7 @@ export async function POST(request, { params }) {
 
     if (
       currentPoolStatus === 'pending_funding' &&
-      product?.productRevenuePool?.creditStatus === 'consumed'
+      product?.productRevenuePool?.creditStatus === 'pending'
     ) {
       return NextResponse.json(
         buildProductResponse(
@@ -367,7 +362,12 @@ export async function POST(request, { params }) {
       ownerAddress: selectedVerifiedWallet.address,
 
       creditCost,
-      creditStatus: 'consumed',
+      creditStatus: 'pending',
+      creditChargedAt: null,
+      creditChargeStartedAt: null,
+      creditChargeOperationKey: null,
+      creditBalanceAfterCharge: null,
+      creditChargeFailedAt: null,
 
       mbrPaidMicroAlgos: null,
       mbrPaymentTxId: null,
@@ -380,140 +380,99 @@ export async function POST(request, { params }) {
       updatedAt: new Date(),
     };
 
-    try {
-      const creditTransaction = await createTokenizationWithCredits({
-        client,
-        db,
-        userFilter: userIdentityFilter,
-        creditCost,
-        operation: 'product_revenue_tokenization',
-        persist: async ({
-          session,
-          creditCost: chargedCreditCost,
-          user: updatedUser,
-        }) => {
-          const productUpdate = await db.collection('products').updateOne(
-            {
-              $and: [
-                ownershipFilter,
-                {
-                  $or: [
-                    {
-                      'productRevenuePool.tokenizationStatus': {
-                        $exists: false,
-                      },
-                    },
-                    {
-                      'productRevenuePool.tokenizationStatus': {
-                        $nin: [
-                          'active',
-                          'creating',
-                          'pending_funding',
-                        ],
-                      },
-                    },
+    const availableCredits = Number(user.credits || 0);
+
+    if (availableCredits < creditCost) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Insufficient credits to tokenize this product.',
+          code: 'INSUFFICIENT_CREDITS',
+          requiredCredits: creditCost,
+          availableCredits,
+        },
+        { status: 402 }
+      );
+    }
+
+    const productUpdate = await db.collection('products').updateOne(
+      {
+        $and: [
+          ownershipFilter,
+          {
+            $or: [
+              {
+                'productRevenuePool.tokenizationStatus': {
+                  $exists: false,
+                },
+              },
+              {
+                'productRevenuePool.tokenizationStatus': {
+                  $nin: [
+                    'active',
+                    'creating',
+                    'pending_funding',
                   ],
                 },
-              ],
-            },
-            {
-              $set: {
-                productRevenuePool: {
-                  ...tokenizationDraft,
-                  creditCost: chargedCreditCost,
-                  creditStatus: 'consumed',
-                },
-                updatedAt: new Date(),
               },
-            },
-            { session }
-          );
-
-          if (productUpdate.matchedCount !== 1) {
-            throw new TokenizationConflictError(
-              'Product tokenization was already prepared or changed by another request.'
-            );
-          }
-          return {
-            remainingCredits: Number(updatedUser.credits || 0),
-          };
+            ],
+          },
+        ],
+      },
+      {
+        $set: {
+          productRevenuePool: tokenizationDraft,
+          updatedAt: new Date(),
         },
-      });
-      const remainingCredits = Number(
-        creditTransaction?.remainingCredits
-      );
+      }
+    );
+
+    if (productUpdate.matchedCount !== 1) {
+      const latestProduct = await db
+        .collection('products')
+        .findOne(ownershipFilter);
+
+      if (
+        latestProduct?.productRevenuePool?.tokenizationStatus ===
+        'pending_funding'
+      ) {
+        const latestUser = await db.collection('users').findOne(
+          userIdentityFilter,
+          {
+            projection: {
+              credits: 1,
+            },
+          }
+        );
+
+        return NextResponse.json(
+          buildProductResponse(
+            latestProduct,
+            latestProduct.productRevenuePool,
+            {
+              resumed: true,
+              creditCharged: 0,
+              creditsRemaining: Number(latestUser?.credits || 0),
+            }
+          )
+        );
+      }
 
       return NextResponse.json(
-        buildProductResponse(product, tokenizationDraft, {
-          creditCharged: creditCost,
-          creditsRemaining: Number.isFinite(remainingCredits)
-            ? remainingCredits
-            : null,
-        })
+        {
+          success: false,
+          error:
+            'Product tokenization was already prepared or changed by another request.',
+          code: 'TOKENIZATION_CONFLICT',
+        },
+        { status: 409 }
       );
-    } catch (error) {
-      if (error instanceof InsufficientCreditsError) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Insufficient credits to tokenize this product.',
-            code: 'INSUFFICIENT_CREDITS',
-          },
-          { status: 402 }
-        );
-      }
-
-      if (error instanceof TokenizationConflictError) {
-        const latestProduct = await db
-          .collection('products')
-          .findOne(ownershipFilter);
-
-        if (
-          latestProduct?.productRevenuePool?.tokenizationStatus ===
-            'pending_funding' &&
-          latestProduct?.productRevenuePool?.creditStatus === 'consumed'
-        ) {
-          const latestUser = await db.collection('users').findOne(
-            userIdentityFilter,
-            {
-              projection: {
-                credits: 1,
-              },
-            }
-          );
-
-          return NextResponse.json(
-            buildProductResponse(
-              latestProduct,
-              latestProduct.productRevenuePool,
-              {
-                resumed: true,
-                creditCharged: 0,
-                creditsRemaining: Number(latestUser?.credits || 0),
-              }
-            )
-          );
-        }
-
-        return NextResponse.json(
-          {
-            success: false,
-            error: error.message,
-            code: 'TOKENIZATION_CONFLICT',
-          },
-          { status: 409 }
-        );
-      }
-
-      throw error;
     }
 
     return NextResponse.json(
       buildProductResponse(product, tokenizationDraft, {
-        creditCharged: creditCost,
-        creditsRemaining: Number(
-          creditTransaction?.remainingCredits ?? 0
-        ),
+        creditCharged: 0,
+        creditsRemaining: availableCredits,
       })
     );
   } catch (error) {
