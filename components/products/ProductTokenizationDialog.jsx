@@ -1119,7 +1119,7 @@ export default function ProductTokenizationDialog({
           <div className="flex gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <p className="text-muted-foreground">
-              Drafting, editing, and Printful design work do not require a
+              Drafting, editing, and product design work do not require a
               wallet. A wallet is required only to create and sign the
               on-chain tokenization transaction.
             </p>

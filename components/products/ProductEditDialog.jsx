@@ -16,7 +16,23 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload, DollarSign, TrendingUp, Globe, Lock, Eye, EyeOff, Loader2, Tag, X, Info, Trash2 } from 'lucide-react';import { toast } from 'sonner';
+import {
+  Upload,
+  DollarSign,
+  TrendingUp,
+  Globe,
+  Lock,
+  Eye,
+  EyeOff,
+  Loader2,
+  Tag,
+  X,
+  Info,
+  Trash2,
+  Coins,
+  Wallet,
+  ExternalLink,
+} from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
@@ -33,6 +49,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { toast } from 'sonner';
 
 function formatMoney(value) {
   const amount = Number(value);
@@ -49,6 +66,31 @@ function centsToMoney(cents) {
   return Number.isSafeInteger(value)
     ? formatMoney(value / 100)
     : '—';
+}
+
+function AlgoExplorerLink({ label, id, type = 'asset' }) {
+  if (!id) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+
+  const base = 'https://testnet.explorer.perawallet.app';
+  const url =
+    type === 'asset'
+      ? `${base}/assets/${id}`
+      : `${base}/application/${id}`;
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label ? `View ${label} on Pera Explorer` : 'View on Pera Explorer'}
+      className="inline-flex items-center gap-1 font-mono text-xs text-blue-500 hover:underline"
+    >
+      {String(id).length > 12 ? `${String(id).slice(0, 10)}…` : id}
+      <ExternalLink className="h-3 w-3" />
+    </a>
+  );
 }
 
 
@@ -202,6 +244,7 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [fullProductData, setFullProductData] = useState(null);
   const [selectedVariantSize, setSelectedVariantSize] =
     useState(null);
   const fileInputRef = useRef(null);
@@ -240,6 +283,7 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
   
   useEffect(() => {
     if (open && product) {
+      setFullProductData(null);
       const targetId = product.id || product._id;
       
       // 1. Fetch the full, deep product object (identical to your curl command)
@@ -248,7 +292,14 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
         .then(data => {
           if (data.success && data.product) {
             const fullProduct = data.product;
-            const isProductLive = fullProduct.isPublic ?? fullProduct.isVisible ?? (fullProduct.status === 'live') ?? true;
+
+            setFullProductData(fullProduct);
+
+            const isProductLive =
+              fullProduct.isPublic ??
+              fullProduct.isVisible ??
+              (fullProduct.status === 'live') ??
+              true;
 
             const existingVariants = fullProduct.variants?.length ? fullProduct.variants 
                                    : fullProduct.variations?.length ? fullProduct.variations 
@@ -814,6 +865,61 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
 
   if (!product) return null;
 
+  const onChainProduct = fullProductData || product;
+
+  const productRevenuePool = onChainProduct.productRevenuePool || {};
+
+  const licensedRevenueTerms = Array.isArray(
+    onChainProduct.licensedRevenueTerms
+  )
+    ? onChainProduct.licensedRevenueTerms
+    : [];
+
+  const licensedIPs = Array.isArray(onChainProduct.licensedIPs)
+    ? onChainProduct.licensedIPs
+    : [];
+
+  // The product's own revenue pool.
+  const productPoolAppId =
+    productRevenuePool.revenuePoolAppId ||
+    productRevenuePool.appId ||
+    productRevenuePool.contractAppId ||
+    null;
+
+  const productRevenueTokenId =
+    productRevenuePool.revenueTokenAssetId ||
+    productRevenuePool.revenueTokenId ||
+    productRevenuePool.revTokenId ||
+    null;
+
+  const productPoolWallet =
+    productRevenuePool.revenuePoolAddress ||
+    productRevenuePool.poolAddress ||
+    null;
+
+  const productCreatorWallet =
+    productRevenuePool.ownerAddress ||
+    onChainProduct.ownerWallet ||
+    onChainProduct.creatorWallet ||
+    onChainProduct.walletAddress ||
+    null;
+
+  const hasProductOnChain = Boolean(
+    productPoolAppId ||
+    productRevenueTokenId ||
+    productPoolWallet ||
+    productCreatorWallet
+  );
+
+  const hasLicensedIpOnChain = licensedRevenueTerms.some(
+    (term) =>
+      term?.revenuePoolAppId ||
+      term?.revenueTokenAssetId ||
+      term?.revenueTokenId ||
+      term?.appId ||
+      term?.contractAppId
+  );
+
   return (
     <Dialog 
       open={open} 
@@ -1234,7 +1340,162 @@ export default function ProductEditDialog({ product, open, onOpenChange, tutoria
                 </CardContent>
               </Card>
 
-            {/* 4. Performance Stats Card */}
+            {/* 4. On-Chain Assets */}
+            {(hasProductOnChain || hasLicensedIpOnChain) && (
+              <Card className="border-border bg-card">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Coins className="h-5 w-5 text-primary" />
+                    On-Chain Assets
+                  </CardTitle>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  {/* Product revenue pool */}
+                  {hasProductOnChain && (
+                    <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                      <p className="text-sm font-medium">
+                        Product Revenue Pool
+                      </p>
+
+                      {productRevenueTokenId && (
+                        <div className="flex items-center justify-between gap-4 text-sm">
+                          <span className="text-muted-foreground">
+                            Revenue Token ID
+                          </span>
+
+                          <AlgoExplorerLink
+                            label="Product Revenue Token"
+                            id={productRevenueTokenId}
+                            type="asset"
+                          />
+                        </div>
+                      )}
+
+                      {productPoolAppId && (
+                        <div className="flex items-center justify-between gap-4 text-sm">
+                          <span className="text-muted-foreground">
+                            Pool App ID
+                          </span>
+
+                          <AlgoExplorerLink
+                            label="Product Revenue Pool App"
+                            id={productPoolAppId}
+                            type="application"
+                          />
+                        </div>
+                      )}
+
+                      {productPoolWallet && (
+                        <div className="flex items-center justify-between gap-4 text-sm">
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Wallet className="h-3.5 w-3.5" />
+                            Pool Wallet
+                          </span>
+
+                          <span
+                            className="font-mono text-xs text-muted-foreground"
+                            title={productPoolWallet}
+                          >
+                            {productPoolWallet.slice(0, 6)}…
+                            {productPoolWallet.slice(-4)}
+                          </span>
+                        </div>
+                      )}
+
+                      {productCreatorWallet && (
+                        <div className="flex items-center justify-between gap-4 text-sm">
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <Wallet className="h-3.5 w-3.5" />
+                            Creator Wallet
+                          </span>
+
+                          <span
+                            className="font-mono text-xs text-muted-foreground"
+                            title={productCreatorWallet}
+                          >
+                            {productCreatorWallet.slice(0, 6)}…
+                            {productCreatorWallet.slice(-4)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Each IP licensed into the product */}
+                  {licensedRevenueTerms.map((term, index) => {
+                    const linkedIp =
+                      licensedIPs.find(
+                        (ip) =>
+                          String(ip.id || ip._id || ip.ipId) ===
+                          String(term.ipAssetId)
+                      ) || {};
+
+                    const ipName =
+                      linkedIp.title ||
+                      linkedIp.name ||
+                      `Licensed IP ${index + 1}`;
+
+                    const ipRevenueTokenId =
+                      term.revenueTokenAssetId ||
+                      term.revenueTokenId ||
+                      term.revTokenId ||
+                      null;
+
+                    const ipPoolAppId =
+                      term.revenuePoolAppId ||
+                      term.contractAppId ||
+                      term.appId ||
+                      null;
+
+                    if (!ipRevenueTokenId && !ipPoolAppId) {
+                      return null;
+                    }
+
+                    return (
+                      <div
+                        key={term.ipAssetId || term.poolKey || index}
+                        className="rounded-md border border-border bg-muted/30 p-3 space-y-2"
+                      >
+                        <p className="text-sm font-medium truncate">
+                          Licensed IP: {ipName}
+                        </p>
+
+                        {ipRevenueTokenId && (
+                          <div className="flex items-center justify-between gap-4 text-sm">
+                            <span className="text-muted-foreground">
+                              Revenue Token ID
+                            </span>
+
+                            <AlgoExplorerLink
+                              label={`${ipName} Revenue Token`}
+                              id={ipRevenueTokenId}
+                              type="asset"
+                            />
+                          </div>
+                        )}
+
+                        {ipPoolAppId && (
+                          <div className="flex items-center justify-between gap-4 text-sm">
+                            <span className="text-muted-foreground">
+                              Pool App ID
+                            </span>
+
+                            <AlgoExplorerLink
+                              label={`${ipName} Pool App`}
+                              id={ipPoolAppId}
+                              type="application"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 5. Performance Stats Card */}
             <Card className="border-border bg-card">
               <CardHeader>
                 <CardTitle className="text-lg">Performance</CardTitle>
