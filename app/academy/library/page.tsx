@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -217,8 +218,44 @@ export default function AcademyLibraryPage() {
       </section>
 
       <section id="library-search">
-        <AcademyLibraryClient />
-      </section>
+				<Suspense
+					fallback={
+						<div className="bg-[#131722] py-10 sm:py-14">
+							<div className="mx-auto w-full max-w-[1600px] px-5 sm:px-8 lg:px-10 2xl:px-12">
+								<div className="border border-cyan-400/20 bg-[#09090B] p-6 shadow-2xl shadow-black/25">
+									<div className="h-1 w-full bg-gradient-to-r from-[#22D3EE] via-[#2563EB] to-[#34D399]" />
+
+									<div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_repeat(3,minmax(150px,0.32fr))]">
+										<div className="h-14 animate-pulse bg-white/[0.06]" />
+										<div className="h-14 animate-pulse bg-white/[0.06]" />
+										<div className="h-14 animate-pulse bg-white/[0.06]" />
+										<div className="h-14 animate-pulse bg-white/[0.06]" />
+									</div>
+
+									<div className="mt-8 grid gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+										{[1, 2, 3, 4].map((item) => (
+											<div
+												key={item}
+												className="overflow-hidden border border-white/10 bg-[#131722]"
+											>
+												<div className="aspect-video animate-pulse bg-white/[0.06]" />
+												<div className="space-y-3 p-5">
+													<div className="h-3 w-20 animate-pulse bg-white/[0.06]" />
+													<div className="h-6 w-4/5 animate-pulse bg-white/[0.06]" />
+													<div className="h-4 w-full animate-pulse bg-white/[0.06]" />
+													<div className="h-4 w-3/4 animate-pulse bg-white/[0.06]" />
+												</div>
+											</div>
+										))}
+									</div>
+								</div>
+							</div>
+						</div>
+					}
+				>
+					<AcademyLibraryClient />
+				</Suspense>
+			</section>
     </main>
   );
 }
