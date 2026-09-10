@@ -175,13 +175,13 @@ export default function AcademyPage() {
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
 
-                <a
-                  href="#programs"
-                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-400/35 bg-cyan-400/[0.06] px-6 py-4 text-sm font-extrabold italic uppercase tracking-wide text-cyan-100 transition hover:-translate-y-0.5 hover:border-cyan-300/60 hover:bg-cyan-400/15"
-                >
-                  Explore programs
-                  <BookOpen className="h-4 w-4" />
-                </a>
+                <Link
+									href="/academy/programs"
+									className="inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-400/35 bg-cyan-400/[0.06] px-6 py-4 text-sm font-extrabold italic uppercase tracking-wide text-cyan-100 transition hover:-translate-y-0.5 hover:border-cyan-300/60 hover:bg-cyan-400/15"
+								>
+									Explore programs
+									<BookOpen className="h-4 w-4" />
+								</Link>
               </div>
 
               <div className="mt-11 grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
@@ -379,13 +379,23 @@ export default function AcademyPage() {
                 activities, and career-connected learning.
               </p>
 
-              <a
-                href="#partner-with-us"
-                className="mt-8 inline-flex items-center gap-2 rounded-lg border border-blue-400/40 bg-blue-500/10 px-5 py-3.5 text-sm font-extrabold italic uppercase tracking-wide text-blue-100 transition hover:-translate-y-0.5 hover:border-blue-300/70 hover:bg-blue-500/20"
-              >
-                Plan a partnership
-                <ArrowRight className="h-4 w-4" />
-              </a>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+								<Link
+									href="/academy/programs"
+									className="group inline-flex items-center justify-center gap-2 rounded-lg bg-[#2563EB] px-5 py-3.5 text-sm font-extrabold italic uppercase tracking-wide text-white transition hover:-translate-y-0.5 hover:bg-blue-500"
+								>
+									Compare program options
+									<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+								</Link>
+
+								<a
+									href="#partner-with-us"
+									className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-400/40 bg-blue-500/10 px-5 py-3.5 text-sm font-extrabold italic uppercase tracking-wide text-blue-100 transition hover:-translate-y-0.5 hover:border-blue-300/70 hover:bg-blue-500/20"
+								>
+									Plan a partnership
+									<ArrowRight className="h-4 w-4" />
+								</a>
+							</div>
             </div>
 
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -430,11 +440,13 @@ export default function AcademyPage() {
                       {service.description}
                     </p>
 
-                    <span
-                      className={`mt-6 inline-flex text-sm font-extrabold italic uppercase tracking-wide ${theme.label}`}
-                    >
-                      Learn more →
-                    </span>
+                    <Link
+											href={`/academy/programs/${service.slug}`}
+											className={`group/link mt-6 inline-flex items-center gap-2 text-sm font-extrabold italic uppercase tracking-wide ${theme.label}`}
+										>
+											Learn more
+											<ArrowRight className="h-4 w-4 transition-transform group-hover/link:translate-x-1" />
+										</Link>
                   </article>
                 );
               })}

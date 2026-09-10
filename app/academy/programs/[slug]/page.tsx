@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import ProgramEngagementOptions from '@/components/academy/ProgramEngagementOptions';
 import {
   ArrowLeft,
   ArrowRight,
@@ -282,6 +283,82 @@ export default async function AcademyProgramPage({
                   </div>
                 ))}
               </div>
+              <div className="mt-5 border border-cyan-400/20 bg-[#09090B] p-6 shadow-xl shadow-black/20">
+                <p
+                    className="font-mono text-[10px] font-medium uppercase tracking-[0.22em]"
+                    style={{ color: program.accent.primary }}
+                >
+                    Program readiness
+                </p>
+
+                <div className="mt-5 space-y-4">
+                    <div className="flex gap-3">
+                    <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                        style={{
+                        backgroundColor: `${program.accent.primary}18`,
+                        color: program.accent.primary,
+                        }}
+                    >
+                        <Users className="h-4 w-4" />
+                    </span>
+
+                    <div>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
+                        Start with
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-slate-200">
+                        A program contact, a learner group, and a clear outcome you want to
+                        create.
+                        </p>
+                    </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                    <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                        style={{
+                        backgroundColor: `${program.accent.primary}18`,
+                        color: program.accent.primary,
+                        }}
+                    >
+                        <Clock3 className="h-4 w-4" />
+                    </span>
+
+                    <div>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
+                        Planning
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-slate-200">
+                        Begin with a short conversation to define scope, timing, delivery
+                        format, and the right starting option.
+                        </p>
+                    </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                    <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                        style={{
+                        backgroundColor: `${program.accent.primary}18`,
+                        color: program.accent.primary,
+                        }}
+                    >
+                        <Handshake className="h-4 w-4" />
+                    </span>
+
+                    <div>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
+                        Scale later
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-slate-200">
+                        A workshop or single project can grow into a pilot, curriculum
+                        integration, Academy access, or a longer-term partnership.
+                        </p>
+                    </div>
+                    </div>
+                </div>
+                </div>
             </div>
 
             {program.disclaimer && (
@@ -364,40 +441,11 @@ export default async function AcademyProgramPage({
             </p>
           </div>
 
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
-            {program.formats.map((format: { label: string; detail: string }, index: number) => (
-              <article
-                key={format.label}
-                className="relative overflow-hidden border border-white/10 bg-[#09090B] p-6 shadow-xl shadow-black/20"
-              >
-                <div
-                  className="absolute inset-x-0 top-0 h-1"
-                  style={{
-                    background: `linear-gradient(90deg, ${program.accent.primary}, ${program.accent.secondary})`,
-                  }}
-                />
-
-                <div className="flex items-center justify-between gap-4">
-                  <span
-                    className="font-mono text-[10px] font-medium uppercase tracking-[0.22em]"
-                    style={{ color: program.accent.primary }}
-                  >
-                    Option {String(index + 1).padStart(2, '0')}
-                  </span>
-
-                  <Clock3 className="h-4 w-4 text-slate-600" />
-                </div>
-
-                <h3 className="mt-6 text-2xl font-black italic uppercase tracking-[-0.04em] text-slate-50">
-                  {format.label}
-                </h3>
-
-                <p className="mt-4 text-sm leading-7 text-slate-300">
-                  {format.detail}
-                </p>
-              </article>
-            ))}
-          </div>
+          <ProgramEngagementOptions
+            formats={program.formats}
+            accentPrimary={program.accent.primary}
+            accentSecondary={program.accent.secondary}
+            />
         </div>
       </section>
 
