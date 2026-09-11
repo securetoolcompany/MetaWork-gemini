@@ -36,13 +36,25 @@ function formatLabel(value = '') {
 }
 
 function getVideoBySlug(slug: string) {
-  return ACADEMY_VIDEOS.find((video) => video.slug === slug);
+  return ACADEMY_VIDEOS.find(
+    (video) =>
+      video.slug === slug &&
+      video.publishStatus === 'published'
+  );
+}
+
+function getPublishedPublicVideos() {
+  return ACADEMY_VIDEOS.filter(
+    (video) =>
+      video.publishStatus === 'published' &&
+      video.access === 'public'
+  ).sort((first, second) => {
+    return (first.sortOrder ?? 999) - (second.sortOrder ?? 999);
+  });
 }
 
 function getAdjacentVideos(currentVideoId: string) {
-  const publicVideos = ACADEMY_VIDEOS.filter(
-    (video) => video.accessLevel === 'public'
-  );
+  const publicVideos = getPublishedPublicVideos();
 
   const currentIndex = publicVideos.findIndex(
     (video) => video.id === currentVideoId
@@ -58,22 +70,33 @@ function getAdjacentVideos(currentVideoId: string) {
   };
 }
 
-function getRelatedVideos(currentVideoId: string, sectionId: string) {
-  const sameSection = ACADEMY_VIDEOS.filter(
+function getRelatedVideos(
+  currentVideoId: string,
+  primaryPathwaySlug: string
+) {
+  const publicVideos = getPublishedPublicVideos();
+
+  const samePathway = publicVideos.filter(
     (video) =>
       video.id !== currentVideoId &&
-      video.sectionId === sectionId &&
-      video.accessLevel === 'public'
+      video.primaryPathwaySlug === primaryPathwaySlug
   );
 
-  const fallback = ACADEMY_VIDEOS.filter(
+  const fallback = publicVideos.filter(
     (video) =>
       video.id !== currentVideoId &&
-      video.accessLevel === 'public' &&
-      video.sectionId !== sectionId
+      video.primaryPathwaySlug !== primaryPathwaySlug
   );
 
-  return [...sameSection, ...fallback].slice(0, 3);
+  return [...samePathway, ...fallback].slice(0, 3);
+}
+
+export async function generateStaticParams() {
+  return ACADEMY_VIDEOS.filter(
+    (video) => video.publishStatus === 'published'
+  ).map((video) => ({
+    slug: video.slug,
+  }));
 }
 
 export async function generateMetadata({ params }: VideoPageProps) {
@@ -82,7 +105,7 @@ export async function generateMetadata({ params }: VideoPageProps) {
 
   if (!video) {
     return {
-      title: 'Video Not Found | MetaWork Academy',
+      title: 'Lesson Not Found | MetaWork Academy',
     };
   }
 
@@ -92,7 +115,9 @@ export async function generateMetadata({ params }: VideoPageProps) {
   };
 }
 
-export default async function AcademyVideoPage({ params }: VideoPageProps) {
+export default async function AcademyVideoPage({
+  params,
+}: VideoPageProps) {
   const { slug } = await params;
   const video = getVideoBySlug(slug);
 
@@ -100,9 +125,12 @@ export default async function AcademyVideoPage({ params }: VideoPageProps) {
     notFound();
   }
 
-  const section = getSectionById(video.sectionId);
-  const isLocked = video.accessLevel !== 'public';
-  const relatedVideos = getRelatedVideos(video.id, video.sectionId);
+  const section = getSectionById(video.primaryPathwaySlug);
+  const isLocked = video.access !== 'public';
+  const relatedVideos = getRelatedVideos(
+    video.id,
+    video.primaryPathwaySlug
+  );
   const { previous, next } = getAdjacentVideos(video.id);
 
   return (
@@ -211,7 +239,9 @@ export default async function AcademyVideoPage({ params }: VideoPageProps) {
                       Built for
                     </p>
                     <p className="mt-0.5 text-sm font-extrabold italic uppercase tracking-wide text-slate-100">
-                      {video.audiences.map(formatLabel).join(', ')}
+                      {(video.audience ?? [])
+                        .map(formatLabel)
+                        .join(', ')}
                     </p>
                   </div>
                 </div>
@@ -250,10 +280,10 @@ export default async function AcademyVideoPage({ params }: VideoPageProps) {
                         </p>
 
                         <Link
-                          href="/academy/library?access=members"
+                          href="/academy/library"
                           className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#FBBF24] px-5 py-3 text-sm font-extrabold italic uppercase tracking-wide text-[#09090B] transition hover:bg-amber-300"
                         >
-                          Preview membership
+                          Return to library
                           <ArrowRight className="h-4 w-4" />
                         </Link>
                       </div>
@@ -310,27 +340,35 @@ export default async function AcademyVideoPage({ params }: VideoPageProps) {
                   What you&apos;ll learn
                 </p>
 
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  {video.learningOutcomes?.map((outcome: string, index: number) => (
-                    <div
-                      key={outcome}
-                      className="flex gap-3 border border-white/10 bg-[#09090B] p-4"
-                    >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#34D399]/15 text-[#34D399]">
-                        <CheckCircle2 className="h-4 w-4" />
-                      </span>
+                {(video.learningOutcomes ?? []).length > 0 ? (
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    {(video.learningOutcomes ?? []).map(
+                      (outcome: string, index: number) => (
+                        <div
+                          key={outcome}
+                          className="flex gap-3 border border-white/10 bg-[#09090B] p-4"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#34D399]/15 text-[#34D399]">
+                            <CheckCircle2 className="h-4 w-4" />
+                          </span>
 
-                      <div>
-                        <p className="font-mono text-[9px] uppercase tracking-[0.17em] text-slate-500">
-                          Outcome {String(index + 1).padStart(2, '0')}
-                        </p>
-                        <p className="mt-1 text-sm leading-6 text-slate-200">
-                          {outcome}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                          <div>
+                            <p className="font-mono text-[9px] uppercase tracking-[0.17em] text-slate-500">
+                              Outcome {String(index + 1).padStart(2, '0')}
+                            </p>
+                            <p className="mt-1 text-sm leading-6 text-slate-200">
+                              {outcome}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-5 text-sm leading-6 text-slate-400">
+                    Learning outcomes are being prepared for this lesson.
+                  </p>
+                )}
               </div>
 
               <div className="mt-10 border-t border-white/10 pt-10">
@@ -338,17 +376,23 @@ export default async function AcademyVideoPage({ params }: VideoPageProps) {
                   Topics in this lesson
                 </p>
 
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {video.topics.map((topic: string) => (
-                    <Link
-                      key={topic}
-                      href={`/academy/library?topic=${topic}`}
-                      className="border border-cyan-400/25 bg-cyan-400/[0.06] px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-200 transition hover:border-cyan-300/55 hover:bg-cyan-400/14"
-                    >
-                      {formatLabel(topic)}
-                    </Link>
-                  ))}
-                </div>
+                {(video.topics ?? []).length > 0 ? (
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {(video.topics ?? []).map((topic: string) => (
+                      <Link
+                        key={topic}
+                        href={`/academy/library?topic=${topic}`}
+                        className="border border-cyan-400/25 bg-cyan-400/[0.06] px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-cyan-200 transition hover:border-cyan-300/55 hover:bg-cyan-400/14"
+                      >
+                        {formatLabel(topic)}
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-5 text-sm leading-6 text-slate-400">
+                    Topics are being prepared for this lesson.
+                  </p>
+                )}
               </div>
             </div>
 

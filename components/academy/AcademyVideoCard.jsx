@@ -12,9 +12,9 @@ function formatLabel(value = '') {
 }
 
 export default function AcademyVideoCard({ video, priority = false }) {
-  const section = getSectionById(video.sectionId);
+  const section = getSectionById(video.primaryPathwaySlug);
   const thumbnail = getYoutubeThumbnail(video.youtubeId);
-  const isLocked = video.accessLevel !== 'public';
+  const isLocked = video.access !== 'public';
 
   return (
     <Link
@@ -95,7 +95,7 @@ export default function AcademyVideoCard({ video, priority = false }) {
 
           <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4 text-sm">
             <span className="text-slate-500">
-              {video.audience
+              {(video.audience ?? [])
                 .map((audience) => formatLabel(audience))
                 .join(' · ')}
             </span>
