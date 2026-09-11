@@ -12,13 +12,13 @@ import {
 
 import AcademyVideoCard from '@/components/academy/AcademyVideoCard.jsx';
 import {
-  ACADEMY_ACCESS_LEVELS,
   ACADEMY_AUDIENCES,
   ACADEMY_FORMATS,
-  ACADEMY_SECTIONS,
   ACADEMY_TOPICS,
   ACADEMY_VIDEOS,
 } from '@/lib/academy-data';
+
+import { ACADEMY_ACCESS_LEVELS } from '@/lib/academy-content-types';
 
 const INITIAL_FILTERS = {
   audience: 'all',
