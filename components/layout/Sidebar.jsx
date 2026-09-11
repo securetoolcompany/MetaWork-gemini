@@ -172,7 +172,7 @@ export default function Sidebar() {
     // 1. Dashboard
     { icon: LayoutDashboard, label: 'Global Dashboard', href: '/dashboard' },
 
-    {
+    /*{
       icon: GraduationCap,
       label: 'MetaWork Academy',
       href: '/academy',
@@ -203,7 +203,7 @@ export default function Sidebar() {
           href: '/academy/programs',
         },
       ],
-    },
+    },*/
 
     // 2. Payouts
     { icon: HandCoins, label: 'Payouts', href: '/claim' },
@@ -298,7 +298,7 @@ export default function Sidebar() {
         { icon: Wallet, label: 'Secure Wallet', href: '/wallet-guide' },
       ],
     },
-    {
+    /*{
       icon: GraduationCap,
       label: 'MetaWork Academy',
       href: '/academy',
@@ -329,7 +329,7 @@ export default function Sidebar() {
           href: '/academy/programs',
         },
       ],
-    },
+    },*/
     {
       icon: Globe,
       label: 'Industries We Serve',
