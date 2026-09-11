@@ -95,11 +95,11 @@ export default function AcademyVideoCard({ video, priority = false }) {
 
           <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4 text-sm">
             <span className="text-slate-500">
-              {video.audiences
+              {video.audience
                 .map((audience) => formatLabel(audience))
                 .join(' · ')}
             </span>
-            <span className="font-medium text-cyan-300 transition group-hover:text-cyan-200">
+                        <span className="font-medium text-cyan-300 transition group-hover:text-cyan-200">
               {isLocked ? 'Preview' : 'Watch'}
             </span>
           </div>

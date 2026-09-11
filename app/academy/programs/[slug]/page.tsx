@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import ProgramEngagementOptions from '@/components/academy/ProgramEngagementOptions';
+import GoogleBookingButton from '@/components/academy/GoogleBookingButton';
 import {
   ArrowLeft,
   ArrowRight,
@@ -74,6 +75,7 @@ export default async function AcademyProgramPage({
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#131722] text-slate-50">
+      {/* HERO */}
       <section className="relative isolate overflow-hidden border-b border-cyan-400/15 bg-[#131722]">
         <div className="absolute inset-0 -z-30 bg-[linear-gradient(120deg,#131722_0%,#111827_52%,#0a1821_100%)]" />
 
@@ -188,6 +190,7 @@ export default async function AcademyProgramPage({
                     >
                       <Users className="h-4 w-4" />
                     </span>
+
                     <p className="text-sm font-medium text-slate-200">{item}</p>
                   </div>
                 ))}
@@ -197,9 +200,10 @@ export default async function AcademyProgramPage({
         </div>
       </section>
 
+      {/* WHAT THIS CAN UNLOCK */}
       <section className="bg-[#131722] py-16 sm:py-24">
-        <div className="mx-auto grid w-full max-w-[1600px] gap-12 px-5 sm:px-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)] lg:px-10 2xl:px-12">
-          <div>
+        <div className="mx-auto w-full max-w-[1600px] px-5 sm:px-8 lg:px-10 2xl:px-12">
+          <div className="max-w-4xl">
             <p
               className="font-mono text-[10px] font-medium uppercase tracking-[0.25em]"
               style={{ color: program.accent.primary }}
@@ -218,64 +222,86 @@ export default async function AcademyProgramPage({
               connection between learning, technology, entrepreneurship, and
               real-world opportunity.
             </p>
+          </div>
 
-            <div className="mt-10">
-              <p
-                className="font-mono text-[10px] font-medium uppercase tracking-[0.25em]"
-                style={{ color: program.accent.primary }}
-              >
-                What participants can do
-              </p>
+          <div className="mt-12">
+            <p
+              className="font-mono text-[10px] font-medium uppercase tracking-[0.25em]"
+              style={{ color: program.accent.primary }}
+            >
+              What participants can do
+            </p>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                {program.outcomes.map((outcome: string, index: number) => (
-                  <article
-                    key={outcome}
-                    className="border border-white/10 bg-[#09090B] p-5 shadow-lg shadow-black/15"
+            <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {program.outcomes.map((outcome: string, index: number) => (
+                <article
+                  key={outcome}
+                  className="relative min-h-[190px] overflow-hidden border border-white/10 bg-[#09090B] p-5 shadow-lg shadow-black/15"
+                >
+                  <div
+                    className="absolute inset-x-0 top-0 h-1"
+                    style={{
+                      background: `linear-gradient(90deg, ${program.accent.primary}, ${program.accent.secondary})`,
+                    }}
+                  />
+
+                  <span
+                    className="flex h-9 w-9 items-center justify-center rounded-md"
+                    style={{
+                      backgroundColor: `${program.accent.primary}18`,
+                      color: program.accent.primary,
+                    }}
                   >
-                    <div className="flex items-start gap-3">
-                      <span
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-                        style={{
-                          backgroundColor: `${program.accent.primary}18`,
-                          color: program.accent.primary,
-                        }}
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                      </span>
+                    <CheckCircle2 className="h-4 w-4" />
+                  </span>
 
-                      <div>
-                        <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
-                          Outcome {String(index + 1).padStart(2, '0')}
-                        </p>
-                        <p className="mt-2 text-sm leading-6 text-slate-200">
-                          {outcome}
-                        </p>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
+                  <p className="mt-5 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
+                    Outcome {String(index + 1).padStart(2, '0')}
+                  </p>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-200">
+                    {outcome}
+                  </p>
+                </article>
+              ))}
             </div>
           </div>
 
-          <aside className="lg:sticky lg:top-8 lg:h-fit">
-            <div className="border border-white/10 bg-[#09090B] p-6 shadow-xl shadow-black/20">
-              <p
-                className="font-mono text-[10px] font-medium uppercase tracking-[0.22em]"
-                style={{ color: program.accent.primary }}
-              >
-                Ideal fit
-              </p>
+          <div className="mt-8 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+            <article className="border border-white/10 bg-[#09090B] p-6 shadow-xl shadow-black/20">
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex h-10 w-10 items-center justify-center rounded-md"
+                  style={{
+                    backgroundColor: `${program.accent.primary}18`,
+                    color: program.accent.primary,
+                  }}
+                >
+                  <BadgeCheck className="h-5 w-5" />
+                </span>
 
-              <div className="mt-5 space-y-3">
+                <div>
+                  <p
+                    className="font-mono text-[10px] font-medium uppercase tracking-[0.22em]"
+                    style={{ color: program.accent.primary }}
+                  >
+                    Ideal fit
+                  </p>
+
+                  <p className="mt-1 text-sm text-slate-400">
+                    Programs and learners who will get the most from this option.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 {program.idealFor.map((item: string) => (
                   <div
                     key={item}
-                    className="flex items-start gap-3 border-l-2 border-white/10 bg-white/[0.025] p-3"
+                    className="flex items-start gap-3 border-l-2 bg-white/[0.025] p-3"
                     style={{ borderLeftColor: program.accent.primary }}
                   >
-                    <BadgeCheck
+                    <CheckCircle2
                       className="mt-0.5 h-4 w-4 shrink-0"
                       style={{ color: program.accent.primary }}
                     />
@@ -283,98 +309,115 @@ export default async function AcademyProgramPage({
                   </div>
                 ))}
               </div>
-              <div className="mt-5 border border-cyan-400/20 bg-[#09090B] p-6 shadow-xl shadow-black/20">
-                <p
+            </article>
+
+            <article className="border border-cyan-400/20 bg-[#09090B] p-6 shadow-xl shadow-black/20">
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex h-10 w-10 items-center justify-center rounded-md"
+                  style={{
+                    backgroundColor: `${program.accent.primary}18`,
+                    color: program.accent.primary,
+                  }}
+                >
+                  <Handshake className="h-5 w-5" />
+                </span>
+
+                <div>
+                  <p
                     className="font-mono text-[10px] font-medium uppercase tracking-[0.22em]"
                     style={{ color: program.accent.primary }}
-                >
+                  >
                     Program readiness
-                </p>
+                  </p>
 
-                <div className="mt-5 space-y-4">
-                    <div className="flex gap-3">
-                    <span
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-                        style={{
-                        backgroundColor: `${program.accent.primary}18`,
-                        color: program.accent.primary,
-                        }}
-                    >
-                        <Users className="h-4 w-4" />
-                    </span>
-
-                    <div>
-                        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
-                        Start with
-                        </p>
-                        <p className="mt-1 text-sm leading-6 text-slate-200">
-                        A program contact, a learner group, and a clear outcome you want to
-                        create.
-                        </p>
-                    </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                    <span
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-                        style={{
-                        backgroundColor: `${program.accent.primary}18`,
-                        color: program.accent.primary,
-                        }}
-                    >
-                        <Clock3 className="h-4 w-4" />
-                    </span>
-
-                    <div>
-                        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
-                        Planning
-                        </p>
-                        <p className="mt-1 text-sm leading-6 text-slate-200">
-                        Begin with a short conversation to define scope, timing, delivery
-                        format, and the right starting option.
-                        </p>
-                    </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                    <span
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-                        style={{
-                        backgroundColor: `${program.accent.primary}18`,
-                        color: program.accent.primary,
-                        }}
-                    >
-                        <Handshake className="h-4 w-4" />
-                    </span>
-
-                    <div>
-                        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
-                        Scale later
-                        </p>
-                        <p className="mt-1 text-sm leading-6 text-slate-200">
-                        A workshop or single project can grow into a pilot, curriculum
-                        integration, Academy access, or a longer-term partnership.
-                        </p>
-                    </div>
-                    </div>
+                  <p className="mt-1 text-sm text-slate-400">
+                    A simple, low-friction process to begin.
+                  </p>
                 </div>
-                </div>
-            </div>
-
-            {program.disclaimer && (
-              <div className="mt-5 border border-[#FBBF24]/30 bg-[#FBBF24]/[0.08] p-5">
-                <p className="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-amber-100">
-                  Important information
-                </p>
-                <p className="mt-3 text-sm leading-6 text-amber-50/80">
-                  {program.disclaimer}
-                </p>
               </div>
-            )}
-          </aside>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                <div className="flex gap-3">
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                    style={{
+                      backgroundColor: `${program.accent.primary}18`,
+                      color: program.accent.primary,
+                    }}
+                  >
+                    <Users className="h-4 w-4" />
+                  </span>
+
+                  <div>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
+                      Start with
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-slate-200">
+                      A program contact, learner group, and a clear outcome.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                    style={{
+                      backgroundColor: `${program.accent.primary}18`,
+                      color: program.accent.primary,
+                    }}
+                  >
+                    <Clock3 className="h-4 w-4" />
+                  </span>
+
+                  <div>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
+                      Plan together
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-slate-200">
+                      Define scope, timing, delivery format, and starting option.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                    style={{
+                      backgroundColor: `${program.accent.primary}18`,
+                      color: program.accent.primary,
+                    }}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                  </span>
+
+                  <div>
+                    <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
+                      Scale later
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-slate-200">
+                      Begin small, then grow into a pilot or ongoing partnership.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          {program.disclaimer && (
+            <div className="mt-5 border border-[#FBBF24]/30 bg-[#FBBF24]/[0.08] p-5">
+              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-amber-100">
+                Important information
+              </p>
+              <p className="mt-3 text-sm leading-6 text-amber-50/80">
+                {program.disclaimer}
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
+      {/* WHAT YOUR PROGRAM RECEIVES */}
       <section className="border-y border-cyan-400/10 bg-[#09090B] py-16 sm:py-24">
         <div className="mx-auto w-full max-w-[1600px] px-5 sm:px-8 lg:px-10 2xl:px-12">
           <div className="max-w-3xl">
@@ -420,7 +463,10 @@ export default async function AcademyProgramPage({
         </div>
       </section>
 
-      <section className="bg-[#131722] py-16 sm:py-24">
+      {/* START WHERE IT MAKES SENSE */}
+      <section className="relative overflow-hidden bg-[#131722] py-16 sm:py-24">
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_80%_20%,rgba(37,99,235,0.16),transparent_30%),radial-gradient(circle_at_10%_80%,rgba(34,211,238,0.10),transparent_28%)]" />
+
         <div className="mx-auto w-full max-w-[1600px] px-5 sm:px-8 lg:px-10 2xl:px-12">
           <div className="max-w-3xl">
             <p
@@ -435,9 +481,9 @@ export default async function AcademyProgramPage({
             </h2>
 
             <p className="mt-5 text-base leading-7 text-slate-400">
-              Start with the scope that fits your current goals. A smaller
-              introduction can become a pilot, curriculum integration, or a
-              deeper Academy partnership as your program grows.
+              Start with the scope that fits your current goals. Open each
+              option to review duration, delivery format, participation
+              requirements, included resources, and how investment is determined.
             </p>
           </div>
 
@@ -445,10 +491,11 @@ export default async function AcademyProgramPage({
             formats={program.formats}
             accentPrimary={program.accent.primary}
             accentSecondary={program.accent.secondary}
-            />
+          />
         </div>
       </section>
 
+      {/* START A CONVERSATION */}
       <section
         id="start-a-conversation"
         className="relative overflow-hidden border-t border-cyan-400/15 bg-[#09090B] py-16 sm:py-24"
@@ -484,27 +531,15 @@ export default async function AcademyProgramPage({
           </p>
 
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-            <span
-              className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-lg bg-[#2563EB]/70 px-5 py-3.5 text-sm font-extrabold italic uppercase tracking-wide text-white"
-              title="Calendar booking will be connected after the scheduling tool is deployed."
-              aria-disabled="true"
-            >
-              {program.ctaLabel}
-              <ArrowRight className="h-4 w-4" />
-            </span>
-
-            <Link
-              href="/academy"
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-400/[0.06] px-5 py-3.5 text-sm font-extrabold italic uppercase tracking-wide text-cyan-100 transition hover:border-cyan-300/55 hover:bg-cyan-400/15"
-            >
-              Return to Academy
-              <BookOpen className="h-4 w-4" />
-            </Link>
+            <GoogleBookingButton
+							label={program.ctaLabel}
+							className="inline-flex"
+						/>
           </div>
 
           <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
-            Booking calendar connection coming next
-          </p>
+						Choose a time that works for you
+					</p>
         </div>
       </section>
     </main>

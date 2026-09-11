@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import AcademyVideoCard from '@/components/academy/AcademyVideoCard';
+import GoogleBookingButton from '@/components/academy/GoogleBookingButton';
 import {
   ACADEMY_SECTIONS,
   ACADEMY_SERVICES,
@@ -101,27 +102,30 @@ const serviceThemes = [
 const roadmapSteps = [
   {
     number: '01',
-    label: 'Discovery',
-    title: 'Find your pathway',
-    description: 'Choose an audience, topic, or starting point.',
+    label: 'Pick a mission',
+    title: 'Choose your pathway',
+    description:
+      'Start with the skills, audience, or real-world goal that matters most.',
     badge: 'bg-[#22D3EE] text-[#09090B]',
     panel: 'border-cyan-400/30 bg-cyan-400/[0.08]',
     labelColor: 'text-cyan-300',
   },
   {
     number: '02',
-    label: 'Skill Build',
-    title: 'Build practical skills',
-    description: 'Follow videos, workshops, and guided resources.',
+    label: 'Build skills',
+    title: 'Learn by doing',
+    description:
+      'Use practical videos, guided resources, and real MetaWork workflows.',
     badge: 'bg-[#2563EB] text-white',
     panel: 'border-blue-400/30 bg-blue-500/[0.08]',
     labelColor: 'text-blue-300',
   },
   {
     number: '03',
-    label: 'Application',
-    title: 'Put learning to work',
-    description: 'Create projects, products, storefronts, and opportunities.',
+    label: 'Create outcomes',
+    title: 'Put it to work',
+    description:
+      'Build projects, products, storefronts, and opportunities you can show.',
     badge: 'bg-[#34D399] text-[#09090B]',
     panel: 'border-emerald-400/30 bg-emerald-400/[0.08]',
     labelColor: 'text-emerald-300',
@@ -133,6 +137,7 @@ export default function AcademyPage() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#131722] text-slate-50">
+      {/* HERO */}
       <section className="relative isolate overflow-hidden border-b border-cyan-400/15 bg-[#131722]">
         <div className="absolute inset-0 -z-30 bg-[linear-gradient(120deg,#131722_0%,#111827_52%,#0a1821_100%)]" />
 
@@ -161,9 +166,9 @@ export default function AcademyPage() {
               </h1>
 
               <p className="mt-8 max-w-3xl text-lg leading-8 text-slate-300 sm:text-xl">
-                Practical learning for creators, students, educators, and school
-                partners building real products, brands, storefronts, ownership
-                systems, and entrepreneurial opportunities.
+                Practical learning for creators, students, educators, and
+                school partners building real products, brands, storefronts,
+                ownership systems, and entrepreneurial opportunities.
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -171,53 +176,53 @@ export default function AcademyPage() {
                   href="/academy/library"
                   className="group inline-flex items-center justify-center gap-2 rounded-lg bg-[#2563EB] px-6 py-4 text-sm font-extrabold italic uppercase tracking-wide text-white shadow-xl shadow-blue-950/40 transition hover:-translate-y-0.5 hover:bg-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22D3EE] focus-visible:ring-offset-2 focus-visible:ring-offset-[#131722]"
                 >
-                  Enter video library
+                  Explore free videos
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
 
                 <Link
-									href="/academy/programs"
-									className="inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-400/35 bg-cyan-400/[0.06] px-6 py-4 text-sm font-extrabold italic uppercase tracking-wide text-cyan-100 transition hover:-translate-y-0.5 hover:border-cyan-300/60 hover:bg-cyan-400/15"
-								>
-									Explore programs
-									<BookOpen className="h-4 w-4" />
-								</Link>
+                  href="/academy/programs"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-400/35 bg-cyan-400/[0.06] px-6 py-4 text-sm font-extrabold italic uppercase tracking-wide text-cyan-100 transition hover:-translate-y-0.5 hover:border-cyan-300/60 hover:bg-cyan-400/15"
+                >
+                  Programs for educators
+                  <BookOpen className="h-4 w-4" />
+                </Link>
               </div>
 
               <div className="mt-11 grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="border-l-2 border-[#22D3EE] bg-[#09090B]/85 p-4 shadow-lg shadow-black/15">
                   <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-cyan-300">
-                    System 01
+                    Learn
                   </p>
                   <p className="mt-2 text-sm font-extrabold italic uppercase tracking-wide text-slate-100">
-                    Learn by doing
+                    Real workflows
                   </p>
                   <p className="mt-2 text-xs leading-5 text-slate-400">
-                    Practical workflows and platform walkthroughs.
+                    Practical lessons built around tools you can actually use.
                   </p>
                 </div>
 
                 <div className="border-l-2 border-[#2563EB] bg-[#09090B]/85 p-4 shadow-lg shadow-black/15">
                   <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-blue-300">
-                    System 02
+                    Build
                   </p>
                   <p className="mt-2 text-sm font-extrabold italic uppercase tracking-wide text-slate-100">
-                    Build real paths
+                    Visible outcomes
                   </p>
                   <p className="mt-2 text-xs leading-5 text-slate-400">
-                    Creator, student, educator, and partner use cases.
+                    Turn learning into projects, products, and progress.
                   </p>
                 </div>
 
                 <div className="border-l-2 border-[#34D399] bg-[#09090B]/85 p-4 shadow-lg shadow-black/15">
                   <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-emerald-300">
-                    System 03
+                    Grow
                   </p>
                   <p className="mt-2 text-sm font-extrabold italic uppercase tracking-wide text-slate-100">
-                    Apply learning
+                    Real opportunity
                   </p>
                   <p className="mt-2 text-xs leading-5 text-slate-400">
-                    Build projects, products, and opportunities.
+                    Build skills that connect to commerce and career paths.
                   </p>
                 </div>
               </div>
@@ -232,13 +237,13 @@ export default function AcademyPage() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-mono text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-300">
-                      Learning sequence
+                      Academy roadmap
                     </p>
                     <h2 className="mt-3 text-2xl font-black italic uppercase tracking-[-0.045em] text-slate-50">
-                      Your Academy roadmap
+                      From first step to real output.
                     </h2>
                     <p className="mt-2 text-sm leading-6 text-slate-400">
-                      From first idea to real-world impact.
+                      Learn something useful. Build something real. Keep going.
                     </p>
                   </div>
 
@@ -280,7 +285,7 @@ export default function AcademyPage() {
                   href="/academy/library"
                   className="group mt-7 inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-[0.18em] text-cyan-300 transition hover:text-cyan-100"
                 >
-                  Initialize learning
+                  Start with a free lesson
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
               </div>
@@ -289,19 +294,22 @@ export default function AcademyPage() {
         </div>
       </section>
 
+      {/* PATHWAYS */}
       <section className="border-y border-cyan-400/10 bg-[#131722] py-16 sm:py-20">
         <div className="mx-auto w-full max-w-[1600px] px-5 sm:px-8 lg:px-10 2xl:px-12">
           <div className="max-w-3xl">
             <p className="font-mono text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-300">
               Academy pathways
             </p>
+
             <h2 className="mt-4 text-3xl font-black italic uppercase tracking-[-0.05em] text-slate-50 sm:text-5xl">
-              Find your starting point.
+              Choose your mission.
             </h2>
+
             <p className="mt-5 text-base leading-7 text-slate-400">
-              Explore focused learning paths for creator commerce, digital
-              storefronts, intellectual property, payouts, blockchain tools,
-              and education programs.
+              Pathways are guided maps to mastery. Choose a subject area, see
+              the skills and lessons available, and build toward deeper
+              learning, projects, and future member-only courses.
             </p>
           </div>
 
@@ -309,7 +317,7 @@ export default function AcademyPage() {
             {ACADEMY_SECTIONS.map((section) => (
               <Link
                 key={section.id}
-                href={`/academy/library?section=${section.id}`}
+                href={`/academy/pathways/${section.slug}`}
                 className="group relative isolate min-h-[270px] overflow-hidden border border-white/10 bg-[#09090B] p-6 shadow-xl shadow-black/20 transition duration-300 hover:-translate-y-2 hover:border-cyan-400/45"
               >
                 <div
@@ -333,12 +341,12 @@ export default function AcademyPage() {
                   </span>
 
                   <span className="border border-cyan-400/25 bg-cyan-400/10 px-2.5 py-1 font-mono text-[9px] font-medium uppercase tracking-[0.18em] text-cyan-200">
-                    Pathway
+                    Academy pathway
                   </span>
                 </div>
 
                 <p className="mt-7 font-mono text-[10px] uppercase tracking-[0.24em] text-slate-500">
-                  Academy module
+                  Mastery map
                 </p>
 
                 <h3 className="mt-2 text-2xl font-black italic uppercase leading-none tracking-[-0.045em] text-slate-50">
@@ -350,15 +358,32 @@ export default function AcademyPage() {
                 </p>
 
                 <div className="mt-7 inline-flex items-center gap-2 text-sm font-extrabold italic uppercase tracking-wide text-cyan-200">
-                  Open pathway
+                  View the map
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </div>
               </Link>
             ))}
           </div>
+
+          <div className="mt-8 flex flex-col gap-4 border border-cyan-400/20 bg-cyan-400/[0.05] p-5 sm:flex-row sm:items-center sm:justify-between">
+						<p className="max-w-3xl text-sm leading-6 text-slate-300">
+							Each pathway includes a mastery map, recommended free lessons, and related
+							Academy course options—so learners can start small and build toward a
+							deeper goal.
+						</p>
+
+						<Link
+							href="/academy/library"
+							className="group inline-flex shrink-0 items-center gap-2 font-mono text-[10px] font-medium uppercase tracking-[0.18em] text-cyan-200 transition hover:text-cyan-100"
+						>
+							Browse all lessons
+							<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+						</Link>
+					</div>
         </div>
       </section>
 
+      {/* PROGRAMS */}
       <section id="programs" className="relative overflow-hidden py-16 sm:py-24">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_80%_20%,rgba(37,99,235,0.17),transparent_30%),radial-gradient(circle_at_10%_80%,rgba(34,211,238,0.10),transparent_28%)]" />
 
@@ -370,7 +395,7 @@ export default function AcademyPage() {
               </p>
 
               <h2 className="mt-4 text-3xl font-black italic uppercase tracking-[-0.05em] text-slate-50 sm:text-5xl">
-                Education built for real-world momentum.
+                Build opportunity into the program.
               </h2>
 
               <p className="mt-6 text-base leading-7 text-slate-400">
@@ -379,23 +404,28 @@ export default function AcademyPage() {
                 activities, and career-connected learning.
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-								<Link
-									href="/academy/programs"
-									className="group inline-flex items-center justify-center gap-2 rounded-lg bg-[#2563EB] px-5 py-3.5 text-sm font-extrabold italic uppercase tracking-wide text-white transition hover:-translate-y-0.5 hover:bg-blue-500"
-								>
-									Compare program options
-									<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-								</Link>
+              <p className="mt-5 text-sm leading-6 text-slate-500">
+                For educators, advisors, school leaders, community programs,
+                and partners ready to explore a practical next step.
+              </p>
 
-								<a
-									href="#partner-with-us"
-									className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-400/40 bg-blue-500/10 px-5 py-3.5 text-sm font-extrabold italic uppercase tracking-wide text-blue-100 transition hover:-translate-y-0.5 hover:border-blue-300/70 hover:bg-blue-500/20"
-								>
-									Plan a partnership
-									<ArrowRight className="h-4 w-4" />
-								</a>
-							</div>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <Link
+                  href="/academy/programs"
+                  className="group inline-flex items-center justify-center gap-2 rounded-lg bg-[#2563EB] px-5 py-3.5 text-sm font-extrabold italic uppercase tracking-wide text-white transition hover:-translate-y-0.5 hover:bg-blue-500"
+                >
+                  Compare program options
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </Link>
+
+                <a
+                  href="#partner-with-us"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-400/40 bg-blue-500/10 px-5 py-3.5 text-sm font-extrabold italic uppercase tracking-wide text-blue-100 transition hover:-translate-y-0.5 hover:border-blue-300/70 hover:bg-blue-500/20"
+                >
+                  Plan a partnership
+                  <ArrowRight className="h-4 w-4" />
+                </a>
+              </div>
             </div>
 
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -403,75 +433,82 @@ export default function AcademyPage() {
                 const theme = serviceThemes[index % serviceThemes.length];
 
                 return (
-                  <article
-                    key={service.title}
-                    className={`group relative isolate min-h-[230px] overflow-hidden border border-white/10 bg-[#09090B] p-6 shadow-xl shadow-black/20 transition duration-300 hover:-translate-y-1 ${theme.border}`}
-                  >
-                    <div
-                      className={`absolute inset-0 -z-20 bg-gradient-to-br ${theme.gradient} opacity-80 transition duration-500 group-hover:opacity-100`}
-                    />
+									<Link
+										key={service.title}
+										href={`/academy/programs/${service.slug}`}
+										className={`group relative isolate min-h-[230px] overflow-hidden border border-white/10 bg-[#09090B] p-6 shadow-xl shadow-black/20 transition duration-300 hover:-translate-y-1 ${theme.border}`}
+									>
+										<div
+											className={`absolute inset-0 -z-20 bg-gradient-to-br ${theme.gradient} opacity-80 transition duration-500 group-hover:opacity-100`}
+										/>
 
-                    <div
-                      className={`absolute inset-x-0 top-0 h-1 ${theme.line}`}
-                    />
+										<div
+											className={`absolute inset-x-0 top-0 h-1 ${theme.line}`}
+										/>
 
-                    <div className="absolute -right-10 -top-10 -z-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+										<div className="absolute -right-10 -top-10 -z-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
 
-                    <span
-                      className={`flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br ${theme.icon} shadow-lg`}
-                    >
-                      <IconFor
-                        name={service.icon}
-                        className="h-6 w-6 text-[#09090B]"
-                      />
-                    </span>
+										<span
+											className={`flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br ${theme.icon} shadow-lg`}
+										>
+											<IconFor
+												name={service.icon}
+												className="h-6 w-6 text-[#09090B]"
+											/>
+										</span>
 
-                    <p
-                      className={`mt-6 font-mono text-[9px] font-medium uppercase tracking-[0.22em] ${theme.label}`}
-                    >
-                      Academy service
-                    </p>
+										<p
+											className={`mt-6 font-mono text-[9px] font-medium uppercase tracking-[0.22em] ${theme.label}`}
+										>
+											Academy service
+										</p>
 
-                    <h3 className="mt-2 text-xl font-black italic uppercase leading-none tracking-[-0.035em] text-slate-50">
-                      {service.title}
-                    </h3>
+										<h3 className="mt-2 text-xl font-black italic uppercase leading-none tracking-[-0.035em] text-slate-50">
+											{service.title}
+										</h3>
 
-                    <p className="mt-4 text-sm leading-6 text-slate-300">
-                      {service.description}
-                    </p>
+										<p className="mt-4 text-sm leading-6 text-slate-300">
+											{service.description}
+										</p>
 
-                    <Link
-											href={`/academy/programs/${service.slug}`}
-											className={`group/link mt-6 inline-flex items-center gap-2 text-sm font-extrabold italic uppercase tracking-wide ${theme.label}`}
+										<span
+											className={`mt-6 inline-flex items-center gap-2 text-sm font-extrabold italic uppercase tracking-wide ${theme.label}`}
 										>
 											Learn more
-											<ArrowRight className="h-4 w-4 transition-transform group-hover/link:translate-x-1" />
-										</Link>
-                  </article>
-                );
+											<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+										</span>
+									</Link>
+								);
               })}
             </div>
           </div>
         </div>
       </section>
 
+      {/* FREE VIDEOS */}
       <section className="border-y border-cyan-400/10 bg-[#09090B] py-16 sm:py-20">
         <div className="mx-auto w-full max-w-[1600px] px-5 sm:px-8 lg:px-10 2xl:px-12">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-            <div>
-              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-300">
-                Academy library
+            <div className="max-w-3xl">
+              <p className="font-mono text-[10px] font-medium uppercase tracking-[0.25em] text-[#34D399]">
+                Free tools // Start now
               </p>
+
               <h2 className="mt-4 text-3xl font-black italic uppercase tracking-[-0.05em] text-slate-50 sm:text-5xl">
-                Start with the fundamentals.
+                Get moving today.
               </h2>
+
+              <p className="mt-5 text-base leading-7 text-slate-400">
+                No enrollment required. Pick a practical MetaWork task, watch a
+                free walkthrough, and start building right away.
+              </p>
             </div>
 
             <Link
               href="/academy/library"
               className="group inline-flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-[0.18em] text-cyan-300 transition hover:text-cyan-100"
             >
-              View all videos
+              Browse the full free library
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
@@ -488,12 +525,131 @@ export default function AcademyPage() {
         </div>
       </section>
 
+			{/* COURSES */}
+				<section className="relative overflow-hidden bg-[#131722] py-16 sm:py-24">
+					<div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_20%,rgba(34,211,238,0.13),transparent_28%),radial-gradient(circle_at_88%_85%,rgba(37,99,235,0.18),transparent_30%)]" />
+
+					<div className="mx-auto w-full max-w-[1600px] px-5 sm:px-8 lg:px-10 2xl:px-12">
+						<div className="grid gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] lg:items-center">
+							<div>
+								<p className="font-mono text-[10px] font-medium uppercase tracking-[0.25em] text-cyan-300">
+									Academy courses
+								</p>
+
+								<h2 className="mt-4 text-3xl font-black italic uppercase tracking-[-0.05em] text-slate-50 sm:text-5xl">
+									Go from watching to building.
+								</h2>
+
+								<p className="mt-5 max-w-2xl text-base leading-7 text-slate-300">
+									MetaWork Academy courses organize lessons, activities, projects,
+									teacher resources, and assessments into focused six-lesson learning
+									experiences. Start with the skill your learners need now, or build
+									toward the complete Create. Build. Earn. sequence.
+								</p>
+
+								<div className="mt-8 flex flex-col gap-3 sm:flex-row">
+									<Link
+										href="/academy/courses"
+										className="group inline-flex items-center justify-center gap-2 rounded-lg bg-[#2563EB] px-5 py-3.5 text-sm font-extrabold italic uppercase tracking-wide text-white shadow-xl shadow-blue-950/40 transition hover:-translate-y-0.5 hover:bg-blue-500"
+									>
+										Explore Academy courses
+										<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+									</Link>
+
+									<Link
+										href="/academy/programs/online-courses"
+										className="inline-flex items-center justify-center gap-2 rounded-lg border border-cyan-400/30 bg-cyan-400/[0.06] px-5 py-3.5 text-sm font-extrabold italic uppercase tracking-wide text-cyan-100 transition hover:border-cyan-300/55 hover:bg-cyan-400/15"
+									>
+										Online course options
+										<BookOpen className="h-4 w-4" />
+									</Link>
+								</div>
+							</div>
+
+							<div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+								<Link
+									href="/academy/courses/blockchain-basics"
+									className="group relative overflow-hidden border border-cyan-400/25 bg-[#09090B] p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-cyan-300/50"
+								>
+									<div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#22D3EE] to-[#2563EB]" />
+
+									<p className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-300">
+										Course 01 // Available
+									</p>
+
+									<h3 className="mt-3 text-xl font-black italic uppercase tracking-[-0.035em] text-slate-50">
+										Blockchain Basics
+									</h3>
+
+									<p className="mt-2 text-sm leading-6 text-slate-400">
+										6 lessons · 6 recorded videos · classroom-ready resources
+									</p>
+
+									<span className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold italic uppercase tracking-wide text-cyan-200">
+										View course
+										<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+									</span>
+								</Link>
+
+								<Link
+									href="/academy/courses/design-ip-creation"
+									className="group relative overflow-hidden border border-blue-400/25 bg-[#09090B] p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-blue-300/50"
+								>
+									<div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#2563EB] to-[#22D3EE]" />
+
+									<p className="font-mono text-[9px] uppercase tracking-[0.18em] text-blue-300">
+										Course 02 // Available
+									</p>
+
+									<h3 className="mt-3 text-xl font-black italic uppercase tracking-[-0.035em] text-slate-50">
+										Design & IP Creation
+									</h3>
+
+									<p className="mt-2 text-sm leading-6 text-slate-400">
+										6 lessons · 6 recorded videos · design-to-product workflows
+									</p>
+
+									<span className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold italic uppercase tracking-wide text-blue-200">
+										View course
+										<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+									</span>
+								</Link>
+
+								<Link
+									href="/academy/courses/sales-client-acquisition"
+									className="group relative overflow-hidden border border-emerald-400/25 bg-[#09090B] p-5 shadow-xl shadow-black/20 transition hover:-translate-y-1 hover:border-emerald-300/50"
+								>
+									<div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#34D399] to-[#22D3EE]" />
+
+									<p className="font-mono text-[9px] uppercase tracking-[0.18em] text-emerald-300">
+										Course 03 // In production
+									</p>
+
+									<h3 className="mt-3 text-xl font-black italic uppercase tracking-[-0.035em] text-slate-50">
+										Sales & Client Acquisition
+									</h3>
+
+									<p className="mt-2 text-sm leading-6 text-slate-400">
+										6 lessons · recordings in production · market-ready skills
+									</p>
+
+									<span className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold italic uppercase tracking-wide text-emerald-200">
+										View course
+										<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+									</span>
+								</Link>
+							</div>
+						</div>
+					</div>
+				</section>
+
+      {/* MEMBERS */}
       <section className="relative overflow-hidden py-16 sm:py-24">
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_15%_20%,rgba(251,191,36,0.10),transparent_26%),radial-gradient(circle_at_88%_85%,rgba(34,211,238,0.13),transparent_28%)]" />
 
         <div className="mx-auto w-full max-w-[1600px] px-5 sm:px-8 lg:px-10 2xl:px-12">
-          <div className="overflow-hidden border border-[#FBBF24]/25 bg-[#09090B] p-7 shadow-2xl shadow-black/30 sm:p-10 lg:p-14">
-            <div className="absolute inset-x-0 h-1 -translate-y-7 bg-gradient-to-r from-[#FBBF24] via-[#2563EB] to-[#22D3EE] sm:-translate-y-10 lg:-translate-y-14" />
+          <div className="relative overflow-hidden border border-[#FBBF24]/25 bg-[#09090B] p-7 shadow-2xl shadow-black/30 sm:p-10 lg:p-14">
+            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#FBBF24] via-[#2563EB] to-[#22D3EE]" />
 
             <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
               <div>
@@ -507,10 +663,9 @@ export default function AcademyPage() {
                 </h2>
 
                 <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300">
-                  The member area will bring together exclusive workshops,
-                  guided courses, advanced resources, and curated learning
-                  pathways. Academy access will support approved members,
-                  credit-funded passes, and school or partner access.
+                  Member access will bring together advanced workshops,
+                  structured courses, guided projects, exclusive resources, and
+                  school or partner learning collections.
                 </p>
 
                 <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -523,17 +678,17 @@ export default function AcademyPage() {
                   </Link>
 
                   <span className="inline-flex items-center justify-center border border-white/15 bg-white/[0.03] px-5 py-3.5 font-mono text-[10px] font-medium uppercase tracking-[0.15em] text-slate-400">
-                    Access coming soon
+                    Access options coming soon
                   </span>
                 </div>
               </div>
 
               <div className="grid gap-3">
                 {[
+                  'Guided pathways and future course sequences',
                   'Exclusive workshops and deeper tool training',
-                  'Dedicated courses and guided learning sequences',
-                  'School and partner learning collections',
-                  'Future credit-funded Academy access passes',
+                  'Projects, resources, and future knowledge checks',
+                  'Approved member, credit-pass, and school access options',
                 ].map((item, index) => {
                   const colors = [
                     'border-cyan-400/25 bg-cyan-400/[0.08] text-cyan-200',
@@ -552,7 +707,10 @@ export default function AcademyPage() {
                       >
                         <BadgeCheck className="h-4 w-4" />
                       </span>
-                      <p className="text-sm font-medium text-slate-200">{item}</p>
+
+                      <p className="text-sm font-medium text-slate-200">
+                        {item}
+                      </p>
                     </div>
                   );
                 })}
@@ -562,6 +720,7 @@ export default function AcademyPage() {
         </div>
       </section>
 
+      {/* PARTNERSHIP CTA */}
       <section
         id="partner-with-us"
         className="relative overflow-hidden border-t border-cyan-400/15 bg-[#09090B] py-16 sm:py-20"
@@ -588,17 +747,10 @@ export default function AcademyPage() {
           </p>
 
           <div className="mt-8 inline-flex flex-col items-center">
-            <span
-              className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg bg-[#2563EB]/70 px-5 py-3.5 text-sm font-extrabold italic uppercase tracking-wide text-white"
-              title="Calendar booking will be connected after the scheduling tool is deployed."
-              aria-disabled="true"
-            >
-              Book a partnership conversation
-              <ArrowRight className="h-4 w-4" />
-            </span>
+            <GoogleBookingButton label="Book a partnership conversation" />
 
             <p className="mt-3 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-500">
-              Booking-calendar connection coming next
+              Choose a time that works for you
             </p>
           </div>
         </div>

@@ -10,7 +10,10 @@ import {
   Sparkles,
 } from 'lucide-react';
 
-import { ACADEMY_PROGRAMS } from '@/lib/academy-programs-data';
+import {
+  ACADEMY_PROGRAMS,
+  getAcademyProgramBySlug,
+} from '@/lib/academy-programs-data';
 
 export const metadata = {
   title: 'Programs & Partnerships | MetaWork Academy',
