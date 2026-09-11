@@ -7,10 +7,10 @@ import {
   LayoutDashboard, Settings, TrendingUp, Gift, Info,
   Box, Zap, Globe, Home, LogIn, LogOut, UserPlus, Store,
   Palette, LayoutGrid, Terminal, Menu, ChevronDown, Dumbbell,
-  GraduationCap, Coffee, HeartHandshake, ShoppingCart,
+  GraduationCap, BookOpen, Compass, Coffee, HeartHandshake, ShoppingCart,
   Wrench, FileText, DollarSignIcon, Wallet, Shield, Coins,
   FolderOpen, Package, User, Factory, Swords, Music, Star, Sparkles, 
-  HandCoins, Landmark, ClipboardList
+  HandCoins, Landmark, Layers3, ClipboardList
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
@@ -172,6 +172,39 @@ export default function Sidebar() {
     // 1. Dashboard
     { icon: LayoutDashboard, label: 'Global Dashboard', href: '/dashboard' },
 
+    {
+      icon: GraduationCap,
+      label: 'MetaWork Academy',
+      href: '/academy',
+      subItems: [
+        {
+          icon: GraduationCap,
+          label: 'Academy Home',
+          href: '/academy',
+        },
+        {
+          icon: BookOpen,
+          label: 'Free Lesson Library',
+          href: '/academy/library',
+        },
+        {
+          icon: Layers3,
+          label: 'Structured Courses',
+          href: '/academy/courses',
+        },
+        {
+          icon: Compass,
+          label: 'Learning Pathways',
+          href: '/academy/pathways/start-here',
+        },
+        {
+          icon: HeartHandshake,
+          label: 'Schools & Programs',
+          href: '/academy/programs',
+        },
+      ],
+    },
+
     // 2. Payouts
     { icon: HandCoins, label: 'Payouts', href: '/claim' },
 
@@ -263,6 +296,38 @@ export default function Sidebar() {
         { icon: Box, label: 'Manufacturing Catalog', href: '/catalog' },
         { icon: DollarSignIcon, label: 'Tokenization', href: '/tutorials/minting' },
         { icon: Wallet, label: 'Secure Wallet', href: '/wallet-guide' },
+      ],
+    },
+    {
+      icon: GraduationCap,
+      label: 'MetaWork Academy',
+      href: '/academy',
+      subItems: [
+        {
+          icon: GraduationCap,
+          label: 'Academy Home',
+          href: '/academy',
+        },
+        {
+          icon: BookOpen,
+          label: 'Free Lesson Library',
+          href: '/academy/library',
+        },
+        {
+          icon: Layers3,
+          label: 'Structured Courses',
+          href: '/academy/courses',
+        },
+        {
+          icon: Compass,
+          label: 'Learning Pathways',
+          href: '/academy/pathways/start-here',
+        },
+        {
+          icon: HeartHandshake,
+          label: 'Schools & Programs',
+          href: '/academy/programs',
+        },
       ],
     },
     {

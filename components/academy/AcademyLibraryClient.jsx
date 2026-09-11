@@ -14,6 +14,7 @@ import AcademyVideoCard from '@/components/academy/AcademyVideoCard.jsx';
 import {
   ACADEMY_AUDIENCES,
   ACADEMY_FORMATS,
+  ACADEMY_SECTIONS,
   ACADEMY_TOPICS,
   ACADEMY_VIDEOS,
 } from '@/lib/academy-data';
@@ -112,42 +113,47 @@ export default function AcademyLibraryClient() {
   const filteredVideos = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    return ACADEMY_VIDEOS.filter((video) => {
-      const searchText = [
+    return ACADEMY_VIDEOS.filter(
+        (video) => video.publishStatus === 'published'
+    	).filter((video) => {
+        const searchText = [
         video.title,
         video.description,
         video.format,
         video.level,
-        video.sectionId,
-        ...video.audiences,
-        ...video.topics,
-      ]
+        video.primaryPathwaySlug,
+        ...(video.audience ?? []),
+        ...(video.topics ?? []),
+        ]
+        .filter(Boolean)
         .join(' ')
         .toLowerCase();
 
-      const matchesQuery =
+        const matchesQuery =
         !normalizedQuery || searchText.includes(normalizedQuery);
 
-      const matchesAudience =
+        const matchesAudience =
         filters.audience === 'all' ||
-        video.audiences.includes(filters.audience);
+        (video.audience ?? []).includes(filters.audience);
 
-      const matchesTopic =
-        filters.topic === 'all' || video.topics.includes(filters.topic);
+        const matchesTopic =
+        filters.topic === 'all' ||
+        (video.topics ?? []).includes(filters.topic);
 
-      const matchesSection =
-        filters.section === 'all' || video.sectionId === filters.section;
+        const matchesSection =
+        filters.section === 'all' ||
+        video.primaryPathwaySlug === filters.section;
 
-      const matchesFormat =
+        const matchesFormat =
         filters.format === 'all' || video.format === filters.format;
 
-      const matchesAccess =
-        filters.access === 'all' || video.accessLevel === filters.access;
+        const matchesAccess =
+        filters.access === 'all' || video.access === filters.access;
 
-      const matchesLevel =
+        const matchesLevel =
         filters.level === 'all' || video.level === filters.level;
 
-      return (
+        return (
         matchesQuery &&
         matchesAudience &&
         matchesTopic &&
@@ -155,9 +161,9 @@ export default function AcademyLibraryClient() {
         matchesFormat &&
         matchesAccess &&
         matchesLevel
-      );
+        );
     });
-  }, [filters, query]);
+    }, [filters, query]);
 
   const activeFilterCount = Object.values(filters).filter(
     (value) => value !== 'all'
@@ -190,7 +196,7 @@ export default function AcademyLibraryClient() {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search videos, topics, skills, or audiences..."
+                placeholder="Browse free learning resources organized by topic, pathway, audience, and skill level."
                 className="w-full border border-white/10 bg-[#131722] py-3.5 pl-12 pr-10 text-sm text-white outline-none placeholder:text-slate-500 transition focus:border-cyan-400/70 focus:ring-2 focus:ring-cyan-400/20"
               />
 
