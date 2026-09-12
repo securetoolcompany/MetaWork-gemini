@@ -53,14 +53,19 @@ const PUBLIC_ALGOD_CLIENT = new algosdk.Algodv2(
   ''
 );
 
+const NETWORK_LABEL =
+  ALGOD_NETWORK === 'mainnet' ? 'MainNet V10' : 'TestNet V10';
+
 const REVENUE_POOL_APP_ID = Number(
     process.env.NEXT_PUBLIC_REVENUE_POOL_APP_ID
 );
 
-const USDC_ASSET_ID = Number(process.env.NEXT_PUBLIC_USDC_ASSET_ID);
+const USDC_ASSET_ID = Number(
+  process.env.NEXT_PUBLIC_USDC_ASSET_ID || 0
+);
 
-if (!USDC_ASSET_ID) {
-    throw new Error('USDC_ASSET_ID is not configured');
+if (!Number.isSafeInteger(USDC_ASSET_ID) || USDC_ASSET_ID <= 0) {
+  throw new Error('NEXT_PUBLIC_USDC_ASSET_ID is not configured');
 }
 
 if (!REVENUE_POOL_APP_ID) {
@@ -1708,7 +1713,7 @@ export default function PoolAdminPage() {
                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between shadow-lg">
                     <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Pool Contract Address</span>
-                        <span className="text-xs font-mono text-blue-400 bg-blue-950/60 border border-blue-900/50 px-2 py-0.5 rounded">TestNet V10</span>
+                        <span className="text-xs font-mono text-blue-400 bg-blue-950/60 border border-blue-900/50 px-2 py-0.5 rounded">{NETWORK_LABEL}</span>
                     </div>
                     <p className="font-mono text-xs text-slate-300 break-all mt-3 bg-slate-950 p-2.5 rounded border border-slate-800/80">{appAddress}</p>
                 </div>
