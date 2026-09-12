@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import algosdk from 'algosdk';
-import { getAlgodClient } from '@/lib/algorand';
 import { invalidateAccountCache } from '@/lib/algorand-rate-limit';
-
+import {
+  getAlgodClient,
+  waitForConfirmation,
+} from '@/lib/algorand';
 export const dynamic = 'force-dynamic';
 
 function normalizeAddress(address) {
@@ -20,7 +22,7 @@ function getRevenueTokenId(value) {
  */
 export async function POST(request) {
   try {
-    const algodClient = getAlgodClient();
+    const algodClient = getAlgodClient('mainnet');
     const body = await request.json();
     const userAddress = normalizeAddress(body?.userAddress);
     const revenueTokenId = getRevenueTokenId(body?.revenueTokenId);
@@ -61,7 +63,7 @@ export async function POST(request) {
  */
 export async function PUT(request) {
   try {
-    const algodClient = getAlgodClient();
+    const algodClient = getAlgodClient('mainnet');
     const body = await request.json();
     const userAddress = normalizeAddress(body?.userAddress);
     const revenueTokenId = getRevenueTokenId(body?.revenueTokenId);
@@ -81,7 +83,13 @@ export async function PUT(request) {
     const result = await algodClient.sendRawTransaction([signedBytes]).do();
     const txid = result.txid || result.txId;
 
-    await algosdk.waitForConfirmation(algodClient, txid, 10);
+    if (!txid) {
+      throw new Error(
+        'Revenue-token opt-in was submitted but no transaction ID was returned.'
+      );
+    }
+
+    await waitForConfirmation(txid, 10, 'mainnet');
     invalidateAccountCache(userAddress);
 
     return NextResponse.json({

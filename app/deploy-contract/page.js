@@ -369,7 +369,7 @@ export default function DeployContractPage() {
                             <Copy className="w-4 h-4" />
                           </Button>
                           <a 
-                            href={`https://testnet.explorer.perawallet.app/tx/${deployedContract.txId}`}
+                            href={`https://explorer.perawallet.app/tx/${deployedContract.txId}`}
                             target="_blank"
                             rel="noopener noreferrer"
                           >
@@ -384,7 +384,7 @@ export default function DeployContractPage() {
 
                   <div className="flex gap-3 mt-4">
                     <a 
-                      href={`https://testnet.explorer.perawallet.app/application/${deployedContract.appId}`}
+                      href={`https://explorer.perawallet.app/application/${deployedContract.appId}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex-1"

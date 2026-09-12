@@ -216,7 +216,7 @@ export async function POST(request) {
       success: true,
       message: 'Platform transfer completed successfully!',
       txId,
-      explorerUrl: `https://testnet.explorer.perawallet.app/tx/${txId}`
+      explorerUrl: `https://explorer.perawallet.app/tx/${txId}`
     });
     
   } catch (error) {

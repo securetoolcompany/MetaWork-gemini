@@ -45,12 +45,12 @@ export async function POST(request) {
       );
     }
 
-    const algod = getAlgodClient("testnet");
+    const algod = getAlgodClient("mainnet");
     const raw = new Uint8Array(Buffer.from(signedMbrTxn, "base64"));
 
     // Submit user → platform payment
     const { txid } = await algod.sendRawTransaction(raw).do();
-    await waitForConfirmation(txid, 10);
+    await waitForConfirmation(txid, 10, "mainnet");
 
     // Record payment on IP asset
     await db.collection("ip_assets").updateOne(

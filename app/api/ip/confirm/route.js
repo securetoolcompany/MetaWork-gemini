@@ -230,7 +230,7 @@ export async function POST(request) {
         revenueTokenAssetId: null,
         txId,
         message: 'Transaction submitted successfully! Your NFT should appear in Pera Wallet shortly.',
-        explorerUrl: `https://testnet.explorer.perawallet.app/tx/${txId}`
+        explorerUrl: `https://explorer.perawallet.app/tx/${txId}`
       });
     }
     
@@ -280,7 +280,7 @@ export async function POST(request) {
       nftAssetId,
       revenueTokenAssetId,
       txId,
-      explorerUrl: `https://testnet.explorer.perawallet.app/asset/${nftAssetId}`
+      explorerUrl: `https://explorer.perawallet.app/asset/${nftAssetId}`
     });
   } catch (error) {
     console.error('Confirm IP minting error:', error);

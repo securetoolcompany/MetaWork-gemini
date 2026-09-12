@@ -1485,7 +1485,7 @@ export default function ClaimPage() {
 
                                           {claimTxId && (
                                             <a
-                                              href={`https://testnet.explorer.perawallet.app/tx/${claimTxId}/`}
+                                              href={`https://explorer.perawallet.app/tx/${claimTxId}/`}
                                               target="_blank"
                                               rel="noreferrer"
                                               className="mt-1 inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"

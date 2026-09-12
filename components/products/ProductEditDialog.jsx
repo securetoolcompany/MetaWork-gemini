@@ -73,7 +73,7 @@ function AlgoExplorerLink({ label, id, type = 'asset' }) {
     return <span className="text-muted-foreground">—</span>;
   }
 
-  const base = 'https://testnet.explorer.perawallet.app';
+  const base = 'https://explorer.perawallet.app';
   const url =
     type === 'asset'
       ? `${base}/assets/${id}`

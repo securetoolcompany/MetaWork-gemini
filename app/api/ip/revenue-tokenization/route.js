@@ -28,7 +28,7 @@ function getRevenuePoolAppId() {
   return appId;
 }
 
-const USDC_ID = getUsdcAssetId('testnet');
+const USDC_ID = getUsdcAssetId('mainnet');
 
 /** Pack stakeholders → 32-byte pubkey + 2-byte BPS big-endian (34 bytes each) */
 function packStakeholders(entries) {
@@ -375,7 +375,7 @@ export async function POST(request) {
       .digest("base64");
 
     // 4. Create NFT Mint Transaction
-    const params = await getTransactionParams();
+    const params = await getTransactionParams('mainnet');
     const cidOnly = metaRes.ipfsUrl.split("/").pop();
     const shortAssetUrl = `ipfs://${cidOnly}#arc3`;
 
@@ -491,7 +491,7 @@ export async function PUT(request) {
     const { step, operationKey, ipAssetId, signedTxn, signedTxns } =
       await request.json();
     const { db } = await connectToDatabase();
-    const algodClient = getAlgodClient();
+    const algodClient = getAlgodClient('mainnet');
     const { ObjectId } = await import("mongodb");
 
     let userQuery;
@@ -536,7 +536,7 @@ export async function PUT(request) {
         const { txid } = await algodClient
           .sendRawTransaction(new Uint8Array(Buffer.from(txnBytes, "base64")))
           .do();
-        const confirmed = await waitForConfirmation(txid, 10);
+        const confirmed = await waitForConfirmation(txid, 10, 'mainnet');
         nftAssetId =
           confirmed["asset-index"] ??
           confirmed["created-asset-index"] ??
@@ -587,8 +587,8 @@ export async function PUT(request) {
 
       const poolAppId = getRevenuePoolAppId();
 
-      const algod = getAlgodClient("testnet");
-      const sp = await getTransactionParams();
+      const algod = getAlgodClient('mainnet');
+      const sp = await getTransactionParams('mainnet');
       const appAddr = algosdk.getApplicationAddress(poolAppId).toString();
 
       // Stakeholders saved as { address, bps }
@@ -668,7 +668,7 @@ export async function PUT(request) {
       ];
 
       const { txid } = await algod.sendRawTransaction(signedGroup).do();
-      await waitForConfirmation(txid, 10);
+      await waitForConfirmation(txid, 10, 'mainnet');
 
       // Read pool box to get rev ASA ID
       const boxVal = await algod.getApplicationBoxByName(poolAppId, boxName).do();

@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import algosdk from 'algosdk';
-import { getAlgodClient } from '@/lib/algorand';
+import {
+  getAlgodClient,
+  waitForConfirmation,
+} from '@/lib/algorand';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +22,7 @@ function normalizeAddress(address) {
 // POST — build unsigned opt-in txn
 export async function POST(request) {
   try {
-    const algodClient = getAlgodClient();
+    const algodClient = getAlgodClient('mainnet');
     const USDC_ASSET_ID = getUsdcAssetId();
 
     const body = await request.json();
@@ -39,14 +42,11 @@ export async function POST(request) {
       );
     }
 
-    console.log('Algod config', {
-        network: process.env.ALGORAND_NETWORK,
-        rpc: process.env.ALGORAND_TESTNET_RPC,
-        hasApiKey: Boolean(process.env.ALGOD_X_API_KEY),
-        apiKeyPrefix: process.env.ALGOD_X_API_KEY
-            ? `${process.env.ALGOD_X_API_KEY.slice(0, 6)}...`
-            : null,
-        });
+    console.log('MainNet USDC opt-in preparation', {
+      network: 'mainnet',
+      rpcConfigured: Boolean(process.env.ALGORAND_MAINNET_RPC),
+      assetId: USDC_ASSET_ID,
+    });
 
     const suggestedParams = await algodClient.getTransactionParams().do();
 
@@ -77,7 +77,7 @@ export async function POST(request) {
 // PUT — submit signed opt-in txn
 export async function PUT(request) {
   try {
-    const algodClient = getAlgodClient();
+    const algodClient = getAlgodClient('mainnet');
     const USDC_ASSET_ID = getUsdcAssetId();
 
     const body = await request.json();
@@ -115,7 +115,11 @@ export async function PUT(request) {
     const result = await algodClient.sendRawTransaction(signedBytes).do();
     const txid = result.txid || result.txId;
 
-    await algosdk.waitForConfirmation(algodClient, txid, 10);
+    if (!txid) {
+      throw new Error('USDC opt-in was submitted but no transaction ID was returned.');
+    }
+
+    await waitForConfirmation(txid, 10, 'mainnet');
 
     return NextResponse.json({
       success: true,

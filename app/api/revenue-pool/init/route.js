@@ -3,8 +3,8 @@ import algosdk from 'algosdk';
 import { getAlgodClient, getTransactionParams, waitForConfirmation } from '@/lib/algorand';
 
 // USDC Asset ID on Algorand Testnet
-const USDC_ASSET_ID = parseInt(process.env.USDC_ASSET_ID || '10458941');
-
+// Native Circle USDC ASA on Algorand MainNet.
+const USDC_ASSET_ID = parseInt(process.env.USDC_ASSET_ID || '31566704', 10);
 /**
  * POST /api/revenue-pool/init
  * Initialize the revenue pool with IP ID and revenue token ID
@@ -26,7 +26,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid Algorand address' }, { status: 400 });
     }
 
-    const suggestedParams = await getTransactionParams();
+    const suggestedParams = await getTransactionParams('mainnet');
 
     // Create init transaction
     const initTxn = algosdk.makeApplicationNoOpTxnFromObject({
@@ -76,13 +76,13 @@ export async function PUT(request) {
     const signedTxnBytes = new Uint8Array(Buffer.from(signedTxn, 'base64'));
 
     // Submit transaction
-    const algodClient = getAlgodClient();
+    const algodClient = getAlgodClient('mainnet');
     const { txid } = await algodClient.sendRawTransaction(signedTxnBytes).do();
     
     console.log('Revenue Pool init transaction submitted:', txid);
 
     // Wait for confirmation
-    await waitForConfirmation(txid, 10);
+    await waitForConfirmation(txid, 10, 'mainnet');
 
     return NextResponse.json({
       success: true,

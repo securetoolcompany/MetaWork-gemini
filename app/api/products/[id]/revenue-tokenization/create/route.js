@@ -11,6 +11,7 @@ import {
   getTransactionParams,
   getUsdcAssetId,
   getSigner,
+  waitForConfirmation,
 } from '@/lib/algorand';
 
 export const dynamic = 'force-dynamic';
@@ -411,7 +412,7 @@ export async function POST(request, { params }) {
     }
 
     const poolAppId = getRevenuePoolAppId();
-    const algod = getAlgodClient();
+    const algod = getAlgodClient('mainnet');
     const appAddress = algosdk
       .getApplicationAddress(poolAppId)
       .toString();
@@ -766,7 +767,7 @@ export async function POST(request, { params }) {
     }
 
     const platformSigner = getSigner();
-    const suggestedParams = await getTransactionParams();
+    const suggestedParams = await getTransactionParams('mainnet');
     const stakeholders = packStakeholders(
       claimedProduct.productRevenuePool.stakeholders
     );
@@ -822,7 +823,7 @@ export async function POST(request, { params }) {
           stakeholders,
           algosdk.encodeUint64(1),
         ],
-        foreignAssets: [getUsdcAssetId('testnet')],
+        foreignAssets: [getUsdcAssetId('mainnet')],
         boxes: [
           {
             appIndex: poolAppId,
@@ -912,10 +913,10 @@ export async function POST(request, { params }) {
     let confirmation;
 
     try {
-      confirmation = await algosdk.waitForConfirmation(
-        algod,
+      confirmation = await waitForConfirmation(
         poolCreationTxId,
-        12
+        12,
+        'mainnet'
       );
     } catch {
       const pendingProduct = await db

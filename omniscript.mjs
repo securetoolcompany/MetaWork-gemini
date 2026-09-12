@@ -82,7 +82,7 @@ if (!hasUSDC) {
 
   const { txid } = await algodClient.sendRawTransaction(signed).do();
   console.log("Submitted! TxID:", txid);
-  console.log(`https://testnet.explorer.perawallet.app/tx/${txid}/`);
+  console.log(`https://explorer.perawallet.app/tx/${txid}/`);
 
   await algosdk.waitForConfirmation(algodClient, txid, 10);
   console.log("✅ Deposit confirmed! Check your USDC claim tab.");

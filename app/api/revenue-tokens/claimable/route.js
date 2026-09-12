@@ -6,6 +6,7 @@ import {
   getCachedAccountInfo,
   getCachedPoolBox,
 } from '@/lib/algorand-rate-limit';
+import { getAlgodClient } from '@/lib/algorand';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,14 +19,6 @@ const FLAG_OFFSET_IN_ENTRY = 34;
 
 const FLAG_UNCLAIMED = 0x00;
 const FLAG_CLAIMED = 0x01;
-
-function getAlgodClient() {
-  return new algosdk.Algodv2(
-    process.env.ALGOD_TOKEN || '',
-    process.env.ALGOD_SERVER || 'https://testnet-api.algonode.cloud',
-    process.env.ALGOD_PORT || ''
-  );
-}
 
 function normalizeAddress(addr) {
   return String(addr || '').trim().toUpperCase();
@@ -189,7 +182,7 @@ export async function GET(request) {
       })
       .toArray();
 
-    const algodClient = getAlgodClient();
+    const algodClient = getAlgodClient('mainnet');
 
     let userAssets = [];
     try {

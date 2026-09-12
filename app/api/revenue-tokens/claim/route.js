@@ -10,24 +10,11 @@ import {
   getCachedTxParams,
   getCachedAccountInfo,
 } from '@/lib/algorand-rate-limit';
+import { getAlgodClient } from '@/lib/algorand';
 
 export const dynamic = 'force-dynamic';
 
 const CLAIM_FEE = 3000;
-
-function getAlgodClient() {
-  const apiKey = process.env.TATUM_API_KEY;
-
-  if (apiKey && !apiKey.startsWith('YOUR_')) {
-    return new algosdk.Algodv2(
-      { 'x-api-key': apiKey },
-      'https://algorand-testnet-algod.gateway.tatum.io',
-      ''
-    );
-  }
-
-  return new algosdk.Algodv2('', 'https://testnet-api.algonode.cloud', '');
-}
 
 function normalizeAddress(addr) {
   return String(addr || '').trim().toUpperCase();
@@ -227,7 +214,7 @@ export async function POST(request) {
     const ip = await findIpRecord(db, requestedIpId);
     const { resolvedIpId, appId, tokenId } = extractPoolConfig(ip);
 
-    const algodClient = getAlgodClient();
+    const algodClient = getAlgodClient('mainnet');
     const suggestedParams = await getCachedTxParams(algodClient);
     const { genesisHash, genesisID } = getGenesisFields(suggestedParams);
 
@@ -338,7 +325,7 @@ export async function PUT(request) {
     const runSubmit = async () => {
       await sleep(500);
 
-      const client = getAlgodClient();
+      const client = getAlgodClient('mainnet');
 
       const signedBytes = decodeSignedBase64Txn(signedTxnBase64);
       const stxn = algosdk.decodeSignedTransaction(signedBytes);
@@ -368,7 +355,7 @@ export async function PUT(request) {
         success: true,
         submitted: true,
         txId: txid,
-        explorerUrl: `https://testnet.explorer.perawallet.app/tx/${txid}`,
+        explorerUrl: `https://explorer.perawallet.app/tx/${txid}`,
         message: 'Claim transaction submitted successfully.',
       });
     };

@@ -346,7 +346,7 @@ def main():
         print(f"\n  App ID:   {app_id}")
         print(f"  IP ID:    {TEST_IP_ID}")
         print(f"  ASA ID:   {asa_id}")
-        print(f"  Explorer: https://testnet.explorer.perawallet.app/application/{app_id}/\n")
+        print(f"  Explorer: https://explorer.perawallet.app/application/{app_id}/\n")
 
     except AssertionError as e:
         section(f"TEST FAILED ❌: {e}")

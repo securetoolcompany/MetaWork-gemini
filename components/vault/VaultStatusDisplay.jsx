@@ -200,7 +200,7 @@ export default function VaultStatusDisplay({
             </div>
             {vault.finalizeTxId && (
               <a
-                href={`https://testnet.explorer.perawallet.app/tx/${vault.finalizeTxId}`}
+                href={`https://explorer.perawallet.app/tx/${vault.finalizeTxId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-primary hover:underline flex items-center gap-1 mt-1"

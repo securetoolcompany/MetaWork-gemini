@@ -26,12 +26,14 @@ export async function GET(request) {
       );
     }
     
-    const algodClient = getAlgodClient();
-    
-    // Debug: Log which endpoint we're using
+    const algodClient = getAlgodClient('mainnet');
+
     console.log('=== Balance Check Debug ===');
     console.log('Address:', address);
-    console.log('Algod URL:', process.env.ALGORAND_TESTNET_RPC || 'https://testnet-api.algonode.cloud');
+    console.log(
+      'Algod URL:',
+      process.env.ALGORAND_MAINNET_RPC || 'MISSING'
+    );
     
     // Get account information
     let accountInfo;
@@ -149,12 +151,11 @@ function getRecommendation(operation, shortfall) {
     action: 'Add ALGO to your wallet',
     steps: [
       'Open Pera Wallet on your mobile device',
-      'Go to "Receive" to see your wallet address',
+      'Go to "Receive" and copy your wallet address',
       'Purchase ALGO from an exchange (Coinbase, Binance, etc.)',
       'Send ALGO to your Pera Wallet address',
-      'For Algorand Testnet, use the Algorand Testnet Dispenser to get free test ALGO'
+      'Verify recipient address before confirming'
     ],
-    testnetFaucet: 'https://bank.testnet.algorand.network/',
     minimumRecommended: '1.0 ALGO for minting operations'
   };
   
