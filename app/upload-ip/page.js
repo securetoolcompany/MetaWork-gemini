@@ -16,7 +16,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useWallet } from '@/lib/WalletContext';
 import { useAuth } from '@/lib/AuthContext';
 import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
-import { getTransactionParams } from "@/lib/algorand";
 import algosdk from "algosdk";
 import {
   Dialog,
@@ -26,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { getPublicTransactionParams } from '@/lib/algorand-public';
 
 // ── Shared category taxonomy (mirrors showroom IP_FILTER_GROUPS) ──────────────
 export const IP_CATEGORY_GROUPS = [
@@ -591,9 +591,14 @@ function UploadIPInner() {
       const mbrMicroAlgos = step1.mbrMicroAlgos;
       toast.loading('Funding pool creation MBR...', { id: toastId });
 
-      const params = await getTransactionParams();
-      const platformAddr = process.env.NEXT_PUBLIC_TREASURY_ADDRESS;
+      const params = await getPublicTransactionParams();
+      const platformAddr = process.env.NEXT_PUBLIC_TREASURY_ADDRESS?.trim();
 
+      if (!platformAddr || !algosdk.isValidAddress(platformAddr)) {
+        throw new Error(
+          'NEXT_PUBLIC_TREASURY_ADDRESS is missing or invalid for this deployment.'
+        );
+      }
       const mbrPayTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
         sender: accountAddress,
         receiver: platformAddr,
