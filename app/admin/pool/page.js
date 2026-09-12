@@ -38,6 +38,21 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 
+const ALGOD_NETWORK = (
+  process.env.NEXT_PUBLIC_ALGORAND_NETWORK || 'testnet'
+).toLowerCase();
+
+const PUBLIC_ALGOD_SERVER =
+  ALGOD_NETWORK === 'mainnet'
+    ? 'https://mainnet-api.algonode.cloud'
+    : 'https://testnet-api.algonode.cloud';
+
+const PUBLIC_ALGOD_CLIENT = new algosdk.Algodv2(
+  '',
+  PUBLIC_ALGOD_SERVER,
+  ''
+);
+
 const REVENUE_POOL_APP_ID = Number(
     process.env.NEXT_PUBLIC_REVENUE_POOL_APP_ID
 );
@@ -471,11 +486,7 @@ export default function PoolAdminPage() {
         setIsRefreshing(true);
 
         try {
-            const algod = new algosdk.Algodv2(
-                '',
-                'https://testnet-api.algonode.cloud',
-                ''
-            );
+            const algod = PUBLIC_ALGOD_CLIENT;
 
             const poolAcct = await algod.accountInformation(appAddress).do();
             const poolUsdc = findAsset(poolAcct.assets, USDC_ASSET_ID);
@@ -1049,11 +1060,7 @@ export default function PoolAdminPage() {
                 );
             }
 
-            const algod = new algosdk.Algodv2(
-                '',
-                'https://testnet-api.algonode.cloud',
-                ''
-            );
+            const algod = PUBLIC_ALGOD_CLIENT;
 
             await algod.sendRawTransaction(signedTransactions).do();
 
@@ -1385,11 +1392,7 @@ export default function PoolAdminPage() {
                 );
             }
 
-            const algod = new algosdk.Algodv2(
-                '',
-                'https://testnet-api.algonode.cloud',
-                ''
-            );
+            const algod = PUBLIC_ALGOD_CLIENT;
 
             await algod.sendRawTransaction(signedTransactions).do();
 
