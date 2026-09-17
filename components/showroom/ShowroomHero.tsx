@@ -55,7 +55,7 @@ export default function ShowroomHero({
           </div>
         </div>
 
-        <AisleAdPlacement type="header" accentColor="#3b82f6" />
+        {/*<AisleAdPlacement type="header" accentColor="#3b82f6" />*/}
       </div>
     </div>
   );
