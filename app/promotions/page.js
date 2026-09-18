@@ -463,14 +463,14 @@ function CouponsTab({ coupons, setCoupons }) {
 }
 
 function QRCodesTab() {
-  const [qrType, setQrType] = useState('aisle');
-  
   return (
     <div className="space-y-6">
       <Card className="p-6">
         <div className="mb-6">
-          <h3 className="text-xl font-bold mb-2">QR Code Generator</h3>
-          <p className="text-sm text-muted-foreground">Create QR codes for your aisle or individual products</p>
+          <h3 className="mb-2 text-xl font-bold">QR Code Generator</h3>
+          <p className="text-sm text-muted-foreground">
+            Create QR codes for your aisle or individual products
+          </p>
         </div>
 
         <QRCodeGenerator />
