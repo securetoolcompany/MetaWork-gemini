@@ -32,17 +32,35 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
+type CardAudience =
+  | 'team_athlete'
+  | 'combat_athlete'
+  | 'extreme_athlete'
+  | 'musician'
+  | 'creator'
+  | 'organization';
 type CardProgram = 'event' | 'athlete' | 'autograph';
 type FrontLayout =
   | 'event-feature'
   | 'traditional'
   | 'full-image'
-  | 'first-ink';
+  | 'first-ink'
+  | 'artist-release'
+  | 'creator-drop'
+  | 'team-season'
+  | 'sponsor-edition'
+  | 'organization-poster';
 type BackLayout =
   | 'event-details'
-  | 'athlete-bio'
   | 'tale-of-tape'
-  | 'highlights-qr';
+  | 'season-stats'
+  | 'performance-profile'
+  | 'artist-discography'
+  | 'creator-community'
+  | 'organization-profile'
+  | 'story-bio'
+  | 'highlights-qr'
+  | 'sponsor-qr';
 type HolographicFinish =
   | 'supplier-recommendation'
   | 'gear'
@@ -116,35 +134,162 @@ const PROGRAMS: Array<{
   },
 ];
 
+const AUDIENCES: Array<{
+  id: CardAudience;
+  title: string;
+  description: string;
+}> = [
+  {
+    id: 'team_athlete',
+    title: 'Team Athlete',
+    description:
+      'For youth, high-school, college, club, or recreational athletes. Use team, school, position, jersey number, season stats, and awards.',
+  },
+  {
+    id: 'combat_athlete',
+    title: 'Combat Athlete',
+    description:
+      'For MMA, boxing, kickboxing, wrestling, BJJ, and similar athletes. Use tale-of-the-tape, record, division, reach, stance, gym, and fight-event details.',
+  },
+  {
+    id: 'extreme_athlete',
+    title: 'Individual / Extreme Athlete',
+    description:
+      'For racing, skateboarding, motocross, fitness, climbing, surfing, and independent competitive athletes.',
+  },
+  {
+    id: 'musician',
+    title: 'Musician / Performing Artist',
+    description:
+      'For artists, bands, DJs, producers, and performers. Use releases, discography, tour dates, venues, and streaming links.',
+  },
+  {
+    id: 'creator',
+    title: 'Creator / Influencer',
+    description:
+      'For streamers, YouTubers, podcasters, educators, artists, and social creators with fan communities and brand partners.',
+  },
+  {
+    id: 'organization',
+    title: 'Team, Gym, Event, or Organization',
+    description:
+      'For schools, gyms, leagues, promoters, tournaments, fundraisers, events, and roster-based card series.',
+  },
+];
+
+const AUDIENCE_PROGRAMS: Record<CardAudience, CardProgram[]> = {
+  team_athlete: ['athlete', 'event', 'autograph'],
+  combat_athlete: ['event', 'athlete', 'autograph'],
+  extreme_athlete: ['athlete', 'event', 'autograph'],
+  musician: ['athlete', 'event', 'autograph'],
+  creator: ['athlete', 'event', 'autograph'],
+  organization: ['event', 'athlete'],
+};
+
 const FRONT_LAYOUTS: Array<{
   id: FrontLayout;
   title: string;
   description: string;
+  audiences: CardAudience[];
   programs: CardProgram[];
 }> = [
   {
     id: 'event-feature',
     title: 'Event Feature',
-    description: 'Event branding, athlete image, matchup, date, and venue.',
+    description:
+      'Event identity, date, venue, featured person, matchup, and promotion branding.',
+    audiences: [
+      'team_athlete',
+      'combat_athlete',
+      'extreme_athlete',
+      'musician',
+      'creator',
+      'organization',
+    ],
     programs: ['event'],
   },
   {
     id: 'traditional',
-    title: 'Traditional Athlete',
-    description: 'Portrait, athlete name, team or gym, number, and sport details.',
+    title: 'Traditional Player Profile',
+    description:
+      'A classic collectible card with a portrait, display name, team or brand, and key identity details.',
+    audiences: ['team_athlete', 'combat_athlete', 'extreme_athlete'],
     programs: ['athlete', 'autograph'],
   },
   {
     id: 'full-image',
     title: 'Full Image / Action',
-    description: 'A full-bleed action image with strong athlete or event identity.',
+    description:
+      'A full-bleed action, performance, event, or portrait image with bold display text.',
+    audiences: [
+      'team_athlete',
+      'combat_athlete',
+      'extreme_athlete',
+      'musician',
+      'creator',
+      'organization',
+    ],
     programs: ['event', 'athlete', 'autograph'],
   },
   {
     id: 'first-ink',
-    title: 'First Ink Panel',
-    description: 'Collector-focused front with an open autograph area.',
+    title: 'First Ink Autograph Panel',
+    description:
+      'A premium collector layout with protected space for an in-person or pre-signed autograph.',
+    audiences: [
+      'team_athlete',
+      'combat_athlete',
+      'extreme_athlete',
+      'musician',
+      'creator',
+    ],
     programs: ['autograph'],
+  },
+  {
+    id: 'artist-release',
+    title: 'Artist / Release Cover',
+    description:
+      'Artist image, stage name, release title, genre, and album, single, or tour identity.',
+    audiences: ['musician'],
+    programs: ['athlete', 'event', 'autograph'],
+  },
+  {
+    id: 'creator-drop',
+    title: 'Creator Drop Cover',
+    description:
+      'Creator profile, channel identity, campaign, community milestone, or limited drop artwork.',
+    audiences: ['creator'],
+    programs: ['athlete', 'event', 'autograph'],
+  },
+  {
+    id: 'team-season',
+    title: 'Team / Season Spotlight',
+    description:
+      'Team, school, club, season, jersey number, position, and varsity or senior-year identity.',
+    audiences: ['team_athlete'],
+    programs: ['athlete', 'event'],
+  },
+  {
+    id: 'sponsor-edition',
+    title: 'Sponsor Edition',
+    description:
+      'A premium sponsor-forward card with space for one featured partner without crowding the subject.',
+    audiences: [
+      'combat_athlete',
+      'extreme_athlete',
+      'musician',
+      'creator',
+      'organization',
+    ],
+    programs: ['event', 'athlete', 'autograph'],
+  },
+  {
+    id: 'organization-poster',
+    title: 'Event / Organization Poster',
+    description:
+      'Promotion, gym, school, event, league, roster, or organization branding with a featured callout.',
+    audiences: ['organization'],
+    programs: ['event', 'athlete'],
   },
 ];
 
@@ -152,31 +297,116 @@ const BACK_LAYOUTS: Array<{
   id: BackLayout;
   title: string;
   description: string;
+  audiences: CardAudience[];
   programs: CardProgram[];
 }> = [
   {
     id: 'event-details',
     title: 'Event Details',
-    description: 'Event date, venue, matchup, promotion, partners, and callout.',
+    description:
+      'Event name, date, venue, matchup, promotion details, and partner callouts.',
+    audiences: [
+      'combat_athlete',
+      'team_athlete',
+      'extreme_athlete',
+      'musician',
+      'creator',
+      'organization',
+    ],
     programs: ['event'],
-  },
-  {
-    id: 'athlete-bio',
-    title: 'Bio & Stats',
-    description: 'Athlete story, team details, accomplishments, and sport-specific stats.',
-    programs: ['athlete', 'autograph'],
   },
   {
     id: 'tale-of-tape',
     title: 'Tale of the Tape',
-    description: 'Age, height, weight, reach, record, division, gym, and titles.',
+    description:
+      'Age, height, weight, reach, stance, record, division, gym, and titles.',
+    audiences: ['combat_athlete'],
+    programs: ['event', 'athlete', 'autograph'],
+  },
+  {
+    id: 'season-stats',
+    title: 'Season Stats',
+    description:
+      'Position, jersey number, school/team, season statistics, record, awards, and class year.',
+    audiences: ['team_athlete'],
+    programs: ['event', 'athlete', 'autograph'],
+  },
+  {
+    id: 'performance-profile',
+    title: 'Performance Profile',
+    description:
+      'Discipline, ranking, personal best, equipment setup, featured event, and achievements.',
+    audiences: ['extreme_athlete'],
+    programs: ['event', 'athlete', 'autograph'],
+  },
+  {
+    id: 'artist-discography',
+    title: 'Discography',
+    description:
+      'Current release, notable songs or projects, genre, collaborators, tour dates, and streaming links.',
+    audiences: ['musician'],
+    programs: ['event', 'athlete', 'autograph'],
+  },
+  {
+    id: 'creator-community',
+    title: 'Creator & Community',
+    description:
+      'Creator handle, primary platform, community name, milestone, featured series, and channel link.',
+    audiences: ['creator'],
+    programs: ['event', 'athlete', 'autograph'],
+  },
+  {
+    id: 'organization-profile',
+    title: 'Organization Profile',
+    description:
+      'Organization story, event/season details, roster or featured talent, and registration link.',
+    audiences: ['organization'],
+    programs: ['event', 'athlete'],
+  },
+  {
+    id: 'story-bio',
+    title: 'Story / Bio',
+    description:
+      'A narrative back centered on personality, style, background, journey, and defining achievements.',
+    audiences: [
+      'team_athlete',
+      'combat_athlete',
+      'extreme_athlete',
+      'musician',
+      'creator',
+      'organization',
+    ],
     programs: ['event', 'athlete', 'autograph'],
   },
   {
     id: 'highlights-qr',
     title: 'Highlights & QR',
-    description: 'Career highlights, social links, recruiting page, or video destination.',
-    programs: ['athlete', 'autograph'],
+    description:
+      'Key accomplishments with one QR code to a highlight reel, profile, tickets, music, or content.',
+    audiences: [
+      'team_athlete',
+      'combat_athlete',
+      'extreme_athlete',
+      'musician',
+      'creator',
+      'organization',
+    ],
+    programs: ['event', 'athlete', 'autograph'],
+  },
+  {
+    id: 'sponsor-qr',
+    title: 'Sponsor & QR Back',
+    description:
+      'A clean sponsor strip or partner grid with one primary QR destination and optional sponsor offer.',
+    audiences: [
+      'team_athlete',
+      'combat_athlete',
+      'extreme_athlete',
+      'musician',
+      'creator',
+      'organization',
+    ],
+    programs: ['event', 'athlete', 'autograph'],
   },
 ];
 
@@ -245,6 +475,9 @@ export default function AthleteCardsPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+	const [audience, setAudience] =
+	useState<CardAudience>('combat_athlete');
+
   const [program, setProgram] = useState<CardProgram>('event');
   const [frontLayout, setFrontLayout] =
     useState<FrontLayout>('event-feature');
@@ -276,6 +509,47 @@ export default function AthleteCardsPage() {
     record: '',
     titles: '',
     achievements: '',
+		// Team athlete fields
+    classYear: '',
+    season: '',
+    teamRecord: '',
+    seasonStats: '',
+    coachName: '',
+
+    // Individual / extreme athlete fields
+    discipline: '',
+    ranking: '',
+    personalBest: '',
+    equipmentSetup: '',
+    featuredAchievement: '',
+
+    // Musician fields
+    artistName: '',
+    genre: '',
+    roleOrInstrument: '',
+    bandOrLabel: '',
+    currentRelease: '',
+    discography: '',
+    tourOrEvent: '',
+    streamingLink: '',
+
+    // Creator fields
+    creatorHandle: '',
+    contentCategory: '',
+    primaryPlatform: '',
+    communityName: '',
+    featuredSeries: '',
+    creatorMilestone: '',
+
+    // Organization fields
+    organizationName: '',
+    organizationType: '',
+    organizationSeason: '',
+    rosterOrFeaturedTalent: '',
+    organizationMission: '',
+    ticketOrRegistrationLink: '',
+
+		// Sponsor Fields
     qrDestination: '',
     primaryColor: '',
     accentColor: '',
@@ -301,14 +575,28 @@ export default function AthleteCardsPage() {
   const [referenceFiles, setReferenceFiles] = useState<UploadedAsset[]>([]);
 
   const availableFrontLayouts = useMemo(
-    () => FRONT_LAYOUTS.filter((layout) => layout.programs.includes(program)),
-    [program],
-  );
-
+		() =>
+			FRONT_LAYOUTS.filter(
+				(layout) =>
+					layout.programs.includes(program) &&
+					layout.audiences.includes(audience),
+			),
+		[program, audience],
+	);
   const availableBackLayouts = useMemo(
-    () => BACK_LAYOUTS.filter((layout) => layout.programs.includes(program)),
-    [program],
-  );
+		() =>
+			BACK_LAYOUTS.filter(
+				(layout) =>
+					layout.programs.includes(program) &&
+					layout.audiences.includes(audience),
+			),
+		[program, audience],
+	);
+
+	const availablePrograms = useMemo(
+		() => PROGRAMS.filter((item) => AUDIENCE_PROGRAMS[audience].includes(item.id)),
+		[audience],
+	);
 
   const isCombatSport = /mma|boxing|kickboxing|muay thai|wrestling|jiu-jitsu|bjj/i.test(
     form.sport,
@@ -344,6 +632,40 @@ export default function AthleteCardsPage() {
       setBackLayout(nextBack?.id || 'tale-of-tape');
     }
   };
+
+	const chooseAudience = (nextAudience: CardAudience) => {
+		setAudience(nextAudience);
+
+		const allowedPrograms = AUDIENCE_PROGRAMS[nextAudience];
+
+		const nextProgram = allowedPrograms.includes(program)
+			? program
+			: allowedPrograms[0];
+
+		if (!allowedPrograms.includes(program)) {
+			chooseProgram(nextProgram);
+		}
+
+		const validFrontLayouts = FRONT_LAYOUTS.filter(
+			(layout) =>
+				layout.audiences.includes(nextAudience) &&
+				layout.programs.includes(nextProgram),
+		);
+
+		if (!validFrontLayouts.some((layout) => layout.id === frontLayout)) {
+			setFrontLayout(validFrontLayouts[0]?.id || 'full-image');
+		}
+
+		const validBackLayouts = BACK_LAYOUTS.filter(
+			(layout) =>
+				layout.audiences.includes(nextAudience) &&
+				layout.programs.includes(nextProgram),
+		);
+
+		if (!validBackLayouts.some((layout) => layout.id === backLayout)) {
+			setBackLayout(validBackLayouts[0]?.id || 'story-bio');
+		}
+	};
 
   const addAssets = (
     event: ChangeEvent<HTMLInputElement>,
@@ -662,13 +984,72 @@ export default function AthleteCardsPage() {
             {activeStep === 1 && (
               <section>
                 <SectionHeading
-                  eyebrow="Step 01"
-                  title="What kind of card are you creating?"
-                  description="Start with the card program. The content, layouts, and production notes adapt to this choice."
-                />
+									eyebrow="Step 01"
+									title="Who is this card for?"
+									description="Choose the person, team, artist, or organization first. The next steps will show only the information that makes sense for that type of card."
+								/>
 
-                <div className="grid gap-5 md:grid-cols-3">
-                  {PROGRAMS.map((item) => {
+								<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+									{AUDIENCES.map((item) => {
+										const selected = audience === item.id;
+
+										return (
+											<button
+												key={item.id}
+												type="button"
+												onClick={() => chooseAudience(item.id)}
+												className={cn(
+													'rounded-2xl border p-5 text-left transition-all',
+													selected
+														? 'border-amber-300 bg-amber-300/[0.07] shadow-[0_0_28px_rgba(251,191,36,0.16)]'
+														: 'border-white/10 bg-white/[0.025] hover:border-white/25 hover:bg-white/[0.04]',
+												)}
+											>
+												<div className="flex items-start justify-between gap-3">
+													<div>
+														<h2 className="text-lg font-black text-white">
+															{item.title}
+														</h2>
+														<p className="mt-2 text-sm leading-6 text-slate-400">
+															{item.description}
+														</p>
+													</div>
+
+													<span
+														className={cn(
+															'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border',
+															selected
+																? 'border-amber-300 bg-amber-300 text-black'
+																: 'border-white/20 text-transparent',
+														)}
+													>
+														<Check className="h-3.5 w-3.5" />
+													</span>
+												</div>
+											</button>
+										);
+									})}
+								</div>
+
+								<div className="mt-10 border-t border-white/10 pt-8">
+									<div className="mb-6">
+										<p className="text-xs font-black uppercase tracking-[0.2em] text-amber-300">
+											Card Program
+										</p>
+
+										<h2 className="mt-2 text-2xl font-black tracking-tight text-white">
+											What kind of card are you creating?
+										</h2>
+
+										<p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+											Choose the card format after selecting who it is for. Event Cards,
+											Athlete Cards, and First Ink Autograph Cards can use different
+											content and layouts.
+										</p>
+									</div>
+
+									<div className="grid gap-5 md:grid-cols-3">
+								    {availablePrograms.map((item) => {
                     const ProgramIcon = item.icon;
                     const selected = program === item.id;
 
@@ -718,7 +1099,7 @@ export default function AthleteCardsPage() {
                     );
                   })}
                 </div>
-
+							</div>
                 <div className="mt-8 rounded-2xl border border-blue-300/15 bg-blue-400/[0.04] p-5 text-sm leading-6 text-slate-300">
                   <Info className="mr-2 inline h-4 w-4 text-blue-300" />
                   <span className="font-semibold text-blue-100">How this works:</span>{' '}
@@ -900,109 +1281,455 @@ export default function AthleteCardsPage() {
                   </Card>
 
                   <Card className="border-white/10 bg-white/[0.025]">
-                    <CardContent className="p-5 sm:p-7">
-                      <h2 className="text-lg font-black text-white">
-                        Stats, highlights, and story details
-                      </h2>
+										<CardContent className="p-5 sm:p-7">
+											{audience === 'combat_athlete' && (
+												<>
+													<h2 className="text-lg font-black text-white">
+														Tale of the tape
+													</h2>
 
-                      {isCombatSport ? (
-                        <div className="mt-6 grid gap-5 md:grid-cols-3">
-                          <Field
-                            label="Age"
-                            value={form.age}
-                            onChange={(value) => updateForm('age', value)}
-                            placeholder="24"
-                          />
-                          <Field
-                            label="Height"
-                            value={form.height}
-                            onChange={(value) => updateForm('height', value)}
-                            placeholder={`5' 8"`}
-                          />
-                          <Field
-                            label="Weight"
-                            value={form.weight}
-                            onChange={(value) => updateForm('weight', value)}
-                            placeholder="155 lbs"
-                          />
-                          <Field
-                            label="Reach"
-                            value={form.reach}
-                            onChange={(value) => updateForm('reach', value)}
-                            placeholder={`71"`}
-                          />
-                          <Field
-                            label="Stance"
-                            value={form.stance}
-                            onChange={(value) => updateForm('stance', value)}
-                            placeholder="Orthodox / Southpaw"
-                          />
-                          <Field
-                            label="Record"
-                            value={form.record}
-                            onChange={(value) => updateForm('record', value)}
-                            placeholder="10–2–0"
-                          />
-                        </div>
-                      ) : (
-                        <div className="mt-6 grid gap-5 md:grid-cols-2">
-                          <Field
-                            label="Height"
-                            value={form.height}
-                            onChange={(value) => updateForm('height', value)}
-                            placeholder={`e.g., 6' 1"`}
-                          />
-                          <Field
-                            label="Weight"
-                            value={form.weight}
-                            onChange={(value) => updateForm('weight', value)}
-                            placeholder="e.g., 185 lbs"
-                          />
-                          <Field
-                            label="Primary statistic"
-                            value={form.record}
-                            onChange={(value) => updateForm('record', value)}
-                            placeholder="e.g., 18 goals / 12 assists"
-                          />
-                          <Field
-                            label="Graduation year / season"
-                            value={form.age}
-                            onChange={(value) => updateForm('age', value)}
-                            placeholder="e.g., Class of 2027"
-                          />
-                        </div>
-                      )}
+													<p className="mt-1 text-sm text-slate-400">
+														Combat-athlete information for the event card, athlete card, or
+														autograph edition.
+													</p>
 
-                      <div className="mt-5 grid gap-5 md:grid-cols-2">
-                        <Field
-                          label="Titles, belts, awards, or honors"
-                          value={form.titles}
-                          onChange={(value) => updateForm('titles', value)}
-                          placeholder="e.g., Regional Champion, 2026 Tournament MVP"
-                        />
-                        <Field
-                          label="QR destination"
-                          value={form.qrDestination}
-                          onChange={(value) => updateForm('qrDestination', value)}
-                          placeholder="Profile, highlight reel, ticket page, or sponsor offer"
-                        />
-                      </div>
+													<div className="mt-6 grid gap-5 md:grid-cols-3">
+														<Field
+															label="Age"
+															value={form.age}
+															onChange={(value) => updateForm('age', value)}
+															placeholder="24"
+														/>
+														<Field
+															label="Height"
+															value={form.height}
+															onChange={(value) => updateForm('height', value)}
+															placeholder={`5' 8"`}
+														/>
+														<Field
+															label="Weight"
+															value={form.weight}
+															onChange={(value) => updateForm('weight', value)}
+															placeholder="155 lbs"
+														/>
+														<Field
+															label="Reach"
+															value={form.reach}
+															onChange={(value) => updateForm('reach', value)}
+															placeholder={`71"`}
+														/>
+														<Field
+															label="Stance"
+															value={form.stance}
+															onChange={(value) => updateForm('stance', value)}
+															placeholder="Orthodox / Southpaw"
+														/>
+														<Field
+															label="Record"
+															value={form.record}
+															onChange={(value) => updateForm('record', value)}
+															placeholder="10–2–0"
+														/>
+													</div>
 
-                      <div className="mt-5">
-                        <Label className="text-sm font-semibold text-slate-200">
-                          Achievements / highlights
-                        </Label>
-                        <textarea
-                          value={form.achievements}
-                          onChange={(event) =>
-                            updateForm('achievements', event.target.value)
-                          }
-                          placeholder="List milestones, wins, rankings, awards, season statistics, or the card's key story points."
-                          className="mt-2 min-h-28 border-white/10 bg-black/30 text-white placeholder:text-slate-600"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
+													<div className="mt-5 grid gap-5 md:grid-cols-2">
+														<Field
+															label="Titles / belts"
+															value={form.titles}
+															onChange={(value) => updateForm('titles', value)}
+															placeholder="Regional Champion, title holder, tournament winner"
+														/>
+														<Field
+															label="QR destination"
+															value={form.qrDestination}
+															onChange={(value) => updateForm('qrDestination', value)}
+															placeholder="Fight profile, highlight reel, tickets, or sponsor page"
+														/>
+													</div>
+
+													<div className="mt-5">
+														<Label className="text-sm font-semibold text-slate-200">
+															Career highlights
+														</Label>
+
+														<textarea
+															value={form.achievements}
+															onChange={(event) =>
+																updateForm('achievements', event.target.value)
+															}
+															placeholder="Wins, rankings, titles, notable opponents, training camp, or event highlights."
+															className="mt-2 min-h-28 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-white placeholder:text-slate-600 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-300/30"
+														/>
+													</div>
+												</>
+											)}
+
+											{audience === 'team_athlete' && (
+												<>
+													<h2 className="text-lg font-black text-white">
+														Team athlete profile
+													</h2>
+
+													<p className="mt-1 text-sm text-slate-400">
+														Use season, position, school/team, statistics, and recognition—not
+														combat-sport tale-of-the-tape fields.
+													</p>
+
+													<div className="mt-6 grid gap-5 md:grid-cols-3">
+														<Field
+															label="Position"
+															value={form.positionOrDivision}
+															onChange={(value) => updateForm('positionOrDivision', value)}
+															placeholder="Quarterback, goalie, forward, pitcher..."
+														/>
+														<Field
+															label="Class year / graduation year"
+															value={form.classYear}
+															onChange={(value) => updateForm('classYear', value)}
+															placeholder="Class of 2027"
+														/>
+														<Field
+															label="Season"
+															value={form.season}
+															onChange={(value) => updateForm('season', value)}
+															placeholder="2026–2027"
+														/>
+														<Field
+															label="Height"
+															value={form.height}
+															onChange={(value) => updateForm('height', value)}
+															placeholder={`e.g., 6' 1"`}
+														/>
+														<Field
+															label="Weight"
+															value={form.weight}
+															onChange={(value) => updateForm('weight', value)}
+															placeholder="e.g., 185 lbs"
+														/>
+														<Field
+															label="Team record"
+															value={form.teamRecord}
+															onChange={(value) => updateForm('teamRecord', value)}
+															placeholder="e.g., 10–2"
+														/>
+													</div>
+
+													<div className="mt-5 grid gap-5 md:grid-cols-2">
+														<Field
+															label="Season statistics"
+															value={form.seasonStats}
+															onChange={(value) => updateForm('seasonStats', value)}
+															placeholder="Points, touchdowns, goals, assists, saves, ERA, etc."
+														/>
+														<Field
+															label="Coach / program"
+															value={form.coachName}
+															onChange={(value) => updateForm('coachName', value)}
+															placeholder="Coach name, team program, or athletic department"
+														/>
+													</div>
+
+													<div className="mt-5">
+														<Label className="text-sm font-semibold text-slate-200">
+															Awards and highlights
+														</Label>
+
+														<textarea
+															value={form.achievements}
+															onChange={(event) =>
+																updateForm('achievements', event.target.value)
+															}
+															placeholder="Awards, captaincy, all-star recognition, personal bests, key games, tournament wins, or recruiting highlights."
+															className="mt-2 min-h-28 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-white placeholder:text-slate-600 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-300/30"
+														/>
+													</div>
+												</>
+											)}
+
+											{audience === 'extreme_athlete' && (
+												<>
+													<h2 className="text-lg font-black text-white">
+														Individual athlete profile
+													</h2>
+
+													<p className="mt-1 text-sm text-slate-400">
+														Use discipline, rankings, performance markers, equipment, and
+														achievement details.
+													</p>
+
+													<div className="mt-6 grid gap-5 md:grid-cols-2">
+														<Field
+															label="Discipline"
+															value={form.discipline}
+															onChange={(value) => updateForm('discipline', value)}
+															placeholder="Motocross, skateboarding, climbing, racing, surfing..."
+														/>
+														<Field
+															label="Team / crew"
+															value={form.teamOrGym}
+															onChange={(value) => updateForm('teamOrGym', value)}
+															placeholder="Team, crew, club, or independent athlete"
+														/>
+														<Field
+															label="Current ranking"
+															value={form.ranking}
+															onChange={(value) => updateForm('ranking', value)}
+															placeholder="Regional, national, series, or event ranking"
+														/>
+														<Field
+															label="Personal best / performance marker"
+															value={form.personalBest}
+															onChange={(value) => updateForm('personalBest', value)}
+															placeholder="Fastest time, highest score, placement, distance..."
+														/>
+														<Field
+															label="Equipment / setup"
+															value={form.equipmentSetup}
+															onChange={(value) => updateForm('equipmentSetup', value)}
+															placeholder="Board, bike, vehicle, gear, brand, model..."
+														/>
+														<Field
+															label="QR destination"
+															value={form.qrDestination}
+															onChange={(value) => updateForm('qrDestination', value)}
+															placeholder="Profile, highlights, schedule, or sponsor page"
+														/>
+													</div>
+
+													<div className="mt-5">
+														<Label className="text-sm font-semibold text-slate-200">
+															Featured achievement
+														</Label>
+
+														<textarea
+															value={form.featuredAchievement}
+															onChange={(event) =>
+																updateForm('featuredAchievement', event.target.value)
+															}
+															placeholder="Describe the performance, competition, milestone, trick, run, race, or achievement the card should feature."
+															className="mt-2 min-h-28 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-white placeholder:text-slate-600 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-300/30"
+														/>
+													</div>
+												</>
+											)}
+
+											{audience === 'musician' && (
+												<>
+													<h2 className="text-lg font-black text-white">
+														Artist profile and release details
+													</h2>
+
+													<p className="mt-1 text-sm text-slate-400">
+														Build an artist, album-release, show, tour, or autograph card using
+														music-specific information.
+													</p>
+
+													<div className="mt-6 grid gap-5 md:grid-cols-2">
+														<Field
+															label="Artist / stage name"
+															value={form.artistName}
+															onChange={(value) => updateForm('artistName', value)}
+															placeholder="Name shown on the card"
+														/>
+														<Field
+															label="Genre"
+															value={form.genre}
+															onChange={(value) => updateForm('genre', value)}
+															placeholder="Hip-hop, country, rock, EDM, R&B..."
+														/>
+														<Field
+															label="Role / instrument"
+															value={form.roleOrInstrument}
+															onChange={(value) => updateForm('roleOrInstrument', value)}
+															placeholder="Vocalist, DJ, producer, guitarist..."
+														/>
+														<Field
+															label="Band, collective, or label"
+															value={form.bandOrLabel}
+															onChange={(value) => updateForm('bandOrLabel', value)}
+															placeholder="Optional"
+														/>
+														<Field
+															label="Current release"
+															value={form.currentRelease}
+															onChange={(value) => updateForm('currentRelease', value)}
+															placeholder="Album, EP, single, video, or project"
+														/>
+														<Field
+															label="Tour / show / event"
+															value={form.tourOrEvent}
+															onChange={(value) => updateForm('tourOrEvent', value)}
+															placeholder="Tour name, release show, venue, or event"
+														/>
+														<Field
+															label="Music / streaming link"
+															value={form.streamingLink}
+															onChange={(value) => updateForm('streamingLink', value)}
+															placeholder="Spotify, Apple Music, YouTube, Bandcamp..."
+														/>
+														<Field
+															label="QR destination"
+															value={form.qrDestination}
+															onChange={(value) => updateForm('qrDestination', value)}
+															placeholder="Music, tickets, merch, or artist profile"
+														/>
+													</div>
+
+													<div className="mt-5">
+														<Label className="text-sm font-semibold text-slate-200">
+															Discography and notable releases
+														</Label>
+
+														<textarea
+															value={form.discography}
+															onChange={(event) =>
+																updateForm('discography', event.target.value)
+															}
+															placeholder="List releases, albums, singles, collaborations, streams, notable performances, or press highlights."
+															className="mt-2 min-h-28 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-white placeholder:text-slate-600 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-300/30"
+														/>
+													</div>
+												</>
+											)}
+
+											{audience === 'creator' && (
+												<>
+													<h2 className="text-lg font-black text-white">
+														Creator profile and community details
+													</h2>
+
+													<p className="mt-1 text-sm text-slate-400">
+														Use platform, creator identity, fan community, campaign, and content
+														milestones instead of conventional athlete statistics.
+													</p>
+
+													<div className="mt-6 grid gap-5 md:grid-cols-2">
+														<Field
+															label="Creator / channel name"
+															value={form.displayName}
+															onChange={(value) => updateForm('displayName', value)}
+															placeholder="Name shown on the card"
+														/>
+														<Field
+															label="Creator handle"
+															value={form.creatorHandle}
+															onChange={(value) => updateForm('creatorHandle', value)}
+															placeholder="@yourhandle"
+														/>
+														<Field
+															label="Content category"
+															value={form.contentCategory}
+															onChange={(value) => updateForm('contentCategory', value)}
+															placeholder="Gaming, education, comedy, art, fitness..."
+														/>
+														<Field
+															label="Primary platform"
+															value={form.primaryPlatform}
+															onChange={(value) => updateForm('primaryPlatform', value)}
+															placeholder="YouTube, Twitch, Instagram, TikTok..."
+														/>
+														<Field
+															label="Community / fan name"
+															value={form.communityName}
+															onChange={(value) => updateForm('communityName', value)}
+															placeholder="Optional"
+														/>
+														<Field
+															label="Featured series / campaign"
+															value={form.featuredSeries}
+															onChange={(value) => updateForm('featuredSeries', value)}
+															placeholder="Show, campaign, drop, season, or project"
+														/>
+														<Field
+															label="Creator milestone"
+															value={form.creatorMilestone}
+															onChange={(value) => updateForm('creatorMilestone', value)}
+															placeholder="Subscriber, follower, view, launch, or award milestone"
+														/>
+														<Field
+															label="QR destination"
+															value={form.qrDestination}
+															onChange={(value) => updateForm('qrDestination', value)}
+															placeholder="Channel, campaign, storefront, or featured content"
+														/>
+													</div>
+												</>
+											)}
+
+											{audience === 'organization' && (
+												<>
+													<h2 className="text-lg font-black text-white">
+														Organization or event profile
+													</h2>
+
+													<p className="mt-1 text-sm text-slate-400">
+														Create a card for a team, gym, school, league, promotion, fundraiser,
+														event series, or roster collection.
+													</p>
+
+													<div className="mt-6 grid gap-5 md:grid-cols-2">
+														<Field
+															label="Organization name"
+															value={form.organizationName}
+															onChange={(value) => updateForm('organizationName', value)}
+															placeholder="Gym, school, league, promoter, or organization"
+														/>
+														<Field
+															label="Organization type"
+															value={form.organizationType}
+															onChange={(value) => updateForm('organizationType', value)}
+															placeholder="Gym, school, fight promotion, league, nonprofit..."
+														/>
+														<Field
+															label="Season / event series"
+															value={form.organizationSeason}
+															onChange={(value) =>
+																updateForm('organizationSeason', value)
+															}
+															placeholder="2026 season, event series, fundraiser campaign..."
+														/>
+														<Field
+															label="Roster / featured talent"
+															value={form.rosterOrFeaturedTalent}
+															onChange={(value) =>
+																updateForm('rosterOrFeaturedTalent', value)
+															}
+															placeholder="Featured athlete, matchup, roster, speaker, or performer"
+														/>
+														<Field
+															label="Ticket / registration / donation link"
+															value={form.ticketOrRegistrationLink}
+															onChange={(value) =>
+																updateForm('ticketOrRegistrationLink', value)
+															}
+															placeholder="Optional QR destination"
+														/>
+														<Field
+															label="Contact / program"
+															value={form.coachName}
+															onChange={(value) => updateForm('coachName', value)}
+															placeholder="Contact person, athletic department, organizer"
+														/>
+													</div>
+
+													<div className="mt-5">
+														<Label className="text-sm font-semibold text-slate-200">
+															Organization mission or event details
+														</Label>
+
+														<textarea
+															value={form.organizationMission}
+															onChange={(event) =>
+																updateForm('organizationMission', event.target.value)
+															}
+															placeholder="Describe the event, organization, season, fundraiser, card series, featured roster, or key message."
+															className="mt-2 min-h-28 w-full rounded-md border border-white/10 bg-black/30 px-3 py-2 text-white placeholder:text-slate-600 outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-300/30"
+														/>
+													</div>
+												</>
+											)}
+										</CardContent>
+									</Card>
 
                   {program === 'autograph' && (
                     <Card className="border-fuchsia-300/15 bg-fuchsia-300/[0.025]">
