@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import VerifiedWalletSelector from "@/components/wallet/VerifiedWalletSelector";
 import BuyCreditsModal from "@/components/credits/BuyCreditsModal";
+import InsufficientCreditsModal from "@/components/credits/InsufficientCreditsModal";
 
 function formatMoney(value) {
   const amount = Number(value);
@@ -1466,7 +1467,7 @@ export default function ProductTokenizationDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-    <BuyCreditsModal
+    <InsufficientCreditsModal
       open={showBuyCreditsModal}
       onClose={() => {
         setShowBuyCreditsModal(false);
