@@ -164,7 +164,14 @@ export async function POST(request) {
       );
     }
 
-    console.log("[credits/usdc/submit] RAW CONFIRMATION:", JSON.stringify(confirmation, null, 2));
+console.log(
+   "[credits/usdc/submit] RAW CONFIRMATION:",
+   JSON.stringify(
+     confirmation,
+     (key, value) => (typeof value === "bigint" ? value.toString() : value),
+     2
+   )
+ );
 
     // Defense-in-depth: verify the confirmed on-chain transfer actually matches
     // what we prepared, in case the client tampered with the signed bytes.
