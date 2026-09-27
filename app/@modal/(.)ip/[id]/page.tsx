@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useRouter } from 'next/navigation';
 import IPDetailsConsumerView from '@/components/ip/IPConsumerDialog';
 import { Loader2, AlertTriangle } from 'lucide-react';
+import { trackIpView } from '@/lib/trackIpView';
 
 export default function IPAssetModal({
   params,
@@ -17,11 +18,17 @@ export default function IPAssetModal({
 
   const [ipAsset, setIpAsset] = React.useState<any>(null);
   const [isLoading, setIsLoading] = React.useState(true);
+  const viewKeyRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
       try {
+        if (!viewKeyRef.current) {
+          viewKeyRef.current = `modal-view:${id}:${crypto.randomUUID()}`;
+        }
+
+        await trackIpView(id, viewKeyRef.current);
         const res = await fetch(`/api/ip/${id}`);
         const data = await res.json();
         if (data.success) setIpAsset(data.ipAsset);

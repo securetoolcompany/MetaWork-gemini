@@ -1,24 +1,38 @@
 'use client';
 
-import { use, useState, useEffect } from 'react';
+import { use, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import IPDetailsConsumerView from '@/components/ip/IPConsumerDialog';
 import { Loader2, AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { trackIpView } from '@/lib/trackIpView';
 
 export default function IPAssetPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const [ipAsset, setIpAsset] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const viewKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+
       try {
-        const response = await fetch(`/api/ip/${id}`);
+        if (!viewKeyRef.current) {
+          viewKeyRef.current = `page-view:${id}:${crypto.randomUUID()}`;
+        }
+
+        await trackIpView(id, viewKeyRef.current);
+        const response = await fetch(`/api/ip/${id}`, {
+          cache: 'no-store',
+        });
+
         const data = await response.json();
-        if (data.success) setIpAsset(data.ipAsset);
+
+        if (data.success) {
+          setIpAsset(data.ipAsset);
+        }
       } catch (error) {
         console.error('Fetch error:', error);
       } finally {
@@ -26,7 +40,9 @@ export default function IPAssetPage({ params }: { params: Promise<{ id: string }
       }
     };
 
-    if (id) fetchData();
+    if (id) {
+      fetchData();
+    }
   }, [id]);
 
   const handleBack = () => {

@@ -1,85 +1,143 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { ImageIcon, Eye, Sparkles } from 'lucide-react';
 
-export default function AisleIPAssetCard({ 
-  item, 
-  accentColor = '#3b82f6' 
-}) {
-  if (!item) return null;
+function getImageUrl(ip) {
+  return (
+    ip?.imageUrl ||
+    ip?.image ||
+    ip?.thumbnailUrl ||
+    ip?.thumbnail ||
+    ip?.previewUrl ||
+    ip?.previewImage ||
+    ip?.mockupUrl ||
+    ip?.coverImage ||
+    ''
+  );
+}
 
-  // Temporarily add this at the top of AisleIPAssetCard, after the null check:
-console.log('IP item fields:', JSON.stringify(item, null, 2));
+function getTitle(ip) {
+  return ip?.name || ip?.title || ip?.assetName || 'Untitled IP Asset';
+}
 
-  const assetUrl = `/ip/${item.id || item._id}`;
-  
-  // 1. URL Normalization (fixes // protocol issues)
-  const normalizeUrl = (url) => {
-    if (!url || typeof url !== 'string') return null;
-    return url.startsWith('//') ? `https:${url}` : url;
+function getDescription(ip) {
+  return (
+    ip?.description ||
+    ip?.shortDescription ||
+    ip?.summary ||
+    'View this intellectual-property asset.'
+  );
+}
+
+function getPrice(ip) {
+  const rawPrice =
+    ip?.licensingFee ??
+    ip?.licensingFeeCents ??
+    ip?.price ??
+    ip?.priceCents ??
+    ip?.licensePrice ??
+    0;
+
+  const numericPrice = Number(rawPrice) || 0;
+
+  // Fields ending in "Cents" are stored in cents.
+  if (
+    ip?.licensingFeeCents !== undefined ||
+    ip?.priceCents !== undefined
+  ) {
+    return numericPrice / 100;
+  }
+
+  return numericPrice;
+}
+
+export default function AisleIPAssetCard({ item, ipAsset, accentColor = '#8b5cf6' }) {
+  const router = useRouter();
+  const ip = ipAsset || item;
+
+  if (!ip) {
+    return null;
+  }
+
+  const id = String(ip.id || ip._id || '');
+  const title = getTitle(ip);
+  const description = getDescription(ip);
+  const imageUrl = getImageUrl(ip);
+  const price = getPrice(ip);
+
+  const openIpDetails = () => {
+    if (!id) {
+      console.error('[AisleIPAssetCard] Cannot open IP detail: missing IP ID', ip);
+      return;
+    }
+
+    // This route uses the established IP detail UI / IPConsumerDialog flow.
+    router.push(`/ip/${encodeURIComponent(id)}`);
   };
 
-  const imageSrc = normalizeUrl(item.imageUrl || item.thumbnailUrl || item.image);
-  const fee = item.licensingFee ?? item.royaltyFee ?? null;
-  const feeLabel = fee != null ? `$${Number(fee).toFixed(2)} / use` : 'Free to use';
-  
   return (
-    <Link
-      href={assetUrl}
-      className="bg-[#111] rounded-2xl overflow-hidden border border-white/5 flex flex-col h-full hover:border-white/20 transition-all cursor-pointer block group"
-    >
-      {/* IMAGE CONTAINER - Fixed Square Ratio */}
-      <div className="relative w-full aspect-square overflow-hidden bg-[#0a0a0a]">
-        <img
-          src={imageSrc || '/placeholder.png'}
-          alt={item.title || item.name}
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          onError={(e) => {
-            // Hides broken image icon but keeps the card height stable
-            e.target.style.opacity = '0';
-            e.target.parentElement.style.backgroundColor = '#1a1a1a';
-          }} 
-        />
-      </div>
-
-      {/* CONTENT AREA - Restored UI Elements */}
-      <div className="p-4 flex flex-col gap-2 flex-1">
-        <h3 className="text-sm font-semibold line-clamp-1 text-white">
-          {item.title || item.name}
-        </h3>
-        
-        {/* Restored Creator Name */}
-        {item.creator && (
-          <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">
-            BY {item.creator.displayName || item.creator.username || 'Unknown Creator'}
-          </p>
+    <article className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-950 shadow-lg transition hover:-translate-y-1 hover:border-white/20">
+      <button
+        type="button"
+        onClick={openIpDetails}
+        className="group relative block aspect-square w-full overflow-hidden bg-zinc-900 text-left"
+        aria-label={`View details for ${title}`}
+      >
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={title}
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-zinc-500">
+            <ImageIcon className="h-10 w-10" />
+            <span className="text-sm">No preview available</span>
+          </div>
         )}
 
-        {/* Restored Description */}
-        <p className="text-xs text-gray-400 line-clamp-2 mt-1">
-          {item.description || 'Verified Intellectual Property'}
-        </p>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition group-hover:opacity-100" />
 
-        {/* Restored Royalty and Usage Stats */}
-        <div className="mt-auto pt-3 flex items-center justify-between">
-          <span className="text-[10px] bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20">
-            {feeLabel}
-          </span>
-          <span className="text-[10px] text-gray-500 italic">
-            {item.usageCount || 0} Uses
-          </span>
+        <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-xs font-medium text-white opacity-0 backdrop-blur transition group-hover:opacity-100">
+          <Eye className="h-3.5 w-3.5" />
+          View IP
+        </div>
+      </button>
+
+      <div className="space-y-3 p-4">
+        <div>
+          <div className="mb-1 flex items-center gap-1.5 text-xs font-medium text-violet-400">
+            <Sparkles className="h-3.5 w-3.5" />
+            IP Asset
+          </div>
+
+          <h3 className="line-clamp-2 text-sm font-bold text-white">
+            {title}
+          </h3>
+
+          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-zinc-400">
+            {description}
+          </p>
         </div>
 
-        {/* Restored "Use IP" Action Button */}
-        <div className="mt-3">
-          <div 
-            className="w-full text-[15px] font-bold py-2 rounded-md text-white text-center transition-opacity group-hover:opacity-90 shadow-md"
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-bold" style={{ color: accentColor }}>
+            {price > 0 ? `$${price.toFixed(2)}` : '$0.00'}
+          </span>
+
+          <Button
+            type="button"
+            size="sm"
+            onClick={openIpDetails}
+            className="shrink-0 text-white"
             style={{ backgroundColor: accentColor }}
           >
-            Use IP
-          </div>
+            View IP
+          </Button>
         </div>
       </div>
-    </Link>
+    </article>
   );
 }

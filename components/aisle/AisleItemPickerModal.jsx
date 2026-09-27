@@ -55,7 +55,14 @@ export default function AisleItemPickerModal({
       }
       if (tab === 'ip') endpoint = '/api/ip/my-library?limit=1000';
       if (tab === 'collections') endpoint = '/api/collections';
-      if (tab === 'community') endpoint = '/api/showroom/products?community=true&limit=100';
+      if (tab === 'community') {
+        const creatorId = user?.id || user?._id || user?.username || '';
+
+        endpoint =
+          `/api/showroom/products?community=true` +
+          `&creatorId=${encodeURIComponent(creatorId)}` +
+          `&limit=100`;
+      }
 
       const res = await fetch(endpoint, {
         cache: 'no-store',

@@ -41,6 +41,24 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
   // Check if we are currently on the creator page
   const isInsideCreator = pathname.includes('/products/creator');
 
+  const licensingFee = (() => {
+    const cents = ip.licensingFeeCents ?? ip.priceCents;
+
+    if (cents !== undefined && cents !== null && cents !== '') {
+      return (Number(cents) || 0) / 100;
+    }
+
+    return (
+      Number(
+        ip.licensingFee ??
+          ip.licensePrice ??
+          ip.pricePerUse ??
+          ip.price ??
+          0,
+      ) || 0
+    );
+  })();
+
   const handleAction = () => {
     if (isInsideCreator && onSelect) {
       // SCENARIO 1: User is in the Library Panel of the Creator
@@ -106,7 +124,7 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
                       <div className="text-right">
                          <div className="text-2xl font-bold text-green-600 flex items-center justify-end gap-1">
                             <DollarSign className="h-5 w-5" />
-                            {ip.licensingFee?.toFixed(2) || '0.00'}
+                            {licensingFee.toFixed(2)}
                          </div>
                          <p className="text-xs text-muted-foreground">per product sold</p>
                       </div>

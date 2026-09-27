@@ -86,14 +86,38 @@ export async function GET(request, { params }) {
     }
 
     // 4. Usage Stats: Fetch history, products, and owner info
+    const ipIds = [
+      ipAsset._id?.toString(),
+      ipAsset.id?.toString(),
+    ].filter(Boolean);
+
     const [ownershipHistory, products, owner] = await Promise.all([
       db.collection('ip_ownership_history')
         .find({ ipAssetId: String(ipAsset.id) })
         .toArray(),
+
       db.collection('products')
-        .find({ ipAssetId: String(ipAsset.id) })
+        .find({
+          isDraft: { $ne: true },
+          status: { $ne: 'draft' },
+          $or: [
+            { 'ipUsages.ipAssetId': { $in: ipIds } },
+            { 'selectedIPs.id': { $in: ipIds } },
+            { 'selectedIPs.ipId': { $in: ipIds } },
+            { ipAssetId: { $in: ipIds } },
+            { ipAssetIds: { $in: ipIds } },
+          ],
+        })
         .toArray(),
-      db.collection('users').findOne({ id: ipAsset.ownerId })
+
+      db.collection('users').findOne({
+        $or: [
+          { id: ipAsset.ownerId },
+          ...(ObjectId.isValid(String(ipAsset.ownerId))
+            ? [{ _id: new ObjectId(String(ipAsset.ownerId)) }]
+            : []),
+        ],
+      }),
     ]);
 
 // Add owner info to ipAsset (for creator button)
@@ -143,29 +167,76 @@ export async function POST(request, { params }) {
     const { id } = await params;
     const { db } = await connectToDatabase();
 
+    const body = await request.json().catch(() => ({}));
+    const viewKey = String(body.viewKey || '').trim();
+
+    if (!viewKey) {
+      return NextResponse.json(
+        { success: false, error: 'viewKey is required' },
+        { status: 400 },
+      );
+    }
+
     const matchQuery = {
-      $or: [{ id: id }, { revenueTokenAssetId: parseInt(id) || -1 }]
+      $or: [
+        { id },
+        { revenueTokenAssetId: parseInt(id, 10) || -1 },
+      ],
     };
+
     if (ObjectId.isValid(id)) {
       matchQuery.$or.push({ _id: new ObjectId(id) });
     }
 
-    const result = await db.collection('ip_assets').updateOne(
-      matchQuery,
+    const ipAsset = await db.collection('ip_assets').findOne(matchQuery);
+
+    if (!ipAsset) {
+      return NextResponse.json(
+        { success: false, error: 'IP asset not found' },
+        { status: 404 },
+      );
+    }
+
+    const receipts = db.collection('ip_view_receipts');
+
+    try {
+      await receipts.insertOne({
+        ipAssetId: ipAsset._id.toString(),
+        viewKey,
+        createdAt: new Date(),
+      });
+    } catch (error) {
+      if (error?.code === 11000) {
+        return NextResponse.json({
+          success: true,
+          counted: false,
+          duplicate: true,
+        });
+      }
+
+      throw error;
+    }
+
+    await db.collection('ip_assets').updateOne(
+      { _id: ipAsset._id },
       {
         $inc: { viewCount: 1 },
         $set: { updatedAt: new Date() },
-      }
+      },
     );
 
-    if (result.matchedCount === 0) {
-      return NextResponse.json({ success: false, error: 'IP asset not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      counted: true,
+      duplicate: false,
+    });
   } catch (error) {
-    console.error('❌ POST viewCount Error:', error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    console.error('POST IP viewCount error:', error);
+
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 },
+    );
   }
 }
 

@@ -1,43 +1,65 @@
 require('dotenv').config({ path: '.env.local' });
-const { MongoClient, ObjectId } = require('mongodb');
 
-const uri = "mongodb://metawork_db_user:TestPass123@ac-zpaazct-shard-00-00.mvwr5sw.mongodb.net:27017,ac-zpaazct-shard-00-01.mvwr5sw.mongodb.net:27017,ac-zpaazct-shard-00-02.mvwr5sw.mongodb.net:27017/?ssl=true&replicaSet=atlas-k91915-shard-0&authSource=admin&appName=MetaWorkCluster";
-const dbName = 'metawork_db';
+const dns = require('node:dns');
+const { MongoClient } = require('mongodb');
 
-async function inspectRise() {
+// Required on this machine/network so MongoDB Atlas SRV lookups work.
+dns.setServers(['8.8.8.8', '8.8.4.4']);
+
+const email = (process.argv[2] || 'vyzion82@gmail.com').trim().toLowerCase();
+const uri = process.env.MONGODB_URI;
+const dbName = process.env.MONGODB_DB || 'metawork_db';
+
+if (!uri) {
+  console.error('❌ MONGODB_URI is missing from .env.local');
+  process.exit(1);
+}
+
+async function inspectUser() {
   const client = new MongoClient(uri);
 
   try {
     await client.connect();
+
     const db = client.db(dbName);
+    const user = await db.collection('users').findOne({ email });
 
-    // The RISE user ID
-    const riseId = "6976ba9474b6ffa77d502a4b";
-
-    // Find the user (checking both String and ObjectId formats just in case)
-    const riseUser = await db.collection('users').findOne({
-        $or: [
-            { _id: riseId },
-            { _id: new ObjectId(riseId) },
-            { username: "RISE" }
-        ]
-    });
-
-    if (!riseUser) {
-        console.log("❌ Could not find RISE user in the database.");
-        return;
+    if (!user) {
+      console.error(`❌ No user found with email: ${email}`);
+      process.exitCode = 1;
+      return;
     }
 
-    console.log("✅ Found RISE user! Here is exactly what is saved in the database:\n");
-    
-    // We will print the entire object to see where the URLs are hiding
-    console.log(JSON.stringify(riseUser, null, 2));
+    const safeUser = { ...user };
 
-  } catch (err) {
-    console.error('❌ Script Error:', err);
+    if (safeUser.password) {
+      safeUser.password = '[REDACTED]';
+    }
+
+    console.log('\n=== FULL USER RECORD (PASSWORD REDACTED) ===\n');
+    console.dir(safeUser, { depth: null, colors: true });
+
+    const effectiveAdmin =
+      user.isAdmin === true ||
+      String(user.role || '').toLowerCase() === 'admin';
+
+    console.log('\n=== ADMIN CHECK ===\n');
+    console.table([
+      {
+        id: user._id.toString(),
+        email: user.email,
+        username: user.username,
+        role: user.role ?? null,
+        isAdmin: user.isAdmin ?? null,
+        effectiveAdmin,
+      },
+    ]);
+  } catch (error) {
+    console.error('❌ Inspect failed:', error);
+    process.exitCode = 1;
   } finally {
     await client.close();
   }
 }
 
-inspectRise();
+inspectUser();

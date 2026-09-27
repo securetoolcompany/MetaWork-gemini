@@ -31,7 +31,17 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
     }
   }
 
-  const isProduct = featuredType === 'products' || featuredType === 'community' || (featuredItem && featuredItem.price !== undefined && !featuredItem.isCollection);
+  const isFeaturedProduct =
+    featuredType === 'products' ||
+    featuredType === 'product' ||
+    featuredType === 'community';
+
+  const isFeaturedIP =
+    featuredType === 'ip';
+
+  const isFeaturedCollection =
+    featuredType === 'collections' ||
+    featuredType === 'collection';
 
   const formatStat = (num) => {
     if (!num) return '0';
@@ -66,7 +76,7 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
     if (!id) return;
 
     const isIP = featuredType === 'ip';
-    const endpoint = isIP ? `/api/ip-assets/${id}` : `/api/products/${id}`;
+    const endpoint = isIP ? `/api/ip/${id}` : `/api/products/${id}`;
 
     fetch(endpoint, { method: 'POST' })
       .then(r => r.json())
@@ -109,17 +119,27 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
               
               <div className="lg:col-span-4 flex flex-col items-center lg:items-start relative order-2 lg:order-1">
                 <div className="w-full max-w-[280px] md:max-w-[340px] transition-all duration-700 hover:scale-[1.04] cursor-pointer relative z-10 mx-auto lg:mx-0">
-                   {isProduct ? (
-                      <AisleProductCard product={featuredItem} accentColor={accentColor} />
-                    ) : featuredItem.isCollection ? (
-                      <div className="bg-[#111] p-6 rounded-2xl border border-white/10 text-center shadow-lg aspect-square flex flex-col items-center justify-center">
-                        <Package className="w-12 h-12 mb-4 text-muted-foreground" />
-                        <h3 className="text-xl font-bold text-white">{featuredItem.title}</h3>
-                        <p className="text-muted-foreground text-sm mt-2">Curated Collection</p>
-                      </div>
-                    ) : (
-                      <AisleIPAssetCard item={featuredItem} accentColor={accentColor} />
-                    )}
+                   {isFeaturedProduct ? (
+                    <AisleProductCard
+                      product={featuredItem}
+                      accentColor={accentColor}
+                    />
+                  ) : isFeaturedIP ? (
+                    <AisleIPAssetCard
+                      item={featuredItem}
+                      accentColor={accentColor}
+                    />
+                  ) : isFeaturedCollection ? (
+                    <div className="bg-[#111] p-6 rounded-2xl border border-white/10 text-center shadow-lg aspect-square flex flex-col items-center justify-center">
+                      <Package className="w-12 h-12 mb-4 text-muted-foreground" />
+                      <h3 className="text-xl font-bold text-white">
+                        {featuredItem.title || featuredItem.name}
+                      </h3>
+                      <p className="text-muted-foreground text-sm mt-2">
+                        Curated Collection
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -176,29 +196,39 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
       <div className="space-y-16 md:space-y-32 pb-20 md:pb-32 px-4 md:px-8">
         {layoutSections.length > 0 ? (
           layoutSections.map((section) => {
-            let populatedItems = [];
-            
-            (section.items || []).forEach(savedItem => {
-              if (savedItem.itemType === 'products' || savedItem.itemType === 'community') {
-                const p = products.find(p => safeId(p) === savedItem.id);
-                if (p) populatedItems.push(p);
-              } 
-              else if (savedItem.itemType === 'ip') {
-                const a = ipAssets.find(a => safeId(a) === savedItem.id);
-                if (a) populatedItems.push(a);
-              } 
-              else if (savedItem.itemType === 'collections') {
-                const col = settings.collections?.find(c => safeId(c) === savedItem.id);
-                if (col && col.productIds) {
-                  col.productIds.forEach(pid => {
-                    const p = products.find(p => safeId(p) === String(pid));
-                    if (p) populatedItems.push(p);
+            const populatedItems = [];
+
+            (section.items || []).forEach((savedItem) => {
+              const savedId = String(savedItem?.id || '');
+
+              if (!savedId) {
+                return;
+              }
+
+              // IP picker items always come from the API's separate ipAssets array.
+              if (savedItem.itemType === 'ip') {
+                const ipAsset = ipAssets.find((ip) => safeId(ip) === savedId);
+
+                if (ipAsset) {
+                  populatedItems.push({
+                    ...ipAsset,
+                    __aisleItemType: 'ip',
                   });
                 }
+
+                return;
+              }
+
+              // 'products' and legacy 'community' items are normal product records.
+              const product = products.find((p) => safeId(p) === savedId);
+
+              if (product) {
+                populatedItems.push({
+                  ...product,
+                  __aisleItemType: 'product',
+                });
               }
             });
-
-            populatedItems = Array.from(new Set(populatedItems));
 
             if (populatedItems.length === 0) return null;
 
@@ -212,12 +242,21 @@ export default function AislePublicContent({ products = [], ipAssets = [], setti
                 </div>
                 
                 <div className="grid gap-6 md:gap-12 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {populatedItems.map((item, idx) => {
-                    const isIPAsset = item.licensingFee !== undefined || item.vaultType !== undefined;
-                    return isIPAsset 
-                      ? <AisleIPAssetCard key={`${safeId(item)}-${idx}`} item={item} accentColor={accentColor} />
-                      : <AisleProductCard key={`${safeId(item)}-${idx}`} product={item} accentColor={accentColor} />;
-                  })}
+                  {populatedItems.map((item, idx) =>
+                    item.__aisleItemType === 'ip' ? (
+                      <AisleIPAssetCard
+                        key={`ip-${safeId(item)}-${idx}`}
+                        item={item}
+                        accentColor={accentColor}
+                      />
+                    ) : (
+                      <AisleProductCard
+                        key={`product-${safeId(item)}-${idx}`}
+                        product={item}
+                        accentColor={accentColor}
+                      />
+                    ),
+                  )}
                 </div>
               </section>
             );

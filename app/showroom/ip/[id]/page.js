@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation';
 import IPConsumerDialog from '@/components/ip/IPConsumerDialog';
-// ...other imports
 
 export default function IPShowroomPage({ params }) {
   const router = useRouter();
@@ -12,14 +11,26 @@ export default function IPShowroomPage({ params }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!id) return;
+
     const fetchIp = async () => {
-      const res = await fetch(`/api/ip/${id}`);
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setIp(data.ipAsset);
+      try {
+        const res = await fetch(`/api/ip/${id}`, {
+          cache: 'no-store',
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          setIp(data.ipAsset);
+        }
+      } catch (error) {
+        console.error('Failed to load IP asset:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
+
     fetchIp();
   }, [id]);
 

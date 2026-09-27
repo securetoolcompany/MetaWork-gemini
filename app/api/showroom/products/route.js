@@ -1,47 +1,147 @@
+import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/lib/mongodb';
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
+
     const query = searchParams.get('q') || '';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '24');
-    
-    // ✅ DESTRUCTURE to get db from the returned object
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '24', 10);
+    const community = searchParams.get('community') === 'true';
+    const creatorId = searchParams.get('creatorId') || '';
+
     const { db } = await connectToDatabase();
-    
-    // Build filter supporting both legacy and new tags, strictly excluding drafts
+
+    if (community) {
+      const creator = await db.collection('users').findOne({
+        $or: [
+          { id: creatorId },
+          { username: creatorId },
+          ...(ObjectId.isValid(creatorId)
+            ? [{ _id: new ObjectId(creatorId) }]
+            : []),
+        ],
+      });
+
+      if (!creator) {
+        return Response.json({
+          success: true,
+          products: [],
+          pagination: { page, limit, total: 0, pages: 0 },
+        });
+      }
+
+      const creatorIds = [
+        creator._id.toString(),
+        creator.id,
+        creator.username,
+      ].filter(Boolean);
+
+      const ipAssets = await db.collection('ip_assets')
+        .find({
+          $or: [
+            { ownerId: { $in: creatorIds } },
+            { ownerUsername: creator.username },
+          ],
+        })
+        .project({ _id: 1, id: 1 })
+        .toArray();
+
+      const ipIds = ipAssets
+        .flatMap((ip) => [ip._id?.toString(), ip.id])
+        .filter(Boolean);
+
+      if (!ipIds.length) {
+        return Response.json({
+          success: true,
+          products: [],
+          pagination: { page, limit, total: 0, pages: 0 },
+        });
+      }
+
+      const filter = {
+        isDraft: { $ne: true },
+        status: { $ne: 'draft' },
+
+        $and: [
+          {
+            $or: [
+              { showroomListed: true },
+              { status: { $in: ['live', 'active'] } },
+              { isPublic: true },
+            ],
+          },
+          {
+            $or: [
+              { selectedIPs: { $in: ipIds } },
+              { ipAssetIds: { $in: ipIds } },
+              { ipAssetId: { $in: ipIds } },
+            ],
+          },
+          {
+            $nor: [
+              { creatorId: { $in: creatorIds } },
+              { userId: { $in: creatorIds } },
+            ],
+          },
+        ],
+      };
+
+      const [products, total] = await Promise.all([
+        db.collection('products')
+          .find(filter)
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .toArray(),
+
+        db.collection('products').countDocuments(filter),
+      ]);
+
+      return Response.json({
+        success: true,
+        products,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      });
+    }
+
     const filter = {
       isDraft: { $ne: true },
       status: { $ne: 'draft' },
       $or: [
         { showroomListed: true },
         { status: { $in: ['live', 'active'] } },
-        { isPublic: true }
-      ]
+        { isPublic: true },
+      ],
     };
-    
+
     if (query) {
-      filter.$and = filter.$and || [];
-      filter.$and.push({
-        $or: [
-          { title: { $regex: query, $options: 'i' } },
-          { description: { $regex: query, $options: 'i' } },
-          { tags: { $in: [new RegExp(query, 'i')] } }
-        ]
-      });
+      filter.$and = [
+        {
+          $or: [
+            { title: { $regex: query, $options: 'i' } },
+            { description: { $regex: query, $options: 'i' } },
+            { tags: { $in: [new RegExp(query, 'i')] } },
+          ],
+        },
+      ];
     }
-    
-    // Fetch products
-    const products = await db.collection('products')
-      .find(filter)
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .toArray();
-    
-    // Get total count
-    const total = await db.collection('products').countDocuments(filter);
-    
+
+    const [products, total] = await Promise.all([
+      db.collection('products')
+        .find(filter)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .toArray(),
+
+      db.collection('products').countDocuments(filter),
+    ]);
+
     return Response.json({
       success: true,
       products,
@@ -49,14 +149,15 @@ export async function GET(request) {
         page,
         limit,
         total,
-        pages: Math.ceil(total / limit)
-      }
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error('Error fetching products:', error);
+
     return Response.json(
       { error: 'Failed to fetch products', details: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
