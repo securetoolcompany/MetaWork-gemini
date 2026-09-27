@@ -15,6 +15,8 @@ import { toast } from 'sonner';
 import { useAuth } from '@/lib/AuthContext';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { useWallet } from '@/lib/WalletContext';
+import algosdk from 'algosdk';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 const MINT_COST = 25;
@@ -88,7 +90,18 @@ export default function InsufficientCreditsModal({ open, onClose, onSuccess }) {
   const [loadingPackages, setLoadingPackages] = useState(true);
   const [selected, setSelected] = useState(null);
   const [clientSecret, setClientSecret] = useState(null);
+  const { signTransactionGroup, accountAddress: connectedWalletAddress } = useWallet();
+  const [usdcSubmitting, setUsdcSubmitting] = useState(false);
+  const [usdcError, setUsdcError] = useState('');
   const [loadingSecret, setLoadingSecret] = useState(false);
+
+  function bytesToBase64(bytes) {
+    let binary = '';
+    for (const byte of bytes) {
+      binary += String.fromCharCode(byte);
+    }
+    return window.btoa(binary);
+  }
 
   // Reset state when modal closes
   useEffect(() => {
@@ -142,6 +155,94 @@ export default function InsufficientCreditsModal({ open, onClose, onSuccess }) {
     }
   };
 
+  const handlePayWithUsdc = async (pkg) => {
+    if (!pkg) return;
+
+    if (!connectedWalletAddress) {
+      setUsdcError('Connect a verified Algorand wallet before paying with USDC.');
+      return;
+    }
+
+    setUsdcSubmitting(true);
+    setUsdcError('');
+
+    try {
+      const prepareRes = await fetch('/api/credits/usdc/prepare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({
+          priceId: pkg.id,
+          walletAddress: connectedWalletAddress,
+        }),
+      });
+
+      const prepareData = await prepareRes.json();
+
+      if (!prepareRes.ok || !prepareData?.success) {
+        throw new Error(prepareData?.error || 'Unable to prepare the USDC payment.');
+      }
+
+      const { transaction, attemptId, expectedTransactionId } = prepareData;
+
+      const unsignedTransactionBytes = Uint8Array.from(
+        window.atob(transaction.txnBase64),
+        (character) => character.charCodeAt(0)
+      );
+
+      const unsignedTransaction = algosdk.decodeUnsignedTransaction(
+        unsignedTransactionBytes
+      );
+
+      if (unsignedTransaction.txID() !== expectedTransactionId) {
+        throw new Error('The prepared USDC transaction does not match the expected payment.');
+      }
+
+      const signedTransactionGroup = await signTransactionGroup([
+        unsignedTransactionBytes,
+      ]);
+
+      const signedTransactionBytes = signedTransactionGroup?.[0];
+
+      if (
+        !signedTransactionBytes ||
+        !(signedTransactionBytes instanceof Uint8Array) ||
+        signedTransactionBytes.length === 0
+      ) {
+        throw new Error('Pera did not return a signed USDC transaction.');
+      }
+
+      const submitRes = await fetch('/api/credits/usdc/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        body: JSON.stringify({
+          attemptId,
+          expectedTransactionId,
+          signedTransactionBase64: bytesToBase64(signedTransactionBytes),
+        }),
+      });
+
+      const submitData = await submitRes.json();
+
+      if (!submitRes.ok || !submitData?.success) {
+        throw new Error(submitData?.error || 'Unable to confirm the USDC payment.');
+      }
+
+      toast.success(`${submitData.creditsAdded.toLocaleString()} credits added via USDC!`);
+      handlePaymentSuccess(pkg);
+    } catch (error) {
+      const message = error?.message || 'Unable to complete the USDC payment.';
+
+      if (/cancel|reject|deny|decline|abort/i.test(message)) {
+        toast.message('USDC payment cancelled.');
+      } else {
+        setUsdcError(message);
+        toast.error(message);
+      }
+    } finally {
+      setUsdcSubmitting(false);
+    }
+  };
+  
   const handlePaymentSuccess = (pack) => {
     toast.success(`${pack.credits.toLocaleString()} credits added!`);
     onSuccess?.(pack);
@@ -214,9 +315,36 @@ export default function InsufficientCreditsModal({ open, onClose, onSuccess }) {
                   : <><ShoppingCart className="h-4 w-4" /> Buy {chosen?.credits?.toLocaleString()} Credits — ${chosen?.priceUsd?.toFixed(2)}</>
                 }
               </Button>
-              <Button variant="ghost" className="w-full" onClick={onClose}>Cancel</Button>
-            </div>
-          </>
+                <div className="flex items-center gap-3 py-1">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs text-muted-foreground">or</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={usdcSubmitting || !chosen}
+                  onClick={() => handlePayWithUsdc(chosen)}
+                >
+                  {usdcSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Waiting for Pera
+                    </>
+                  ) : (
+                    'Pay with USDC (Pera Wallet)'
+                  )}
+                </Button>
+
+                {usdcError ? (
+                  <p className="text-sm text-destructive">{usdcError}</p>
+                ) : null}
+
+                <Button variant="ghost" className="w-full" onClick={onClose}>Cancel</Button>
+              </div>
+            </>
         )}
 
         {/* ── Step 2: Inline card form ── */}
