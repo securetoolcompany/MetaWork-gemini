@@ -164,6 +164,8 @@ export async function POST(request) {
       );
     }
 
+    console.log("[credits/usdc/submit] RAW CONFIRMATION:", JSON.stringify(confirmation, null, 2));
+
     // Defense-in-depth: verify the confirmed on-chain transfer actually matches
     // what we prepared, in case the client tampered with the signed bytes.
     const assetTransfer = confirmation?.["asset-transfer-transaction"];

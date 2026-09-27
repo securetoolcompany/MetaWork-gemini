@@ -84,7 +84,7 @@ export async function POST(request) {
       );
     }
 
-    const usdcAssetId = getUsdcAssetId();
+    const usdcAssetId = getUsdcAssetId('mainnet');
 
     // USDC on Algorand uses 6 decimal places.
     const amountBaseUnits = Math.round(Number(pack.priceUSDC) * 1_000_000);
@@ -96,7 +96,7 @@ export async function POST(request) {
       );
     }
 
-    const suggestedParams = await getTransactionParams();
+    const suggestedParams = await getTransactionParams('mainnet');
 
     const usdcTransferTxn =
       algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({
