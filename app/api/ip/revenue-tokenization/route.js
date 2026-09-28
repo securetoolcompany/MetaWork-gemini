@@ -112,14 +112,14 @@ export async function POST(request) {
 
     const { ObjectId } = await import("mongodb");
 
-    let userQuery;
-    try {
-      userQuery = {
-        $or: [{ id: decoded.userId }, { _id: new ObjectId(decoded.userId) }],
-      };
-    } catch {
-      userQuery = { id: decoded.userId };
-    }
+    const userQuery = ObjectId.isValid(decoded.userId)
+      ? {
+          $or: [
+            { id: decoded.userId },
+            { _id: new ObjectId(decoded.userId) },
+          ],
+        }
+      : { id: decoded.userId };
 
     let user = await db.collection("users").findOne(userQuery);
     if (!user) {
@@ -494,14 +494,14 @@ export async function PUT(request) {
     const algodClient = getAlgodClient('mainnet');
     const { ObjectId } = await import("mongodb");
 
-    let userQuery;
-    try {
-      userQuery = {
-        $or: [{ id: decoded.userId }, { _id: new ObjectId(decoded.userId) }],
-      };
-    } catch {
-      userQuery = { id: decoded.userId };
-    }
+    const userQuery = ObjectId.isValid(decoded.userId)
+      ? {
+          $or: [
+            { id: decoded.userId },
+            { _id: new ObjectId(decoded.userId) },
+          ],
+        }
+      : { id: decoded.userId };
 
     const mintCostToken = CREDIT_COSTS.MINT_IP;
 
@@ -686,7 +686,7 @@ export async function PUT(request) {
           $set: {
             nftAssetId: Number(nftAssetId),
             revenuePoolAppId: poolAppId,
-            revenuePoolAddress: algosdk.getApplicationAddress(poolAppId),
+            revenuePoolAddress: algosdk.getApplicationAddress(poolAppId).toString(),
             revenueTokenAssetId: revenueTokenId,
             status: "active",
             tokenizationCompletedAt: new Date(),
@@ -715,10 +715,7 @@ export async function PUT(request) {
       if (creditClaim) {
         const creditUpdate = await db.collection("users").findOneAndUpdate(
           {
-            $or: [
-              { id: decoded.userId },
-              { _id: new (await import("mongodb")).ObjectId(decoded.userId) },
-            ],
+            ...userQuery,
             credits: { $gte: creditClaim.creditCost },
           },
           {
