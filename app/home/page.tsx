@@ -264,7 +264,7 @@ export default function WelcomePage() {
             </div>
 
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter leading-[1.1]">
-              Home to{' '}
+              Home of{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">
                 Tokenized Markets.
               </span>
