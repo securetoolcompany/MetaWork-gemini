@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "managementFeeBps": 5000,
+  "managementFeeBasis": "rewards_after_operating_costs",
+  "nodes": {
+    "19": {
+      "stakers": [
+        {
+          "id": "node-19-operator",
+          "wallet": "0x39Bb4A10626B58430AbFa8284B0F001f49734F70",
+          "amountNil": "35736.17"
+        },
+        {
+          "id": "node-19-investor-1",
+          "wallet": null,
+          "amountNil": "35736.17"
+        }
+      ]
+    },
+    "20": {
+      "stakers": [
+        {
+          "id": "node-20-operator",
+          "wallet": "0x39Bb4A10626B58430AbFa8284B0F001f49734F70",
+          "amountNil": "36222.68041"
+        },
+        {
+          "id": "node-20-investor-1",
+          "wallet": null,
+          "amountNil": "36222.68041"
+        }
+      ]
+    }
+  }
+}

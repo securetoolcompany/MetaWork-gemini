@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "currency": "usd",
+  "source": "coingecko",
+  "tokenContract": "0x7Cf9a80db3B29eE8efE3710AadB7b95270572d47",
+  "retrievedAt": "2026-10-22T23:30:30.950Z",
+  "selectionMethod": "latest_sample_at_or_before_node_start",
+  "nodes": {
+    "19": {
+      "nodeStartTimestamp": "1791304835",
+      "nodeStartTimeUtc": "2026-10-06T16:40:35Z",
+      "baselinePriceUsd": "0.10209012408221572",
+      "baselinePriceTimestampMs": "1791302400000",
+      "baselinePriceTimeUtc": "2026-10-06T16:00:00.000Z",
+      "sampleAgeSeconds": 2435,
+      "originalStakeBaseUnits": "71472340000"
+    },
+    "20": {
+      "nodeStartTimestamp": "1791311519",
+      "nodeStartTimeUtc": "2026-10-06T18:31:59Z",
+      "baselinePriceUsd": "0.09999117211072849",
+      "baselinePriceTimestampMs": "1791309600000",
+      "baselinePriceTimeUtc": "2026-10-06T18:00:00.000Z",
+      "sampleAgeSeconds": 1919,
+      "originalStakeBaseUnits": "72445360820"
+    }
+  }
+}
