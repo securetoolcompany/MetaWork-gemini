@@ -1,6 +1,8 @@
 // app/tokenized-funds/nillion/nodes/[nodeId]/page.tsx
 
+
 'use client';
+
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -8,6 +10,7 @@ import { useParams } from 'next/navigation';
 import { isAddress } from 'viem';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import EthereumWalletSelector from '../../../../../components/tokenized-funds/nillion/EthereumWalletSelector';
+import { calculateNillionPrincipalPerformance } from '../../../../../lib/tokenized-funds/nillion/principal-performance.js';
 
 type Investor = {
   wallet: string;
@@ -15,6 +18,29 @@ type Investor = {
   participationBps: string;
   estimatedPendingBaseUnits: string;
 };
+
+type Position = {
+  id: string;
+  wallet: string | null;
+  stakeBaseUnits: string;
+  participationBps: string;
+  estimatedPendingBaseUnits: string;
+  grossShareBaseUnits: string;
+  operatingCostsShareBaseUnits: string;
+  managementFeeShareBaseUnits: string;
+  projections: {
+    dailyGrossBaseUnits: string;
+    dailyManagementFeeBaseUnits: string;
+    dailyAfterFeeBaseUnits: string;
+    weeklyGrossBaseUnits: string;
+    weeklyManagementFeeBaseUnits: string;
+    weeklyAfterFeeBaseUnits: string;
+    yearlyGrossBaseUnits: string;
+    yearlyManagementFeeBaseUnits: string;
+    yearlyAfterFeeBaseUnits: string;
+  };
+};
+
 
 type NodeData = {
   nodeId: string;
@@ -24,7 +50,8 @@ type NodeData = {
   blockNumber: string;
   fetchedAt: string;
 
-	principalPerformance:
+
+  principalPerformance:
     | {
         available: false;
         message: string;
@@ -46,6 +73,7 @@ type NodeData = {
         };
       };
 
+
   status: {
     earning: boolean;
     enrolled: boolean;
@@ -55,10 +83,12 @@ type NodeData = {
     stakeSynced: boolean;
   };
 
+
   unbonding: {
     amountBaseUnits: string;
     releaseTime: string;
   }[];
+
 
   rewards: {
     grossPendingBaseUnits: string;
@@ -66,10 +96,16 @@ type NodeData = {
     canShowInvestorEstimates: boolean;
     operatingCostsIncluded: boolean;
 
-    investors: Investor[];
+		managementFeeBps: number;
+    positions: Position[];
+		investors: Investor[];
     warnings: string[];
 
+
     projections: {
+			grossDailyBaseUnits: string;
+      grossWeeklyBaseUnits: string;
+      grossYearlyBaseUnits: string;
       grossAprBps: string;
       investorAprAfterFeeBps: string;
       investorDailyAfterFeeBaseUnits: string;
@@ -78,6 +114,7 @@ type NodeData = {
     };
   };
 };
+
 
 function formatNil(value: string, decimals = 3) {
   const amount = BigInt(value);
@@ -88,33 +125,41 @@ function formatNil(value: string, decimals = 3) {
     .padStart(6, '0')
     .slice(0, decimals);
 
+
   return `${whole.toLocaleString('en-US')}.${fraction}`;
 }
 
+
 function formatApr(value: string | undefined) {
   if (value === undefined) return '—';
+
 
   const bps = BigInt(value);
   const scale = BigInt('100');
   const whole = bps / scale;
   const fraction = (bps % scale).toString().padStart(2, '0');
 
+
   return `${whole}.${fraction}%`;
 }
+
 
 function formatUsdAtomic(value: string, signed = false) {
   const amount = BigInt(value);
   const zero = BigInt('0');
   const absolute = amount < zero ? -amount : amount;
 
+
   // Convert millionths of a dollar to cents, rounded to nearest cent.
   const cents =
     (absolute + BigInt('5000')) / BigInt('10000');
+
 
   const whole = cents / BigInt('100');
   const fraction = (cents % BigInt('100'))
     .toString()
     .padStart(2, '0');
+
 
   const sign =
     amount < zero
@@ -123,23 +168,29 @@ function formatUsdAtomic(value: string, signed = false) {
         ? '+'
         : '';
 
+
   return `${sign}$${whole.toLocaleString('en-US')}.${fraction}`;
 }
+
 
 function formatSignedReturn(value: string) {
   const bps = BigInt(value);
   const zero = BigInt('0');
   const absolute = bps < zero ? -bps : bps;
 
+
   const whole = absolute / BigInt('100');
   const fraction = (absolute % BigInt('100'))
     .toString()
     .padStart(2, '0');
 
+
   const sign = bps < zero ? '−' : bps > zero ? '+' : '';
+
 
   return `${sign}${whole}.${fraction}%`;
 }
+
 
 function Metric({
   label,
@@ -153,9 +204,11 @@ function Metric({
   const isNil = value.endsWith(' NIL');
   const displayValue = isNil ? value.slice(0, -4) : value;
 
+
   return (
     <div className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-5">
       <p className="text-sm text-slate-400">{label}</p>
+
 
       <div
         title={value}
@@ -165,12 +218,14 @@ function Metric({
           {displayValue}
         </span>
 
+
         {isNil && (
           <span className="text-sm font-normal text-slate-400">
             NIL
           </span>
         )}
       </div>
+
 
       {detail && (
         <p className="mt-2 text-xs leading-5 text-slate-500">
@@ -181,21 +236,58 @@ function Metric({
   );
 }
 
+function BreakdownRow({
+  label,
+  value,
+  note,
+  emphasis = false,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  emphasis?: boolean;
+}) {
+  return (
+    <div
+      className={`flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:justify-between ${
+        emphasis ? 'font-semibold text-white' : 'text-slate-300'
+      }`}
+    >
+      <div className="min-w-0">
+        <dt className="text-sm">{label}</dt>
+        {note && (
+          <p className="mt-0.5 text-xs font-normal leading-5 text-slate-500">
+            {note}
+          </p>
+        )}
+      </div>
+      <dd className="whitespace-nowrap text-base tabular-nums">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
 export default function NillionNodePage() {
   const { nodeId } = useParams<{ nodeId: string }>();
+
 
   const [node, setNode] = useState<NodeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+
   const [walletInput, setWalletInput] = useState('');
   const [selectedWallet, setSelectedWallet] = useState('');
-  const [walletError, setWalletError] = useState<string | null>(null);
+  const [purchasePriceUsd, setPurchasePriceUsd] = useState('');
+	const [walletError, setWalletError] = useState<string | null>(null);
+
 
   useEffect(() => {
     const wallet = new URLSearchParams(
       window.location.search,
     ).get('wallet');
+
 
     if (wallet && isAddress(wallet, { strict: false })) {
       setWalletInput(wallet);
@@ -203,17 +295,21 @@ export default function NillionNodePage() {
     }
   }, []);
 
+
   useEffect(() => {
     let disposed = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let controller: AbortController | null = null;
 
+
     setNode(null);
     setLoading(true);
     setError(null);
 
+
     async function load() {
       controller = new AbortController();
+
 
       try {
         const response = await fetch(
@@ -224,7 +320,9 @@ export default function NillionNodePage() {
           },
         );
 
+
         const body = await response.json();
+
 
         if (!response.ok) {
           throw new Error(
@@ -232,14 +330,17 @@ export default function NillionNodePage() {
           );
         }
 
+
         const match = body.nodes?.find(
           (entry: NodeData) => entry.nodeId === nodeId,
         );
+
 
         if (!match) {
           const nodeError = body.errors?.find(
             (entry: { nodeId: string }) => entry.nodeId === nodeId,
           );
+
 
           throw new Error(
             nodeError
@@ -247,6 +348,7 @@ export default function NillionNodePage() {
               : 'Node not found.',
           );
         }
+
 
         if (!disposed) {
           setNode(match);
@@ -268,7 +370,9 @@ export default function NillionNodePage() {
       }
     }
 
+
     void load();
+
 
     return () => {
       disposed = true;
@@ -277,14 +381,18 @@ export default function NillionNodePage() {
     };
   }, [nodeId]);
 
+
   function handleWalletSelection(address: string | null) {
     const wallet = address ?? '';
+
 
     setWalletInput(wallet);
     setSelectedWallet(wallet);
     setWalletError(null);
 
+
     const url = new URL(window.location.href);
+
 
     if (address) {
         url.searchParams.set('wallet', address);
@@ -292,33 +400,112 @@ export default function NillionNodePage() {
         url.searchParams.delete('wallet');
     }
 
+
     window.history.replaceState(null, '', url.toString());
     }
+
 
   function lookUpWallet(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+
     const wallet = walletInput.trim();
+
 
     if (!isAddress(wallet, { strict: false })) {
       setWalletError('Enter a valid Ethereum wallet address.');
       return;
     }
 
+
     setWalletError(null);
     setSelectedWallet(wallet);
+
 
     const url = new URL(window.location.href);
     url.searchParams.set('wallet', wallet);
     window.history.replaceState(null, '', url.toString());
   }
 
-  const investor = node?.rewards.investors.find(
+
+  const position = node?.rewards.positions?.find(
     (entry) =>
+      entry.wallet !== null &&
       entry.wallet.toLowerCase() === selectedWallet.toLowerCase(),
   );
 
-  return (
+	const currentPriceUsd = node?.principalPerformance?.available
+    ? node.principalPerformance.node.currentPriceUsd
+    : null;
+
+  let personalPrincipalPerformance:
+    | ReturnType<typeof calculateNillionPrincipalPerformance>
+    | null = null;
+
+  let purchasePriceError: string | null = null;
+
+  if (position && currentPriceUsd && purchasePriceUsd.trim()) {
+    const enteredPrice = purchasePriceUsd.trim();
+    const price = enteredPrice.startsWith('.')
+      ? `0${enteredPrice}`
+      : enteredPrice;
+
+    if (!/^\d+(?:\.\d{1,18})?$/.test(price)) {
+      purchasePriceError =
+        'Enter your USD purchase price per NIL, such as 0.10.';
+    } else {
+      try {
+        personalPrincipalPerformance =
+          calculateNillionPrincipalPerformance({
+            originalStakeBaseUnits: position.stakeBaseUnits,
+            baselinePriceUsd: price,
+            currentPriceUsd,
+          });
+      } catch {
+        purchasePriceError =
+          'Enter a purchase price greater than zero.';
+      }
+    }
+  }
+	
+  const projectionRows = position
+    ? [
+        {
+          label: 'Daily',
+          gross: position.projections.dailyGrossBaseUnits,
+          fee: position.projections.dailyManagementFeeBaseUnits,
+          net: position.projections.dailyAfterFeeBaseUnits,
+        },
+        {
+          label: 'Weekly',
+          gross: position.projections.weeklyGrossBaseUnits,
+          fee: position.projections.weeklyManagementFeeBaseUnits,
+          net: position.projections.weeklyAfterFeeBaseUnits,
+        },
+        {
+          label: 'Yearly',
+          gross: position.projections.yearlyGrossBaseUnits,
+          fee: position.projections.yearlyManagementFeeBaseUnits,
+          net: position.projections.yearlyAfterFeeBaseUnits,
+        },
+      ]
+    : [];
+	
+
+  const investorWarningPattern =
+    /investor|position|management fee|allocation/i;
+
+  const nodeWarnings =
+    node?.rewards.warnings.filter(
+      (warning) => !investorWarningPattern.test(warning),
+    ) ?? [];
+
+  const investorWarnings =
+    node?.rewards.warnings.filter((warning) =>
+      investorWarningPattern.test(warning),
+    ) ?? [];	
+
+    return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <Link
@@ -328,6 +515,7 @@ export default function NillionNodePage() {
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           All Nillion nodes
         </Link>
+
 
         <header className="mt-8">
           <p className="text-sm uppercase tracking-widest text-blue-400">
@@ -351,11 +539,31 @@ export default function NillionNodePage() {
           )}
         </header>
 
+				<div
+          role="note"
+          className="mt-6 rounded-2xl border-2 border-blue-400 bg-blue-500/10 p-5 sm:p-6"
+        >
+          <p className="text-xl font-bold uppercase tracking-wide text-blue-200 sm:text-2xl">
+            In-kind rewards — paid in NIL, not USD
+          </p>
+          <p className="mt-3 text-base font-semibold leading-7 text-slate-100">
+            All reward estimates and APR figures shown here are
+            NIL-denominated. APR represents estimated additional NIL
+            relative to NIL staked—not a USD return.
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-300">
+            NIL’s market price can rise or fall. Earning more NIL does
+            not guarantee that your investment’s USD value will increase.
+            Principal price changes are shown separately from rewards.
+          </p>
+        </div>
+
         {loading && (
           <p className="mt-8 text-slate-400">
             Loading live node data…
           </p>
         )}
+
 
         {error && (
           <div
@@ -371,141 +579,155 @@ export default function NillionNodePage() {
           </div>
         )}
 
+
         {node && (
           <>
             <section
-							aria-label="Node earnings"
-							className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
-						>
-							<Metric
-								label="Node stake"
-								value={`${formatNil(node.stakeBaseUnits)} NIL`}
-								detail="Total bonded stake recorded on-chain."
-							/>
+              aria-labelledby="node-performance-heading"
+              className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6"
+            >
+              <h2
+                id="node-performance-heading"
+                className="text-2xl font-semibold"
+              >
+                Node Performance
+              </h2>
 
-							<Metric
-								label="All-time gross earnings"
-								value={`${formatNil(
-									node.rewards.grossPendingBaseUnits,
-								)} NIL`}
-								detail="Before fees and operating costs. No rewards have been claimed to date."
-							/>
 
-							<Metric
-								label="Ownership earnings to date"
-								value={`${formatNil(
-									node.rewards.estimatedInvestorPendingBaseUnits,
-								)} NIL`}
-								detail="Combined across all ownership positions, after the management fee and before operating costs."
-							/>
-
-							<Metric
-								label="Gross APR"
-								value={formatApr(
-									node.rewards.projections.grossAprBps,
-								)}
-								detail="Annualized NIL emissions relative to node stake, before fees and costs."
-							/>
-
-							<Metric
-								label="APR after management fee"
-								value={formatApr(
-									node.rewards.projections.investorAprAfterFeeBps,
-								)}
-								detail="Ownership-based yield after the management fee, before operating costs."
-							/>
-
-							{node.principalPerformance?.available ? (
-                <Metric
-                  label="Principal appreciation / depreciation"
-                  value={`${formatUsdAtomic(
-                    node.principalPerformance.node.appreciationUsdAtomic,
-                    true,
-                  )} (${formatSignedReturn(
-                    node.principalPerformance.node.priceReturnBps,
-                  )})`}
-                  detail={`Original principal: ${formatUsdAtomic(
-                    node.principalPerformance.node.startingValueUsdAtomic,
-                  )} at the starting baseline → ${formatUsdAtomic(
-                    node.principalPerformance.node.currentValueUsdAtomic,
-                  )} at the current NIL price. Excludes reward tokens.`}
-                />
-              ) : (
-                <Metric
-                  label="Principal appreciation / depreciation"
-                  value="Unavailable"
-                  detail={
-                    node.principalPerformance?.available === false
-                      ? node.principalPerformance.message
-                      : 'Principal price performance is temporarily unavailable.'
-                  }
-                />
-              )}
-						</section>
-
-						<section className="mt-8">
-							<h2 className="text-xl font-semibold">
-								Projected ownership earnings
-							</h2>
-
-							<p className="mt-2 text-sm leading-6 text-slate-400">
-								Combined across all ownership positions after the management
-								fee, before operating costs. These are estimates assuming
-								current network conditions and eligibility continue.
-							</p>
-
-							<div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-								<Metric
-									label="Daily"
-									value={`${formatNil(
-										node.rewards.projections.investorDailyAfterFeeBaseUnits,
-									)} NIL`}
-								/>
-
-								<Metric
-									label="Weekly"
-									value={`${formatNil(
-										node.rewards.projections.investorWeeklyAfterFeeBaseUnits,
-									)} NIL`}
-								/>
-
-								<Metric
-									label="Yearly"
-									value={`${formatNil(
-										node.rewards.projections.investorYearlyAfterFeeBaseUnits,
-									)} NIL`}
-									detail="Annual projection uses 365 days."
-								/>
-							</div>
-						</section>
-
-            {node.rewards.warnings.length > 0 && (
-              <div className="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-                <ul className="space-y-2 text-sm leading-6 text-amber-300">
-                  {node.rewards.warnings.map((warning) => (
-                    <li key={warning}>{warning}</li>
-                  ))}
-                </ul>
+              <div
+                role="note"
+                className="mt-4 rounded-xl border-2 border-amber-400/60 bg-amber-400/10 p-4"
+              >
+                <p className="text-sm font-bold uppercase tracking-wide text-amber-300">
+                  These are NOT individual earnings
+                </p>
+                <p className="mt-1 text-sm leading-6 text-amber-100">
+                  Everything in this section describes the node itself. It is
+                  not what you or any investor earns. To see your personal
+                  earnings, you must{' '}
+                  <a
+                    href="#your-investment"
+                    className="font-semibold underline hover:text-white"
+                  >
+                    connect your wallet
+                  </a>{' '}
+                  in the “Your investment” section below.
+                </p>
               </div>
-            )}
 
-            <section className="mt-10 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <Metric
+                  label="Total node stake"
+                  value={`${formatNil(node.stakeBaseUnits)} NIL`}
+                  detail="All NIL bonded to this node, recorded on-chain. Not your stake."
+                />
+
+
+                <Metric
+                  label="Node NIL rewards earned"
+                  value={`${formatNil(
+                    node.rewards.grossPendingBaseUnits,
+                  )} NIL`}
+                  detail="Total NIL emissions the node has earned and not yet claimed. Gross figure for the whole node, before any fees or costs. Not your earnings."
+                />
+
+
+                <Metric
+                  label="Node gross APR"
+                  value={formatApr(
+                    node.rewards.projections.grossAprBps,
+                  )}
+                  detail="Annualized NIL emissions relative to node stake, before any fees or costs. An estimate, not a promised return."
+                />
+              </div>
+
+
+              <h3 className="mt-8 text-lg font-semibold">
+                Node emissions projection
+              </h3>
+
+
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Projected gross NIL emissions for the whole node, before any
+                fees or costs, assuming current network conditions and
+                eligibility continue. Not your earnings.
+              </p>
+
+
+              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <Metric
+                  label="Node daily projection"
+                  value={`${formatNil(
+                    node.rewards.projections.grossDailyBaseUnits,
+                  )} NIL`}
+                />
+
+
+                <Metric
+                  label="Node weekly projection"
+                  value={`${formatNil(
+                    node.rewards.projections.grossWeeklyBaseUnits,
+                  )} NIL`}
+                />
+
+
+                <Metric
+                  label="Node yearly projection"
+                  value={`${formatNil(
+                    node.rewards.projections.grossYearlyBaseUnits,
+                  )} NIL`}
+                  detail="Annual projection uses 365 days."
+                />
+              </div>
+
+
+              {nodeWarnings.length > 0 && (
+                <div className="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                  <ul className="space-y-2 text-sm leading-6 text-amber-300">
+                    {nodeWarnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </section>
+
+
+            <section
+              id="your-investment"
+              className="mt-10 rounded-2xl border border-slate-800 bg-slate-900 p-6"
+            >
               <h2 className="text-xl font-semibold">
                 Your investment
               </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                Enter the Ethereum receiving wallet recorded for your
-                investment. This is a public, read-only lookup—not a
-                login or proof of wallet ownership.
+
+
+              <div
+                role="note"
+                className="mt-4 rounded-xl border-2 border-blue-400/60 bg-blue-400/10 p-4"
+              >
+                <p className="text-sm font-bold uppercase tracking-wide text-blue-300">
+                  Connect your wallet to see your earnings
+                </p>
+                <p className="mt-1 text-sm leading-6 text-blue-100">
+                  Your personal figures appear only after you connect or
+                  enter the receiving wallet recorded for your investment.
+                  This is a public, read-only lookup—not a login or proof of
+                  wallet ownership.
+                </p>
+              </div>
+
+
+              <EthereumWalletSelector
+                onAddressChange={handleWalletSelection}
+              />
+
+
+              <p className="mt-6 text-sm text-slate-400">
+                Or look up any receiving address manually:
               </p>
 
-							<EthereumWalletSelector
-								onAddressChange={handleWalletSelection}
-							/>
-
-							<p className="mt-6 text-sm text-slate-400">
-								Or look up any receiving address manually:
-							</p>
 
               <form
                 onSubmit={lookUpWallet}
@@ -532,13 +754,15 @@ export default function NillionNodePage() {
                   />
                 </div>
 
+
                 <button
                   type="submit"
                   className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
                 >
-                  View my earnings
+                  View my investment
                 </button>
               </form>
+
 
               {walletError && (
                 <p
@@ -550,44 +774,287 @@ export default function NillionNodePage() {
                 </p>
               )}
 
+
               {selectedWallet && (
                 <div className="mt-6" aria-live="polite">
                   <p className="break-all text-xs text-slate-500">
                     Viewing: {selectedWallet}
                   </p>
 
+
                   {!node.rewards.canShowInvestorEstimates ? (
                     <p className="mt-3 text-sm leading-6 text-amber-300">
                       Investor estimates are unavailable until this
                       node’s allocation records and chain checks reconcile.
                     </p>
-                  ) : investor ? (
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      <Metric
-                        label="Your allocated stake"
-                        value={`${formatNil(
-                          investor.stakeBaseUnits,
-                        )} NIL`}
-                      />
-                      <Metric
-                        label="Your participation"
-                        value={`${(
-                          Number(investor.participationBps) / 100
-                        ).toFixed(2)}%`}
-                        detail="Percentage shown rounded down to two decimals."
-                      />
-                      <Metric
-                        label="Your estimated pending earnings"
-                        value={`${formatNil(
-                          investor.estimatedPendingBaseUnits,
-                        )} NIL`}
-                        detail={
-                          node.rewards.operatingCostsIncluded
-                            ? 'After the management fee and entered operating costs. Not a confirmed payout.'
-                            : 'After the management fee, before operating costs. Not a confirmed payout.'
-                        }
-                      />
-                    </div>
+                  ) : position ? (
+                    <>
+                      <h3 className="mt-4 text-lg font-semibold">
+                        Your investment report — Node #{node.nodeId}
+                      </h3>
+
+
+                      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        <Metric
+                          label="Your recorded stake"
+                          value={`${formatNil(
+                            position.stakeBaseUnits,
+                          )} NIL`}
+                          detail="Your recorded pool interest in this node."
+                        />
+                        <Metric
+                          label="Your share of this node"
+                          value={formatApr(position.participationBps)}
+                          detail="Percentage shown rounded down to two decimals."
+                        />
+                        <Metric
+                          label="Estimated investor APR"
+                          value={formatApr(
+                            node.rewards.projections.investorAprAfterFeeBps,
+                          )}
+                          detail="Annualized estimate after the management fee, before operating costs. An estimate, not a promised return."
+                        />
+                      </div>
+
+
+                      <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5">
+                        <h4 className="text-base font-semibold">
+                          Your estimated pending rewards
+                        </h4>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                          Your share of this node’s unclaimed NIL rewards,
+                          step by step. Estimates only—not payments
+                          received.
+                        </p>
+
+
+                        <dl className="mt-3 divide-y divide-slate-800">
+                          <BreakdownRow
+                            label="Your share of node rewards"
+                            value={`${formatNil(
+                              position.grossShareBaseUnits,
+                            )} NIL`}
+                            note="Your percentage of the node’s total pending NIL, before any deductions."
+                          />
+                          <BreakdownRow
+                            label={`Management fee (${
+                              node.rewards.managementFeeBps / 100
+                            }%)`}
+                            value={`−${formatNil(
+                              position.managementFeeShareBaseUnits,
+                            )} NIL`}
+                            note="The management fee retained from your share of node rewards. This estimate is not a payment already made."
+                          />
+                          <BreakdownRow
+                            label="Your estimated pending rewards"
+                            value={`${formatNil(
+                              position.estimatedPendingBaseUnits,
+                            )} NIL`}
+                            emphasis
+                          />
+                        </dl>
+                      </div>
+
+											<section
+                        aria-labelledby="personal-principal-heading"
+                        className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5"
+                      >
+                        <h4
+                          id="personal-principal-heading"
+                          className="text-lg font-semibold"
+                        >
+                          Your principal value calculator
+                        </h4>
+
+                        <p className="mt-2 text-sm leading-6 text-slate-400">
+                          We do not know what you paid for your NIL.
+                          Enter your purchase price per NIL—or your
+                          average price if you bought at multiple prices.
+                          This calculator applies that price to your
+                          recorded stake on this node.
+                        </p>
+
+                        <div className="mt-4 max-w-sm">
+                          <label
+                            htmlFor="nil-purchase-price"
+                            className="block text-sm font-medium text-slate-300"
+                          >
+                            Your purchase price per NIL (USD)
+                          </label>
+
+                          <input
+                            id="nil-purchase-price"
+                            type="text"
+                            inputMode="decimal"
+                            value={purchasePriceUsd}
+                            onChange={(event) =>
+                              setPurchasePriceUsd(event.target.value)
+                            }
+                            placeholder="For example: 0.10"
+                            maxLength={40}
+                            autoComplete="off"
+                            spellCheck={false}
+                            aria-invalid={Boolean(purchasePriceError)}
+                            aria-describedby={
+                              purchasePriceError
+                                ? 'nil-purchase-price-help nil-purchase-price-error'
+                                : 'nil-purchase-price-help'
+                            }
+                            className="mt-2 w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white outline-none focus:border-blue-400"
+                          />
+
+                          <p
+                            id="nil-purchase-price-help"
+                            className="mt-2 text-xs leading-5 text-slate-500"
+                          >
+                            Enter USD per token, not your total investment.
+                            This input is not saved to your investment record.
+                          </p>
+
+                          {purchasePriceError && (
+                            <p
+                              id="nil-purchase-price-error"
+                              role="alert"
+                              className="mt-2 text-sm text-red-300"
+                            >
+                              {purchasePriceError}
+                            </p>
+                          )}
+                        </div>
+
+                        {!currentPriceUsd ? (
+                          <p className="mt-4 text-sm text-amber-300">
+                            The current NIL price is temporarily unavailable.
+                            Your stake and reward estimates remain separate
+                            from this calculator.
+                          </p>
+                        ) : (
+                          <p className="mt-4 text-sm text-slate-400">
+                            Current dashboard quote: ${currentPriceUsd} per NIL.
+                          </p>
+                        )}
+
+                        <div aria-live="polite">
+                          {personalPrincipalPerformance && (
+                            <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                              <Metric
+                                label="Stake value at your purchase price"
+                                value={formatUsdAtomic(
+                                  personalPrincipalPerformance.startingValueUsdAtomic,
+                                )}
+                                detail={`Based on ${formatNil(
+                                  position.stakeBaseUnits,
+                                  6,
+                                )} NIL recorded for this position.`}
+                              />
+
+                              <Metric
+                                label="Stake value at the current price"
+                                value={formatUsdAtomic(
+                                  personalPrincipalPerformance.currentValueUsdAtomic,
+                                )}
+                                detail="Estimated market value of the same NIL stake. Not a withdrawal balance."
+                              />
+
+                              <Metric
+                                label="Estimated unrealized price gain / loss"
+                                value={`${formatUsdAtomic(
+                                  personalPrincipalPerformance.appreciationUsdAtomic,
+                                  true,
+                                )} (${formatSignedReturn(
+                                  personalPrincipalPerformance.priceReturnBps,
+                                )})`}
+                                detail="Price movement only. Excludes reward tokens, fees, and transaction costs."
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <p className="mt-4 text-xs leading-5 text-slate-500">
+                          This is an illustration using your entered price
+                          and recorded stake—not a verified cost basis,
+                          total investment return, or guaranteed resale value.
+                          It does not change your stake or reward allocation.
+                        </p>
+                      </section>
+
+                      <h4 className="mt-6 text-base font-semibold">
+                        Your estimated future rewards
+                      </h4>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        Based on current network conditions continuing.
+                        Estimates, not guarantees. Annual projection uses
+                        365 days.
+                      </p>
+
+
+                      <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                        <table className="w-full min-w-[32rem] text-left text-sm">
+                          <caption className="sr-only">
+                            Your estimated future rewards before the
+                            management fee, the fee amount, and after the
+                            fee
+                          </caption>
+                          <thead className="text-xs text-slate-400">
+                            <tr>
+                              <th scope="col" className="px-4 py-3 font-medium">
+                                Period
+                              </th>
+                              <th scope="col" className="px-4 py-3 text-right font-medium">
+                                Your share before fee
+                              </th>
+                              <th scope="col" className="px-4 py-3 text-right font-medium">
+                                Management fee (
+                                {node.rewards.managementFeeBps / 100}%)
+                              </th>
+                              <th scope="col" className="px-4 py-3 text-right font-medium text-white">
+                                Your estimate after fee
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800 tabular-nums">
+                            {projectionRows.map((row) => (
+                              <tr key={row.label}>
+                                <th scope="row" className="px-4 py-3 font-medium text-slate-300">
+                                  {row.label}
+                                </th>
+                                <td className="px-4 py-3 text-right text-slate-300">
+                                  {formatNil(row.gross)} NIL
+                                </td>
+                                <td className="px-4 py-3 text-right text-slate-400">
+                                  −{formatNil(row.fee)} NIL
+                                </td>
+                                <td className="px-4 py-3 text-right font-semibold text-white">
+                                  {formatNil(row.net)} NIL
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+
+                      <div
+                        role="note"
+                        className="mt-4 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100"
+                      >
+                        These are estimates, not payments received. Actual
+                        weekly distributions reflect applicable operating
+                        costs and the management fee under your pool
+                        agreement.
+                      </div>
+
+
+                      {investorWarnings.length > 0 && (
+                        <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                          <ul className="space-y-2 text-sm leading-6 text-amber-300">
+                            {investorWarnings.map((warning) => (
+                              <li key={warning}>{warning}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <p className="mt-3 text-sm text-slate-300">
                       No investment allocation found for this wallet
@@ -598,8 +1065,10 @@ export default function NillionNodePage() {
               )}
             </section>
 
+
             <section className="mt-10">
               <h2 className="text-xl font-semibold">Node details</h2>
+
 
               <dl className="mt-5 space-y-4 text-sm">
                 <div>
@@ -620,10 +1089,12 @@ export default function NillionNodePage() {
                   </dd>
                 </div>
 
+
                 <div>
                   <dt className="text-slate-400">Snapshot block</dt>
                   <dd className="mt-1">{node.blockNumber}</dd>
                 </div>
+
 
                 <div>
                   <dt className="text-slate-400">Last refreshed</dt>
@@ -632,6 +1103,7 @@ export default function NillionNodePage() {
                   </dd>
                 </div>
               </dl>
+
 
               {node.unbonding.length > 0 && (
                 <div className="mt-5 rounded-xl border border-amber-500/30 p-4 text-sm text-amber-300">
@@ -650,6 +1122,7 @@ export default function NillionNodePage() {
                 </div>
               )}
             </section>
+
 
             <section className="mt-10 border-t border-slate-800 pt-6">
               <h2 className="text-xl font-semibold">
