@@ -1,6 +1,7 @@
 // e2e/nillion/payouts.spec.mjs
 
 import { test, expect } from '@playwright/test';
+import ExcelJS from 'exceljs';
 
 const WALLET = '0x2222222222222222222222222222222222222222';
 const OTHER_WALLET = '0x3333333333333333333333333333333333333333';
@@ -125,6 +126,7 @@ function nodeFixture(nodeId, mode) {
 
     rewards: {
       managementFeeBps: 5000,
+      managementFeeBasis: 'gross_rewards_operator_covers_costs',
       grossPendingBaseUnits: '12000000',
       estimatedInvestorPendingBaseUnits: '6000000',
       canShowInvestorEstimates: true,
@@ -162,8 +164,9 @@ async function openFixture(
         body: JSON.stringify({
           fundId: 'nillion',
           generatedAt: '2026-10-24T18:00:00.000Z',
-          allocationVersion: 2,
+					allocationVersion: 3,
           managementFeeBps: 5000,
+          managementFeeBasis: 'gross_rewards_operator_covers_costs',
           payoutStatus: mode === 'unavailable' ? 'unavailable' : 'ok',
           status: 'ok',
           nodes: [
@@ -326,4 +329,302 @@ test('mobile payout history stays inside a horizontally scrollable wrapper', asy
   expect(layout.scrollWidth).toBeGreaterThan(layout.clientWidth);
   expect(layout.left).toBeGreaterThanOrEqual(0);
   expect(layout.right).toBeLessThanOrEqual(layout.viewportWidth + 1);
+});
+
+function workbookSummaryValue(workbook, field) {
+  const sheet = workbook.getWorksheet('Summary');
+  expect(sheet).toBeDefined();
+
+  let value;
+
+  sheet.eachRow((row) => {
+    if (row.getCell(1).value === field) {
+      value = row.getCell(2).value;
+    }
+  });
+
+  return value;
+}
+
+function workbookCellValues(workbook) {
+  const values = [];
+
+  for (const sheet of workbook.worksheets) {
+    sheet.eachRow((row) => {
+      row.eachCell((cell) => {
+        values.push(cell.value);
+      });
+    });
+  }
+
+  return values;
+}
+
+async function downloadInvestmentWorkbook(page, wallet = WALLET) {
+  const button = page.getByRole('button', {
+    name: 'Download Excel report',
+    exact: true,
+  });
+
+  await expect(button).toBeVisible();
+  await expect(button).toBeEnabled();
+
+  const downloadPromise = page.waitForEvent('download');
+
+  await button.click();
+
+  const download = await downloadPromise;
+
+  expect(await download.failure()).toBeNull();
+
+  expect(download.suggestedFilename()).toBe(
+    `nillion-node-19-${wallet.toLowerCase()}-block-200.xlsx`,
+  );
+
+  const downloadedPath = await download.path();
+  expect(downloadedPath).toBeTruthy();
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(downloadedPath);
+
+  await expect(button).toBeEnabled();
+
+  return workbook;
+}
+
+test('Excel export is hidden until a receiving wallet is selected', async ({
+  page,
+}) => {
+  await openFixture(page, { wallet: '' });
+
+  await expect(
+    page.getByRole('button', {
+      name: 'Download Excel report',
+      exact: true,
+    }),
+  ).toHaveCount(0);
+
+  await page.getByLabel('Ethereum wallet address', { exact: true }).fill(
+    WALLET,
+  );
+
+  await page.getByRole('button', {
+    name: 'View my investment',
+    exact: true,
+  }).click();
+
+  await expect(
+    page.getByRole('button', {
+      name: 'Download Excel report',
+      exact: true,
+    }),
+  ).toBeVisible();
+});
+
+test('Excel download contains the selected wallet snapshot and separate accounting sheets', async ({
+  page,
+}) => {
+  await openFixture(page);
+
+  const workbook = await downloadInvestmentWorkbook(page);
+
+  expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
+    'Summary',
+    'Live estimates',
+    'Projections',
+    'Recorded distributions',
+    'Payment history',
+  ]);
+
+  expect(workbookSummaryValue(workbook, 'Node ID')).toBe('19');
+
+  expect(workbookSummaryValue(workbook, 'Receiving wallet')).toBe(
+    WALLET.toLowerCase(),
+  );
+
+  expect(workbookSummaryValue(workbook, 'Snapshot block')).toBe('200');
+
+  expect(workbookSummaryValue(workbook, 'Snapshot time')).toBe(
+    '2026-10-24T18:00:00.000Z',
+  );
+
+  expect(workbookSummaryValue(workbook, 'Fee policy')).toContain(
+    'No additional operating-cost deduction',
+  );
+
+  const live = workbook.getWorksheet('Live estimates');
+
+  expect(live.rowCount).toBe(2);
+  expect(live.getCell('A2').value).toBe('node-19-test-position');
+  expect(live.getCell('B2').value).toBe('60.000000');
+  expect(live.getCell('C2').value).toBe('60.00%');
+  expect(live.getCell('D2').value).toBe('7.200000');
+  expect(live.getCell('E2').value).toBe('3.600000');
+  expect(live.getCell('F2').value).toBe('3.600000');
+
+  const projections = workbook.getWorksheet('Projections');
+
+  expect(projections.rowCount).toBe(4);
+  expect(projections.getCell('B2').value).toBe('daily');
+  expect(projections.getCell('C2').value).toBe('2.000000');
+  expect(projections.getCell('D2').value).toBe('1.000000');
+  expect(projections.getCell('E2').value).toBe('1.000000');
+
+  const distributions = workbook.getWorksheet(
+    'Recorded distributions',
+  );
+
+  expect(distributions.rowCount).toBe(2);
+  expect(distributions.getCell('A2').value).toBe(
+    'node-19-test-position',
+  );
+  expect(distributions.getCell('B2').value).toBe('3.600000');
+  expect(distributions.getCell('C2').value).toBe('1.000000');
+  expect(distributions.getCell('D2').value).toBe('2.600000');
+
+  const payments = workbook.getWorksheet('Payment history');
+
+  expect(payments.rowCount).toBe(2);
+  expect(payments.getCell('A2').value).toBe('test-batch-19');
+  expect(payments.getCell('B2').value).toBe('node-19-test-position');
+  expect(payments.getCell('C2').value).toBe('1.000000');
+  expect(payments.getCell('D2').value).toBe(PAYMENT_TX);
+  expect(payments.getCell('E2').value).toBe('9');
+  expect(payments.getCell('F2').value).toBe('200');
+  expect(payments.getCell('G2').value).toBe(BLOCK_HASH);
+
+  for (const sheet of workbook.worksheets) {
+    sheet.eachRow((row) => {
+      row.eachCell((cell) => {
+        expect(cell.type).toBe(ExcelJS.ValueType.String);
+      });
+    });
+  }
+
+  expect(JSON.stringify(workbookCellValues(workbook))).not.toContain(
+    'node-20-test-position',
+  );
+});
+
+test('Excel export follows wallet changes without retaining previous wallet records', async ({
+  page,
+}) => {
+  await openFixture(page);
+
+  const first = await downloadInvestmentWorkbook(page);
+
+  expect(
+    first.getWorksheet('Payment history').getCell('D2').value,
+  ).toBe(PAYMENT_TX);
+
+  await page.getByLabel('Ethereum wallet address', { exact: true }).fill(
+    OTHER_WALLET,
+  );
+
+  await page.getByRole('button', {
+    name: 'View my investment',
+    exact: true,
+  }).click();
+
+  await expect(
+    payoutSection(page).getByText(
+      'No distributions recorded yet',
+      { exact: true },
+    ),
+  ).toBeVisible();
+
+  const second = await downloadInvestmentWorkbook(page, OTHER_WALLET);
+
+  expect(workbookSummaryValue(second, 'Receiving wallet')).toBe(
+    OTHER_WALLET.toLowerCase(),
+  );
+
+  expect(
+    second.getWorksheet('Live estimates').getCell('A2').value,
+  ).toContain('No live allocation found');
+
+  expect(
+    second.getWorksheet('Recorded distributions').getCell('B2').value,
+  ).toBeNull();
+
+  expect(
+    second.getWorksheet('Payment history').getCell('C2').value,
+  ).toBeNull();
+
+  const exportedValues = JSON.stringify(workbookCellValues(second));
+
+  expect(exportedValues).not.toContain(WALLET);
+  expect(exportedValues).not.toContain(PAYMENT_TX);
+  expect(exportedValues).not.toContain('node-19-test-position');
+});
+
+test('Excel export preserves an empty ledger without substituting live earnings', async ({
+  page,
+}) => {
+  await openFixture(page, { mode: 'empty' });
+
+  const workbook = await downloadInvestmentWorkbook(page);
+
+  expect(workbookSummaryValue(workbook, 'Recorded payout status')).toBe(
+    'No distributions recorded for this wallet on this node.',
+  );
+
+  expect(
+    workbook.getWorksheet('Live estimates').getCell('F2').value,
+  ).toBe('3.600000');
+
+  const distributions = workbook.getWorksheet(
+    'Recorded distributions',
+  );
+
+  expect(distributions.getCell('A2').value).toContain(
+    'No distributions recorded',
+  );
+
+  for (const column of ['B', 'C', 'D']) {
+    expect(distributions.getCell(`${column}2`).value).toBeNull();
+  }
+
+  const payments = workbook.getWorksheet('Payment history');
+
+  expect(payments.getCell('A2').value).toBe(
+    'No payments recorded for this wallet on this node.',
+  );
+  expect(payments.getCell('C2').value).toBeNull();
+});
+
+test('Excel export marks unavailable payout reporting without zero balances', async ({
+  page,
+}) => {
+  await openFixture(page, { mode: 'unavailable' });
+
+  const workbook = await downloadInvestmentWorkbook(page);
+
+  expect(workbookSummaryValue(workbook, 'Recorded payout status')).toBe(
+    'Unavailable: no recorded payout balance can be confirmed.',
+  );
+
+  expect(workbookSummaryValue(workbook, 'Payout report message')).toBe(
+    'Payout reporting is temporarily unavailable.',
+  );
+
+  // Available live estimates remain distinct from unavailable ledger data.
+  expect(
+    workbook.getWorksheet('Live estimates').getCell('F2').value,
+  ).toBe('3.600000');
+
+  const distributions = workbook.getWorksheet(
+    'Recorded distributions',
+  );
+
+  expect(distributions.getCell('A2').value).toContain('Unavailable');
+
+  for (const column of ['B', 'C', 'D']) {
+    expect(distributions.getCell(`${column}2`).value).toBeNull();
+  }
+
+  const payments = workbook.getWorksheet('Payment history');
+
+  expect(payments.getCell('A2').value).toContain('Unavailable');
+  expect(payments.getCell('C2').value).toBeNull();
 });

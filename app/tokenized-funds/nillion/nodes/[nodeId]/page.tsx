@@ -4,7 +4,7 @@
 'use client';
 
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { NILLION_FEE_DISCLOSURE } from '../../../../../lib/tokenized-funds/nillion/fee-policy.js';
 import { useParams } from 'next/navigation';
@@ -306,6 +306,141 @@ function BreakdownRow({
       <dd className="whitespace-nowrap text-base tabular-nums">
         {value}
       </dd>
+    </div>
+  );
+}
+
+function InvestmentReportDownload({
+  node,
+  wallet,
+  snapshotWarning,
+}: {
+  node: NodeData;
+  wallet: string;
+  snapshotWarning: string | null;
+}) {
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const mounted = useRef(false);
+  const inFlight = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  async function downloadReport() {
+    if (inFlight.current) return;
+
+    inFlight.current = true;
+    setExporting(true);
+    setExportError(null);
+
+    // Capture the displayed snapshot and selected wallet at click time.
+    const snapshot = node;
+    const receivingWallet = wallet.toLowerCase();
+    const warning = snapshotWarning;
+
+    try {
+      // Load the workbook builder and ExcelJS only when requested.
+      const { buildNillionInvestmentWorkbook } = await import(
+        '../../../../../lib/tokenized-funds/nillion/investment-workbook.js'
+      );
+
+      if (!mounted.current) return;
+
+      const workbook = buildNillionInvestmentWorkbook({
+        node: snapshot,
+        wallet: receivingWallet,
+        snapshotWarning: warning,
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+
+      // Changing wallet or node unmounts this keyed component.
+      // Do not download the previous wallet's report afterward.
+      if (!mounted.current) return;
+
+      const blob = new Blob(
+        [new Uint8Array(buffer)],
+        {
+          type:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+      );
+
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      try {
+        link.href = objectUrl;
+        link.download =
+          `nillion-node-${snapshot.nodeId}-` +
+          `${receivingWallet}-block-${snapshot.blockNumber}.xlsx`;
+
+        document.body.appendChild(link);
+        link.click();
+      } finally {
+        link.remove();
+
+        window.setTimeout(() => {
+          URL.revokeObjectURL(objectUrl);
+        }, 60_000);
+      }
+    } catch (cause) {
+      console.error('[nillion/export] Workbook generation failed:', cause);
+
+      if (mounted.current) {
+        setExportError(
+          'Unable to create the Excel report. Please try again. ' +
+          'No investment or payout records were changed.',
+        );
+      }
+    } finally {
+      inFlight.current = false;
+
+      if (mounted.current) {
+        setExporting(false);
+      }
+    }
+  }
+
+  return (
+    <div className="mt-6 rounded-xl border border-slate-700 bg-slate-950 p-4">
+      <button
+        type="button"
+        onClick={() => void downloadReport()}
+        disabled={exporting}
+        aria-busy={exporting}
+        className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 disabled:cursor-wait disabled:opacity-60"
+      >
+        {exporting ? 'Preparing Excel report…' : 'Download Excel report'}
+      </button>
+
+      <p className="mt-3 text-xs leading-5 text-slate-400">
+        Exports the selected wallet’s report for this node using the
+        snapshot displayed when you click. Includes separate worksheets
+        for live estimates, projections, recorded distributions, and
+        payment history. NIL amounts are exact decimal text. Principal
+        price calculations and USD returns are not included.
+      </p>
+
+      {snapshotWarning && (
+        <p className="mt-2 text-xs leading-5 text-amber-300">
+          The last successful snapshot is being shown. Its warning will
+          be included in the workbook.
+        </p>
+      )}
+
+      {exportError && (
+        <p role="alert" className="mt-3 text-sm leading-6 text-red-300">
+          {exportError}
+        </p>
+      )}
     </div>
   );
 }
@@ -1334,12 +1469,21 @@ export default function NillionNodePage() {
               )}
 							
 							{selectedWallet && (
-                <YourPayouts
-                  report={node.payouts}
-                  wallet={selectedWallet}
-                  nodeId={node.nodeId}
-                />
-              )}
+								<>
+									<InvestmentReportDownload
+										key={`${node.nodeId}:${selectedWallet.toLowerCase()}`}
+										node={node}
+										wallet={selectedWallet}
+										snapshotWarning={error}
+									/>
+
+									<YourPayouts
+										report={node.payouts}
+										wallet={selectedWallet}
+										nodeId={node.nodeId}
+									/>
+								</>
+							)}
             </section>
 
 
