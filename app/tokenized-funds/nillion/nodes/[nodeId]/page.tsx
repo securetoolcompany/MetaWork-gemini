@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { NILLION_FEE_DISCLOSURE } from '../../../../../lib/tokenized-funds/nillion/fee-policy.js';
 import { useParams } from 'next/navigation';
 import { isAddress } from 'viem';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
@@ -41,6 +42,46 @@ type Position = {
   };
 };
 
+type PayoutPosition = {
+  nodeId: string;
+  positionId: string;
+  wallet: string | null;
+  receivingWalletStatus: 'pending' | 'provided';
+  recordedAllocatedBaseUnits: string;
+  recordedPaidBaseUnits: string;
+  recordedUnpaidBaseUnits: string;
+  batchIds: string[];
+};
+
+type PayoutPayment = {
+  batchId: string;
+  positionId: string;
+  wallet: string | null;
+  amountBaseUnits: string;
+  transactionHash: string;
+  logIndex: string;
+  blockNumber: string;
+  blockHash: string;
+};
+
+type PayoutReport =
+  | {
+      available: false;
+      status: 'unavailable';
+      message: string;
+    }
+  | {
+      available: true;
+      status: 'empty' | 'recorded';
+      currency: 'NIL';
+      decimals: 6;
+      scope: 'recorded_ledger_only';
+      includesLiveUnclaimedRewards: false;
+      freshChainVerificationPerformed: false;
+      message: string;
+      positions: PayoutPosition[];
+      payments: PayoutPayment[];
+    };
 
 type NodeData = {
   nodeId: string;
@@ -49,6 +90,7 @@ type NodeData = {
   stakeBaseUnits: string;
   blockNumber: string;
   fetchedAt: string;
+	payouts?: PayoutReport;
 
 
   principalPerformance:
@@ -265,6 +307,233 @@ function BreakdownRow({
         {value}
       </dd>
     </div>
+  );
+}
+
+function YourPayouts({
+  report,
+  wallet,
+  nodeId,
+}: {
+  report: PayoutReport | undefined;
+  wallet: string;
+  nodeId: string;
+}) {
+  const unavailable = !report || !report.available;
+
+  const positions =
+    report?.available
+      ? report.positions.filter(
+          (position) =>
+            position.nodeId === nodeId &&
+            position.wallet?.toLowerCase() === wallet.toLowerCase(),
+        )
+      : [];
+
+  const payments =
+    report?.available
+      ? report.payments.filter(
+          (payment) =>
+            payment.wallet?.toLowerCase() === wallet.toLowerCase(),
+        )
+      : [];
+
+  return (
+    <section
+      aria-labelledby="your-payouts-heading"
+      className="mt-8 border-t border-slate-700 pt-6"
+    >
+      <h3
+        id="your-payouts-heading"
+        className="text-xl font-semibold"
+      >
+        Your payouts
+      </h3>
+
+      <p className="mt-2 text-sm leading-6 text-slate-400">
+        Recorded distributions and payments for the selected receiving
+        wallet on Node #{nodeId}. These records are separate from the
+        live, unclaimed reward estimates above.
+      </p>
+
+      {unavailable ? (
+        <div
+          role="status"
+          className="mt-4 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100"
+        >
+          {report?.available === false
+            ? report.message
+            : 'Payout reporting is temporarily unavailable.'}
+          {' '}
+          No payout balance can be confirmed from this snapshot.
+        </div>
+      ) : positions.length === 0 && payments.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950 p-5">
+          <p className="text-base font-semibold text-slate-200">
+            No distributions recorded yet
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            There are no recorded distributions for this wallet on
+            this node. This does not mean your investment has earned
+            no rewards. Estimated pending rewards remain separate
+            until claims are allocated and recorded.
+          </p>
+        </div>
+      ) : (
+        <>
+          {positions.map((position) => (
+            <div
+              key={JSON.stringify([
+                position.nodeId,
+                position.positionId,
+                position.wallet,
+              ])}
+              className="mt-5"
+            >
+              {positions.length > 1 && (
+                <p className="mb-3 break-all text-xs text-slate-400">
+                  Position: {position.positionId}
+                </p>
+              )}
+
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <Metric
+                  label="Recorded distributions allocated"
+                  value={`${formatNil(
+                    position.recordedAllocatedBaseUnits,
+                    6,
+                  )} NIL`}
+                  detail="Your recorded reward allocation after the management fee. Includes paid and unpaid amounts, not your staked principal."
+                />
+
+                <Metric
+                  label="Recorded paid"
+                  value={`${formatNil(
+                    position.recordedPaidBaseUnits,
+                    6,
+                  )} NIL`}
+                  detail="Payments reconciled to this position using confirmed transfer records."
+                />
+
+                <Metric
+                  label="Recorded unpaid"
+                  value={`${formatNil(
+                    position.recordedUnpaidBaseUnits,
+                    6,
+                  )} NIL`}
+                  detail="Recorded allocations not yet settled by a reconciled payment. Excludes live unclaimed reward estimates."
+                />
+              </div>
+            </div>
+          ))}
+
+          <h4 className="mt-6 text-base font-semibold">
+            Payment history
+          </h4>
+
+          {payments.length === 0 ? (
+            <p className="mt-3 text-sm leading-6 text-slate-400">
+              No payments have been recorded for this wallet on this node.
+            </p>
+          ) : (
+            <>
+              <p className="mt-2 text-xs leading-5 text-slate-400">
+                Each row shows the amount assigned to one recorded
+                obligation on this node. A combined transfer may appear
+                in multiple rows; the amount shown is not necessarily
+                the full transaction amount.
+              </p>
+
+              <div className="mt-4 overflow-x-auto rounded-xl border border-slate-700 bg-slate-950">
+                <table className="w-full min-w-[38rem] text-left text-sm">
+                  <caption className="sr-only">
+                    Recorded NIL payments for the selected wallet on
+                    Node #{nodeId}
+                  </caption>
+
+                  <thead className="border-b border-slate-800 text-xs text-slate-400">
+                    <tr>
+                      <th scope="col" className="px-4 py-3 font-medium">
+                        Batch / position
+                      </th>
+                      <th
+                        scope="col"
+                        className="px-4 py-3 text-right font-medium"
+                      >
+                        Amount assigned
+                      </th>
+                      <th scope="col" className="px-4 py-3 font-medium">
+                        Block
+                      </th>
+                      <th scope="col" className="px-4 py-3 font-medium">
+                        Transaction
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-800">
+                    {payments.map((payment) => (
+                      <tr
+                        key={JSON.stringify([
+                          payment.transactionHash,
+                          payment.logIndex,
+                          payment.batchId,
+                          payment.positionId,
+                        ])}
+                      >
+                        <th
+                          scope="row"
+                          className="px-4 py-3 text-left font-normal"
+                        >
+                          <span className="block break-all text-slate-200">
+                            {payment.batchId}
+                          </span>
+                          <span className="mt-1 block break-all text-xs text-slate-500">
+                            {payment.positionId}
+                          </span>
+                        </th>
+
+                        <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-emerald-300">
+                          {formatNil(payment.amountBaseUnits, 6)} NIL
+                        </td>
+
+                        <td className="px-4 py-3 tabular-nums text-slate-400">
+                          {payment.blockNumber}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <a
+                            href={`https://etherscan.io/tx/${payment.transactionHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-blue-400 hover:text-blue-300"
+                            aria-label={`View payment transaction ${payment.transactionHash} on Etherscan`}
+                          >
+                            {payment.transactionHash.slice(0, 8)}…
+                            {payment.transactionHash.slice(-6)}
+                            <ExternalLink
+                              className="h-3.5 w-3.5 shrink-0"
+                              aria-hidden="true"
+                            />
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          <p className="mt-4 text-xs leading-5 text-slate-500">
+            This report reflects the published ledger, not a fresh scan
+            of every wallet transfer. Unrecorded manual payments will
+            not appear until reconciled. Rewards are denominated in
+            NIL, not USD.
+          </p>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -537,7 +806,10 @@ export default function NillionNodePage() {
                 : 'Not currently eligible to earn NIL emissions'}
             </p>
           )}
-        </header>
+          <p className="mt-4 text-sm leading-6 text-slate-300">
+              {NILLION_FEE_DISCLOSURE}
+            </p>
+          </header>
 
 				<div
           role="note"
@@ -812,7 +1084,7 @@ export default function NillionNodePage() {
                           value={formatApr(
                             node.rewards.projections.investorAprAfterFeeBps,
                           )}
-                          detail="Annualized estimate after the management fee, before operating costs. An estimate, not a promised return."
+                          detail="Annualized estimate after the management fee, which covers operating costs. An estimate, not a promised return."
                         />
                       </div>
 
@@ -1038,10 +1310,7 @@ export default function NillionNodePage() {
                         role="note"
                         className="mt-4 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100"
                       >
-                        These are estimates, not payments received. Actual
-                        weekly distributions reflect applicable operating
-                        costs and the management fee under your pool
-                        agreement.
+                        These are estimates, not payments received. {NILLION_FEE_DISCLOSURE}
                       </div>
 
 
@@ -1062,6 +1331,14 @@ export default function NillionNodePage() {
                     </p>
                   )}
                 </div>
+              )}
+							
+							{selectedWallet && (
+                <YourPayouts
+                  report={node.payouts}
+                  wallet={selectedWallet}
+                  nodeId={node.nodeId}
+                />
               )}
             </section>
 
@@ -1121,18 +1398,6 @@ export default function NillionNodePage() {
                   </ul>
                 </div>
               )}
-            </section>
-
-
-            <section className="mt-10 border-t border-slate-800 pt-6">
-              <h2 className="text-xl font-semibold">
-                Claims and distributions
-              </h2>
-              <p className="mt-3 text-sm leading-6 text-slate-400">
-                Historical claims and confirmed payout tracking are
-                not yet connected. Pending rewards above are not
-                a record of payments received.
-              </p>
             </section>
           </>
         )}

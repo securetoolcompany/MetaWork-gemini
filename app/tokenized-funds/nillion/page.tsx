@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { NILLION_FEE_DISCLOSURE } from '../../../lib/tokenized-funds/nillion/fee-policy.js';
 import {
   ArrowLeft,
   ArrowRight,
@@ -184,7 +185,7 @@ function NodeCard({ node }: { node: NodeData }) {
         </div>
 
         <p className="mt-2 text-xs leading-5 text-slate-500">
-          Before management fees and operating costs.
+          Before the management fee. MetaWork covers operating costs from its fee.
           No rewards have been claimed to date.
         </p>
       </div>
@@ -206,8 +207,8 @@ function NodeCard({ node }: { node: NodeData }) {
       </div>
 
       <p className="mt-3 text-xs leading-5 text-slate-500">
-        APR is annualized in NIL. After-fee APR excludes operating
-        costs. Rewards are not automatically compounded.
+        APR is annualized in NIL. Operating costs are covered by the
+        management fee. Rewards are not automatically compounded.
       </p>
 
       <div className="mt-6 border-t border-slate-800 pt-5">
@@ -217,7 +218,7 @@ function NodeCard({ node }: { node: NodeData }) {
 
         <p className="mt-1 text-xs leading-5 text-slate-500">
           Combined across all ownership positions, after the
-          management fee and before operating costs.
+          management fee, with no additional operating-cost deduction.
         </p>
 
         <dl className="mt-4 space-y-3 text-sm">
@@ -484,12 +485,7 @@ export default function NillionFundPage() {
 
         <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
           <p className="text-sm leading-6 text-slate-300">
-            Management fee:{' '}
-            {data
-              ? `${data.managementFeeBps / 100}%`
-              : '50%'}{' '}
-            after applicable operating costs. Current estimates
-            exclude operating costs until those costs are entered.
+            {NILLION_FEE_DISCLOSURE}{' '}
             This dashboard currently tracks NIL emissions only.
           </p>
         </div>

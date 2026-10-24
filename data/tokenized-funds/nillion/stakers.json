@@ -1,7 +1,7 @@
 {
-  "version": 2,
+  "version": 3,
   "managementFeeBps": 5000,
-  "managementFeeBasis": "rewards_after_operating_costs",
+  "managementFeeBasis": "gross_rewards_operator_covers_costs",
   "nodes": {
     "19": {
       "stakers": [

@@ -26,6 +26,15 @@ import {
   calculateNillionPrincipalPerformance,
 } from '../../../../../lib/tokenized-funds/nillion/principal-performance.js';
 
+import {
+  buildNillionPayoutReports,
+} from '../../../../../lib/tokenized-funds/nillion/payout-report.js';
+
+import {
+  NILLION_FEE_DISCLOSURE,
+  validateNillionFeePolicy,
+} from '../../../../../lib/tokenized-funds/nillion/fee-policy.js';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -61,13 +70,14 @@ async function loadAllocations() {
     !Number.isInteger(config.managementFeeBps) ||
     config.managementFeeBps < 0 ||
     config.managementFeeBps > 10_000 ||
-    config.managementFeeBasis !== 'rewards_after_operating_costs' ||
     !config.nodes ||
     typeof config.nodes !== 'object' ||
     Array.isArray(config.nodes)
   ) {
     throw new Error('Invalid Nillion allocation configuration.');
   }
+
+  validateNillionFeePolicy(config);
 
   for (const node of NILLION_NODES) {
     if (!Array.isArray(config.nodes[node.id]?.stakers)) {
@@ -180,7 +190,21 @@ export async function GET() {
     );
   }
 
-  const [valuationResult, results] = await Promise.all([
+    const [payoutResult, valuationResult, results] = await Promise.all([
+    readDataFile('payout-ledger.json')
+      .then((ledger) => ({
+        ok: true,
+        value: buildNillionPayoutReports(
+          ledger,
+          NILLION_NODES.map((node) => node.id),
+        ),
+      }))
+      .catch((error) => {
+        console.error('[nillion/dashboard] Payout ledger error:', error);
+
+        return { ok: false, value: null };
+      }),
+
     loadValuationContext().then(
       (value) => ({ ok: true, value }),
       (error) => {
@@ -259,6 +283,14 @@ export async function GET() {
     nodes.push({
       ...node,
       principalPerformance,
+
+      payouts: payoutResult.ok
+        ? payoutResult.value[nodeConfig.id]
+        : {
+            available: false,
+            status: 'unavailable',
+            message: 'Payout reporting is temporarily unavailable.',
+          },
     });
   });
 
@@ -273,8 +305,12 @@ export async function GET() {
 
       earningsScope: 'nil_emissions_only',
       operatingCostsIncluded: false,
+      operatingCostsCoveredByManagementFee: true,
+      investorOperatingCostDeductionBaseUnits: '0',
+      feeDisclosure: NILLION_FEE_DISCLOSURE,
 
       priceStatus: valuationResult.ok ? 'ok' : 'unavailable',
+			payoutStatus: payoutResult.ok ? 'ok' : 'unavailable',
 
       status:
         nodes.length === 0
