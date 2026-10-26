@@ -18,6 +18,10 @@ import {
   buildNillionPayoutDraft,
 } from '../lib/tokenized-funds/nillion/payouts.js';
 
+import {
+  readNillionClaimLogs as readClaimLogs,
+} from '../lib/tokenized-funds/nillion/claim-discovery.js';
+
 dotenv.config({ path: '.env.local', quiet: true });
 
 const stakingAbi = parseAbi([
@@ -118,37 +122,6 @@ function readRecordedClaimIds(ledger) {
   }
 
   return eventIds;
-}
-
-async function readClaimLogs({
-  client,
-  emissions,
-  nodeId,
-  fromBlock,
-  toBlock,
-}) {
-  const logs = [];
-  const chunkSize = 2_000n;
-
-  for (let start = fromBlock; start <= toBlock; start += chunkSize) {
-    const end =
-      start + chunkSize - 1n > toBlock
-        ? toBlock
-        : start + chunkSize - 1n;
-
-    const chunk = await client.getLogs({
-      address: emissions,
-      event: claimedEvent,
-      args: { nodeId: BigInt(nodeId) },
-      fromBlock: start,
-      toBlock: end,
-      strict: true,
-    });
-
-    logs.push(...chunk);
-  }
-
-  return logs;
 }
 
 async function main() {

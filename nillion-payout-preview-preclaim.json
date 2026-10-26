@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "mode": "dry_run",
+  "generatedAt": "2026-10-24T23:06:38.215Z",
+  "chainId": 1,
+  "currency": "NIL",
+  "decimals": 6,
+  "snapshot": {
+    "finality": "finalized",
+    "blockNumber": "26265625",
+    "blockHash": "0x71d76eef5544b7b20567ade855d124b4c6c04c4fe96246ad57be7e8eced1d144",
+    "blockTimestamp": "1792882391"
+  },
+  "sources": {
+    "emissions": "0xeff51614B2ccB89264e75a1303A17878cEA59C62",
+    "staking": "0xAcD5D3d8Eacb9f60CfEb6F26D65FB9CB9b06D21b",
+    "nilToken": "0x7Cf9a80db3B29eE8efE3710AadB7b95270572d47",
+    "allocationVersion": 3,
+    "allocationFileSha256": "f2c7991376cece6237d44ecb3c0e3fbf17a94684c15bf7358af20167fb13712f",
+    "ledgerFileSha256": "455e73526165699df0bb418bda1e9f496cb9755053673eae4a0b8456e5ac92dc"
+  },
+  "assumptions": {
+    "allocationsUnchangedSinceNodeLaunch": true,
+    "ethereumReadsTrustedToConfiguredRpc": true
+  },
+  "notices": [
+    "Preview only. No transactions were signed or submitted.",
+    "Ledger was not changed.",
+    "Only finalized Claimed events are allocated.",
+    "Unclaimed dashboard estimates are excluded.",
+    "Previously unpaid ledger amounts are not aggregated in this preview.",
+    "ETH Covenant rewards are excluded.",
+    "Current allocation version is applied only under the fixed-allocation assumption."
+  ],
+  "nodeResults": [
+    {
+      "nodeId": "19",
+      "status": "no_new_claims",
+      "totalClaimEventsFound": 0,
+      "newClaimEvents": 0,
+      "onChainStakeBaseUnits": "71472340000"
+    },
+    {
+      "nodeId": "20",
+      "status": "no_new_claims",
+      "totalClaimEventsFound": 0,
+      "newClaimEvents": 0,
+      "onChainStakeBaseUnits": "72445360820"
+    }
+  ],
+  "drafts": []
+}
