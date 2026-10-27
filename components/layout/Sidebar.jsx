@@ -1,362 +1,189 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, Settings, TrendingUp, Gift, Info,
-  Box, Zap, Globe, Home, LogIn, LogOut, UserPlus, Store,
-  Palette, LayoutGrid, Terminal, Menu, ChevronDown, Dumbbell,
-  GraduationCap, BookOpen, Compass, Coffee, HeartHandshake, ShoppingCart,
-  Wrench, FileText, DollarSignIcon, Wallet, Shield, Coins,
-  FolderOpen, Package, User, Factory, Swords, Music, Star, Sparkles, 
-  HandCoins, Landmark, Layers3, ClipboardList
+  usePathname,
+  useRouter,
+  useSearchParams,
+} from 'next/navigation';
+import {
+  LayoutDashboard,
+  Settings,
+  TrendingUp,
+  Gift,
+  Info,
+  Box,
+  Zap,
+  Globe,
+  Home,
+  LogIn,
+  LogOut,
+  UserPlus,
+  Store,
+  Palette,
+  Terminal,
+  Menu,
+  ChevronDown,
+  Dumbbell,
+  GraduationCap,
+  BookOpen,
+  Compass,
+  Coffee,
+  HeartHandshake,
+  ShoppingCart,
+  Wrench,
+  FileText,
+  Wallet,
+  Shield,
+  Coins,
+  FolderOpen,
+  Package,
+  User,
+  Factory,
+  Swords,
+  Music,
+  Star,
+  Sparkles,
+  HandCoins,
+  Landmark,
+  ClipboardList,
 } from 'lucide-react';
+
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 
-const NavItem = ({ item, pathname }) => {
-  const isExactActive = pathname === item.href;
-  const isChildActive = item.subItems?.some(sub => pathname === sub.href);
-  const isActive = isExactActive || isChildActive;
-  const [isOpen, setIsOpen] = useState(isActive);
-
-  if (item.subItems) {
-    return (
-      <div className="space-y-1">
-        <div
-          className={cn(
-            'w-full flex items-center justify-between pr-3 rounded-xl text-sm font-medium transition-all group',
-            isActive && !isExactActive
-              ? 'bg-blue-500/5 border border-blue-500/20'
-              : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-          )}
-        >
-          <Link
-            href={item.href || '#'}
-            onClick={(e) => {
-              if (!item.href) {
-                e.preventDefault();
-                setIsOpen(!isOpen);
-              } else {
-                setIsOpen(true);
-              }
-            }}
-            className="flex-1 flex items-center gap-3 px-3 py-2.5"
-          >
-            <item.icon className={cn("h-4 w-4", isActive ? "text-blue-400" : "text-slate-500")} />
-            <span className={cn(isActive ? "text-white font-bold" : "")}>{item.label}</span>
-          </Link>
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsOpen(!isOpen);
-            }}
-            className="p-1 hover:bg-white/10 rounded-md transition-colors"
-          >
-            <ChevronDown className={cn("h-4 w-4 transition-transform text-slate-500", isOpen ? "rotate-180" : "")} />
-          </button>
-        </div>
-
-        {isOpen && (
-          <div className="pl-9 pr-3 space-y-1 mt-1 border-l border-zinc-800 ml-5">
-            {item.subItems.map((sub) => {
-              const isSubActive = pathname === sub.href;
-              return (
-                <Link
-                  key={sub.href}
-                  href={sub.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all',
-                    isSubActive
-                      ? 'text-blue-400 bg-blue-500/10 border border-blue-500/20'
-                      : 'text-slate-500 hover:text-slate-300 hover:bg-white/5 border border-transparent'
-                  )}
-                >
-                  {sub.icon && <sub.icon className="h-3 w-3" />}
-                  <span className={isSubActive ? "italic font-bold" : ""}>{sub.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <Link
-      href={item.href}
-      className={cn(
-        'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group',
-        isExactActive
-          ? 'bg-blue-500/10 border border-blue-500/20'
-          : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
-      )}
-    >
-      <item.icon className={cn("h-4 w-4", isExactActive ? "text-blue-400" : "text-slate-500")} />
-      <span className={cn(isExactActive ? "text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400 italic font-bold" : "")}>
-        {item.label}
-      </span>
-    </Link>
-  );
+const shopMenuItem = {
+  icon: ShoppingCart,
+  label: 'Shop',
+  href: '/showroom',
+  subItems: [
+    {
+      icon: Package,
+      label: 'Products',
+      href: '/showroom?tab=products',
+    },
+    {
+      icon: Store,
+      label: 'Aisles',
+      href: '/showroom?tab=aisles',
+    },
+    {
+      icon: FolderOpen,
+      label: 'IP Assets',
+      href: '/showroom?tab=ip',
+    },
+  ],
 };
 
-const NavContent = ({ isAuthenticated, menuItems, menuTitle, pathname, logout, router }) => (
-  <div className="flex flex-col h-full bg-zinc-950">
-    <div className="h-16 flex items-center px-6 border-b border-zinc-800/50">
-      <Link href="/" className="font-black text-xl italic tracking-tighter">
-        META<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">WORK</span>
-      </Link>
-    </div>
-
-    <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">
-      <div className="flex items-center gap-2 mb-6">
-        <Terminal className="h-3.5 w-3.5 text-blue-400" />
-        <h2 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-          {menuTitle}
-        </h2>
-      </div>
-      <nav className="space-y-1.5">
-        {menuItems.map((item) => (
-          <NavItem key={item.label} item={item} pathname={pathname} />
-        ))}
-      </nav>
-    </div>
-
-    <div className="p-6 border-t border-zinc-800/50 space-y-3 bg-zinc-950">
-      {isAuthenticated ? (
-        <Button
-          variant="ghost"
-          onClick={() => { logout(); router.push('/'); }}
-          className="w-full justify-start gap-3 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
-        >
-          <LogOut className="h-4 w-4" />
-          <span className="font-mono text-xs">Sign Out</span>
-        </Button>
-      ) : (
-        <>
-          <Button
-            variant="ghost"
-            onClick={() => router.push('/login')}
-            className="w-full justify-start gap-3 text-slate-400 hover:bg-white/5 border border-zinc-800"
-          >
-            <LogIn className="h-4 w-4" />
-            <span className="font-mono text-xs">Sign In</span>
-          </Button>
-          <Button
-            onClick={() => router.push('/login')}
-            className="w-full justify-start gap-3 bg-blue-600 hover:bg-blue-700 rounded-none shadow-[0_0_20px_rgba(37,99,235,0.3)]"
-          >
-            <UserPlus className="h-4 w-4" />
-            <span className="font-mono text-[11px] uppercase tracking-widest">
-              Create Account
-            </span>
-          </Button>
-        </>
-      )}
-    </div>
-  </div>
-);
-
-export default function Sidebar() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const { isAuthenticated, loading, logout, user } = useAuth();
-
-  const isAdmin = user?.isAdmin === true || user?.role === 'admin';
-    const dashboardMenuItems = [
-    {
-      icon: LayoutDashboard,
-      label: 'Dashboard',
-      href: '/dashboard',
-    },
-
-    // 1. Create products, publish to your Aisle, and manage sales.
-    {
-      icon: Palette,
-      label: 'Create & Sell',
-      href: '/my-products',
-      subItems: [
-        {
-          icon: Palette,
-          label: 'Create a Product',
-          href: '/products/creator',
-        },
-        {
-          icon: Package,
-          label: 'My Products',
-          href: '/my-products',
-        },
-        {
-          icon: FolderOpen,
-          label: 'My IP',
-          href: '/my-ip',
-        },
-        {
-          icon: Store,
-          label: 'My Aisle',
-          href: '/aisle-settings',
-        },
-        {
-          icon: Gift,
-          label: 'Promotions & Marketing',
-          href: '/promotions',
-        },
-        {
-          icon: ShoppingCart,
-          label: 'My Sales',
-          href: '/sales',
-        },
-        {
-          icon: TrendingUp,
-          label: 'My Earnings',
-          href: '/earnings',
-        },
-      ],
-    },
-
-    // 2. Shopping remains available after signing in.
-    {
-      icon: ShoppingCart,
-      label: 'Shop',
-      href: '/showroom',
-    },
-
-    // 3. Explore and track revenue-sharing participation.
-    {
-      icon: TrendingUp,
-      label: 'Invest',
-      href: '/tokenized-funds',
-      subItems: [
-        {
-          icon: Landmark,
-          label: 'Explore Revenue Products',
-          href: '/tokenized-funds',
-        },
-        {
-          icon: Coins,
-          label: 'Nillion Nodes',
-          href: '/tokenized-funds/nillion',
-        },
-      ],
-    },
-
-    // 4. Tools for issuing, structuring, and managing assets.
-    {
-      icon: Wrench,
-      label: 'Business Tools',
-      href: '/tools',
-      subItems: [
-        {
-          icon: Wrench,
-          label: 'Explore the Toolbox',
-          href: '/tools',
-        },
-        {
-          icon: Coins,
-          label: 'Revenue Tokenization',
-          href: '/revenue-tokenization',
-        },
-        {
-          icon: Shield,
-          label: 'Minting Authentication',
-          href: '/mint-authentication',
-        },
-        {
-          icon: Box,
-          label: 'Manufacturing Catalog',
-          href: '/catalog',
-        },
-      ],
-    },
-
-    // Shared destination for creator and investor claims.
-    {
-      icon: HandCoins,
-      label: 'Payouts & Claims',
-      href: '/claim',
-    },
-
+const learnMenuItem = {
+  icon: GraduationCap,
+  label: 'Learn',
+  href: '/academy',
+  subItems: [
     {
       icon: GraduationCap,
-      label: 'Learn',
+      label: 'MetaWork Academy',
       href: '/academy',
-      subItems: [
-        {
-          icon: GraduationCap,
-          label: 'MetaWork Academy',
-          href: '/academy',
-        },
-        {
-          icon: BookOpen,
-          label: 'Free Lesson Library',
-          href: '/academy/library',
-        },
-        {
-          icon: Compass,
-          label: 'Learning Pathways',
-          href: '/academy/pathways/start-here',
-        },
-        {
-          icon: HeartHandshake,
-          label: 'Schools & Programs',
-          href: '/academy/programs',
-        },
-        {
-          icon: Wallet,
-          label: 'Wallet Guide',
-          href: '/wallet-guide',
-        },
-      ],
     },
-
     {
-      icon: Settings,
-      label: 'Account',
-      href: '/account-management',
-      subItems: [
-        {
-          icon: Settings,
-          label: 'Account Management',
-          href: '/account-management',
-        },
-        {
-          icon: User,
-          label: 'Edit Public Profile',
-          href: '/profile-settings',
-        },
-      ],
+      icon: BookOpen,
+      label: 'Free Lesson Library',
+      href: '/academy/library',
     },
+    {
+      icon: Compass,
+      label: 'Learning Pathways',
+      href: '/academy/pathways/start-here',
+    },
+    {
+      icon: HeartHandshake,
+      label: 'Schools & Programs',
+      href: '/academy/programs',
+    },
+    {
+      icon: Wallet,
+      label: 'Wallet Guide',
+      href: '/wallet-guide',
+    },
+  ],
+};
 
-    // Preserve the existing admin-only navigation.
-    ...(isAdmin
-      ? [
-          {
-            icon: Shield,
-            label: 'Admin',
-            href: '/admin/pool',
-            subItems: [
-              {
-                icon: Landmark,
-                label: 'Pool Dashboard',
-                href: '/admin/pool',
-              },
-              {
-                icon: ClipboardList,
-                label: 'Order Management',
-                href: '/admin/orders',
-              },
-            ],
-          },
-        ]
-      : []),
-  ];
+const industriesMenuItem = {
+  icon: Globe,
+  label: 'Industries We Serve',
+  href: '/industries',
+  subItems: [
+    {
+      icon: Swords,
+      label: 'Fighters',
+      href: '/industries/fighters',
+    },
+    {
+      icon: Zap,
+      label: 'Extreme Athletes',
+      href: '/industries/extreme-athletes',
+    },
+    {
+      icon: Dumbbell,
+      label: 'Gyms & Fitness',
+      href: '/industries/gyms-fitness',
+    },
+    {
+      icon: Music,
+      label: 'Musicians',
+      href: '/industries/musicians',
+    },
+    {
+      icon: Star,
+      label: 'Influencers',
+      href: '/industries/influencers',
+    },
+    {
+      icon: Palette,
+      label: 'Creators & IP',
+      href: '/industries/creators',
+    },
+    {
+      icon: GraduationCap,
+      label: 'Education',
+      href: '/industries/education',
+    },
+    {
+      icon: HeartHandshake,
+      label: 'Non-Profits',
+      href: '/industries/non-profits',
+    },
+    {
+      icon: Coffee,
+      label: 'Food & Beverage',
+      href: '/industries/food-beverage',
+    },
+    {
+      icon: Sparkles,
+      label: 'Beauty & Personal Care',
+      href: '/industries/beauty-personal-care',
+    },
+    {
+      icon: ShoppingCart,
+      label: 'Retailers & LGS',
+      href: '/industries/retailers',
+    },
+    {
+      icon: Gift,
+      label: 'B2B & Promo',
+      href: '/industries/gifts-promo',
+    },
+  ],
+};
 
-  const publicMenuItems = [
+const publicMenuItems = [
   {
     icon: Home,
     label: 'Choose Your Pathway',
@@ -394,23 +221,7 @@ export default function Sidebar() {
       },
     ],
   },
-  {
-    icon: ShoppingCart,
-    label: 'Shop',
-    href: '/showroom',
-    subItems: [
-      {
-        icon: LayoutGrid,
-        label: 'Explore the Showroom',
-        href: '/showroom',
-      },
-      {
-        icon: Store,
-        label: 'How Creator Aisles Work',
-        href: '/metawork-overview/selling',
-      },
-    ],
-  },
+  shopMenuItem,
   {
     icon: TrendingUp,
     label: 'Invest',
@@ -475,105 +286,8 @@ export default function Sidebar() {
       },
     ],
   },
-  {
-    icon: GraduationCap,
-    label: 'Learn',
-    href: '/academy',
-    subItems: [
-      {
-        icon: GraduationCap,
-        label: 'MetaWork Academy',
-        href: '/academy',
-      },
-      {
-        icon: BookOpen,
-        label: 'Free Lesson Library',
-        href: '/academy/library',
-      },
-      {
-        icon: Compass,
-        label: 'Learning Pathways',
-        href: '/academy/pathways/start-here',
-      },
-      {
-        icon: HeartHandshake,
-        label: 'Schools & Programs',
-        href: '/academy/programs',
-      },
-      {
-        icon: Wallet,
-        label: 'Wallet Guide',
-        href: '/wallet-guide',
-      },
-    ],
-  },
-  {
-    icon: Globe,
-    label: 'Industries We Serve',
-    href: '/industries',
-    subItems: [
-      {
-        icon: Swords,
-        label: 'Fighters',
-        href: '/industries/fighters',
-      },
-      {
-        icon: Zap,
-        label: 'Extreme Athletes',
-        href: '/industries/extreme-athletes',
-      },
-      {
-        icon: Dumbbell,
-        label: 'Gyms & Fitness',
-        href: '/industries/gyms-fitness',
-      },
-      {
-        icon: Music,
-        label: 'Musicians',
-        href: '/industries/musicians',
-      },
-      {
-        icon: Star,
-        label: 'Influencers',
-        href: '/industries/influencers',
-      },
-      {
-        icon: Palette,
-        label: 'Creators & IP',
-        href: '/industries/creators',
-      },
-      {
-        icon: GraduationCap,
-        label: 'Education',
-        href: '/industries/education',
-      },
-      {
-        icon: HeartHandshake,
-        label: 'Non-Profits',
-        href: '/industries/non-profits',
-      },
-      {
-        icon: Coffee,
-        label: 'Food & Beverage',
-        href: '/industries/food-beverage',
-      },
-      {
-        icon: Sparkles,
-        label: 'Beauty & Personal Care',
-        href: '/industries/beauty-personal-care',
-      },
-      {
-        icon: ShoppingCart,
-        label: 'Retailers & LGS',
-        href: '/industries/retailers',
-      },
-      {
-        icon: Gift,
-        label: 'B2B & Promo',
-        href: '/industries/gifts-promo',
-      },
-    ],
-  },
+  learnMenuItem,
+  industriesMenuItem,
   {
     icon: Info,
     label: 'About MetaWork',
@@ -593,47 +307,481 @@ export default function Sidebar() {
   },
 ];
 
+function matchesHref(href, pathname, searchParams) {
+  if (!href) return false;
+
+  const [targetPath, targetQuery] = href.split('?');
+
+  if (pathname !== targetPath) return false;
+  if (!targetQuery) return true;
+
+  const targetParams = new URLSearchParams(targetQuery);
+
+  return Array.from(targetParams.entries()).every(([key, value]) => {
+    const currentValue =
+      searchParams.get(key) ||
+      (pathname === '/showroom' && key === 'tab' ? 'products' : null);
+
+    return currentValue === value;
+  });
+}
+
+function NavItem({
+  item,
+  pathname,
+  searchParams,
+  onNavigate,
+}) {
+  const isExactActive = matchesHref(
+    item.href,
+    pathname,
+    searchParams
+  );
+
+  const isChildActive = Boolean(
+    item.subItems?.some((sub) =>
+      matchesHref(sub.href, pathname, searchParams)
+    )
+  );
+
+  const isActive = isExactActive || isChildActive;
+  const [isOpen, setIsOpen] = useState(isActive);
+  const Icon = item.icon;
+
+  useEffect(() => {
+    if (isActive) {
+      setIsOpen(true);
+    }
+  }, [isActive, pathname]);
+
+  if (item.subItems?.length) {
+    return (
+      <div className="space-y-1">
+        <div
+          className={cn(
+            'group flex w-full items-center justify-between rounded-xl border pr-2 text-sm font-medium transition-colors',
+            isActive
+              ? 'border-blue-500/20 bg-blue-500/5 text-white'
+              : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-white'
+          )}
+        >
+          <Link
+            href={item.href}
+            onClick={() => {
+              setIsOpen(true);
+              onNavigate?.();
+            }}
+            className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5"
+          >
+            <Icon
+              className={cn(
+                'h-4 w-4 shrink-0',
+                isActive ? 'text-blue-400' : 'text-slate-500'
+              )}
+              aria-hidden="true"
+            />
+            <span className={isActive ? 'font-bold' : ''}>
+              {item.label}
+            </span>
+          </Link>
+
+          <button
+            type="button"
+            aria-label={`${isOpen ? 'Collapse' : 'Expand'} ${item.label}`}
+            aria-expanded={isOpen}
+            onClick={() => setIsOpen((open) => !open)}
+            className="rounded-md p-2 transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400"
+          >
+            <ChevronDown
+              className={cn(
+                'h-4 w-4 text-slate-500 transition-transform',
+                isOpen && 'rotate-180'
+              )}
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+
+        {isOpen && (
+          <div className="ml-5 mt-1 space-y-1 border-l border-zinc-800 pl-4 pr-1">
+            {item.subItems.map((sub) => {
+              const isSubActive = matchesHref(
+                sub.href,
+                pathname,
+                searchParams
+              );
+
+              const SubIcon = sub.icon;
+
+              return (
+                <Link
+                  key={sub.href}
+                  href={sub.href}
+                  onClick={() => onNavigate?.()}
+                  aria-current={isSubActive ? 'page' : undefined}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
+                    isSubActive
+                      ? 'border-blue-500/20 bg-blue-500/10 text-blue-400'
+                      : 'border-transparent text-slate-500 hover:bg-white/5 hover:text-slate-300'
+                  )}
+                >
+                  {SubIcon && (
+                    <SubIcon
+                      className="h-3 w-3 shrink-0"
+                      aria-hidden="true"
+                    />
+                  )}
+
+                  <span className={isSubActive ? 'font-bold' : ''}>
+                    {sub.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={item.href}
+      onClick={() => onNavigate?.()}
+      aria-current={isExactActive ? 'page' : undefined}
+      className={cn(
+        'group flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors',
+        isExactActive
+          ? 'border-blue-500/20 bg-blue-500/10 text-blue-400'
+          : 'border-transparent text-slate-400 hover:bg-white/5 hover:text-white'
+      )}
+    >
+      <Icon
+        className={cn(
+          'h-4 w-4 shrink-0',
+          isExactActive ? 'text-blue-400' : 'text-slate-500'
+        )}
+        aria-hidden="true"
+      />
+      <span className={isExactActive ? 'font-bold' : ''}>
+        {item.label}
+      </span>
+    </Link>
+  );
+}
+
+function NavContent({
+  isAuthenticated,
+  menuItems,
+  menuTitle,
+  pathname,
+  searchParams,
+  logout,
+  router,
+  onNavigate,
+}) {
+  const handleSignOut = async () => {
+    await logout();
+    onNavigate?.();
+    router.push('/');
+  };
+
+  const goToLogin = () => {
+    onNavigate?.();
+    router.push('/login');
+  };
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-zinc-950">
+      <div className="flex h-16 shrink-0 items-center border-b border-zinc-800/50 px-6">
+        <Link
+          href="/"
+          onClick={() => onNavigate?.()}
+          className="text-xl font-black italic tracking-tighter"
+        >
+          META
+          <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+            WORK
+          </span>
+        </Link>
+      </div>
+
+      <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto p-6">
+        <div className="mb-6 flex items-center gap-2">
+          <Terminal
+            className="h-3.5 w-3.5 text-blue-400"
+            aria-hidden="true"
+          />
+          <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+            {menuTitle}
+          </h2>
+        </div>
+
+        <nav
+          aria-label={menuTitle}
+          className="space-y-1.5"
+        >
+          {menuItems.map((item) => (
+            <NavItem
+              key={item.label}
+              item={item}
+              pathname={pathname}
+              searchParams={searchParams}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </nav>
+      </div>
+
+      <div className="shrink-0 space-y-3 border-t border-zinc-800/50 bg-zinc-950 p-6">
+        {isAuthenticated ? (
+          <Button
+            variant="ghost"
+            onClick={handleSignOut}
+            className="w-full justify-start gap-3 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
+          >
+            <LogOut className="h-4 w-4" aria-hidden="true" />
+            <span className="text-xs">Sign Out</span>
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              onClick={goToLogin}
+              className="w-full justify-start gap-3 border border-zinc-800 text-slate-400 hover:bg-white/5"
+            >
+              <LogIn className="h-4 w-4" aria-hidden="true" />
+              <span className="text-xs">Sign In</span>
+            </Button>
+
+            <Button
+              onClick={goToLogin}
+              className="w-full justify-start gap-3 rounded-none bg-blue-600 shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:bg-blue-700"
+            >
+              <UserPlus className="h-4 w-4" aria-hidden="true" />
+              <span className="text-[11px] font-semibold uppercase tracking-widest">
+                Create Account
+              </span>
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SidebarContent() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const { isAuthenticated, loading, logout, user } = useAuth();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const isAdmin =
+    user?.isAdmin === true || user?.role === 'admin';
+
+  const dashboardMenuItems = [
+    {
+      icon: LayoutDashboard,
+      label: 'Dashboard',
+      href: '/dashboard',
+    },
+    {
+      icon: Palette,
+      label: 'Create & Sell',
+      href: '/my-products',
+      subItems: [
+        {
+          icon: Palette,
+          label: 'Create a Product',
+          href: '/products/creator',
+        },
+        {
+          icon: Package,
+          label: 'My Products',
+          href: '/my-products',
+        },
+        {
+          icon: FolderOpen,
+          label: 'My IP',
+          href: '/my-ip',
+        },
+        {
+          icon: Store,
+          label: 'My Aisle',
+          href: '/aisle-settings',
+        },
+        {
+          icon: Gift,
+          label: 'Promotions & Marketing',
+          href: '/promotions',
+        },
+        {
+          icon: ShoppingCart,
+          label: 'My Sales',
+          href: '/sales',
+        },
+        {
+          icon: TrendingUp,
+          label: 'My Earnings',
+          href: '/earnings',
+        },
+      ],
+    },
+    shopMenuItem,
+    {
+      icon: TrendingUp,
+      label: 'Invest',
+      href: '/tokenized-funds',
+      subItems: [
+        {
+          icon: Landmark,
+          label: 'Explore Revenue Products',
+          href: '/tokenized-funds',
+        },
+        {
+          icon: Coins,
+          label: 'Nillion Nodes',
+          href: '/tokenized-funds/nillion',
+        },
+      ],
+    },
+    {
+      icon: Wrench,
+      label: 'Business Tools',
+      href: '/tools',
+      subItems: [
+        {
+          icon: Wrench,
+          label: 'Explore the Toolbox',
+          href: '/tools',
+        },
+        {
+          icon: Coins,
+          label: 'Revenue Tokenization',
+          href: '/revenue-tokenization',
+        },
+        {
+          icon: Shield,
+          label: 'Minting Authentication',
+          href: '/mint-authentication',
+        },
+        {
+          icon: Box,
+          label: 'Manufacturing Catalog',
+          href: '/catalog',
+        },
+      ],
+    },
+    {
+      icon: HandCoins,
+      label: 'Payouts & Claims',
+      href: '/claim',
+    },
+    learnMenuItem,
+    {
+      icon: Settings,
+      label: 'Account',
+      href: '/account-management',
+      subItems: [
+        {
+          icon: Settings,
+          label: 'Account Management',
+          href: '/account-management',
+        },
+        {
+          icon: User,
+          label: 'Edit Public Profile',
+          href: '/profile-settings',
+        },
+      ],
+    },
+    ...(isAdmin
+      ? [
+          {
+            icon: Shield,
+            label: 'Admin',
+            href: '/admin/pool',
+            subItems: [
+              {
+                icon: Landmark,
+                label: 'Pool Dashboard',
+                href: '/admin/pool',
+              },
+              {
+                icon: ClipboardList,
+                label: 'Order Management',
+                href: '/admin/orders',
+              },
+            ],
+          },
+        ]
+      : []),
+  ];
+
   if (loading) return null;
 
-  const menuItems = isAuthenticated ? dashboardMenuItems : publicMenuItems;
-  const menuTitle = isAuthenticated ? 'Your Workspace' : 'Explore MetaWork';
+  const menuItems = isAuthenticated
+    ? dashboardMenuItems
+    : publicMenuItems;
+
+  const menuTitle = isAuthenticated
+    ? 'Your Workspace'
+    : 'Explore MetaWork';
+
+  const navProps = {
+    isAuthenticated,
+    menuItems,
+    menuTitle,
+    pathname,
+    searchParams,
+    logout,
+    router,
+  };
 
   return (
     <>
-      <div className="md:hidden fixed top-4 left-4 z-[50]">
-        <Sheet>
+      <div className="fixed left-4 top-4 z-[50] md:hidden">
+        <Sheet
+          open={mobileOpen}
+          onOpenChange={setMobileOpen}
+        >
           <SheetTrigger asChild>
             <Button
               variant="outline"
               size="icon"
-              className="bg-zinc-950 border-zinc-800 text-blue-400 shadow-lg hover:bg-zinc-900"
+              aria-label="Open navigation"
+              className="border-zinc-800 bg-zinc-950 text-blue-400 shadow-lg hover:bg-zinc-900"
             >
-              <Menu className="h-6 w-6" />
+              <Menu className="h-6 w-6" aria-hidden="true" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="p-0 w-64 bg-zinc-950 border-r border-zinc-800">
+
+          <SheetContent
+            side="left"
+            className="w-64 border-r border-zinc-800 bg-zinc-950 p-0"
+          >
             <NavContent
-              isAuthenticated={isAuthenticated}
-              menuItems={menuItems}
-              menuTitle={menuTitle}
-              pathname={pathname}
-              logout={logout}
-              router={router}
+              {...navProps}
+              onNavigate={() => setMobileOpen(false)}
             />
           </SheetContent>
         </Sheet>
       </div>
 
-      <aside className="hidden md:flex w-64 flex-col border-r border-zinc-800/50 bg-zinc-950 sticky top-0 h-screen z-50">
-        <NavContent
-          isAuthenticated={isAuthenticated}
-          menuItems={menuItems}
-          menuTitle={menuTitle}
-          pathname={pathname}
-          logout={logout}
-          router={router}
-        />
+      <aside className="sticky top-0 z-50 hidden h-screen w-64 shrink-0 flex-col border-r border-zinc-800/50 bg-zinc-950 md:flex">
+        <NavContent {...navProps} />
       </aside>
     </>
+  );
+}
+
+export default function Sidebar() {
+  return (
+    <Suspense fallback={null}>
+      <SidebarContent />
+    </Suspense>
   );
 }

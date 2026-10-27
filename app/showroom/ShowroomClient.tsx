@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import ShopByProduct from '@/components/showroom/ShopByProduct';
 import ShopByAisle from '@/components/showroom/ShopByAisle';
 import ShopByIP from '@/components/showroom/ShopByIP';
@@ -81,6 +81,20 @@ export default function ShowroomClient() {
   const [isSearching, setIsSearching] = useState(false);
 
   const searchParams = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+
+  useEffect(() => {
+    if (
+      requestedTab === 'products' ||
+      requestedTab === 'aisles' ||
+      requestedTab === 'ip'
+    ) {
+      setActiveTab(requestedTab);
+    } else {
+      setActiveTab('products');
+    }
+  }, [requestedTab]);
+  
   const activeCategory = searchParams.get('category') || '';
 
   const [ipFilters, setIpFilters] = useState({
