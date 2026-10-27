@@ -1,57 +1,75 @@
 'use client';
 
-import React, { ReactNode, useEffect } from 'react';
+import React, {
+  type ReactNode,
+  useEffect,
+} from 'react';
 import { usePathname } from 'next/navigation';
-import { AuthProvider, useAuth } from '@/lib/AuthContext'; // Import useAuth
+import {
+  AuthProvider,
+  useAuth,
+} from '@/lib/AuthContext';
 import { WalletProvider } from '@/lib/WalletContext';
 import { CartProvider } from '@/contexts/CartContext';
 import { ProductDialogProvider } from '@/app/providers/ProductDialogProvider';
 import Header from '@/components/layout/Header';
 import Sidebar from '@/components/layout/Sidebar';
+import AccountGateway from '@/components/auth/AccountGateway';
+import { AccountAccessProvider } from '@/components/auth/AccountAccessProvider';
 
 type ClientLayoutProps = {
   children: ReactNode;
   modal: ReactNode;
 };
 
-// Internal component to access AuthContext
-function LayoutContent({ children, modal }: ClientLayoutProps) {
+function LayoutContent({
+  children,
+  modal,
+}: ClientLayoutProps) {
   const pathname = usePathname();
   const { isAuthenticated } = useAuth();
-  
+
   const isManageRoute = pathname?.includes('/manage');
   const isLogin = pathname?.startsWith('/login');
   const isRegister = pathname?.startsWith('/register');
 
-  // LOGIC: Hide sidebar ONLY if user is logged in AND on auth pages.
-  // Otherwise (Guests everywhere, or Logged-in users on Dashboard/Showroom), show it.
-  const shouldHideSidebar = isAuthenticated && (isLogin || isRegister);
+  const shouldHideSidebar =
+    isAuthenticated && (isLogin || isRegister);
 
   if (shouldHideSidebar) {
     return (
       <>
         <Header />
-        {children}
-        {modal}
+
+        <AccountGateway>
+          {children}
+          {modal}
+        </AccountGateway>
       </>
     );
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
+
+      <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-auto bg-slate-900/50 relative">
-          {children}
+
+        <main className="relative flex-1 overflow-auto bg-slate-900/50">
+          <AccountGateway>
+            {children}
+            {!isManageRoute && modal}
+          </AccountGateway>
         </main>
       </div>
-      {!isManageRoute && modal}
     </div>
   );
 }
 
-export default function ClientLayoutWrapper(props: ClientLayoutProps) {
+export default function ClientLayoutWrapper(
+  props: ClientLayoutProps
+) {
   useEffect(() => {
     fetch('/api/init').catch(console.error);
   }, []);
@@ -61,7 +79,9 @@ export default function ClientLayoutWrapper(props: ClientLayoutProps) {
       <AuthProvider>
         <CartProvider>
           <ProductDialogProvider>
-            <LayoutContent {...props} />
+            <AccountAccessProvider>
+              <LayoutContent {...props} />
+            </AccountAccessProvider>
           </ProductDialogProvider>
         </CartProvider>
       </AuthProvider>

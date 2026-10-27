@@ -5,7 +5,7 @@
 
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import { AccountLink as Link } from '@/components/auth/AccountAccessProvider';
 import { NILLION_FEE_DISCLOSURE } from '../../../../../lib/tokenized-funds/nillion/fee-policy.js';
 import { useParams } from 'next/navigation';
 import { isAddress } from 'viem';
@@ -91,6 +91,22 @@ type NodeData = {
   blockNumber: string;
   fetchedAt: string;
 	payouts?: PayoutReport;
+	eth?: {
+    available: boolean;
+    accruedWei?: string | null;
+    sharesPosted?: string | null;
+    managementFeeBps?: number;
+    estimatedManagementFeeWei?: string;
+    estimatedInvestorPendingWei?: string;
+    canShowInvestorEstimates?: boolean;
+    positions?: {
+      id: string;
+      wallet: string | null;
+      grossShareWei: string;
+      managementFeeShareWei: string;
+      estimatedPendingWei: string;
+    }[];
+  };
 
 
   principalPerformance:
@@ -167,6 +183,18 @@ function formatNil(value: string, decimals = 3) {
     .padStart(6, '0')
     .slice(0, decimals);
 
+
+  return `${whole.toLocaleString('en-US')}.${fraction}`;
+}
+
+function formatEth(value: string, decimals = 9) {
+  const amount = BigInt(value);
+  const scale = BigInt('1000000000000000000');
+  const whole = amount / scale;
+  const fraction = (amount % scale)
+    .toString()
+    .padStart(18, '0')
+    .slice(0, decimals);
 
   return `${whole.toLocaleString('en-US')}.${fraction}`;
 }
@@ -838,6 +866,22 @@ export default function NillionNodePage() {
       entry.wallet.toLowerCase() === selectedWallet.toLowerCase(),
   );
 
+	const ethReady =
+    node?.eth?.available === true &&
+    typeof node.eth.accruedWei === 'string' &&
+    typeof node.eth.sharesPosted === 'string' &&
+    typeof node.eth.estimatedManagementFeeWei === 'string' &&
+    typeof node.eth.estimatedInvestorPendingWei === 'string';
+
+  const ethPosition =
+    ethReady && selectedWallet && node?.eth?.positions
+      ? node.eth.positions.find(
+          (entry) =>
+            entry.wallet !== null &&
+            entry.wallet.toLowerCase() === selectedWallet.toLowerCase(),
+        )
+      : undefined;
+
 	const currentPriceUsd = node?.principalPerformance?.available
     ? node.principalPerformance.node.currentPriceUsd
     : null;
@@ -1047,6 +1091,27 @@ export default function NillionNodePage() {
                   )}
                   detail="Annualized NIL emissions relative to node stake, before any fees or costs. An estimate, not a promised return."
                 />
+								{ethReady ? (
+                  <>
+                    <Metric
+                      label="Node ETH earned (gross)"
+                      value={`${formatEth(node.eth!.accruedWei!)} ETH`}
+                      detail="ETH paid by the trigger market for the node’s work, accrued and not yet withdrawn. Gross figure for the whole node, before any fees or costs. Not your earnings."
+                    />
+
+                    <Metric
+                      label="Node shares posted"
+                      value={BigInt(node.eth!.sharesPosted!).toLocaleString('en-US')}
+                      detail="Lifetime count of work done by the node. A posted share is not always a paid one."
+                    />
+                  </>
+                ) : (
+                  <Metric
+                    label="Node ETH earned (gross)"
+                    value="Unavailable"
+                    detail="ETH earnings are temporarily unavailable."
+                  />
+                )}
               </div>
 
 
@@ -1260,6 +1325,49 @@ export default function NillionNodePage() {
                             emphasis
                           />
                         </dl>
+                      </div>
+
+											<div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-5">
+                        <h4 className="text-base font-semibold">
+                          Your estimated ETH rewards
+                        </h4>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                          Your share of this node’s accrued ETH job
+                          earnings, step by step. Estimates only—not
+                          payments received.
+                        </p>
+
+                        {ethPosition ? (
+                          <dl className="mt-3 divide-y divide-slate-800">
+                            <BreakdownRow
+                              label="Your share of node ETH earnings"
+                              value={`${formatEth(ethPosition.grossShareWei)} ETH`}
+                              note="Your percentage of the node’s total accrued ETH, before any deductions."
+                            />
+                            <BreakdownRow
+                              label={`Management fee (${
+                                node.rewards.managementFeeBps / 100
+                              }%)`}
+                              value={`−${formatEth(
+                                ethPosition.managementFeeShareWei,
+                              )} ETH`}
+                              note="The management fee retained from your share of node ETH earnings. This estimate is not a payment already made."
+                            />
+                            <BreakdownRow
+                              label="Your estimated ETH distribution"
+                              value={`${formatEth(
+                                ethPosition.estimatedPendingWei,
+                              )} ETH`}
+                              emphasis
+                            />
+                          </dl>
+                        ) : (
+                          <p className="mt-3 text-sm leading-6 text-slate-400">
+                            {ethReady
+                              ? 'No ETH allocation found for this wallet.'
+                              : 'ETH earnings are temporarily unavailable.'}
+                          </p>
+                        )}
                       </div>
 
 											<section

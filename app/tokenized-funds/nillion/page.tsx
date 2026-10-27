@@ -3,7 +3,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { AccountLink as Link } from '@/components/auth/AccountAccessProvider';
 import { NILLION_FEE_DISCLOSURE } from '../../../lib/tokenized-funds/nillion/fee-policy.js';
 import {
   ArrowLeft,

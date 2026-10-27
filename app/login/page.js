@@ -14,6 +14,53 @@ import { useWallet } from '@/lib/WalletContext';
 import { Wallet, Mail, Loader2, CheckCircle, AlertCircle, ExternalLink, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 
+function getSafeReturnTo(value) {
+  const fallback = '/dashboard';
+
+  if (
+    typeof value !== 'string' ||
+    !value.startsWith('/') ||
+    value.startsWith('//') ||
+    /[\\\u0000-\u0020\u007f]/.test(value)
+  ) {
+    return fallback;
+  }
+
+  try {
+    const base = 'https://metawork.invalid';
+    const destination = new URL(value, base);
+
+    if (destination.origin !== base) {
+      return fallback;
+    }
+
+    const blockedPaths = [
+      '/login',
+      '/register',
+      '/api',
+      '/_next',
+    ];
+
+    if (
+      blockedPaths.some(
+        (path) =>
+          destination.pathname === path ||
+          destination.pathname.startsWith(`${path}/`)
+      )
+    ) {
+      return fallback;
+    }
+
+    return (
+      destination.pathname +
+      destination.search +
+      destination.hash
+    );
+  } catch {
+    return fallback;
+  }
+}
+
 export default function LoginPage() {
   return (
     <Suspense fallback={null}>
@@ -25,6 +72,18 @@ export default function LoginPage() {
 function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const returnTo = getSafeReturnTo(searchParams.get('next'));
+
+  const requestedMode =
+    searchParams.get('mode') === 'register'
+      ? 'register'
+      : 'login';
+
+  const [authTab, setAuthTab] = useState(requestedMode);
+
+  useEffect(() => {
+    setAuthTab(requestedMode);
+  }, [requestedMode]);
   const { login, isAuthenticated, checkSession } = useAuth();
   const { connect, accountAddress, isConnecting, signData, disconnect } = useWallet();
   
@@ -43,9 +102,9 @@ function LoginInner() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/dashboard');
+      router.replace(returnTo);
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, returnTo]);
 
   const handleEmailLogin = async (e) => {
     e.preventDefault();
@@ -67,7 +126,7 @@ function LoginInner() {
       
       await login(data.token, data.user);
       toast.success('Successfully logged in!');
-      router.push('/dashboard');
+      router.replace(returnto);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -96,7 +155,7 @@ function LoginInner() {
       await login(data.token, data.user);
       
       toast.success('Account created successfully!');
-      router.push('/dashboard');
+      router.replace(returnto);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -174,7 +233,7 @@ function LoginInner() {
       await login(token, user);
       
       toast.success('Successfully logged in with wallet!');
-      router.push('/dashboard');
+      router.replace(returnto);
       
     } catch (err) {
       console.error('Wallet auth error:', err);
@@ -220,7 +279,11 @@ function LoginInner() {
             </Alert>
           )}
           
-          <Tabs defaultValue="login" className="w-full">
+          <Tabs
+            value={authTab}
+            onValueChange={setAuthTab}
+            className="w-full"
+          >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Sign In</TabsTrigger>
               <TabsTrigger value="register">Create Account</TabsTrigger>

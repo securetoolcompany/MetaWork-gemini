@@ -1,5 +1,5 @@
 // app/mint-authentication/page.tsx
-import Link from "next/link";
+import { AccountLink as Link } from '@/components/auth/AccountAccessProvider';
 import {
   ShieldCheck,
   FileSignature,

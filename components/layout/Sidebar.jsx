@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense, useEffect, useState } from 'react';
-import Link from 'next/link';
+import { AccountLink as Link } from '@/components/auth/AccountAccessProvider';
 import {
   usePathname,
   useRouter,
