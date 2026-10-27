@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "managementFeeBps": 5000,
   "managementFeeBasis": "gross_rewards_operator_covers_costs",
   "nodes": {
@@ -12,7 +12,7 @@
         },
         {
           "id": "node-19-investor-1",
-          "wallet": null,
+          "wallet": "0x72C113C663D30aAf8a10d36c7ce69dF964943a90",
           "amountNil": "35736.17"
         }
       ]
@@ -26,7 +26,7 @@
         },
         {
           "id": "node-20-investor-1",
-          "wallet": null,
+          "wallet": "0x72C113C663D30aAf8a10d36c7ce69dF964943a90",
           "amountNil": "36222.68041"
         }
       ]
