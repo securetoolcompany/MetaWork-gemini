@@ -15,6 +15,10 @@ import {
   HandCoins,
   GraduationCap,
   Check,
+  BookOpen,
+  Shield, 
+  Coins, 
+  Upload
 } from 'lucide-react';
 
 const paths = [
@@ -94,7 +98,7 @@ const paths = [
   {
     id: 'invest',
     audience: 'Investor',
-    title: 'Invest',
+    title: 'Invest & Earn',
     icon: TrendingUp,
     description:
       'Explore Revenue Products and the operations, earnings, and participation terms behind them.',
@@ -131,44 +135,49 @@ const paths = [
     ],
   },
   {
-    id: 'business',
-    audience: 'Entrepreneur / Operator',
-    title: 'Business Tools',
-    icon: Wrench,
-    description:
-      'Build and manage your business with tools for assets, tokenization, stakeholders, and sales.',
-    cta: 'Explore Business Tools',
-    href: '/tools',
-    color: 'text-amber-400',
-    background: 'bg-amber-500/10',
-    border: 'hover:border-amber-400/60',
-    active: 'border-amber-400/60 bg-amber-500/10 text-white',
-    heading: 'Build the business behind your ideas.',
-    detail:
-      'Starting something new or managing an existing operation? Explore Web3 tools for organizing assets, structuring participation, and managing how value is shared.',
-    benefits: [
-      'Organize intellectual property and products',
-      'Explore asset and revenue tokenization',
-      'Manage your storefront, sales, and earnings',
-    ],
-    links: [
-      {
-        label: 'Explore the Toolbox',
-        href: '/tools',
-        icon: Wrench,
-      },
-      {
-        label: 'Revenue Tokenization',
-        href: '/revenue-tokenization',
-        icon: Network,
-      },
-      {
-        label: 'Manage Products',
-        href: '/my-products',
-        icon: Package,
-      },
-    ],
-  },
+  id: 'business',
+  audience: 'Investor / Creator / Business Owner',
+  title: 'Tokenize',
+  icon: Coins,
+  description:
+    'Give your work a lasting record and share the revenue it helps create.',
+  cta: 'Explore Tokenization',
+  href: '/metawork-overview/tokenization',
+  color: 'text-amber-400',
+  background: 'bg-amber-500/10',
+  border: 'hover:border-amber-400/60',
+  active: 'border-amber-400/60 bg-amber-500/10 text-white',
+  heading: 'Your work has value. Put it to work.',
+  detail:
+    'Created a design, built a product, or run something that earns money? Learn how tokenization can give your original work a lasting blockchain record and help you set up how revenue is shared with collaborators and other participants.',
+  benefits: [
+    'Create a lasting blockchain record for your original work',
+    'Decide who shares in revenue and how much they receive',
+    'Understand the process before you get started',
+  ],
+  links: [
+    {
+      label: 'Tokenization Overview',
+      href: '/metawork-overview/tokenization',
+      icon: BookOpen,
+    },
+    {
+      label: 'Minting & Authentication',
+      href: '/mint-authentication',
+      icon: Shield,
+    },
+    {
+      label: 'Revenue Tokenization',
+      href: '/revenue-tokenization',
+      icon: Coins,
+    },
+    {
+      label: 'Upload & Tokenize IP',
+      href: '/upload-ip',
+      icon: Upload,
+    },
+  ],
+},
 ] as const;
 
 type PathId = (typeof paths)[number]['id'];
