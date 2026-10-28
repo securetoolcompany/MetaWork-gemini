@@ -18,7 +18,7 @@ const funds = [
       'Track managed Nillion Blacklight nodes, their NIL rewards, and your recorded participation.',
     href: '/tokenized-funds/nillion',
     distributionAsset: 'NIL',
-    managementFee: '50% after applicable operating costs',
+    managementFee: '50% of earned rewards',
   },
 ];
 
