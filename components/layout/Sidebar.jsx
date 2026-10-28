@@ -94,6 +94,11 @@ const investMenuItem = {
       label: 'Explore Revenue Products',
       href: '/tokenized-funds',
     },
+    {
+      icon: TrendingUp,
+      label: 'My Earnings',
+      href: '/earnings',
+    },
   ],
 };
 
@@ -655,11 +660,6 @@ function SidebarContent() {
           icon: ShoppingCart,
           label: 'My Sales',
           href: '/sales',
-        },
-        {
-          icon: TrendingUp,
-          label: 'My Earnings',
-          href: '/earnings',
         },
       ],
     },
