@@ -2,6 +2,7 @@
 
 import { test, expect } from '@playwright/test';
 import ExcelJS from 'exceljs';
+import { NILLION_FEE_DISCLOSURE } from '../../lib/tokenized-funds/nillion/fee-policy.js';
 
 const WALLET = '0x2222222222222222222222222222222222222222';
 const OTHER_WALLET = '0x3333333333333333333333333333333333333333';
@@ -431,6 +432,7 @@ test('Excel download contains the selected wallet snapshot and separate accounti
   expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
     'Summary',
     'Live estimates',
+    'ETH estimates',
     'Projections',
     'Recorded distributions',
     'Payment history',
@@ -627,4 +629,549 @@ test('Excel export marks unavailable payout reporting without zero balances', as
 
   expect(payments.getCell('A2').value).toContain('Unavailable');
   expect(payments.getCell('C2').value).toBeNull();
+});
+
+// ---------------------------------------------------------------------
+// Distribution approval screen
+// ---------------------------------------------------------------------
+
+const DIST_API =
+  '**/api/admin/tokenized-funds/nillion/distribution-proposals';
+const PROPOSAL_ID = `${'0'.repeat(58)}a1b2c3`;
+const CLAIM_TX_19 = `0x${'c'.repeat(64)}`;
+const CLAIM_TX_20 = `0x${'d'.repeat(64)}`;
+const BIG_AMOUNT = '123456789012345678901234';
+
+function proposalFixture({
+  status = 'pending',
+  expiresInMs = 10 * 60 * 1000,
+  bigTransfer = false,
+} = {}) {
+  const transferAmount = bigTransfer ? BIG_AMOUNT : '50000000';
+
+  return {
+    _id: PROPOSAL_ID,
+    status,
+    active: status === 'pending' || status === 'approved',
+    executionEnabled: false,
+    preparedAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + expiresInMs).toISOString(),
+    review: {
+      proposal: {
+        proposalSha256: PROPOSAL_ID,
+        accounting: {
+          grossClaimedBaseUnits: '200000000',
+          recordedManagementFeeBaseUnits: '100000000',
+          alreadyPaidBaseUnits: '0',
+          operatorOwnershipUnpaidBaseUnits: '40000000',
+          proposedInvestorTransfersBaseUnits: transferAmount,
+          walletPendingUnpaidBaseUnits: '9000000',
+          roundingRemainderBaseUnits: '1000000',
+          requiredOutstandingReserveBaseUnits: '100000000',
+        },
+        transfers: [
+          {
+            from: OWNER,
+            to: WALLET,
+            amountBaseUnits: transferAmount,
+            allocations: [
+              {
+                batchId: 'batch-19',
+                nodeId: '19',
+                positionId: 'investor-position',
+                amountBaseUnits: transferAmount,
+              },
+            ],
+          },
+        ],
+        operatorRetentionCandidates: [
+          {
+            batchId: 'batch-19',
+            nodeId: '19',
+            positionId: 'operator-position',
+            amountBaseUnits: '40000000',
+          },
+        ],
+        walletPending: [
+          {
+            batchId: 'batch-20',
+            nodeId: '20',
+            positionId: 'pending-position',
+            amountBaseUnits: '9000000',
+          },
+        ],
+        batches: [
+          {
+            batchId: 'batch-19',
+            nodeId: '19',
+            allocationVersion: 3,
+            claims: [
+              {
+                eventId: 'event-19',
+                transactionHash: CLAIM_TX_19,
+                logIndex: '1',
+                blockNumber: '26266000',
+                amountBaseUnits: '120000000',
+              },
+            ],
+          },
+          {
+            batchId: 'batch-20',
+            nodeId: '20',
+            allocationVersion: 3,
+            claims: [
+              {
+                eventId: 'event-20',
+                transactionHash: CLAIM_TX_20,
+                logIndex: '2',
+                blockNumber: '26266500',
+                amountBaseUnits: '80000000',
+              },
+            ],
+          },
+        ],
+        sources: {
+          ledgerSha256: '9'.repeat(64),
+          allocationSha256:
+            'f4bdc3372ccf191f69e8d8b5324eb8713c916d91777fa325dbff55c06cf827bd',
+          allocationVersion: 3,
+        },
+      },
+      verification: {
+        finalizedBlockNumber: '26266934',
+        verifiedClaimCount: 2,
+        verifiedPaymentCount: 0,
+        ownerNilBalanceBaseUnits: '150000000',
+        requiredOutstandingReserveBaseUnits: '100000000',
+      },
+    },
+  };
+}
+
+const okReply = (extra) => ({
+  status: 200,
+  body: { success: true, executionEnabled: false, ...extra },
+});
+
+const errReply = (status, error) => ({
+  status,
+  body: { success: false, error },
+});
+
+async function openDistributions(page, { get, post } = {}) {
+  const state = { posts: [] };
+  const getReply = get ?? okReply({ proposal: null });
+
+  await page.route(DIST_API, async (route) => {
+    const request = route.request();
+
+    if (request.method() === 'GET') {
+      await route.fulfill({
+        status: getReply.status,
+        contentType: 'application/json',
+        body: JSON.stringify(getReply.body),
+      });
+      return;
+    }
+
+    const body = request.postDataJSON();
+    state.posts.push(body);
+
+    const reply = await post(body);
+
+    await route.fulfill({
+      status: reply.status,
+      contentType: 'application/json',
+      body: JSON.stringify(reply.body),
+    });
+  });
+
+  await page.goto('/admin/nillion/distributions');
+
+  await expect(
+    page.getByRole('heading', { name: 'Distribution approval', exact: true }),
+  ).toBeVisible();
+
+  return state;
+}
+
+function accountingRow(page, label) {
+  return page
+    .getByText(label, { exact: true })
+    .locator('xpath=ancestor::div[contains(@class,"py-3")][1]');
+}
+
+const pageMain = (page) => page.locator('main.bg-slate-950');
+const pageAlert = (page) => pageMain(page).getByRole('alert');
+
+async function confirmApprove(page) {
+  await page.getByRole('checkbox').check();
+  await page.locator('#approve-suffix').fill('a1b2c3');
+}
+
+const approveButton = (page) =>
+  page.getByRole('button', { name: 'Approve proposal', exact: true });
+
+test('distributions: disabled flag shows the not-enabled message', async ({ page }) => {
+  await openDistributions(page, {
+    get: errReply(503, 'Distribution proposal storage is not enabled.'),
+  });
+
+  await expect(
+    page.getByText('Distribution proposals are not enabled.', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Prepare proposal' }),
+  ).toHaveCount(0);
+});
+
+test('distributions: internal 503 is not reported as disabled', async ({ page }) => {
+  await openDistributions(page, {
+    get: errReply(
+      503,
+      'The distribution proposal request could not be completed. No payment was performed.',
+    ),
+  });
+
+  await expect(pageAlert(page)).toContainText(
+    'Unable to load the distribution proposal.',
+  );
+  await expect(
+    page.getByText('Distribution proposals are not enabled.'),
+  ).toHaveCount(0);
+});
+
+test('distributions: non-admin sees the admin-required state', async ({ page }) => {
+  await openDistributions(page, {
+    get: errReply(403, 'Administrator authorization is required.'),
+  });
+
+  await expect(pageAlert(page)).toContainText(
+    'Admin access is required',
+  );
+  await expect(
+    page.getByRole('button', { name: 'Prepare proposal' }),
+  ).toHaveCount(0);
+});
+
+test('distributions: nothing_to_review shows an empty state with no approve button', async ({ page }) => {
+  const state = await openDistributions(page, {
+    post: async () => okReply({ status: 'nothing_to_review', stored: false }),
+  });
+
+  await page.getByRole('button', { name: 'Prepare proposal' }).click();
+
+  await expect(
+    page.getByText('No finalized claims available for distribution.', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(approveButton(page)).toHaveCount(0);
+  expect(state.posts).toEqual([{ action: 'prepare' }]);
+});
+
+test('distributions: prepare in flight disables the button and sends one request', async ({ page }) => {
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+
+  const state = await openDistributions(page, {
+    post: async () => {
+      await gate;
+      return okReply({ status: 'nothing_to_review', stored: false });
+    },
+  });
+
+  const button = page.getByRole('button', { name: /Prepare proposal|Scanning/ });
+
+  await button.dblclick();
+
+  await expect(button).toBeDisabled();
+  await expect(page.getByText('Scanning finalized on-chain claims.')).toBeVisible();
+
+  release();
+
+  await expect(
+    page.getByText('No finalized claims available for distribution.'),
+  ).toBeVisible();
+  expect(state.posts).toHaveLength(1);
+});
+
+test('distributions: existing_pending shows the existing proposal', async ({ page }) => {
+  await openDistributions(page, {
+    post: async () =>
+      okReply({
+        status: 'existing_pending',
+        stored: false,
+        proposal: proposalFixture(),
+      }),
+  });
+
+  await page.getByRole('button', { name: 'Prepare proposal' }).click();
+
+  await expect(
+    page.getByText('A pending proposal already exists.'),
+  ).toBeVisible();
+  await expect(approveButton(page)).toBeVisible();
+});
+
+test('distributions: pending proposal renders every required section', async ({ page }) => {
+  await openDistributions(page, {
+    get: okReply({ proposal: proposalFixture() }),
+  });
+
+  await expect(page.getByTitle(PROPOSAL_ID)).toBeVisible();
+  await expect(page.getByText(/^(9:\d\d|10:00)$/)).toBeVisible();
+
+  // Claims and Etherscan links
+  const claims = page.getByRole('table', {
+    name: 'Finalized claims included in this proposal',
+  });
+  await expect(claims.getByText('Node #19')).toBeVisible();
+  await expect(claims.getByText('Node #20')).toBeVisible();
+  await expect(claims.getByText('120.000000 NIL')).toBeVisible();
+  await expect(claims.getByText('26266000')).toBeVisible();
+
+  const link19 = claims.getByRole('link').first();
+  await expect(link19).toHaveAttribute(
+    'href',
+    `https://etherscan.io/tx/${CLAIM_TX_19}`,
+  );
+  await expect(link19).toHaveAttribute('rel', 'noopener noreferrer');
+
+  // Accounting categories
+  await expect(accountingRow(page, 'Gross claimed')).toContainText('200.000000 NIL');
+  await expect(accountingRow(page, 'Management fee')).toContainText('100.000000 NIL');
+  await expect(accountingRow(page, 'Operator ownership share')).toContainText('40.000000 NIL');
+  await expect(accountingRow(page, 'Investor transfers')).toContainText('50.000000 NIL');
+  await expect(accountingRow(page, 'Wallet-pending (held)')).toContainText('9.000000 NIL');
+  await expect(accountingRow(page, 'Rounding remainder')).toContainText('1.000000 NIL');
+  await expect(accountingRow(page, 'Already paid')).toContainText('0.000000 NIL');
+
+  // Fee and operator share are not transfers
+  const transfers = page.getByRole('table', {
+    name: 'Proposed outgoing NIL transfers',
+  });
+  await expect(transfers.locator('tbody tr')).toHaveCount(1);
+  await expect(transfers.getByText(WALLET)).toBeVisible();
+  await expect(transfers.getByText('50.000000 NIL')).toBeVisible();
+  await expect(transfers).not.toContainText('operator-position');
+  await expect(transfers).not.toContainText('100.000000');
+  await expect(transfers).not.toContainText('40.000000');
+
+  // Held and retained
+  const held = page.getByRole('table', {
+    name: 'Amounts held because no receiving wallet is set',
+  });
+  await expect(held).toContainText('pending-position');
+  await expect(held).toContainText('9.000000 NIL');
+
+  const retained = page.getByRole('table', {
+    name: 'Operator ownership entitlements retained in the owner wallet',
+  });
+  await expect(retained).toContainText('operator-position');
+
+  // Verification
+  await expect(page.getByText('Finalized block 26266934')).toBeVisible();
+  await expect(page.getByText('150.000000')).toBeVisible();
+  await expect(page.getByText('f4bdc3372c…6cf827bd')).toBeVisible();
+
+  // Disclosure, plain statements, warnings
+  await expect(page.getByText(NILLION_FEE_DISCLOSURE)).toBeVisible();
+  await expect(
+    page.getByText('Approving does not send any payment.', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Execution is not enabled.', { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText('ETH gas balance is not checked.')).toBeVisible();
+  await expect(
+    page.getByText('Incoming NIL transfers are not reconciled.'),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Allocation history is an owner assertion.'),
+  ).toBeVisible();
+
+  // NIL only
+  await expect(pageMain(page)).not.toContainText('$');
+});
+
+test('distributions: approve needs confirmation and sends exactly action and id', async ({ page }) => {
+  const state = await openDistributions(page, {
+    get: okReply({ proposal: proposalFixture() }),
+    post: async () =>
+      okReply({
+        status: 'approved',
+        proposal: proposalFixture({ status: 'approved' }),
+      }),
+  });
+
+  await expect(approveButton(page)).toBeDisabled();
+
+  await page.getByRole('checkbox').check();
+  await expect(approveButton(page)).toBeDisabled();
+
+  await page.locator('#approve-suffix').fill('wrong1');
+  await expect(approveButton(page)).toBeDisabled();
+
+  await page.locator('#approve-suffix').fill('a1b2c3');
+  await expect(approveButton(page)).toBeEnabled();
+
+  await approveButton(page).click();
+
+  await expect(
+    page.getByText('Approved - execution not enabled.', { exact: true }),
+  ).toBeVisible();
+
+  expect(state.posts).toEqual([{ action: 'approve', id: PROPOSAL_ID }]);
+
+  await expect(approveButton(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Reject' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Prepare proposal' })).toHaveCount(0);
+});
+
+test('distributions: double-clicking approve sends one request and locks both buttons', async ({ page }) => {
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+
+  const state = await openDistributions(page, {
+    get: okReply({ proposal: proposalFixture() }),
+    post: async () => {
+      await gate;
+      return okReply({
+        status: 'approved',
+        proposal: proposalFixture({ status: 'approved' }),
+      });
+    },
+  });
+
+  await confirmApprove(page);
+  await approveButton(page).dblclick();
+
+  await expect(
+    page.getByRole('button', { name: 'Approving…' }),
+  ).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Reject' })).toBeDisabled();
+
+  release();
+
+  await expect(
+    page.getByText('Approved - execution not enabled.'),
+  ).toBeVisible();
+  expect(state.posts).toHaveLength(1);
+});
+
+test('distributions: reject needs a second click and leaves a read-only rejected state', async ({ page }) => {
+  const state = await openDistributions(page, {
+    get: okReply({ proposal: proposalFixture() }),
+    post: async () =>
+      okReply({
+        status: 'rejected',
+        proposal: proposalFixture({ status: 'rejected' }),
+      }),
+  });
+
+  await page.getByRole('button', { name: 'Reject', exact: true }).click();
+  expect(state.posts).toHaveLength(0);
+
+  await page.getByRole('button', { name: 'Confirm reject' }).click();
+
+  await expect(page.getByText(/^Rejected\./)).toBeVisible();
+  expect(state.posts).toEqual([{ action: 'reject', id: PROPOSAL_ID }]);
+
+  await expect(approveButton(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Confirm reject' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Prepare proposal' })).toBeVisible();
+});
+
+test('distributions: expired proposal cannot be approved and offers prepare', async ({ page }) => {
+  await openDistributions(page, {
+    get: okReply({ proposal: proposalFixture({ expiresInMs: -1000 }) }),
+  });
+
+  await expect(page.getByText('Expired', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(/Prepare a new proposal to continue/)).toBeVisible();
+  await expect(approveButton(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Prepare proposal' })).toBeVisible();
+});
+
+test('distributions: 409 on approve explains staleness and does not retry', async ({ page }) => {
+  const state = await openDistributions(page, {
+    get: okReply({ proposal: proposalFixture() }),
+    post: async () => errReply(409, 'Review no longer matches.'),
+  });
+
+  await confirmApprove(page);
+  await approveButton(page).click();
+
+  await expect(pageAlert(page)).toContainText('This proposal is stale');
+  await expect(approveButton(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Reject', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Prepare proposal' })).toHaveCount(0);
+
+  await page.waitForTimeout(500);
+  expect(state.posts).toHaveLength(1);
+});
+
+test('distributions: approved proposal loaded from the server is read-only', async ({ page }) => {
+  await openDistributions(page, {
+    get: okReply({ proposal: proposalFixture({ status: 'approved' }) }),
+  });
+
+  await expect(
+    page.getByText('Approved - execution not enabled.'),
+  ).toBeVisible();
+  await expect(approveButton(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Reject' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Prepare proposal' })).toHaveCount(0);
+});
+
+test('distributions: very large base-unit values format exactly', async ({ page }) => {
+  await openDistributions(page, {
+    get: okReply({ proposal: proposalFixture({ bigTransfer: true }) }),
+  });
+
+  const transfers = page.getByRole('table', {
+    name: 'Proposed outgoing NIL transfers',
+  });
+
+  await expect(
+    transfers.getByText('123,456,789,012,345,678.901234 NIL', { exact: true }),
+  ).toBeVisible();
+});
+
+test('distributions: mobile tables scroll inside an overflow-x-auto wrapper', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await openDistributions(page, {
+    get: okReply({ proposal: proposalFixture() }),
+  });
+
+  const table = page.getByRole('table', {
+    name: 'Proposed outgoing NIL transfers',
+  });
+
+  await table.scrollIntoViewIfNeeded();
+
+  const layout = await table.evaluate((element) => {
+    const wrapper = element.parentElement;
+    const bounds = wrapper.getBoundingClientRect();
+
+    return {
+      overflowX: getComputedStyle(wrapper).overflowX,
+      clientWidth: wrapper.clientWidth,
+      scrollWidth: wrapper.scrollWidth,
+      left: bounds.left,
+      right: bounds.right,
+      viewportWidth: window.innerWidth,
+    };
+  });
+
+  expect(layout.overflowX).toBe('auto');
+  expect(layout.scrollWidth).toBeGreaterThan(layout.clientWidth);
+  expect(layout.left).toBeGreaterThanOrEqual(0);
+  expect(layout.right).toBeLessThanOrEqual(layout.viewportWidth + 1);
 });

@@ -31,6 +31,10 @@ import {
 } from '../../../../../lib/tokenized-funds/nillion/payout-report.js';
 
 import {
+  calculateNillionEthEarnings,
+} from '../../../../../lib/tokenized-funds/nillion/eth-earnings.js';
+
+import {
   NILLION_FEE_DISCLOSURE,
   validateNillionFeePolicy,
 } from '../../../../../lib/tokenized-funds/nillion/fee-policy.js';
@@ -282,6 +286,11 @@ export async function GET() {
 
     nodes.push({
       ...node,
+      eth: calculateNillionEthEarnings(
+        node.eth,
+        node.rewards,
+        allocations,
+      ),
       principalPerformance,
 
       payouts: payoutResult.ok
