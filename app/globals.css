@@ -204,3 +204,16 @@ code {
   outline: 2px solid #22d3ee !important;
   outline-offset: 3px !important;
 }
+
+/* Hide the Google Translate top banner, not our language selector. */
+iframe.goog-te-banner-frame,
+iframe.VIpgJd-ZVi9od-ORHb-OEVmcd,
+body > .skiptranslate > iframe.skiptranslate {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Remove the top offset Google adds for its banner. */
+body {
+  top: 0 !important;
+}

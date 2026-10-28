@@ -43,6 +43,93 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
         </ClientLayoutWrapper>
 
         <Script
+          id="metawork-translation-engine"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                var containerId = 'google_translate_element2';
+                var scriptId = 'metawork-google-translation-script';
+
+                function initializeTranslation() {
+                  if (
+                    !window.google ||
+                    !window.google.translate ||
+                    !window.google.translate.TranslateElement
+                  ) {
+                    return;
+                  }
+
+                  if (document.querySelector('.goog-te-combo')) {
+                    return;
+                  }
+
+                  var container = document.getElementById(containerId);
+
+                  if (!container) {
+                    container = document.createElement('div');
+                    container.id = containerId;
+                    container.style.display = 'none';
+                    document.body.appendChild(container);
+                  }
+
+                  if (container.dataset.metaworkInitialized === 'true') {
+                    return;
+                  }
+
+                  try {
+                    new window.google.translate.TranslateElement(
+                      {
+                        pageLanguage: 'en',
+                        includedLanguages: 'en,fr,it,es,zh-CN',
+                        autoDisplay: false
+                      },
+                      containerId
+                    );
+
+                    container.dataset.metaworkInitialized = 'true';
+                  } catch (error) {
+                    console.error(
+                      'MetaWork translation initialization failed:',
+                      error
+                    );
+                  }
+                }
+
+                window.metaWorkTranslateInit = initializeTranslation;
+
+                if (
+                  window.google &&
+                  window.google.translate &&
+                  window.google.translate.TranslateElement
+                ) {
+                  initializeTranslation();
+                  return;
+                }
+
+                if (document.getElementById(scriptId)) {
+                  return;
+                }
+
+                var script = document.createElement('script');
+                script.id = scriptId;
+                script.src =
+                  'https://translate.google.com/translate_a/element.js' +
+                  '?cb=metaWorkTranslateInit';
+                script.async = true;
+                script.onerror = function () {
+                  console.error(
+                    'MetaWork could not load the Google translation engine.'
+                  );
+                };
+
+                document.head.appendChild(script);
+              })();
+            `,
+          }}
+        />
+        
+        <Script
           src="https://cdn.gtranslate.net/widgets/latest/dwf.js"
           strategy="afterInteractive"
         />
