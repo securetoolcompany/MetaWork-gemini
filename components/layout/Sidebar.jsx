@@ -1,12 +1,8 @@
 'use client';
 
 import React, { Suspense, useEffect, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { AccountLink as Link } from '@/components/auth/AccountAccessProvider';
-import {
-  usePathname,
-  useRouter,
-  useSearchParams,
-} from 'next/navigation';
 import {
   LayoutDashboard,
   Settings,
@@ -48,6 +44,7 @@ import {
   HandCoins,
   Landmark,
   ClipboardList,
+  Upload,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -65,6 +62,11 @@ const shopMenuItem = {
   href: '/showroom',
   subItems: [
     {
+      icon: BookOpen,
+      label: 'How Creator Aisles Work',
+      href: '/metawork-overview/selling',
+    },
+    {
       icon: Package,
       label: 'Products',
       href: '/showroom?tab=products',
@@ -78,6 +80,47 @@ const shopMenuItem = {
       icon: FolderOpen,
       label: 'IP Assets',
       href: '/showroom?tab=ip',
+    },
+  ],
+};
+
+const investMenuItem = {
+  icon: TrendingUp,
+  label: 'Invest & Earn',
+  href: '/tokenized-funds',
+  subItems: [
+    {
+      icon: Landmark,
+      label: 'Explore Revenue Products',
+      href: '/tokenized-funds',
+    },
+  ],
+};
+
+const tokenizeMenuItem = {
+  icon: Coins,
+  label: 'Tokenize',
+  href: '/metawork-overview/tokenization',
+  subItems: [
+    {
+      icon: BookOpen,
+      label: 'Tokenization Overview',
+      href: '/metawork-overview/tokenization',
+    },
+    {
+      icon: Shield,
+      label: 'Minting & Authentication',
+      href: '/mint-authentication',
+    },
+    {
+      icon: Coins,
+      label: 'Revenue Tokenization',
+      href: '/revenue-tokenization',
+    },
+    {
+      icon: Upload,
+      label: 'Upload & Tokenize IP',
+      href: '/upload-ip',
     },
   ],
 };
@@ -200,9 +243,29 @@ const publicMenuItems = [
         href: '/metawork-overview/product-creation',
       },
       {
+        icon: BookOpen,
+        label: 'How Selling & Aisles Work',
+        href: '/metawork-overview/selling',
+      },
+      {
+        icon: Box,
+        label: 'Manufacturing Catalog',
+        href: '/catalog',
+      },
+      {
         icon: Palette,
         label: 'Create a Product',
         href: '/products/creator',
+      },
+      {
+        icon: Package,
+        label: 'Manage Products',
+        href: '/my-products',
+      },
+      {
+        icon: FolderOpen,
+        label: 'Manage Your IP',
+        href: '/my-ip',
       },
       {
         icon: Store,
@@ -210,9 +273,14 @@ const publicMenuItems = [
         href: '/aisle-settings',
       },
       {
-        icon: FolderOpen,
-        label: 'Manage Your IP',
-        href: '/my-ip',
+        icon: Gift,
+        label: 'Promotions & Marketing',
+        href: '/promotions',
+      },
+      {
+        icon: ShoppingCart,
+        label: 'Your Sales',
+        href: '/sales',
       },
       {
         icon: TrendingUp,
@@ -222,70 +290,8 @@ const publicMenuItems = [
     ],
   },
   shopMenuItem,
-  {
-    icon: TrendingUp,
-    label: 'Invest',
-    href: '/tokenized-funds',
-    subItems: [
-      {
-        icon: Landmark,
-        label: 'Explore Revenue Products',
-        href: '/tokenized-funds',
-      },
-      {
-        icon: Coins,
-        label: 'Nillion Nodes',
-        href: '/tokenized-funds/nillion',
-      },
-      {
-        icon: BookOpen,
-        label: 'Understand Tokenization',
-        href: '/metawork-overview/tokenization',
-      },
-      {
-        icon: HandCoins,
-        label: 'Claim Distributions',
-        href: '/claim',
-      },
-    ],
-  },
-  {
-    icon: Wrench,
-    label: 'Business Tools',
-    href: '/tools',
-    subItems: [
-      {
-        icon: Wrench,
-        label: 'Explore the Toolbox',
-        href: '/tools',
-      },
-      {
-        icon: Coins,
-        label: 'Revenue Tokenization',
-        href: '/revenue-tokenization',
-      },
-      {
-        icon: Shield,
-        label: 'Minting Authentication',
-        href: '/mint-authentication',
-      },
-      {
-        icon: Package,
-        label: 'Manage Products',
-        href: '/my-products',
-      },
-      {
-        icon: Store,
-        label: 'Sales & Marketing',
-        href: '/sales',
-      },
-      {
-        icon: Box,
-        label: 'Manufacturing Catalog',
-        href: '/catalog',
-      },
-    ],
-  },
+  investMenuItem,
+  tokenizeMenuItem,
   learnMenuItem,
   industriesMenuItem,
   {
@@ -380,6 +386,7 @@ function NavItem({
               )}
               aria-hidden="true"
             />
+
             <span className={isActive ? 'font-bold' : ''}>
               {item.label}
             </span>
@@ -464,6 +471,7 @@ function NavItem({
         )}
         aria-hidden="true"
       />
+
       <span className={isExactActive ? 'font-bold' : ''}>
         {item.label}
       </span>
@@ -487,9 +495,9 @@ function NavContent({
     router.push('/');
   };
 
-  const goToLogin = () => {
+  const goToLogin = (mode) => {
     onNavigate?.();
-    router.push('/login');
+    router.push(`/login?mode=${mode}`);
   };
 
   return (
@@ -513,6 +521,7 @@ function NavContent({
             className="h-3.5 w-3.5 text-blue-400"
             aria-hidden="true"
           />
+
           <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
             {menuTitle}
           </h2>
@@ -541,25 +550,34 @@ function NavContent({
             onClick={handleSignOut}
             className="w-full justify-start gap-3 text-slate-400 hover:bg-red-500/10 hover:text-red-400"
           >
-            <LogOut className="h-4 w-4" aria-hidden="true" />
+            <LogOut
+              className="h-4 w-4"
+              aria-hidden="true"
+            />
             <span className="text-xs">Sign Out</span>
           </Button>
         ) : (
           <>
             <Button
               variant="ghost"
-              onClick={goToLogin}
+              onClick={() => goToLogin('login')}
               className="w-full justify-start gap-3 border border-zinc-800 text-slate-400 hover:bg-white/5"
             >
-              <LogIn className="h-4 w-4" aria-hidden="true" />
+              <LogIn
+                className="h-4 w-4"
+                aria-hidden="true"
+              />
               <span className="text-xs">Sign In</span>
             </Button>
 
             <Button
-              onClick={goToLogin}
+              onClick={() => goToLogin('register')}
               className="w-full justify-start gap-3 rounded-none bg-blue-600 shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:bg-blue-700"
             >
-              <UserPlus className="h-4 w-4" aria-hidden="true" />
+              <UserPlus
+                className="h-4 w-4"
+                aria-hidden="true"
+              />
               <span className="text-[11px] font-semibold uppercase tracking-widest">
                 Create Account
               </span>
@@ -593,6 +611,21 @@ function SidebarContent() {
       label: 'Create & Sell',
       href: '/my-products',
       subItems: [
+        {
+          icon: Factory,
+          label: 'How Product Creation Works',
+          href: '/metawork-overview/product-creation',
+        },
+        {
+          icon: BookOpen,
+          label: 'How Selling & Aisles Work',
+          href: '/metawork-overview/selling',
+        },
+        {
+          icon: Box,
+          label: 'Manufacturing Catalog',
+          href: '/catalog',
+        },
         {
           icon: Palette,
           label: 'Create a Product',
@@ -631,50 +664,8 @@ function SidebarContent() {
       ],
     },
     shopMenuItem,
-    {
-      icon: TrendingUp,
-      label: 'Invest',
-      href: '/tokenized-funds',
-      subItems: [
-        {
-          icon: Landmark,
-          label: 'Explore Revenue Products',
-          href: '/tokenized-funds',
-        },
-        {
-          icon: Coins,
-          label: 'Nillion Nodes',
-          href: '/tokenized-funds/nillion',
-        },
-      ],
-    },
-    {
-      icon: Wrench,
-      label: 'Business Tools',
-      href: '/tools',
-      subItems: [
-        {
-          icon: Wrench,
-          label: 'Explore the Toolbox',
-          href: '/tools',
-        },
-        {
-          icon: Coins,
-          label: 'Revenue Tokenization',
-          href: '/revenue-tokenization',
-        },
-        {
-          icon: Shield,
-          label: 'Minting Authentication',
-          href: '/mint-authentication',
-        },
-        {
-          icon: Box,
-          label: 'Manufacturing Catalog',
-          href: '/catalog',
-        },
-      ],
-    },
+    investMenuItem,
+    tokenizeMenuItem,
     {
       icon: HandCoins,
       label: 'Payouts & Claims',
@@ -755,7 +746,10 @@ function SidebarContent() {
               aria-label="Open navigation"
               className="border-zinc-800 bg-zinc-950 text-blue-400 shadow-lg hover:bg-zinc-900"
             >
-              <Menu className="h-6 w-6" aria-hidden="true" />
+              <Menu
+                className="h-6 w-6"
+                aria-hidden="true"
+              />
             </Button>
           </SheetTrigger>
 

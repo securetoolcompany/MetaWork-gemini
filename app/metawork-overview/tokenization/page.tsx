@@ -1,226 +1,456 @@
 'use client';
 
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { CardTitle } from '@/components/ui/card';
+import { AccountLink as Link } from '@/components/auth/AccountAccessProvider';
 import {
-  Terminal, ArrowRight, Layers, Coins,
-  PieChart, Zap, Lock, GitBranch, TrendingUp
+  ArrowRight,
+  ShieldCheck,
+  Coins,
+  Users,
+  Wallet,
+  Palette,
+  Package,
+  Building2,
+  Network,
+  Info,
 } from 'lucide-react';
-import Link from 'next/link';
 
-export default function TokenizationPage() {
-  const processNodes = [
-    {
-      id: 'NODE_01',
-      status: 'PREREQUISITE',
-      icon: <Layers className="h-5 w-5 text-cyan-400" />,
-      title: 'Authenticated IP Required',
-      desc: 'Only minted IP assets can be tokenized. The ASA must exist on-chain before revenue parameters can be attached.',
-      log: '[SYS] ASA_VERIFIED',
-      color: 'border-cyan-500/20 bg-cyan-500/10 text-cyan-400',
-    },
-    {
-      id: 'NODE_02',
-      status: 'CONFIGURATION',
-      icon: <PieChart className="h-5 w-5 text-purple-400" />,
-      title: 'Split Configuration',
-      desc: 'Define royalty splits between stakeholders — creator, collaborators, and the platform pool — encoded directly into the smart contract.',
-      log: '[SYS] SPLITS_DEFINED',
-      color: 'border-purple-500/20 bg-purple-500/10 text-purple-400',
-    },
-    {
-      id: 'NODE_03',
-      status: 'SUPPLY',
-      icon: <GitBranch className="h-5 w-5 text-blue-400" />,
-      title: 'Fractional Supply',
-      desc: 'Set the total token supply representing your IP. Each unit represents a fractional ownership share eligible for yield distribution.',
-      log: '[SYS] SUPPLY_LOCKED',
-      color: 'border-blue-500/20 bg-blue-500/10 text-blue-400',
-    },
-    {
-      id: 'NODE_04',
-      status: 'CONTRACT',
-      icon: <Zap className="h-5 w-5 text-yellow-400" />,
-      title: 'Smart Contract Deploy',
-      desc: 'Royalty logic, escrow routes, and payout triggers are compiled and deployed to Algorand. Self-executing. No intermediaries.',
-      log: '[TXN] CONTRACT_DEPLOYED',
-      color: 'border-yellow-500/20 bg-yellow-500/10 text-yellow-400',
-    },
-    {
-      id: 'NODE_05',
-      status: 'LIVE_YIELD',
-      icon: <TrendingUp className="h-5 w-5 text-green-400" />,
-      title: 'Yield Activation',
-      desc: 'The tokenized IP enters the MetaWork ecosystem. Every commercial activity triggers instant, automatic royalty routing to stakeholder wallets.',
-      log: '[SYS] ASSET_YIELDING: TRUE',
-      color: 'border-green-500/20 bg-green-500/10 text-green-400',
-    },
-  ];
+const examples = [
+  {
+    icon: Palette,
+    title: 'Your artwork and designs',
+    description:
+      'Have a logo, illustration, or design? Record it on the blockchain and set up how you and your collaborators share money earned from its use.',
+    status: 'Available through the IP workflow',
+  },
+  {
+    icon: Package,
+    title: 'Products you sell',
+    description:
+      'Create a product and decide how its revenue is shared. For example, a designer and a product creator can each receive an agreed share.',
+    status: 'Available through product management',
+  },
+  {
+    icon: Network,
+    title: 'Operations that earn money',
+    description:
+      'Some operations earn money by providing a service. A Revenue Product explains how people can take part, what costs apply, and how earnings are shared.',
+    status: 'See the currently listed Revenue Products',
+  },
+  {
+    icon: Building2,
+    title: 'Real-world projects',
+    description:
+      'Our longer-term goal includes projects such as community fiber networks, farms, and other businesses. Each project needs clear terms for funding, costs, and payments.',
+    status: 'Planned expansion—not all project types are available',
+  },
+];
 
+const steps = [
+  {
+    title: 'Choose what you want to tokenize',
+    description:
+      'Start with a design, product, or supported revenue source. Be clear about what people will receive.',
+  },
+  {
+    title: 'Decide who gets what',
+    description:
+      'Choose who will share in the revenue and how much each person receives. Explain any fees, costs, or limits.',
+  },
+  {
+    title: 'Set it up',
+    description:
+      'Follow the steps for that type of asset. Some steps require an account, credits, a connected wallet, and approval of blockchain transactions.',
+  },
+  {
+    title: 'Earn revenue',
+    description:
+      'The product or operation must actually earn money. Creating tokens does not create income by itself.',
+  },
+  {
+    title: 'Track and claim your share',
+    description:
+      'Review the recorded earnings. When a payment is available to you, use the applicable claim process to collect it.',
+  },
+];
+
+export default function TokenizationOverviewPage() {
   return (
-    <div className="min-h-screen bg-[#131722] text-white selection:bg-purple-500/30 font-sans pb-24">
+    <main className="min-h-screen bg-zinc-950 text-zinc-50">
+      <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:py-16">
+        <header className="max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-400">
+            Tokenize · Start Here
+          </p>
 
-      {/* 1. HEADER */}
-      <section className="px-6 pt-24 pb-16 max-w-[1600px] mx-auto w-full border-b border-white/5">
-        <div className="max-w-5xl">
-          <div className="flex items-center gap-3 mb-6">
-            <Terminal className="h-4 w-4 text-purple-500" />
-            <span className="font-mono text-[10px] text-slate-500 uppercase tracking-[0.3em]">
-              System Architecture // Revenue_Protocol
+          <h1 className="mt-4 text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
+            Make something valuable.
+            <span className="block text-blue-400">
+              Share what it earns.
             </span>
-          </div>
-
-          <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter uppercase mb-6 text-white">
-            Revenue <br />
-            <span className="text-purple-400">Tokenization.</span>
           </h1>
 
-          <p className="text-sm text-slate-400 leading-relaxed font-mono max-w-3xl mb-10 uppercase tracking-widest">
-            Tokenization turns authenticated IP into a yield-bearing asset. Configure royalty splits,
-            set fractional supply, and deploy smart contract logic that automatically routes revenue
-            to every stakeholder — forever.
+          <p className="mt-6 text-lg leading-8 text-zinc-400">
+            You might create a design, sell a product, or run a project.
+            MetaWork helps you record what you create and set up how
+            revenue is shared with other people.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Link href="/tokenize-ip">
-              <Button size="lg" className="bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-none px-8 uppercase tracking-tighter shadow-lg shadow-purple-900/20">
-                Tokenize My IP
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+          <div className="mt-7 rounded-xl border border-blue-500/20 bg-blue-500/5 p-5">
+            <h2 className="text-lg font-semibold text-blue-300">
+              What does “tokenize” mean?
+            </h2>
+
+            <p className="mt-3 leading-7 text-zinc-300">
+              It means using digital tokens to represent something
+              specific—such as a share of a product’s revenue. The
+              terms explain what each token gives its holder.
+            </p>
+
+            <p className="mt-3 text-sm leading-7 text-zinc-400">
+              Think of it as a way to record and divide agreed rights.
+              A token does not automatically mean someone owns your
+              artwork, your company, or everything it earns.
+            </p>
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link
+              href="/revenue-tokenization"
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+            >
+              Learn How Revenue Sharing Works
+              <ArrowRight
+                className="h-4 w-4"
+                aria-hidden="true"
+              />
             </Link>
-            <Link href="/metawork-overview/minting-process">
-              <Button variant="outline" size="lg" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white rounded-none px-8 text-xs uppercase font-mono tracking-widest bg-transparent">
-                ← First: Mint Authentication
-              </Button>
+
+            <Link
+              href="/tokenized-funds"
+              className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-5 py-3 text-sm font-semibold transition hover:bg-zinc-900"
+            >
+              Explore Revenue Products
+              <ArrowRight
+                className="h-4 w-4"
+                aria-hidden="true"
+              />
             </Link>
           </div>
-        </div>
-      </section>
+        </header>
 
-      {/* 2. WHAT TOKENIZATION ADDS */}
-      <section className="px-6 py-16 max-w-[1600px] mx-auto">
-        <div className="mb-8">
-          <h2 className="text-2xl font-black italic uppercase tracking-tighter text-slate-300">What Tokenization Adds</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-black border border-white/10 p-8 rounded-xl hover:border-purple-500/50 transition-all group flex flex-col">
-            <div className="h-12 w-12 rounded-lg bg-[#131722] flex items-center justify-center mb-6 border border-white/5 group-hover:border-purple-500/30 transition-colors">
-              <PieChart className="h-6 w-6 text-purple-400" />
-            </div>
-            <h4 className="font-black text-sm uppercase tracking-widest mb-3 text-white">Royalty Splits</h4>
-            <p className="text-xs text-slate-400 leading-relaxed font-mono">
-              Define exactly who gets what percentage. Splits are encoded in the smart contract — no manual payments, no disputes, no delays.
+        <section
+          className="mt-16"
+          aria-labelledby="example-heading"
+        >
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6 sm:p-8">
+            <p className="text-xs font-semibold uppercase tracking-widest text-purple-400">
+              A simple example
+            </p>
+
+            <h2
+              id="example-heading"
+              className="mt-3 text-2xl font-bold tracking-tight"
+            >
+              You make the artwork. Someone else makes the product.
+            </h2>
+
+            <p className="mt-4 max-w-3xl leading-8 text-zinc-400">
+              You create a design. Another creator uses it on a
+              shirt under agreed terms. When that shirt sells,
+              money is set aside for the people entitled to a
+              share—including you.
+            </p>
+
+            <p className="mt-4 max-w-3xl leading-8 text-zinc-400">
+              MetaWork connects the design, the product, and the
+              revenue-sharing setup so those shares can be tracked.
+              Available payments can then be claimed.
+            </p>
+
+            <p className="mt-4 text-xs leading-6 text-zinc-500">
+              The amount and timing depend on the product’s terms,
+              costs, and payment process.
             </p>
           </div>
-          <div className="bg-black border border-white/10 p-8 rounded-xl hover:border-yellow-500/50 transition-all group flex flex-col">
-            <div className="h-12 w-12 rounded-lg bg-[#131722] flex items-center justify-center mb-6 border border-white/5 group-hover:border-yellow-500/30 transition-colors">
-              <Zap className="h-6 w-6 text-yellow-400" />
-            </div>
-            <h4 className="font-black text-sm uppercase tracking-widest mb-3 text-white">Automatic Yield</h4>
-            <p className="text-xs text-slate-400 leading-relaxed font-mono">
-              The instant commercial activity occurs, the contract executes. Earnings are deposited to stakeholder wallets without any manual action required.
-            </p>
-          </div>
-          <div className="bg-black border border-white/10 p-8 rounded-xl hover:border-green-500/50 transition-all group flex flex-col">
-            <div className="h-12 w-12 rounded-lg bg-[#131722] flex items-center justify-center mb-6 border border-white/5 group-hover:border-green-500/30 transition-colors">
-              <Coins className="h-6 w-6 text-green-400" />
-            </div>
-            <h4 className="font-black text-sm uppercase tracking-widest mb-3 text-white">Fractional Ownership</h4>
-            <p className="text-xs text-slate-400 leading-relaxed font-mono">
-              Divide your IP into tradeable fractional tokens. Each token represents a stake in the revenue stream — transferable and market-priced.
-            </p>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      {/* 3. PIPELINE */}
-      <section className="px-6 py-16 max-w-[1600px] mx-auto border-t border-white/5">
-        <div className="mb-12 flex items-center justify-between">
-          <h2 className="text-2xl font-black italic uppercase tracking-tighter text-slate-300">Tokenization Pipeline</h2>
-          <span className="px-3 py-1 rounded bg-white/5 border border-white/10 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-            System Sequence
-          </span>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-          {processNodes.map((node, idx) => (
-            <div key={idx} className="bg-black border border-white/10 rounded-xl p-6 flex flex-col relative overflow-hidden group hover:bg-zinc-900/80 transition-colors">
-              <div className="flex justify-between items-start mb-6">
-                <div className={`px-2 py-1 rounded text-[9px] font-bold uppercase tracking-wider border ${node.color}`}>
-                  {node.status}
-                </div>
-                <span className="font-mono text-[10px] text-slate-600">{node.id}</span>
-              </div>
-              <div className="mb-4">{node.icon}</div>
-              <h3 className="text-sm font-black uppercase tracking-widest mb-2 text-white">{node.title}</h3>
-              <p className="text-xs text-slate-500 leading-relaxed flex-grow font-mono mb-6">{node.desc}</p>
-              <div className="mt-auto pt-4 border-t border-white/5 font-mono text-[10px] text-slate-400">
-                {node.log}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 4. TERMINAL + CTA */}
-      <section className="px-6 py-16 max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-        <div className="bg-black border border-white/10 rounded-xl overflow-hidden h-[420px] flex flex-col shadow-2xl">
-          <div className="py-3 px-4 border-b border-white/5 bg-slate-950 flex justify-between items-center">
-            <CardTitle className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Live Telemetry // Yield_Monitor</CardTitle>
-            <span className="flex items-center gap-2 text-[9px] font-mono text-green-400 uppercase">
-              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" /> Network Sync
-            </span>
-          </div>
-          <div className="p-6 font-mono text-[11px] text-slate-400 leading-relaxed flex-grow overflow-hidden relative">
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black pointer-events-none z-10" />
-            <p className="text-slate-500">Loading authenticated ASA-8891...</p>
-            <p className="text-cyan-400">[OK] Minted asset confirmed on-chain.</p>
-            <p className="text-slate-500">Constructing revenue contract logic...</p>
-            <p className="text-slate-400 ml-4">&gt; Total Supply: 10,000 tokens</p>
-            <p className="text-slate-400 ml-4">&gt; Creator Split: 70%</p>
-            <p className="text-slate-400 ml-4">&gt; Collaborator: 20%</p>
-            <p className="text-slate-400 ml-4">&gt; Platform Pool: 10%</p>
-            <p className="text-slate-400 ml-4">&gt; Escrow Route: META.POOL.A</p>
-            <br />
-            <p className="text-slate-500">Compiling smart contract...</p>
-            <p className="text-slate-500">Deploying to Algorand Mainnet...</p>
-            <p className="text-green-400 font-bold mt-2">[TXN] CONTRACT DEPLOYED: APP-4421.</p>
-            <p className="text-green-400 font-bold">[SYS] ASSET_YIELDING: TRUE</p>
-            <p className="text-slate-500 animate-pulse mt-2">_</p>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="inline-flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 px-3 py-1 rounded">
-            <Lock className="h-3 w-3 text-purple-400" />
-            <span className="font-mono text-[9px] font-bold text-purple-400 uppercase tracking-widest">Smart Contract Ready</span>
-          </div>
-
-          <h2 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white">
-            Lock In Your <br />
-            <span className="text-purple-400">Legacy.</span>
+        <section
+          className="mt-16"
+          aria-labelledby="two-parts-heading"
+        >
+          <h2
+            id="two-parts-heading"
+            className="text-2xl font-bold tracking-tight"
+          >
+            Record your work. Then decide how to share its revenue.
           </h2>
 
-          <p className="text-sm text-slate-400 leading-relaxed font-mono max-w-md">
-            Configure your splits once. The contract executes forever. Every sale, every license,
-            every commercial use — revenue routes automatically to every stakeholder.
+          <p className="mt-3 max-w-3xl leading-7 text-zinc-400">
+            These are two different jobs. Recording an asset is
+            not the same as giving someone a share of its earnings.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <Link href="/tokenize-ip">
-              <Button size="lg" className="bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-none px-10 py-6 uppercase tracking-tighter shadow-lg shadow-purple-900/20 text-lg">
-                <Layers className="mr-3 h-5 w-5" />
-                Tokenize My IP
-              </Button>
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
+            <article className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+              <ShieldCheck
+                className="h-7 w-7 text-blue-400"
+                aria-hidden="true"
+              />
+
+              <h3 className="mt-5 text-xl font-semibold">
+                Give your original work a lasting record
+              </h3>
+
+              <p className="mt-3 leading-7 text-zinc-400">
+                You put time and talent into your work. Minting gives your
+                artwork, logo, or design a permanent blockchain record—a
+                lasting reference linked to the work you submit.
+              </p>
+
+              <p className="mt-3 text-sm leading-7 text-zinc-400">
+                It’s a starting point for bringing your work into MetaWork,
+                connecting it with products, and setting up how you share
+                in the revenue it helps create.
+              </p>
+
+              <Link
+                href="/mint-authentication"
+                className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-blue-400 hover:text-blue-300"
+              >
+                Learn About Minting &amp; Authentication
+                <ArrowRight
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                />
+              </Link>
+            </article>
+
+            <article className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-6">
+              <Coins
+                className="h-7 w-7 text-purple-400"
+                aria-hidden="true"
+              />
+
+              <h3 className="mt-5 text-xl font-semibold">
+                Share the revenue
+              </h3>
+
+              <p className="mt-3 leading-7 text-zinc-400">
+                Revenue tokenization sets up how people take part
+                in a defined revenue stream. Tokens can represent
+                shares of the money set aside for that purpose.
+              </p>
+
+              <p className="mt-3 text-sm leading-7 text-zinc-500">
+                The terms explain which revenue is included,
+                what costs come out first, and who can receive
+                payments.
+              </p>
+
+              <Link
+                href="/revenue-tokenization"
+                className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-purple-400 hover:text-purple-300"
+              >
+                Learn About Revenue Tokenization
+                <ArrowRight
+                  className="h-4 w-4"
+                  aria-hidden="true"
+                />
+              </Link>
+            </article>
+          </div>
+        </section>
+
+        <section
+          className="mt-16"
+          aria-labelledby="applications-heading"
+        >
+          <h2
+            id="applications-heading"
+            className="text-2xl font-bold tracking-tight"
+          >
+            What can you use it for?
+          </h2>
+
+          <p className="mt-3 max-w-3xl leading-7 text-zinc-400">
+            MetaWork starts with IP, products, and listed revenue
+            opportunities. More project types are part of the
+            longer-term plan.
+          </p>
+
+          <div className="mt-6 grid gap-5 md:grid-cols-2">
+            {examples.map((example) => {
+              const Icon = example.icon;
+
+              return (
+                <article
+                  key={example.title}
+                  className="flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900/30 p-6"
+                >
+                  <Icon
+                    className="h-6 w-6 text-blue-400"
+                    aria-hidden="true"
+                  />
+
+                  <h3 className="mt-4 text-lg font-semibold">
+                    {example.title}
+                  </h3>
+
+                  <p className="mt-3 flex-1 text-sm leading-7 text-zinc-400">
+                    {example.description}
+                  </p>
+
+                  <p className="mt-5 border-t border-zinc-800 pt-4 text-xs leading-5 text-zinc-500">
+                    {example.status}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section
+          className="mt-16"
+          aria-labelledby="process-heading"
+        >
+          <h2
+            id="process-heading"
+            className="text-2xl font-bold tracking-tight"
+          >
+            How it works
+          </h2>
+
+          <ol className="mt-6 space-y-4">
+            {steps.map((step, index) => (
+              <li
+                key={step.title}
+                className="flex gap-4 rounded-xl border border-zinc-800 p-5"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-sm font-semibold text-blue-400">
+                  {index + 1}
+                </span>
+
+                <div>
+                  <h3 className="font-semibold">
+                    {step.title}
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-7 text-zinc-400">
+                    {step.description}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section
+          className="mt-16 grid gap-5 md:grid-cols-2"
+          aria-label="People and payments"
+        >
+          <article className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-6">
+            <Users
+              className="h-6 w-6 text-blue-400"
+              aria-hidden="true"
+            />
+
+            <h2 className="mt-4 text-xl font-semibold">
+              Who gets a share?
+            </h2>
+
+            <p className="mt-3 leading-7 text-zinc-400">
+              That depends on the setup. It might include the
+              original artist, a collaborator, the product
+              creator, or eligible people who fund an operation.
+            </p>
+
+            <p className="mt-3 leading-7 text-zinc-400">
+              You may see these people called stakeholders.
+              Their agreed shares and responsibilities should
+              be clear before anyone takes part.
+            </p>
+          </article>
+
+          <article className="rounded-2xl border border-zinc-800 bg-zinc-900/30 p-6">
+            <Wallet
+              className="h-6 w-6 text-emerald-400"
+              aria-hidden="true"
+            />
+
+            <h2 className="mt-4 text-xl font-semibold">
+              How do people get paid?
+            </h2>
+
+            <p className="mt-3 leading-7 text-zinc-400">
+              A revenue pool holds money set aside for sharing.
+              The applicable rules determine who can claim it
+              and how much they can receive.
+            </p>
+
+            <p className="mt-3 leading-7 text-zinc-400">
+              An earnings estimate is not a payment. Money must
+              be received, recorded, and available before it
+              can be claimed.
+            </p>
+          </article>
+        </section>
+
+        <aside className="mt-10 rounded-xl border border-amber-500/20 bg-amber-500/5 p-5">
+          <div className="flex items-start gap-3">
+            <Info
+              className="mt-1 h-5 w-5 shrink-0 text-amber-300"
+              aria-hidden="true"
+            />
+
+            <div>
+              <h2 className="font-semibold text-amber-200">
+                Tokenizing is not a promise of profit.
+              </h2>
+
+              <p className="mt-3 text-sm leading-7 text-amber-100/80">
+                Minting records your submission; it does not register a
+                copyright or verify that you own the work. Only submit
+                work you own or have permission to use.
+              </p>
+            </div>
+          </div>
+        </aside>
+
+        <section className="mt-12 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-7">
+          <h2 className="text-2xl font-bold">
+            What would you like to do?
+          </h2>
+
+          <p className="mt-3 leading-7 text-zinc-400">
+            Tokenize your own work, or explore opportunities
+            created by others.
+          </p>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/upload-ip"
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+            >
+              Upload &amp; Tokenize My IP
+              <ArrowRight
+                className="h-4 w-4"
+                aria-hidden="true"
+              />
             </Link>
-            <Link href="/metawork-overview/minting-process">
-              <Button variant="outline" size="lg" className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 rounded-none px-8 text-xs uppercase font-mono tracking-widest bg-transparent">
-                ← Mint First
-              </Button>
+
+            <Link
+              href="/tokenized-funds"
+              className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-5 py-3 text-sm font-semibold transition hover:bg-zinc-800"
+            >
+              Explore Revenue Products
+              <ArrowRight
+                className="h-4 w-4"
+                aria-hidden="true"
+              />
             </Link>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </main>
   );
 }
