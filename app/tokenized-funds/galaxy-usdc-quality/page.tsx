@@ -17,11 +17,12 @@ import GalaxyMetrics from '../../../components/tokenized-funds/galaxy/GalaxyMetr
 import { GALAXY_QUALITY } from '../../../lib/tokenized-funds/galaxy-quality/config';
 import { getQualityMetrics } from '../../../lib/tokenized-funds/galaxy-quality/data';
 import BaseWalletPanel from '../../../components/tokenized-funds/galaxy-quality/BaseWalletPanel';
+import QualityDisclosures from '../../../components/tokenized-funds/galaxy-quality/QualityDisclosures';
 
 export const metadata = {
-  title: 'Galaxy USDC Quality on Base | MetaWork',
+  title: 'Galaxy USDC Quality Tokenizer on Base | MetaWork',
   description:
-    'Explore USDC lending through Galaxy USDC Quality on Base, including live vault metrics, fees, and risks.',
+    'Access Galaxy USDC Quality on Base through the MetaWork Tokenizer. Explore position tokens, underlying vault metrics, fees, liquidity, and risks.',
 };
 
 export const revalidate = 60;
@@ -43,42 +44,45 @@ export default async function GalaxyQualityPage() {
   const vault = GALAXY_QUALITY;
   const metrics = await getQualityMetrics();
 
-	const publicDepositsEnabled =
-  vault.depositsEnabled &&
-  process.env.NEXT_PUBLIC_GALAXY_QUALITY_DEPOSITS === 'true';
+  const performanceFeePercent = vault.performanceFeeBps / 100;
+  const managementFeePercent = vault.managementFeeBps / 100;
 
-	const publicRedemptionsEnabled =
-		process.env.NEXT_PUBLIC_GALAXY_QUALITY_REDEMPTIONS === 'true';
+  const publicDepositsEnabled =
+    vault.depositsEnabled &&
+    process.env.NEXT_PUBLIC_GALAXY_QUALITY_DEPOSITS === 'true';
 
-	const availabilityLabel = publicDepositsEnabled
-		? 'Deposits enabled'
-		: publicRedemptionsEnabled
-			? 'New deposits paused'
-			: 'Public transactions disabled';
+  const publicRedemptionsEnabled =
+    process.env.NEXT_PUBLIC_GALAXY_QUALITY_REDEMPTIONS === 'true';
 
-	const availabilityDescription = publicDepositsEnabled
-		? 'Use the connected-wallet controls above. Withdrawals depend on available liquidity.'
-		: publicRedemptionsEnabled
-			? 'The redemption interface remains available for existing positions, subject to available liquidity.'
-			: 'Public deposits and redemptions are disabled in this interface.';
+  const availabilityLabel = publicDepositsEnabled
+    ? 'Deposits enabled'
+    : publicRedemptionsEnabled
+      ? 'New deposits paused'
+      : 'Public transactions disabled';
+
+  const availabilityDescription = publicDepositsEnabled
+    ? 'Use the connected-wallet controls above to receive position tokens through the MetaWork Tokenizer. Withdrawals depend on available liquidity.'
+    : publicRedemptionsEnabled
+      ? 'The redemption interface remains available for existing position tokens, subject to available liquidity.'
+      : 'Public deposits and redemptions are disabled in this interface.';
 
   const fees = [
     [
-      'MetaWork platform fee',
-      `${vault.performanceFeeBps / 100}% of yield earned`,
+      'MetaWork performance fee',
+      `${performanceFeePercent}% of yield earned`,
     ],
     [
       'MetaWork annual asset-based fee',
-      `${vault.managementFeeBps / 100}%`,
+      `${managementFeePercent}%`,
     ],
     [
-      'Underlying performance fee',
+      'Underlying vault performance fee',
       metrics?.underlyingPerformanceFee != null
         ? `${percentage(metrics.underlyingPerformanceFee)} of yield`
         : 'Unavailable',
     ],
     [
-      'Underlying annual management fee',
+      'Underlying vault annual management fee',
       metrics?.underlyingManagementFee != null
         ? `${percentage(metrics.underlyingManagementFee)} annually`
         : 'Unavailable',
@@ -117,8 +121,9 @@ export default async function GalaxyQualityPage() {
 
             <div>
               <p className="text-xs font-medium uppercase tracking-[0.24em] text-sky-400">
-                MetaWork
+                MetaWork Tokenizer
               </p>
+
               <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
                 {vault.name}
               </h1>
@@ -130,7 +135,11 @@ export default async function GalaxyQualityPage() {
               <Globe2 className="h-3.5 w-3.5" aria-hidden="true" />
               Base
             </span>
-            </div>
+
+            <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-xs text-sky-200">
+              Tokenized access
+            </span>
+          </div>
         </header>
 
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_350px]">
@@ -140,6 +149,7 @@ export default async function GalaxyQualityPage() {
                 aria-hidden="true"
                 className="absolute -right-16 -top-16 h-64 w-64 rounded-full border border-sky-400/10"
               />
+
               <div
                 aria-hidden="true"
                 className="absolute -right-6 -top-6 h-44 w-44 rounded-full border border-sky-400/10"
@@ -148,7 +158,7 @@ export default async function GalaxyQualityPage() {
               <div className="relative">
                 <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-sky-300">
                   <Sparkles className="h-4 w-4" aria-hidden="true" />
-                  Curated lending. Onchain access.
+                  Curated lending. Tokenized access.
                 </p>
 
                 <h2 className="mt-5 max-w-xl text-4xl font-semibold leading-[1.12] tracking-tight sm:text-5xl">
@@ -160,16 +170,26 @@ export default async function GalaxyQualityPage() {
                 </h2>
 
                 <p className="mt-5 max-w-lg text-base leading-7 text-slate-300">
-                  Explore variable interest through Galaxy’s
-                  collateral-backed USDC lending strategy on Base,
-                  with MetaWork as your product interface.
+                  MetaWork’s Tokenizer gives you tokenized access to
+                  Galaxy USDC Quality on Base. Deposit USDC to receive
+                  position tokens representing your share of assets
+                  held through the Tokenizer.
+                </p>
+
+                <p className="mt-3 max-w-lg text-sm leading-6 text-slate-400">
+                  Galaxy curates the underlying lending strategy.
+                  MetaWork provides the Tokenizer and the interface
+                  for deposits, position tracking, and redemption.
                 </p>
 
                 <div className="mt-8 grid gap-5 border-t border-white/10 pt-6 sm:grid-cols-3">
                   {[
                     ['Asset', 'USDC on Base'],
-                    ['Yield source', 'Borrower interest'],
-                    ['Platform fee', '10% of yield'],
+                    ['Position token', vault.wrapperSymbol],
+                    [
+                      'MetaWork fee',
+                      `${performanceFeePercent}% of yield`,
+                    ],
                   ].map(([label, value]) => (
                     <div key={label}>
                       <p className="text-xs text-slate-400">{label}</p>
@@ -183,10 +203,10 @@ export default async function GalaxyQualityPage() {
             </section>
 
             <GalaxyMetrics
-							metrics={metrics}
-							reloadHref={vault.href}
-							liquidityLabel="Vault liquidity"
-							liquidityDescription="Estimated liquidity across underlying positions. Reallocation may be required; not your immediate withdrawal limit."
+              metrics={metrics}
+              reloadHref={vault.href}
+              liquidityLabel="Underlying vault liquidity"
+              liquidityDescription="Estimated liquidity across the underlying vault's positions. Reallocation may be required; this is not your immediate withdrawal limit."
             />
 
             <section className={`${card} p-6 sm:p-7`}>
@@ -199,10 +219,13 @@ export default async function GalaxyQualityPage() {
                     />
                     Where your USDC works
                   </h2>
+
                   <p className="mt-2 text-sm text-slate-400">
-                    A separate strategy from Galaxy USDC Enhanced.
+                    Tokenized access to Galaxy USDC Quality—a separate
+                    strategy from Galaxy USDC Enhanced.
                   </p>
                 </div>
+
                 <span className="rounded-full bg-white/5 px-3 py-1 text-[11px] text-slate-400">
                   Strategy overview
                 </span>
@@ -219,12 +242,12 @@ export default async function GalaxyQualityPage() {
                     'Yield comes from interest paid by borrowers. Rates and market allocations can change over time.',
                   ],
                   [
-										'Your vault position',
-										'Deposits receive tokenized assets, mwGUSDq, from MetaWork, representing your position. The position panel shows your share balance and its current USDC asset value.',
-									],
+                    'Your position tokens',
+                    `Deposits into the MetaWork Tokenizer receive ${vault.wrapperSymbol} position tokens. These represent your proportional interest in the Tokenizer, not direct ownership of borrower collateral.`,
+                  ],
                   [
                     'Shared underlying liquidity',
-                    'Withdrawals depend on available liquidity. The value of your position can exceed the amount immediately withdrawable.',
+                    'Redeeming position tokens for USDC depends on available underlying liquidity. Your position value can exceed the amount immediately withdrawable.',
                   ],
                 ].map(([title, text]) => (
                   <div
@@ -242,32 +265,33 @@ export default async function GalaxyQualityPage() {
               </div>
 
               <p className="mt-5 text-xs leading-5 text-slate-500">
-								Detailed collateral allocation percentages are not displayed.
-								The strategy overview is descriptive, not a live holdings
-								breakdown.
-							</p>
+                Detailed collateral allocation percentages are not
+                displayed. The strategy overview is descriptive, not
+                a live holdings breakdown.
+              </p>
             </section>
 
             <section className={`${card} p-6 sm:p-7`}>
               <h2 className="text-lg font-semibold">
-                A straightforward earning model
+                From USDC to your tokenized position
               </h2>
 
               <div className="mt-6 grid gap-6 sm:grid-cols-3">
                 {[
                   {
                     icon: Wallet,
-                    title: 'You supply USDC',
-										text: 'Use your own wallet and USDC on Base. Deposits are routed directly into the Galaxy USDC Quality underlying vault.',                  },
+                    title: 'Deposit through the Tokenizer',
+                    text: 'Use your own wallet and USDC on Base. The MetaWork Tokenizer routes deposits through its adapter into the underlying Galaxy USDC Quality vault.',
+                  },
                   {
                     icon: ShieldCheck,
-                    title: 'Borrowers post collateral',
-                    text: 'The underlying strategy allocates to collateral-backed lending markets selected by its curator.',
+                    title: 'Receive position tokens',
+                    text: `Receive ${vault.wrapperSymbol} tokens in your wallet. Galaxy’s underlying strategy allocates the deposited assets to curated, collateral-backed lending markets.`,
                   },
                   {
                     icon: ArrowDownLeft,
-                    title: 'Interest accrues',
-                    text: 'Borrower interest contributes to share value after fees. Rates vary and losses remain possible.',
+                    title: 'Track and redeem',
+                    text: 'Track your token balance and its USDC asset value. That value changes with underlying performance, fees, and any losses. Redeem for USDC subject to available liquidity.',
                   },
                 ].map(({ icon: Icon, title, text }, index) => (
                   <div key={title}>
@@ -275,11 +299,16 @@ export default async function GalaxyQualityPage() {
                       <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-sky-300">
                         <Icon className="h-5 w-5" aria-hidden="true" />
                       </span>
+
                       <span className="font-mono text-xs text-slate-600">
                         0{index + 1}
                       </span>
                     </div>
-                    <h3 className="mt-4 text-sm font-medium">{title}</h3>
+
+                    <h3 className="mt-4 text-sm font-medium">
+                      {title}
+                    </h3>
+
                     <p className="mt-2 text-sm leading-6 text-slate-400">
                       {text}
                     </p>
@@ -294,12 +323,15 @@ export default async function GalaxyQualityPage() {
                   <h2 className="text-lg font-semibold">
                     Clear fees. No guesswork.
                   </h2>
+
                   <p className="mt-2 text-sm text-slate-400">
-                    The platform fee applies to yield—not your initial deposit.
+                    MetaWork’s performance fee applies to yield—not
+                    your initial deposit.
                   </p>
                 </div>
+
                 <span className="rounded-full bg-sky-400/10 px-3 py-1 text-xs text-sky-300">
-                  Fee configuration
+                  Tokenizer fee configuration
                 </span>
               </div>
 
@@ -316,47 +348,60 @@ export default async function GalaxyQualityPage() {
               </dl>
 
               <div className="mt-4 rounded-xl bg-white/[0.03] p-4 text-sm leading-6 text-slate-400">
-								If your position earns 100 USDC after underlying fees and before
-								MetaWork’s performance fee, the platform fee is{' '}
-								{vault.performanceFeeBps / 100} USDC. You retain{' '}
-								{100 - vault.performanceFeeBps / 100} USDC before network costs.
-								This is an illustration, not a return forecast.
-							</div>
+                If your position earns 100 USDC after underlying
+                fees and before MetaWork’s performance fee, the
+                MetaWork fee is {performanceFeePercent} USDC. You
+                retain {100 - performanceFeePercent} USDC before
+                network costs. This is an illustration, not a
+                return forecast.
+              </div>
 
               <p className="mt-3 text-xs leading-5 text-slate-500">
-								Underlying fees are reported separately and may change.
-								The displayed underlying APY is before MetaWork’s performance
-								fee and excludes incentives. It is not a customer net APY quote.
-							</p>
+                Underlying vault fees are reported separately and may
+                change. The displayed underlying APY is before
+                MetaWork’s performance fee and excludes incentives.
+                It is not a customer net APY quote.
+              </p>
             </section>
+
+            <QualityDisclosures />
 
             <section className={`${card} divide-y divide-white/[0.06] px-6 sm:px-7`}>
               <details className="py-5">
                 <summary className="cursor-pointer text-sm font-medium">
-                  Withdrawals & liquidity
+                  Position tokens & redemption
                 </summary>
+
                 <p className="mt-4 text-sm leading-7 text-slate-400">
-									USDC withdrawals depend on available underlying liquidity.
-									Instant withdrawal is not guaranteed. The withdrawal panel
-									currently supports redemption of your entire wallet-owned
-								  position. Special exit routes, including forced
-									deallocation and in-kind redemption, are not available through
-									this interface.
-								</p>
+                  Your {vault.wrapperSymbol} position tokens
+                  represent your proportional interest in the
+                  MetaWork Tokenizer. The position panel shows your
+                  token balance and its current USDC asset value.
+                  That value is not a guaranteed withdrawal quote
+                  and does not represent a fixed USDC amount per token.
+                </p>
+
+                <p className="mt-3 text-sm leading-7 text-slate-400">
+                  Position tokens provide access to the underlying
+                  vault through the Tokenizer. They do not represent
+                  direct ownership of borrower collateral or a
+                  guarantee from MetaWork, Galaxy, or Morpho.
+                </p>
               </details>
 
               <details className="py-5">
                 <summary className="cursor-pointer text-sm font-medium">
-                  Risks to understand
+                  Withdrawals & liquidity
                 </summary>
+
                 <p className="mt-4 text-sm leading-7 text-slate-400">
-                  Capital is at risk. Collateral price declines,
-                  unsuccessful liquidations, pricing errors, borrower
-                  defaults, smart-contract failures, USDC depegging,
-                  market concentration, and limited liquidity can
-                  cause losses or restrict withdrawals. Base also
-                  introduces network and infrastructure dependencies.
-                  “Quality” is a product name, not a guarantee of safety.
+                  USDC withdrawals depend on available underlying
+                  liquidity. Instant withdrawal is not guaranteed.
+                  The withdrawal panel currently supports redemption
+                  of all position tokens held by your connected
+                  wallet. Special exit routes, including forced
+                  deallocation and in-kind redemption, are not
+                  available through this interface.
                 </p>
               </details>
 
@@ -364,13 +409,16 @@ export default async function GalaxyQualityPage() {
                 <summary className="cursor-pointer text-sm font-medium">
                   Base network & deposit asset
                 </summary>
+
                 <p className="mt-4 text-sm leading-7 text-slate-400">
                   This product is on Base, not Ethereum mainnet.
                   Wallet transactions must use chain ID 8453.
-                  The configured deposit asset is USDC at the address
-                  below. Do not send tokens directly to displayed
+                  The deposit asset is USDC at the address below.
+                  Use the connected-wallet controls to deposit;
+                  do not send tokens directly to displayed
                   contract addresses.
                 </p>
+
                 <p className="mt-3 break-all font-mono text-xs leading-6 text-slate-300">
                   {vault.assetAddress}
                 </p>
@@ -380,12 +428,19 @@ export default async function GalaxyQualityPage() {
                 <summary className="cursor-pointer text-sm font-medium">
                   Infrastructure & product terms
                 </summary>
+
                 <dl className="mt-4 space-y-4 text-sm">
                   {[
                     ['Underlying strategy', 'Galaxy USDC Quality'],
+                    ['Strategy curator', 'Galaxy'],
+                    ['Access layer', 'MetaWork Tokenizer'],
                     ['Infrastructure', 'Morpho Vault V2 · Base'],
                     ['Underlying vault', vault.underlyingVault],
-                    ['MetaWork wrapper', vault.wrapperAddress ?? 'Not configured'],
+                    [
+                      'MetaWork Tokenizer contract',
+                      vault.wrapperAddress ?? 'Not configured',
+                    ],
+                    ['Position token symbol', vault.wrapperSymbol],
                   ].map(([label, value]) => (
                     <div key={label}>
                       <dt className="text-slate-500">{label}</dt>
@@ -395,70 +450,91 @@ export default async function GalaxyQualityPage() {
                     </div>
                   ))}
                 </dl>
+
                 <p className="mt-4 text-xs leading-6 text-slate-500">
-									MetaWork adds a performance-fee layer over the underlying
-									Galaxy USDC Quality vault. Review the applicable terms,
-									administrator permissions, fees, and withdrawal limitations
-									before depositing.
-								</p>
+                  The MetaWork Tokenizer uses a fee-wrapper vault
+                  architecture over the underlying Galaxy USDC
+                  Quality vault. “Tokenizer” is MetaWork’s
+                  customer-facing name for this access layer.
+                  It does not mean MetaWork originates Galaxy’s
+                  strategy or directly tokenizes borrower collateral.
+                </p>
+
+                <p className="mt-3 text-xs leading-6 text-slate-500">
+                  The Tokenizer and underlying vault have separate
+                  contracts, permissions, and fee settings. Review
+                  the applicable terms, administrator permissions,
+                  fees, and withdrawal limitations before depositing.
+                </p>
               </details>
             </section>
           </div>
 
           <aside className="lg:sticky lg:top-6">
-						<section className="overflow-hidden rounded-3xl border border-sky-400/20 bg-[#101827] shadow-[0_20px_80px_rgba(0,0,0,0.25)]">
-							<div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-5">
-								<h2 className="font-semibold">Your position</h2>
-								<Wallet
-									className="h-4 w-4 text-slate-500"
-									aria-hidden="true"
-								/>
-							</div>
+            <section className="overflow-hidden rounded-3xl border border-sky-400/20 bg-[#101827] shadow-[0_20px_80px_rgba(0,0,0,0.25)]">
+              <div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-5">
+                <div>
+                  <h2 className="font-semibold">
+                    Your tokenized position
+                  </h2>
+                  <p className="mt-1 text-xs text-slate-500">
+                    MetaWork Tokenizer · Base
+                  </p>
+                </div>
 
-							<div className="p-6">
-								<BaseWalletPanel />
-							</div>
+                <Wallet
+                  className="h-4 w-4 text-slate-500"
+                  aria-hidden="true"
+                />
+              </div>
 
-							<div className="space-y-3 border-t border-white/[0.06] px-6 py-5">
-								{[
-									'USDC deposits on Base',
-									'10% platform performance fee on yield',
-									'Withdrawals subject to available liquidity',
-								].map((text) => (
-									<div
-										key={text}
-										className="flex items-start gap-2 text-xs leading-5 text-slate-400"
-									>
-										<Check
-											className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-400"
-											aria-hidden="true"
-										/>
-										{text}
-									</div>
-								))}
-							</div>
+              <div className="p-6">
+                <BaseWalletPanel />
+              </div>
 
-							<div className="border-t border-white/[0.06] bg-black/10 px-6 py-4">
-								<p
-									className={`text-xs font-medium ${
-										publicDepositsEnabled ? 'text-sky-300' : 'text-amber-300'
-									}`}
-								>
-									{availabilityLabel}
-								</p>
+              <div className="space-y-3 border-t border-white/[0.06] px-6 py-5">
+                {[
+                  'USDC deposits on Base',
+                  `${vault.wrapperSymbol} position tokens in your wallet`,
+                  `${performanceFeePercent}% MetaWork performance fee on yield`,
+                  'Redemptions subject to available liquidity',
+                ].map((text) => (
+                  <div
+                    key={text}
+                    className="flex items-start gap-2 text-xs leading-5 text-slate-400"
+                  >
+                    <Check
+                      className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-400"
+                      aria-hidden="true"
+                    />
+                    {text}
+                  </div>
+                ))}
+              </div>
 
-								<p className="mt-2 text-xs leading-5 text-slate-500">
-									{availabilityDescription} Do not send tokens directly to
-									contract addresses.
-								</p>
-							</div>
-						</section>
+              <div className="border-t border-white/[0.06] bg-black/10 px-6 py-4">
+                <p
+                  className={`text-xs font-medium ${
+                    publicDepositsEnabled
+                      ? 'text-sky-300'
+                      : 'text-amber-300'
+                  }`}
+                >
+                  {availabilityLabel}
+                </p>
 
-						<p className="px-3 pt-4 text-center text-[11px] leading-5 text-slate-600">
-							Not an insured savings account. Capital is at risk.
-							Returns are not guaranteed.
-						</p>
-					</aside>
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  {availabilityDescription} Do not send tokens
+                  directly to contract addresses.
+                </p>
+              </div>
+            </section>
+
+            <p className="px-3 pt-4 text-center text-[11px] leading-5 text-slate-600">
+              Not an insured savings account. Capital is at risk.
+              Returns are not guaranteed.
+            </p>
+          </aside>
         </div>
       </div>
     </main>
