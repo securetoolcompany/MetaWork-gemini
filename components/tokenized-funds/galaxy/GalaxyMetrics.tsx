@@ -5,6 +5,9 @@ import type { GalaxyMetrics as Metrics } from '../../../lib/tokenized-funds/gala
 
 type Props = {
   metrics: Metrics | null;
+  reloadHref?: string;
+  liquidityLabel?: string;
+  liquidityDescription?: string;
 };
 
 function formatUsd(value: number | null | undefined): string {
@@ -28,7 +31,13 @@ function formatPercent(value: number | null | undefined): string {
   }).format(value);
 }
 
-export default function GalaxyMetrics({ metrics }: Props) {
+export default function GalaxyMetrics({
+  metrics,
+  reloadHref = '/tokenized-funds/galaxy-usdc',
+  liquidityLabel = 'Underlying liquidity',
+  liquidityDescription =
+    'API-reported vault liquidity. Not your personal withdrawal limit.',
+}: Props) {
   const cards = [
     {
       label: 'Underlying net APY',
@@ -47,11 +56,10 @@ export default function GalaxyMetrics({ metrics }: Props) {
       accent: false,
     },
     {
-      label: 'Underlying liquidity',
+      label: liquidityLabel,
       value: formatUsd(metrics?.liquidityUsd),
       available: metrics?.liquidityUsd != null,
-      description:
-        'API-reported vault liquidity. Not your personal withdrawal limit.',
+      description: liquidityDescription,
       accent: false,
     },
   ];
@@ -125,7 +133,7 @@ export default function GalaxyMetrics({ metrics }: Props) {
         </p>
 
         <a
-          href="/tokenized-funds/galaxy-usdc"
+          href={reloadHref}
           className="inline-flex items-center gap-1.5 text-xs text-slate-400 transition hover:text-sky-300"
         >
           <RefreshCw className="h-3 w-3" aria-hidden="true" />

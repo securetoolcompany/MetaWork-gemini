@@ -32,6 +32,17 @@ const funds = [
     platformFee: '10% of yield earned',
     linkLabel: 'View product details',
   },
+  {
+    id: 'galaxy-usdc-quality-base',
+    name: 'Galaxy USDC Quality',
+    category: 'DeFi Lending · Base',
+    description:
+      'Earn variable interest on your USDC through Galaxy-curated lending backed by blue-chip digital assets on Base.',
+    href: '/tokenized-funds/galaxy-usdc-quality',
+    asset: 'USDC on Base',
+    platformFee: '10% of yield earned',
+    linkLabel: 'View product details',
+  },
 ];
 
 export default function TokenizedFundsPage() {
