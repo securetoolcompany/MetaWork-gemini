@@ -52,10 +52,12 @@ export default function QualityDisclosures() {
       </h2>
 
       <p className="mt-3 text-sm leading-6 text-slate-400">
-        MetaWork provides access through a fee wrapper over Galaxy USDC
-        Quality on Base. The wrapper and underlying vault are separate
-        contracts with separate permissions and fee settings.
-      </p>
+        MetaWork’s Tokenizer provides tokenized access to Galaxy USDC
+        Quality on Base. The Tokenizer and underlying vault are separate
+        contracts with separate permissions and fee settings. Galaxy
+        curates the underlying strategy; MetaWork provides the Tokenizer
+        and the deposit, position-tracking, and redemption interface.
+    	</p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         {riskItems.map(({ title, text }) => (
