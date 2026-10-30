@@ -8,7 +8,6 @@ import {
   CircleDollarSign,
   Globe2,
   Layers3,
-  LockKeyhole,
   ShieldCheck,
   Sparkles,
   Wallet,
@@ -370,7 +369,7 @@ export default async function GalaxyQualityPage() {
                     ['Underlying strategy', 'Galaxy USDC Quality'],
                     ['Infrastructure', 'Morpho Vault V2 · Base'],
                     ['Underlying vault', vault.underlyingVault],
-                    ['MetaWork wrapper', 'Not deployed / not recorded'],
+                    ['MetaWork wrapper', vault.wrapperAddress ?? 'Not configured'],
                   ].map(([label, value]) => (
                     <div key={label}>
                       <dt className="text-slate-500">{label}</dt>
@@ -390,99 +389,54 @@ export default async function GalaxyQualityPage() {
           </div>
 
           <aside className="lg:sticky lg:top-6">
-            <section className="overflow-hidden rounded-3xl border border-sky-400/20 bg-[#101827] shadow-[0_20px_80px_rgba(0,0,0,0.25)]">
-              <div className="border-b border-white/[0.06] px-6 py-5">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-semibold">Your position</h2>
-                  <Wallet
-                    className="h-4 w-4 text-slate-500"
-                    aria-hidden="true"
-                  />
-                </div>
-                <BaseWalletPanel />
-              </div>
+						<section className="overflow-hidden rounded-3xl border border-sky-400/20 bg-[#101827] shadow-[0_20px_80px_rgba(0,0,0,0.25)]">
+							<div className="flex items-center justify-between border-b border-white/[0.06] px-6 py-5">
+								<h2 className="font-semibold">Your position</h2>
+								<Wallet
+									className="h-4 w-4 text-slate-500"
+									aria-hidden="true"
+								/>
+							</div>
 
-              <div className="p-6">
-                <p className="text-xs text-slate-400">Position balance</p>
-                <p className="mt-3 text-4xl font-semibold tracking-tight text-slate-500">
-                  — <span className="text-lg">USDC</span>
-                </p>
+							<div className="p-6">
+								<BaseWalletPanel />
+							</div>
 
-                <div className="mt-7 flex gap-1 rounded-xl bg-black/20 p-1">
-                  <span className="flex-1 rounded-lg bg-white/[0.08] py-2.5 text-center text-sm font-medium">
-                    Deposit
-                  </span>
-                  <span className="flex-1 py-2.5 text-center text-sm text-slate-500">
-                    Withdraw
-                  </span>
-                </div>
+							<div className="space-y-3 border-t border-white/[0.06] px-6 py-5">
+								{[
+									'USDC deposits on Base',
+									'10% platform performance fee on yield',
+									'Withdrawals subject to available liquidity',
+								].map((text) => (
+									<div
+										key={text}
+										className="flex items-start gap-2 text-xs leading-5 text-slate-400"
+									>
+										<Check
+											className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-400"
+											aria-hidden="true"
+										/>
+										{text}
+									</div>
+								))}
+							</div>
 
-                <label
-                  htmlFor="quality-deposit-amount"
-                  className="mt-6 block text-xs text-slate-400"
-                >
-                  Deposit amount
-                </label>
+							<div className="border-t border-white/[0.06] bg-black/10 px-6 py-4">
+								<p className="text-xs font-medium text-amber-300">
+									Limited testing
+								</p>
+								<p className="mt-2 text-xs leading-5 text-slate-500">
+									Production transactions remain disabled. Do not send
+									tokens directly to contract addresses.
+								</p>
+							</div>
+						</section>
 
-                <div className="mt-2 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/10 px-4 py-4">
-                  <input
-                    id="quality-deposit-amount"
-                    type="text"
-                    placeholder="0.00"
-                    disabled
-                    className="min-w-0 flex-1 cursor-not-allowed bg-transparent text-2xl outline-none placeholder:text-slate-600"
-                  />
-                  <span className="rounded-lg bg-sky-400/10 px-2.5 py-1.5 text-xs font-medium text-sky-300">
-                    USDC
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  disabled
-                  className="mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-sky-400/10 bg-sky-400/10 px-4 py-3.5 text-sm font-medium text-sky-300/60"
-                >
-                  <LockKeyhole className="h-4 w-4" aria-hidden="true" />
-                  Available after setup
-                </button>
-
-                <div className="mt-6 space-y-3">
-                  {[
-                    'USDC deposits on Base',
-                    '10% platform fee on yield earned',
-                    'Withdrawals subject to liquidity',
-                  ].map((text) => (
-                    <div
-                      key={text}
-                      className="flex items-start gap-2 text-xs leading-5 text-slate-400"
-                    >
-                      <Check
-                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-400"
-                        aria-hidden="true"
-                      />
-                      {text}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-white/[0.06] bg-black/10 px-6 py-4">
-                <p className="text-xs font-medium text-amber-300">
-                  Setup in progress
-                </p>
-                <p className="mt-2 text-xs leading-5 text-slate-500">
-                  Live underlying metrics are connected when available.
-                  Wrapper deployment and wallet transactions remain
-                  pending. Do not send funds directly to any displayed address.
-                </p>
-              </div>
-            </section>
-
-            <p className="px-3 pt-4 text-center text-[11px] leading-5 text-slate-600">
-              Not an insured savings account. Capital is at risk.
-              Returns are not guaranteed.
-            </p>
-          </aside>
+						<p className="px-3 pt-4 text-center text-[11px] leading-5 text-slate-600">
+							Not an insured savings account. Capital is at risk.
+							Returns are not guaranteed.
+						</p>
+					</aside>
         </div>
       </div>
     </main>
