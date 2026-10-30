@@ -43,6 +43,25 @@ export default async function GalaxyQualityPage() {
   const vault = GALAXY_QUALITY;
   const metrics = await getQualityMetrics();
 
+	const publicDepositsEnabled =
+  vault.depositsEnabled &&
+  process.env.NEXT_PUBLIC_GALAXY_QUALITY_DEPOSITS === 'true';
+
+	const publicRedemptionsEnabled =
+		process.env.NEXT_PUBLIC_GALAXY_QUALITY_REDEMPTIONS === 'true';
+
+	const availabilityLabel = publicDepositsEnabled
+		? 'Deposits enabled'
+		: publicRedemptionsEnabled
+			? 'New deposits paused'
+			: 'Public transactions disabled';
+
+	const availabilityDescription = publicDepositsEnabled
+		? 'Use the connected-wallet controls above. Withdrawals depend on available liquidity.'
+		: publicRedemptionsEnabled
+			? 'The redemption interface remains available for existing positions, subject to available liquidity.'
+			: 'Public deposits and redemptions are disabled in this interface.';
+
   const fees = [
     [
       'MetaWork platform fee',
@@ -111,10 +130,7 @@ export default async function GalaxyQualityPage() {
               <Globe2 className="h-3.5 w-3.5" aria-hidden="true" />
               Base
             </span>
-            <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-xs text-amber-300">
-              Preparing for launch
-            </span>
-          </div>
+            </div>
         </header>
 
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_350px]">
@@ -203,9 +219,9 @@ export default async function GalaxyQualityPage() {
                     'Yield comes from interest paid by borrowers. Rates and market allocations can change over time.',
                   ],
                   [
-                    'Your planned position',
-                    'Customer deposits will receive MetaWork wrapper shares after deployment and transaction testing are complete.',
-                  ],
+										'Your vault position',
+										'Deposits receive tokenized assets, mwGUSDq, from MetaWork, representing your position. The position panel shows your share balance and its current USDC asset value.',
+									],
                   [
                     'Shared underlying liquidity',
                     'Withdrawals depend on available liquidity. The value of your position can exceed the amount immediately withdrawable.',
@@ -226,10 +242,10 @@ export default async function GalaxyQualityPage() {
               </div>
 
               <p className="mt-5 text-xs leading-5 text-slate-500">
-                Live collateral allocation percentages are not yet
-                connected. No Enhanced allocation data or estimated
-                holdings are substituted here.
-              </p>
+								Detailed collateral allocation percentages are not displayed.
+								The strategy overview is descriptive, not a live holdings
+								breakdown.
+							</p>
             </section>
 
             <section className={`${card} p-6 sm:p-7`}>
@@ -242,8 +258,7 @@ export default async function GalaxyQualityPage() {
                   {
                     icon: Wallet,
                     title: 'You supply USDC',
-                    text: 'Use your own wallet and USDC on Base. The planned wrapper routes deposits into Galaxy USDC Quality.',
-                  },
+										text: 'Use your own wallet and USDC on Base. Deposits are routed directly into the Galaxy USDC Quality underlying vault.',                  },
                   {
                     icon: ShieldCheck,
                     title: 'Borrowers post collateral',
@@ -284,7 +299,7 @@ export default async function GalaxyQualityPage() {
                   </p>
                 </div>
                 <span className="rounded-full bg-sky-400/10 px-3 py-1 text-xs text-sky-300">
-                  Planned configuration
+                  Fee configuration
                 </span>
               </div>
 
@@ -301,18 +316,18 @@ export default async function GalaxyQualityPage() {
               </dl>
 
               <div className="mt-4 rounded-xl bg-white/[0.03] p-4 text-sm leading-6 text-slate-400">
-                If your position earns 100 USDC after underlying
-                fees and before MetaWork’s fee, the planned platform
-                fee is 10 USDC. You retain 90 USDC before network
-                costs. This is an illustration, not a return forecast.
-              </div>
+								If your position earns 100 USDC after underlying fees and before
+								MetaWork’s performance fee, the platform fee is{' '}
+								{vault.performanceFeeBps / 100} USDC. You retain{' '}
+								{100 - vault.performanceFeeBps / 100} USDC before network costs.
+								This is an illustration, not a return forecast.
+							</div>
 
               <p className="mt-3 text-xs leading-5 text-slate-500">
-                Underlying fees are reported separately and may change.
-                The displayed underlying APY is before MetaWork’s
-                planned fee and excludes incentives. It is not a
-                customer net APY quote.
-              </p>
+								Underlying fees are reported separately and may change.
+								The displayed underlying APY is before MetaWork’s performance
+								fee and excludes incentives. It is not a customer net APY quote.
+							</p>
             </section>
 
             <section className={`${card} divide-y divide-white/[0.06] px-6 sm:px-7`}>
@@ -321,12 +336,13 @@ export default async function GalaxyQualityPage() {
                   Withdrawals & liquidity
                 </summary>
                 <p className="mt-4 text-sm leading-7 text-slate-400">
-                  Ordinary USDC withdrawals will depend on available
-                  liquidity and the verified wrapper configuration.
-                  Instant withdrawal is not guaranteed. Special exit
-                  routes and any associated penalties are not enabled
-                  by this informational page.
-                </p>
+									USDC withdrawals depend on available underlying liquidity.
+									Instant withdrawal is not guaranteed. The withdrawal panel
+									currently supports redemption of your entire wallet-owned
+								  position. Special exit routes, including forced
+									deallocation and in-kind redemption, are not available through
+									this interface.
+								</p>
               </details>
 
               <details className="py-5">
@@ -380,10 +396,11 @@ export default async function GalaxyQualityPage() {
                   ))}
                 </dl>
                 <p className="mt-4 text-xs leading-6 text-slate-500">
-                  Applicable terms, administration disclosures, and
-                  verified deployment details must be available
-                  before customer transactions are enabled.
-                </p>
+									MetaWork adds a performance-fee layer over the underlying
+									Galaxy USDC Quality vault. Review the applicable terms,
+									administrator permissions, fees, and withdrawal limitations
+									before depositing.
+								</p>
               </details>
             </section>
           </div>
@@ -422,12 +439,17 @@ export default async function GalaxyQualityPage() {
 							</div>
 
 							<div className="border-t border-white/[0.06] bg-black/10 px-6 py-4">
-								<p className="text-xs font-medium text-amber-300">
-									Limited testing
+								<p
+									className={`text-xs font-medium ${
+										publicDepositsEnabled ? 'text-sky-300' : 'text-amber-300'
+									}`}
+								>
+									{availabilityLabel}
 								</p>
+
 								<p className="mt-2 text-xs leading-5 text-slate-500">
-									Production transactions remain disabled. Do not send
-									tokens directly to contract addresses.
+									{availabilityDescription} Do not send tokens directly to
+									contract addresses.
 								</p>
 							</div>
 						</section>
