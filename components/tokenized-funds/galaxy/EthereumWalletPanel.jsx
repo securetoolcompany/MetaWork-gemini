@@ -20,8 +20,8 @@ const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
 const SYMBOL = 'mwGUSDCe';
 
 // Public transaction activation is a separate launch decision.
-const PUBLIC_DEPOSITS_ENABLED = false;
-const PUBLIC_REDEMPTIONS_ENABLED = false;
+const PUBLIC_DEPOSITS_ENABLED = true;
+const PUBLIC_REDEMPTIONS_ENABLED = true;
 
 const LOCAL_TEST_ENABLED =
   process.env.NODE_ENV === 'development' &&
@@ -744,8 +744,8 @@ export default function EthereumWalletPanel() {
 
         <p className="rounded-xl border border-amber-400/10 bg-amber-400/5 p-3 text-xs leading-5 text-amber-300">
           {operatorTesting(account)
-            ? 'Operator-only testing enabled. Transactions use real Ethereum mainnet funds. Public transactions remain disabled.'
-            : 'Deployed on Ethereum. Wallet lookup is available; public transactions remain disabled during interface testing.'}
+            ? 'Deposits and withdrawals are enabled. Transactions use real Ethereum mainnet funds. Capital is at risk.'
+            : 'Deposits and withdrawals are enabled. Transactions use real Ethereum mainnet funds. Capital is at risk.'}
         </p>
         <p className="text-xs leading-5 text-slate-500">
           Approval and deposit require separate clicks. Position value is an

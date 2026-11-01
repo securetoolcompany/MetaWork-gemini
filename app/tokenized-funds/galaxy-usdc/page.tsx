@@ -125,7 +125,7 @@ export default async function GalaxyUsdcPage() {
               Ethereum
             </span>
             <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-xs text-amber-300">
-              Deployed · interface testing
+              Deposits & withdrawals enabled
             </span>
           </div>
         </header>
