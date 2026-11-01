@@ -1,3 +1,4 @@
+import GalaxyAllocations from '../../../components/tokenized-funds/galaxy/GalaxyAllocations';
 // app/tokenized-funds/galaxy-usdc-quality/page.tsx
 
 import Link from 'next/link';
@@ -209,67 +210,7 @@ export default async function GalaxyQualityPage() {
               liquidityDescription="Estimated liquidity across the underlying vault's positions. Reallocation may be required; this is not your immediate withdrawal limit."
             />
 
-            <section className={`${card} p-6 sm:p-7`}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="flex items-center gap-2 text-lg font-semibold">
-                    <Layers3
-                      className="h-4 w-4 text-sky-400"
-                      aria-hidden="true"
-                    />
-                    Where your USDC works
-                  </h2>
-
-                  <p className="mt-2 text-sm text-slate-400">
-                    Tokenized access to Galaxy USDC Quality—a separate
-                    strategy from Galaxy USDC Enhanced.
-                  </p>
-                </div>
-
-                <span className="rounded-full bg-white/5 px-3 py-1 text-[11px] text-slate-400">
-                  Strategy overview
-                </span>
-              </div>
-
-              <div className="mt-7 grid gap-4 sm:grid-cols-2">
-                {[
-                  [
-                    'Curated collateral markets',
-                    'Galaxy selects lending markets within the underlying Quality vault. Collateral supports borrowing, but does not eliminate losses.',
-                  ],
-                  [
-                    'Borrower-paid interest',
-                    'Yield comes from interest paid by borrowers. Rates and market allocations can change over time.',
-                  ],
-                  [
-                    'Your position tokens',
-                    `Deposits into the MetaWork Tokenizer receive ${vault.wrapperSymbol} position tokens. These represent your proportional interest in the Tokenizer, not direct ownership of borrower collateral.`,
-                  ],
-                  [
-                    'Shared underlying liquidity',
-                    'Redeeming position tokens for USDC depends on available underlying liquidity. Your position value can exceed the amount immediately withdrawable.',
-                  ],
-                ].map(([title, text]) => (
-                  <div
-                    key={title}
-                    className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5"
-                  >
-                    <h3 className="text-sm font-medium text-sky-200">
-                      {title}
-                    </h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-400">
-                      {text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-
-              <p className="mt-5 text-xs leading-5 text-slate-500">
-                Detailed collateral allocation percentages are not
-                displayed. The strategy overview is descriptive, not
-                a live holdings breakdown.
-              </p>
-            </section>
+            <GalaxyAllocations endpoint="/api/tokenized-funds/galaxy-quality/allocations" />
 
             <section className={`${card} p-6 sm:p-7`}>
               <h2 className="text-lg font-semibold">
@@ -366,108 +307,7 @@ export default async function GalaxyQualityPage() {
 
             <QualityDisclosures />
 
-            <section className={`${card} divide-y divide-white/[0.06] px-6 sm:px-7`}>
-              <details className="py-5">
-                <summary className="cursor-pointer text-sm font-medium">
-                  Position tokens & redemption
-                </summary>
-
-                <p className="mt-4 text-sm leading-7 text-slate-400">
-                  Your {vault.wrapperSymbol} position tokens
-                  represent your proportional interest in the
-                  MetaWork Tokenizer. The position panel shows your
-                  token balance and its current USDC asset value.
-                  That value is not a guaranteed withdrawal quote
-                  and does not represent a fixed USDC amount per token.
-                </p>
-
-                <p className="mt-3 text-sm leading-7 text-slate-400">
-                  Position tokens provide access to the underlying
-                  vault through the Tokenizer. They do not represent
-                  direct ownership of borrower collateral or a
-                  guarantee from MetaWork, Galaxy, or Morpho.
-                </p>
-              </details>
-
-              <details className="py-5">
-                <summary className="cursor-pointer text-sm font-medium">
-                  Withdrawals & liquidity
-                </summary>
-
-                <p className="mt-4 text-sm leading-7 text-slate-400">
-                  USDC withdrawals depend on available underlying
-                  liquidity. Instant withdrawal is not guaranteed.
-                  The withdrawal panel currently supports redemption
-                  of all position tokens held by your connected
-                  wallet. Special exit routes, including forced
-                  deallocation and in-kind redemption, are not
-                  available through this interface.
-                </p>
-              </details>
-
-              <details className="py-5">
-                <summary className="cursor-pointer text-sm font-medium">
-                  Base network & deposit asset
-                </summary>
-
-                <p className="mt-4 text-sm leading-7 text-slate-400">
-                  This product is on Base, not Ethereum mainnet.
-                  Wallet transactions must use chain ID 8453.
-                  The deposit asset is USDC at the address below.
-                  Use the connected-wallet controls to deposit;
-                  do not send tokens directly to displayed
-                  contract addresses.
-                </p>
-
-                <p className="mt-3 break-all font-mono text-xs leading-6 text-slate-300">
-                  {vault.assetAddress}
-                </p>
-              </details>
-
-              <details className="py-5">
-                <summary className="cursor-pointer text-sm font-medium">
-                  Infrastructure & product terms
-                </summary>
-
-                <dl className="mt-4 space-y-4 text-sm">
-                  {[
-                    ['Underlying strategy', 'Galaxy USDC Quality'],
-                    ['Strategy curator', 'Galaxy'],
-                    ['Access layer', 'MetaWork Tokenizer'],
-                    ['Infrastructure', 'Morpho Vault V2 · Base'],
-                    ['Underlying vault', vault.underlyingVault],
-                    [
-                      'MetaWork Tokenizer contract',
-                      vault.wrapperAddress ?? 'Not configured',
-                    ],
-                    ['Position token symbol', vault.wrapperSymbol],
-                  ].map(([label, value]) => (
-                    <div key={label}>
-                      <dt className="text-slate-500">{label}</dt>
-                      <dd className="mt-1 break-all leading-6 text-slate-300">
-                        {value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-
-                <p className="mt-4 text-xs leading-6 text-slate-500">
-                  The MetaWork Tokenizer uses a fee-wrapper vault
-                  architecture over the underlying Galaxy USDC
-                  Quality vault. “Tokenizer” is MetaWork’s
-                  customer-facing name for this access layer.
-                  It does not mean MetaWork originates Galaxy’s
-                  strategy or directly tokenizes borrower collateral.
-                </p>
-
-                <p className="mt-3 text-xs leading-6 text-slate-500">
-                  The Tokenizer and underlying vault have separate
-                  contracts, permissions, and fee settings. Review
-                  the applicable terms, administrator permissions,
-                  fees, and withdrawal limitations before depositing.
-                </p>
-              </details>
-            </section>
+            
           </div>
 
           <aside className="lg:sticky lg:top-6">
