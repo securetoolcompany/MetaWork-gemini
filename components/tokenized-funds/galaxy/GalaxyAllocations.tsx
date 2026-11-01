@@ -30,7 +30,11 @@ const usd = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 
-export default function GalaxyAllocations() {
+export default function GalaxyAllocations({
+  endpoint = '/api/tokenized-funds/galaxy/allocations',
+}: {
+  endpoint?: string;
+}) {
   const [data, setData] = useState<AllocationData | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -48,7 +52,7 @@ export default function GalaxyAllocations() {
 
       try {
         const response = await fetch(
-          '/api/tokenized-funds/galaxy/allocations',
+          endpoint,
           { cache: 'no-store', signal: controller.signal },
         );
         const payload = await response.json();
@@ -97,7 +101,7 @@ export default function GalaxyAllocations() {
       window.clearInterval(timer);
       window.removeEventListener('focus', focused);
     };
-  }, []);
+  }, [endpoint]);
 
   let cursor = 0;
   const stops = data?.allocations.map((allocation, index) => {
