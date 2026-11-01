@@ -12,13 +12,13 @@ export const GALAXY_USDC = {
   feeRecipient:
     '0x39Bb4A10626B58430AbFa8284B0F001f49734F70',
 
-  // Planned wrapper configuration—not deployed contract settings.
+  // Verified Ethereum wrapper configuration.
   performanceFeeBps: 1000,
   managementFeeBps: 0,
 
-  // Keep unset until our wrapper is deployed and validated.
+  // Deployed and validated on Ethereum mainnet.
   // Never replace this with the underlying vault address.
-  wrapperAddress: null as `0x${string}` | null,
+  wrapperAddress: '0x687a789c8BfAF4Bd8162c2D211bbBce4DfDFC64e' as `0x${string}` | null,
 
   href: '/tokenized-funds/galaxy-usdc',
 

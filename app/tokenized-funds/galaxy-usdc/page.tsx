@@ -1,15 +1,13 @@
+import EthereumWalletPanel from '../../../components/tokenized-funds/galaxy/EthereumWalletPanel';
 // app/tokenized-funds/galaxy-usdc/page.tsx
 
 import Link from 'next/link';
 import {
   ArrowDownLeft,
   ArrowLeft,
-  ArrowUpRight,
-  Check,
   CircleDollarSign,
   Globe2,
   Layers3,
-  LockKeyhole,
   ShieldCheck,
   Sparkles,
   Wallet,
@@ -127,7 +125,7 @@ export default async function GalaxyUsdcPage() {
               Ethereum
             </span>
             <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-xs text-amber-300">
-              Preparing for launch
+              Deployed · interface testing
             </span>
           </div>
         </header>
@@ -326,7 +324,7 @@ export default async function GalaxyUsdcPage() {
                   </p>
                 </div>
                 <span className="rounded-full bg-sky-400/10 px-3 py-1 text-xs text-sky-300">
-                  Planned configuration
+                  Verified deployment configuration
                 </span>
               </div>
 
@@ -366,7 +364,7 @@ export default async function GalaxyUsdcPage() {
 
               <div className="mt-4 rounded-xl bg-white/[0.03] p-4 text-sm leading-6 text-slate-400">
                 If your position earns 100 USDC after underlying
-                fees and before MetaWork’s fee, the planned platform
+                fees and before MetaWork’s fee, the platform
                 fee is 10 USDC. You retain 90 USDC before network
                 costs. This is an illustration, not a return forecast.
               </div>
@@ -444,99 +442,7 @@ export default async function GalaxyUsdcPage() {
 
           {/* Action panel */}
           <aside className="lg:sticky lg:top-6">
-            <section className="overflow-hidden rounded-3xl border border-sky-400/20 bg-[#101827] shadow-[0_20px_80px_rgba(0,0,0,0.25)]">
-              <div className="border-b border-white/[0.06] px-6 py-5">
-                <div className="flex items-center justify-between">
-                  <h2 className="font-semibold">Your position</h2>
-                  <Wallet
-                    className="h-4 w-4 text-slate-500"
-                    aria-hidden="true"
-                  />
-                </div>
-                <p className="mt-2 text-xs text-slate-500">
-                  Wallet integration pending
-                </p>
-              </div>
-
-              <div className="p-6">
-                <p className="text-xs text-slate-400">
-                  Position balance
-                </p>
-                <p className="mt-3 text-4xl font-semibold tracking-tight text-slate-500">
-                  — <span className="text-lg">USDC</span>
-                </p>
-
-                <div className="mt-7 flex gap-1 rounded-xl bg-black/20 p-1">
-                  <span className="flex-1 rounded-lg bg-white/[0.08] py-2.5 text-center text-sm font-medium">
-                    Deposit
-                  </span>
-                  <span className="flex-1 py-2.5 text-center text-sm text-slate-500">
-                    Withdraw
-                  </span>
-                </div>
-
-                <label
-                  htmlFor="deposit-amount"
-                  className="mt-6 block text-xs text-slate-400"
-                >
-                  Deposit amount
-                </label>
-
-                <div className="mt-2 flex items-center gap-3 rounded-2xl border border-white/10 bg-black/10 px-4 py-4">
-                  <input
-                    id="deposit-amount"
-                    type="text"
-                    placeholder="0.00"
-                    disabled
-                    className="min-w-0 flex-1 cursor-not-allowed bg-transparent text-2xl outline-none placeholder:text-slate-600"
-                  />
-                  <span className="rounded-lg bg-sky-400/10 px-2.5 py-1.5 text-xs font-medium text-sky-300">
-                    USDC
-                  </span>
-                </div>
-
-                <button
-                  type="button"
-                  disabled
-                  className="mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-sky-400/10 bg-sky-400/10 px-4 py-3.5 text-sm font-medium text-sky-300/60"
-                >
-                  <LockKeyhole className="h-4 w-4" aria-hidden="true" />
-                  Available after setup
-                </button>
-
-                <div className="mt-6 space-y-3">
-                  {[
-                    'USDC deposits on Ethereum',
-                    'Platform fee based on yield',
-                    'Withdrawal subject to liquidity',
-                  ].map((text) => (
-                    <div
-                      key={text}
-                      className="flex items-start gap-2 text-xs leading-5 text-slate-400"
-                    >
-                      <Check
-                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-400"
-                        aria-hidden="true"
-                      />
-                      {text}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t border-white/[0.06] bg-black/10 px-6 py-4">
-                <div className="flex items-center gap-2 text-xs text-amber-300">
-                  <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-                  Setup in progress
-                </div>
-                <p className="mt-2 text-xs leading-5 text-slate-500">
-                  Wrapper deployment, live data, and wallet
-                  transactions are not yet complete. Do not send
-                  funds directly to any displayed address.
-                </p>
-              </div>
-            </section>
-
+            <EthereumWalletPanel />
             <p className="px-3 pt-4 text-center text-[11px] leading-5 text-slate-600">
               Investment product. Not an insured savings account.
               Returns are not guaranteed.
