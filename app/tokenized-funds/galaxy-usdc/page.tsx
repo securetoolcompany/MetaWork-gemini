@@ -1,10 +1,11 @@
-import EthereumWalletPanel from '../../../components/tokenized-funds/galaxy/EthereumWalletPanel';
+import GalaxyAllocations from '../../../components/tokenized-funds/galaxy/GalaxyAllocations';
 // app/tokenized-funds/galaxy-usdc/page.tsx
 
 import Link from 'next/link';
 import {
   ArrowDownLeft,
   ArrowLeft,
+  Check,
   CircleDollarSign,
   Globe2,
   Layers3,
@@ -12,75 +13,69 @@ import {
   Sparkles,
   Wallet,
 } from 'lucide-react';
-import { GALAXY_USDC } from '../../../lib/tokenized-funds/galaxy/config';
+
+import EthereumWalletPanel from '../../../components/tokenized-funds/galaxy/EthereumWalletPanel';
 import GalaxyMetrics from '../../../components/tokenized-funds/galaxy/GalaxyMetrics';
+import { GALAXY_USDC } from '../../../lib/tokenized-funds/galaxy/config';
 import { getGalaxyMetrics } from '../../../lib/tokenized-funds/galaxy/data';
 
 export const metadata = {
-  title: 'Galaxy USDC Enhanced | MetaWork',
+  title: 'Galaxy USDC Enhanced on Ethereum | MetaWork Earn',
   description:
-    'Put your USDC to work through collateral-backed lending on MetaWork.',
+    'Access Galaxy USDC Enhanced on Ethereum through the MetaWork Tokenizer. Explore position tokens, underlying vault metrics, fees, liquidity, and risks.',
 };
 
-// Informational snapshot. Replace with live data before launch.
-const allocations = [
-  {
-    symbol: 'PST',
-    name: 'Payment & trade financing',
-    share: 45.19,
-    color: '#38bdf8',
-    className: 'bg-sky-400',
-  },
-  {
-    symbol: 'cbBTC',
-    name: 'cbBTC-backed lending',
-    share: 31.95,
-    color: '#818cf8',
-    className: 'bg-indigo-400',
-  },
-  {
-    symbol: 'reUSD',
-    name: 'reUSD-backed lending',
-    share: 16.95,
-    color: '#a78bfa',
-    className: 'bg-violet-400',
-  },
-  {
-    symbol: 'PT-USDat',
-    name: 'Principal-token collateral',
-    share: 5.28,
-    color: '#2dd4bf',
-    className: 'bg-teal-400',
-  },
-  {
-    symbol: 'LBTC',
-    name: 'LBTC-backed lending',
-    share: 0.63,
-    color: '#fbbf24',
-    className: 'bg-amber-400',
-  },
-];
-
-const allocationGradient = `conic-gradient(
-  #38bdf8 0% 45.19%,
-  #818cf8 45.19% 77.14%,
-  #a78bfa 77.14% 94.09%,
-  #2dd4bf 94.09% 99.37%,
-  #fbbf24 99.37% 100%
-)`;
+export const revalidate = 60;
 
 const card =
   'rounded-3xl border border-white/[0.08] bg-white/[0.025]';
 
-export const revalidate = 60;
+const positionSymbol = 'mwGUSDCe';
+const assetAddress = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
+
+function percentage(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return 'Unavailable';
+
+  return new Intl.NumberFormat('en-US', {
+    style: 'percent',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
 
 export default async function GalaxyUsdcPage() {
   const vault = GALAXY_USDC;
   const metrics = await getGalaxyMetrics();
 
+  const performanceFeePercent = vault.performanceFeeBps / 100;
+  const managementFeePercent = vault.managementFeeBps / 100;
+
+  const fees = [
+    [
+      'MetaWork performance fee',
+      `${performanceFeePercent}% of yield earned`,
+    ],
+    [
+      'MetaWork annual asset-based fee',
+      `${managementFeePercent}%`,
+    ],
+    [
+      'Underlying vault performance fee',
+      metrics?.underlyingPerformanceFee != null
+        ? `${percentage(metrics.underlyingPerformanceFee)} of yield`
+        : 'Unavailable',
+    ],
+    [
+      'Underlying vault annual management fee',
+      metrics?.underlyingManagementFee != null
+        ? `${percentage(metrics.underlyingManagementFee)} annually`
+        : 'Unavailable',
+    ],
+    ['Network costs', 'Variable ETH gas fees on Ethereum'],
+  ];
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#080c16] text-slate-100">
-      {/* Background atmosphere */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-0 h-[650px]"
@@ -99,7 +94,6 @@ export default async function GalaxyUsdcPage() {
           All products
         </Link>
 
-        {/* Product identity */}
         <header className="mb-10 mt-10 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-5">
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-sky-400/20 bg-gradient-to-br from-sky-400/20 to-indigo-500/20 shadow-[0_0_45px_rgba(56,189,248,0.10)]">
@@ -120,19 +114,18 @@ export default async function GalaxyUsdcPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-300">
+            <span className="inline-flex items-center gap-2 rounded-full border border-indigo-400/20 bg-indigo-400/10 px-3 py-1.5 text-xs text-indigo-200">
               <Globe2 className="h-3.5 w-3.5" aria-hidden="true" />
               Ethereum
             </span>
-            <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1.5 text-xs text-amber-300">
-              Deposits & withdrawals enabled
+            <span className="rounded-full border border-sky-400/20 bg-sky-400/10 px-3 py-1.5 text-xs text-sky-200">
+              Tokenized access
             </span>
           </div>
         </header>
 
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_350px]">
           <div className="min-w-0 space-y-6">
-            {/* Hero */}
             <section className="relative overflow-hidden rounded-3xl border border-sky-400/15 bg-gradient-to-br from-[#10233d] via-[#111a30] to-[#15152b] p-7 sm:p-10">
               <div
                 aria-hidden="true"
@@ -144,10 +137,10 @@ export default async function GalaxyUsdcPage() {
               />
 
               <div className="relative">
-                <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-sky-300">
+                <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-sky-300">
                   <Sparkles className="h-4 w-4" aria-hidden="true" />
-                  Real-world financing. Onchain access.
-                </div>
+                  Curated lending. Tokenized access.
+                </p>
 
                 <h2 className="mt-5 max-w-xl text-4xl font-semibold leading-[1.12] tracking-tight sm:text-5xl">
                   Your USDC.
@@ -158,16 +151,24 @@ export default async function GalaxyUsdcPage() {
                 </h2>
 
                 <p className="mt-5 max-w-lg text-base leading-7 text-slate-300">
-                  Earn variable interest through collateral-backed
-                  lending, including exposure to payment settlement,
-                  trade financing, and digital assets.
+                  Access Galaxy USDC Enhanced on Ethereum through
+                  the MetaWork Tokenizer. Deposit USDC to receive{' '}
+                  {positionSymbol} position tokens representing
+                  your share of assets held through the Tokenizer.
+                </p>
+
+                <p className="mt-3 max-w-lg text-sm leading-6 text-slate-400">
+                  Galaxy curates the underlying lending strategy.
+                  MetaWork provides the tokenized access layer
+                  and the interface for deposits, position
+                  tracking, and redemption.
                 </p>
 
                 <div className="mt-8 grid gap-5 border-t border-white/10 pt-6 sm:grid-cols-3">
                   {[
-                    ['Asset', 'USDC'],
-                    ['Yield source', 'Borrower interest'],
-                    ['Platform fee', `${vault.performanceFeeBps / 100}% of yield`],
+                    ['Asset', 'USDC on Ethereum'],
+                    ['Position token', positionSymbol],
+                    ['MetaWork fee', `${performanceFeePercent}% of yield`],
                   ].map(([label, value]) => (
                     <div key={label}>
                       <p className="text-xs text-slate-400">{label}</p>
@@ -180,118 +181,36 @@ export default async function GalaxyUsdcPage() {
               </div>
             </section>
 
-            <GalaxyMetrics metrics={metrics} />
+            <GalaxyMetrics
+              metrics={metrics}
+              reloadHref={vault.href}
+              liquidityLabel="Underlying vault liquidity"
+              liquidityDescription="Estimated liquidity across the underlying vault's positions. Reallocation may be required; this is not your immediate withdrawal limit."
+            />
 
-            {/* Portfolio visualization */}
-            <section className={`${card} p-6 sm:p-7`}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Layers3
-                      className="h-4 w-4 text-sky-400"
-                      aria-hidden="true"
-                    />
-                    <h2 className="text-lg font-semibold">
-                      Where your USDC works
-                    </h2>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-400">
-                    Lending allocations by borrower collateral.
-                  </p>
-                </div>
+            <GalaxyAllocations />
 
-                <span className="rounded-full bg-white/5 px-3 py-1 text-[11px] text-slate-400">
-                  Snapshot · Oct 28, 2026
-                </span>
-              </div>
-
-              <div className="mt-8 grid items-center gap-8 sm:grid-cols-[190px_minmax(0,1fr)]">
-                <div
-                  className="relative mx-auto flex h-44 w-44 items-center justify-center rounded-full"
-                  style={{ background: allocationGradient }}
-                  role="img"
-                  aria-label="Collateral allocation chart. Percentages listed alongside."
-                >
-                  <div className="flex h-[140px] w-[140px] flex-col items-center justify-center rounded-full bg-[#0e1421]">
-                    <span className="text-3xl font-semibold">5</span>
-                    <span className="mt-1 text-xs text-slate-400">
-                      collateral markets
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  {allocations.map((item) => (
-                    <div
-                      key={item.symbol}
-                      className="flex items-center justify-between gap-4"
-                    >
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span
-                          className={`h-2 w-2 shrink-0 rounded-full ${item.className}`}
-                        />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium">
-                            {item.symbol}
-                          </p>
-                          <p className="mt-0.5 text-xs text-slate-500">
-                            {item.name}
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-sm tabular-nums text-slate-300">
-                        {item.share.toFixed(2)}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-7 rounded-2xl border border-sky-400/10 bg-sky-400/5 p-5">
-                <p className="text-sm font-medium text-sky-200">
-                  The Huma connection
-                </p>
-                <p className="mt-2 text-sm leading-6 text-slate-400">
-                  The largest allocation in this snapshot lends
-                  against Huma’s PayFi Strategy Token, PST. Its
-                  underlying economics draw on cross-border
-                  payments, trade finance, and marketplace payouts.
-                  This vault earns interest from borrowers pledging
-                  PST—not a direct share of every payment Huma
-                  finances.
-                </p>
-              </div>
-
-              <p className="mt-4 text-xs leading-5 text-slate-500">
-                Informational snapshot, not live holdings.
-                Allocations can change. You hold vault shares,
-                not direct ownership of the listed collateral.
-                PT-USDat refers to PT-USDat-14JAN2027.
-              </p>
-            </section>
-
-            {/* Mechanism */}
             <section className={`${card} p-6 sm:p-7`}>
               <h2 className="text-lg font-semibold">
-                A straightforward earning model
+                From USDC to your tokenized position
               </h2>
 
               <div className="mt-6 grid gap-6 sm:grid-cols-3">
                 {[
                   {
                     icon: Wallet,
-                    title: 'You supply USDC',
-                    text: 'Your deposit enters the lending strategy through your MetaWork wrapper position.',
+                    title: 'Deposit through the Tokenizer',
+                    text: 'Use your own wallet and USDC on Ethereum. The MetaWork Tokenizer routes deposits through its adapter into the underlying Galaxy USDC Enhanced vault.',
                   },
                   {
                     icon: ShieldCheck,
-                    title: 'Borrowers post collateral',
-                    text: 'Selected markets require collateral to support USDC borrowing.',
+                    title: 'Receive position tokens',
+                    text: `Receive ${positionSymbol} tokens in your wallet. These record your proportional interest in the Tokenizer as its assets participate in the underlying lending strategy.`,
                   },
                   {
                     icon: ArrowDownLeft,
-                    title: 'Interest accrues',
-                    text: 'Borrower interest contributes to your position’s value, after fees. Losses remain possible.',
+                    title: 'Track and redeem',
+                    text: 'Track your token balance and estimated USDC value. That value changes with performance, fees, and losses. Redeem your entire wallet-owned position, subject to available liquidity.',
                   },
                 ].map(({ icon: Icon, title, text }, index) => (
                   <div key={title}>
@@ -303,6 +222,7 @@ export default async function GalaxyUsdcPage() {
                         0{index + 1}
                       </span>
                     </div>
+
                     <h3 className="mt-4 text-sm font-medium">{title}</h3>
                     <p className="mt-2 text-sm leading-6 text-slate-400">
                       {text}
@@ -312,46 +232,25 @@ export default async function GalaxyUsdcPage() {
               </div>
             </section>
 
-            {/* Fees */}
             <section className={`${card} p-6 sm:p-7`}>
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-lg font-semibold">
                     Clear fees. No guesswork.
                   </h2>
                   <p className="mt-2 text-sm text-slate-400">
-                    Know what is charged—and what it is charged on.
+                    MetaWork’s performance fee applies to
+                    yield—not your initial deposit.
                   </p>
                 </div>
+
                 <span className="rounded-full bg-sky-400/10 px-3 py-1 text-xs text-sky-300">
-                  Verified deployment configuration
+                  Tokenizer fee configuration
                 </span>
               </div>
 
               <dl className="mt-6 divide-y divide-white/[0.06]">
-                {[
-                  [
-                    'MetaWork platform fee',
-                    `${vault.performanceFeeBps / 100}% of yield earned`,
-                  ],
-                  [
-                    'MetaWork annual asset-based fee',
-                    `${vault.managementFeeBps / 100}%`,
-                  ],
-                  [
-										'Underlying performance fee',
-										metrics?.underlyingPerformanceFee != null
-											? `${(metrics.underlyingPerformanceFee * 100).toFixed(2)}% of yield`
-											: 'Unavailable',
-									],
-									[
-										'Underlying annual management fee',
-										metrics?.underlyingManagementFee != null
-											? `${(metrics.underlyingManagementFee * 100).toFixed(2)}% annually`
-											: 'Unavailable',
-									],
-                  ['Network costs', 'Variable ETH gas fees'],
-                ].map(([label, value]) => (
+                {fees.map(([label, value]) => (
                   <div
                     key={label}
                     className="flex justify-between gap-5 py-4 text-sm"
@@ -364,87 +263,248 @@ export default async function GalaxyUsdcPage() {
 
               <div className="mt-4 rounded-xl bg-white/[0.03] p-4 text-sm leading-6 text-slate-400">
                 If your position earns 100 USDC after underlying
-                fees and before MetaWork’s fee, the platform
-                fee is 10 USDC. You retain 90 USDC before network
-                costs. This is an illustration, not a return forecast.
+                fees and before MetaWork’s performance fee, the
+                MetaWork fee is {performanceFeePercent} USDC.
+                You retain {100 - performanceFeePercent} USDC
+                before network costs. This is an illustration,
+                not a return forecast.
               </div>
 
               <p className="mt-3 text-xs leading-5 text-slate-500">
-								Underlying fees are loaded with the vault metrics and may change.
-								The annual management fee accrues against invested assets; it is
-								not a percentage of earnings.
-							</p>
+                Underlying vault fees are reported separately and
+                may change. An annual management fee accrues
+                against invested assets, not just earnings.
+                Underlying vault APY is not a customer net APY
+                quote after MetaWork’s fee and network costs.
+              </p>
             </section>
 
-            {/* Expandable details */}
+            <section className={`${card} p-6 sm:p-7`}>
+              <h2 className="text-lg font-semibold">
+                Understand your position
+              </h2>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                {[
+                  [
+                    'Capital is at risk',
+                    'Borrower defaults, collateral price declines, unsuccessful liquidations, pricing errors, smart-contract failures, and USDC depegging can cause losses. Collateral does not guarantee repayment.',
+                  ],
+                  [
+                    'Withdrawals depend on liquidity',
+                    'Funds on loan may not be immediately available. Your estimated position value is not a guaranteed withdrawal quote, and immediate redemption is not guaranteed.',
+                  ],
+                  [
+                    'Separate contracts and permissions',
+                    'The MetaWork Tokenizer and underlying Galaxy vault have separate contracts, administrator permissions, and fee settings. Open gates today do not establish that every underlying permission is permanently fixed.',
+                  ],
+                  [
+                    'Position tokens are not a guarantee',
+                    `${positionSymbol} tokens represent a position in the Tokenizer. They are not insured deposits, direct ownership of borrower collateral, or a guarantee from MetaWork, Galaxy, or Morpho.`,
+                  ],
+                ].map(([title, text]) => (
+                  <div
+                    key={title}
+                    className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5"
+                  >
+                    <h3 className="text-sm font-medium text-sky-200">
+                      {title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">
+                      {text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
             <section className={`${card} divide-y divide-white/[0.06] px-6 sm:px-7`}>
-              <details className="group py-5">
+              <details className="py-5">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Position tokens & redemption
+                </summary>
+
+                <p className="mt-4 text-sm leading-7 text-slate-400">
+                  Your {positionSymbol} position tokens represent
+                  your proportional interest in the MetaWork
+                  Tokenizer. The position panel shows your token
+                  balance and its estimated USDC asset value.
+                  That value is not a guaranteed withdrawal quote
+                  and does not represent a fixed USDC amount per
+                  token.
+                </p>
+
+                <p className="mt-3 text-sm leading-7 text-slate-400">
+                  Position tokens provide access to the underlying
+                  vault through the Tokenizer. They do not
+                  represent direct ownership of borrower
+                  collateral or a direct share of revenue from
+                  businesses associated with that collateral.
+                </p>
+              </details>
+
+              <details className="py-5">
                 <summary className="cursor-pointer text-sm font-medium">
                   Withdrawals & liquidity
                 </summary>
+
                 <p className="mt-4 text-sm leading-7 text-slate-400">
-                  Withdrawals depend on available liquidity and
-                  contract configuration. Funds on loan may not be
-                  immediately available. Your total position and
-                  your currently withdrawable amount can differ.
-                  Immediate withdrawal is not guaranteed.
+                  USDC withdrawals depend on available underlying
+                  liquidity and contract configuration. Instant
+                  withdrawal is not guaranteed. The withdrawal
+                  panel supports redemption of all position tokens
+                  held by your connected wallet.
+                </p>
+
+                <p className="mt-3 text-sm leading-7 text-slate-400">
+                  Special exit routes, including forced
+                  deallocation and in-kind redemption, are not
+                  available through this interface. Those routes
+                  have separate mechanics and may involve
+                  penalties or additional restrictions.
                 </p>
               </details>
 
-              <details className="group py-5">
+              <details className="py-5">
                 <summary className="cursor-pointer text-sm font-medium">
-                  Risks to understand
+                  Ethereum network & deposit asset
                 </summary>
+
                 <p className="mt-4 text-sm leading-7 text-slate-400">
-                  Capital is at risk. Borrower defaults, collateral
-                  price declines, unsuccessful liquidations, pricing
-                  errors, smart-contract failures, USDC depegging,
-                  and limited liquidity can cause losses or restrict
-                  withdrawals. PST also introduces exposure to the
-                  credit, operational, and counterparty risks of its
-                  underlying financing activities. Collateral does
-                  not guarantee repayment.
+                  This product is on Ethereum mainnet, not Base.
+                  Wallet transactions must use chain ID 1.
+                  The deposit asset is USDC at the address below.
+                  Keep ETH available for approval, deposit, and
+                  redemption gas fees.
+                </p>
+
+                <p className="mt-3 break-all font-mono text-xs leading-6 text-slate-300">
+                  {assetAddress}
+                </p>
+
+                <p className="mt-3 text-sm leading-7 text-slate-400">
+                  Use the connected-wallet controls to deposit.
+                  Do not send tokens directly to displayed
+                  contract addresses. USDC approval and deposit
+                  require separate clicks; approval alone does
+                  not create a position.
                 </p>
               </details>
 
-              <details className="group py-5">
+              <details className="py-5">
                 <summary className="cursor-pointer text-sm font-medium">
-                  Infrastructure & product terms
+                  Administrator permissions & underlying restrictions
                 </summary>
+
+                <p className="mt-4 text-sm leading-7 text-slate-400">
+                  The Tokenizer retains administrator roles and
+                  selected configuration powers. Some reviewed
+                  changes are subject to timelocks; not every
+                  administrative action is delayed. The adapter
+                  list is fixed through abdication of its add
+                  and remove functions.
+                </p>
+
+                <p className="mt-3 text-sm leading-7 text-slate-400">
+                  The underlying vault has its own governance,
+                  gates, allocations, and restrictions. Changes
+                  at that layer can affect deposits, asset
+                  routing, or exits. A successful transaction
+                  today does not guarantee future availability.
+                </p>
+
+                <p className="mt-3 text-xs leading-6 text-slate-500">
+                  This is a summary, not an exhaustive permission
+                  inventory. Review the contracts and applicable
+                  governance information before depositing.
+                </p>
+              </details>
+
+              <details className="py-5">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Infrastructure & product information
+                </summary>
+
                 <dl className="mt-4 space-y-4 text-sm">
-                  <div>
-                    <dt className="text-slate-500">Underlying curator</dt>
-                    <dd className="mt-1 text-slate-300">
-                      Galaxy Curation LLC
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Infrastructure</dt>
-                    <dd className="mt-1 text-slate-300">
-                      Morpho Vault V2 · Ethereum
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-slate-500">Underlying vault</dt>
-                    <dd className="mt-1 break-all font-mono text-xs leading-6 text-slate-300">
-                      {vault.underlyingVault}
-                    </dd>
-                  </div>
+                  {[
+                    ['Product category', 'MetaWork Earn'],
+                    ['Underlying strategy', 'Galaxy USDC Enhanced'],
+                    ['Strategy curator', 'Galaxy'],
+                    ['Access tool', 'MetaWork Tokenizer'],
+                    ['Infrastructure', 'Morpho Vault V2 · Ethereum'],
+                    ['Underlying vault', vault.underlyingVault],
+                    [
+                      'MetaWork Tokenizer contract',
+                      vault.wrapperAddress ?? 'Not configured',
+                    ],
+                    ['Position token symbol', positionSymbol],
+                    ['Deposit asset', assetAddress],
+                  ].map(([label, value]) => (
+                    <div key={label}>
+                      <dt className="text-slate-500">{label}</dt>
+                      <dd className="mt-1 break-all leading-6 text-slate-300">
+                        {value}
+                      </dd>
+                    </div>
+                  ))}
                 </dl>
+
                 <p className="mt-4 text-xs leading-6 text-slate-500">
-                  Full applicable terms and required disclosures
-                  must be available before launch. This summary
-                  is not a complete agreement.
+                  MetaWork Earn is the product category. The
+                  MetaWork Tokenizer is the access tool, using
+                  a fee-wrapper vault architecture over the
+                  underlying Galaxy USDC Enhanced vault.
+                  “Tokenizer” does not mean MetaWork originates
+                  Galaxy’s strategy or directly tokenizes
+                  borrower collateral.
+                </p>
+
+                <p className="mt-3 text-xs leading-6 text-slate-500">
+                  Review applicable terms, administrator
+                  permissions, fees, and withdrawal limitations
+                  before depositing. This page summarizes the
+                  product and is not a complete agreement.
                 </p>
               </details>
             </section>
           </div>
 
-          {/* Action panel */}
-          <aside className="lg:sticky lg:top-6">
+          <aside className="space-y-4 lg:sticky lg:top-6">
             <EthereumWalletPanel />
-            <p className="px-3 pt-4 text-center text-[11px] leading-5 text-slate-600">
-              Investment product. Not an insured savings account.
+
+            <section className={`${card} space-y-3 px-6 py-5`}>
+              <h2 className="mb-4 text-sm font-medium">
+                Your tokenized position
+              </h2>
+
+              {[
+                'USDC deposits on Ethereum mainnet',
+                `${positionSymbol} position tokens in your wallet`,
+                `${performanceFeePercent}% MetaWork performance fee on yield`,
+                'Entire-position redemption through this interface',
+                'Withdrawals subject to available liquidity',
+              ].map((text) => (
+                <div
+                  key={text}
+                  className="flex items-start gap-2 text-xs leading-5 text-slate-400"
+                >
+                  <Check
+                    className="mt-0.5 h-3.5 w-3.5 shrink-0 text-sky-400"
+                    aria-hidden="true"
+                  />
+                  {text}
+                </div>
+              ))}
+
+              <p className="border-t border-white/[0.06] pt-4 text-xs leading-5 text-slate-500">
+                MetaWork Tokenizer · Ethereum. Use the wallet
+                controls above; do not send tokens directly to
+                contract addresses.
+              </p>
+            </section>
+
+            <p className="px-3 text-center text-[11px] leading-5 text-slate-600">
+              Not an insured savings account. Capital is at risk.
               Returns are not guaranteed.
             </p>
           </aside>
