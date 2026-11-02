@@ -1,0 +1,30 @@
+{
+  "algod_compilation": "not executed",
+  "avm_version": 10,
+  "dependencies": {
+    "py-algorand-sdk": "2.11.1",
+    "pyteal": "0.27.0"
+  },
+  "deployment": "not executed",
+  "global_schema": {
+    "num_byte_slices": 3,
+    "num_uints": 3
+  },
+  "local_schema": {
+    "num_byte_slices": 0,
+    "num_uints": 0
+  },
+  "programs": {
+    "approval.teal": {
+      "bytes": 2314,
+      "sha256": "d99090ae64b701f3267b1bab9969e94ed4eb081c553552413300bb5670e5cf6f"
+    },
+    "clear.teal": {
+      "bytes": 32,
+      "sha256": "fc81615f5a9c563235e6706d5fc5a054235f1045ccbb2bc108e591c9a34e4a27"
+    }
+  },
+  "purpose": "disposable-account-control-proof-only",
+  "source_sha256": "2192c10567a2e87e98c374b702142e4fe39869d2930ff6077689a5b679eff1f1",
+  "stage": "pyteal-to-teal"
+}

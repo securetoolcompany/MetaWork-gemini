@@ -1,0 +1,605 @@
+{
+  "application_id": 1012,
+  "control": "passed",
+  "evidence_type": "algod simulation; not submitted transactions",
+  "network": "localnet",
+  "not_covered": [
+    "submitted-transaction rejection for these guard cases",
+    "nonzero close fields reaching application AVM assertions"
+  ],
+  "purpose": "disposable-account-control-guard-simulations-only",
+  "signing": "not performed",
+  "status": "four_guard_simulations_passed",
+  "submission": "not performed",
+  "tests": [
+    {
+      "actual_teal_line": 21,
+      "after": {
+        "accounts": {
+          "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ": {
+            "amount": 2010000,
+            "assets": [],
+            "auth_address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+            "min_balance": 100000
+          },
+          "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM",
+            "min_balance": 100000
+          },
+          "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI": {
+            "amount": 1590000,
+            "assets": [],
+            "auth_address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+            "min_balance": 771000
+          },
+          "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+            "min_balance": 100000
+          },
+          "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ": {
+            "amount": 1987000,
+            "assets": [],
+            "auth_address": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+            "min_balance": 100000
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "PdgpZ/+AQaIMsdJUor6XOpfAVfr3vCVfsOAhaAqbgk0=",
+          "paid": 1,
+          "recipient": "1Rfd/2jeyh5WjeuL0KKxNcPPwz8467rq3LFvGpXWfNA=",
+          "restored": 1,
+          "staking": "pO7Nc7iOVz+OvvOVDTK2ewzc0riCEVTj1MO+8O7XX3Y="
+        }
+      },
+      "before": {
+        "accounts": {
+          "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ": {
+            "amount": 2010000,
+            "assets": [],
+            "auth_address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+            "min_balance": 100000
+          },
+          "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM",
+            "min_balance": 100000
+          },
+          "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI": {
+            "amount": 1590000,
+            "assets": [],
+            "auth_address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+            "min_balance": 771000
+          },
+          "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+            "min_balance": 100000
+          },
+          "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ": {
+            "amount": 1987000,
+            "assets": [],
+            "auth_address": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+            "min_balance": 100000
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "PdgpZ/+AQaIMsdJUor6XOpfAVfr3vCVfsOAhaAqbgk0=",
+          "paid": 1,
+          "recipient": "1Rfd/2jeyh5WjeuL0KKxNcPPwz8467rq3LFvGpXWfNA=",
+          "restored": 1,
+          "staking": "pO7Nc7iOVz+OvvOVDTK2ewzc0riCEVTj1MO+8O7XX3Y="
+        }
+      },
+      "expected_guard": "txn OnCompletion",
+      "expected_teal_line": 21,
+      "label": "update",
+      "passed": true,
+      "simulation": {
+        "eval-overrides": {
+          "allow-empty-signatures": true
+        },
+        "last-round": 21,
+        "txn-groups": [
+          {
+            "app-budget-added": 700,
+            "app-budget-consumed": 22,
+            "failed-at": [
+              0
+            ],
+            "failure-message": "transaction L6YTSEK6OS4K66S5HAP4KWJ7JTQPYBDFHTHSL3RZXP2DME3SG4WQ: logic eval error: assert failed pc=116. Details: app=1012, pc=116, opcodes=intc_0 // 0; ==; assert",
+            "group-fees-paid": 2000,
+            "group-usage": 1000000,
+            "txn-results": [
+              {
+                "app-budget-consumed": 22,
+                "fees-paid": 2000,
+                "txn-result": {
+                  "pool-error": "",
+                  "txn": {
+                    "txn": {
+                      "apaa": [
+                        "cmVzdG9yZQ=="
+                      ],
+                      "apan": 4,
+                      "apap": "CiADAAEgJgcHc3Rha2luZwhyZXN0b3JlZARwYWlkIP7F58KrA8nmaMWu8qumJxNzx/+mxtbJnT9ktMAvKfRiCG9wZXJhdG9yCXJlY2lwaWVudAZhbW91bnQyBCMSRDEgMgMSRDEJMgMSRDEVMgMSRDEZIhJEMRgiEkAAgDEAJwRkEkQxGyMSRClkIhJEKGRzAjUBNQA0AUQ0ADIKEkQ2GgCACHBheV9vbmNlEkAALTYaAIAHcmVzdG9yZRJAAAEAsSOyEChksgAoZLIHIrIIKGSyICKyAbMpI2cjQypkIhJEsSOyEChksgAnBWSyBycGZLIIIrIBsyojZyNDMRuBBBJENhoAFSQSRDYaARUkEkQ2GgIVJBJENhoDFYEIEkQ2GgAyAxNENhoBMgMTRDYaAjIDE0Q2GgArE0Q2GgErE0Q2GgIrE0QxADYaABJENhoDFyINRCcENhoAZyg2GgFnJwU2GgJnJwY2GgMXZyoiZykiZyND",
+                      "apat": [
+                        "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+                        "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ"
+                      ],
+                      "apid": 1012,
+                      "apsu": "CoEAQw==",
+                      "fee": 2000,
+                      "fv": 21,
+                      "gen": "dockernet-v1",
+                      "gh": "0TJVyrVwfL/CRhaQzRG1mF29GzfDdG4Dzr2M5uXbg2o=",
+                      "lv": 1021,
+                      "note": "Z3VhcmQtdXBkYXRl",
+                      "snd": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+                      "type": "appl"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "version": 2
+      }
+    },
+    {
+      "actual_teal_line": 21,
+      "after": {
+        "accounts": {
+          "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ": {
+            "amount": 2010000,
+            "assets": [],
+            "auth_address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+            "min_balance": 100000
+          },
+          "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM",
+            "min_balance": 100000
+          },
+          "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI": {
+            "amount": 1590000,
+            "assets": [],
+            "auth_address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+            "min_balance": 771000
+          },
+          "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+            "min_balance": 100000
+          },
+          "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ": {
+            "amount": 1987000,
+            "assets": [],
+            "auth_address": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+            "min_balance": 100000
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "PdgpZ/+AQaIMsdJUor6XOpfAVfr3vCVfsOAhaAqbgk0=",
+          "paid": 1,
+          "recipient": "1Rfd/2jeyh5WjeuL0KKxNcPPwz8467rq3LFvGpXWfNA=",
+          "restored": 1,
+          "staking": "pO7Nc7iOVz+OvvOVDTK2ewzc0riCEVTj1MO+8O7XX3Y="
+        }
+      },
+      "before": {
+        "accounts": {
+          "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ": {
+            "amount": 2010000,
+            "assets": [],
+            "auth_address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+            "min_balance": 100000
+          },
+          "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM",
+            "min_balance": 100000
+          },
+          "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI": {
+            "amount": 1590000,
+            "assets": [],
+            "auth_address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+            "min_balance": 771000
+          },
+          "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+            "min_balance": 100000
+          },
+          "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ": {
+            "amount": 1987000,
+            "assets": [],
+            "auth_address": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+            "min_balance": 100000
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "PdgpZ/+AQaIMsdJUor6XOpfAVfr3vCVfsOAhaAqbgk0=",
+          "paid": 1,
+          "recipient": "1Rfd/2jeyh5WjeuL0KKxNcPPwz8467rq3LFvGpXWfNA=",
+          "restored": 1,
+          "staking": "pO7Nc7iOVz+OvvOVDTK2ewzc0riCEVTj1MO+8O7XX3Y="
+        }
+      },
+      "expected_guard": "txn OnCompletion",
+      "expected_teal_line": 21,
+      "label": "delete",
+      "passed": true,
+      "simulation": {
+        "eval-overrides": {
+          "allow-empty-signatures": true
+        },
+        "last-round": 21,
+        "txn-groups": [
+          {
+            "app-budget-added": 700,
+            "app-budget-consumed": 22,
+            "failed-at": [
+              0
+            ],
+            "failure-message": "transaction EGZNNG5LYTGJ7P2FAIR6ZV5IUDNFX5ALJYSAN6PM574XIZBCBXWQ: logic eval error: assert failed pc=116. Details: app=1012, pc=116, opcodes=intc_0 // 0; ==; assert",
+            "group-fees-paid": 2000,
+            "group-usage": 1000000,
+            "txn-results": [
+              {
+                "app-budget-consumed": 22,
+                "fees-paid": 2000,
+                "txn-result": {
+                  "pool-error": "",
+                  "txn": {
+                    "txn": {
+                      "apaa": [
+                        "cmVzdG9yZQ=="
+                      ],
+                      "apan": 5,
+                      "apat": [
+                        "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+                        "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ"
+                      ],
+                      "apid": 1012,
+                      "fee": 2000,
+                      "fv": 21,
+                      "gen": "dockernet-v1",
+                      "gh": "0TJVyrVwfL/CRhaQzRG1mF29GzfDdG4Dzr2M5uXbg2o=",
+                      "lv": 1021,
+                      "note": "Z3VhcmQtZGVsZXRl",
+                      "snd": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+                      "type": "appl"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "version": 2
+      }
+    },
+    {
+      "actual_teal_line": 9,
+      "after": {
+        "accounts": {
+          "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ": {
+            "amount": 2010000,
+            "assets": [],
+            "auth_address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+            "min_balance": 100000
+          },
+          "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM",
+            "min_balance": 100000
+          },
+          "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI": {
+            "amount": 1590000,
+            "assets": [],
+            "auth_address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+            "min_balance": 771000
+          },
+          "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+            "min_balance": 100000
+          },
+          "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ": {
+            "amount": 1987000,
+            "assets": [],
+            "auth_address": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+            "min_balance": 100000
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "PdgpZ/+AQaIMsdJUor6XOpfAVfr3vCVfsOAhaAqbgk0=",
+          "paid": 1,
+          "recipient": "1Rfd/2jeyh5WjeuL0KKxNcPPwz8467rq3LFvGpXWfNA=",
+          "restored": 1,
+          "staking": "pO7Nc7iOVz+OvvOVDTK2ewzc0riCEVTj1MO+8O7XX3Y="
+        }
+      },
+      "before": {
+        "accounts": {
+          "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ": {
+            "amount": 2010000,
+            "assets": [],
+            "auth_address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+            "min_balance": 100000
+          },
+          "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM",
+            "min_balance": 100000
+          },
+          "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI": {
+            "amount": 1590000,
+            "assets": [],
+            "auth_address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+            "min_balance": 771000
+          },
+          "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+            "min_balance": 100000
+          },
+          "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ": {
+            "amount": 1987000,
+            "assets": [],
+            "auth_address": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+            "min_balance": 100000
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "PdgpZ/+AQaIMsdJUor6XOpfAVfr3vCVfsOAhaAqbgk0=",
+          "paid": 1,
+          "recipient": "1Rfd/2jeyh5WjeuL0KKxNcPPwz8467rq3LFvGpXWfNA=",
+          "restored": 1,
+          "staking": "pO7Nc7iOVz+OvvOVDTK2ewzc0riCEVTj1MO+8O7XX3Y="
+        }
+      },
+      "expected_guard": "txn RekeyTo",
+      "expected_teal_line": 9,
+      "label": "outer_rekey",
+      "passed": true,
+      "simulation": {
+        "eval-overrides": {
+          "allow-empty-signatures": true
+        },
+        "last-round": 21,
+        "txn-groups": [
+          {
+            "app-budget-added": 700,
+            "app-budget-consumed": 10,
+            "failed-at": [
+              0
+            ],
+            "failure-message": "transaction 2FDLBTKHD2UQK2ODVKEXT64WB3L2AJQRZVZ22HA33SRUBD3VZW4Q: logic eval error: assert failed pc=99. Details: app=1012, pc=99, opcodes=global ZeroAddress; ==; assert",
+            "group-fees-paid": 2000,
+            "group-usage": 1000000,
+            "txn-results": [
+              {
+                "app-budget-consumed": 10,
+                "fees-paid": 2000,
+                "txn-result": {
+                  "pool-error": "",
+                  "txn": {
+                    "txn": {
+                      "apaa": [
+                        "cmVzdG9yZQ=="
+                      ],
+                      "apat": [
+                        "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+                        "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ"
+                      ],
+                      "apid": 1012,
+                      "fee": 2000,
+                      "fv": 21,
+                      "gen": "dockernet-v1",
+                      "gh": "0TJVyrVwfL/CRhaQzRG1mF29GzfDdG4Dzr2M5uXbg2o=",
+                      "lv": 1021,
+                      "note": "Z3VhcmQtcmVrZXk=",
+                      "rekey": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+                      "snd": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+                      "type": "appl"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "version": 2
+      }
+    },
+    {
+      "actual_teal_line": 5,
+      "after": {
+        "accounts": {
+          "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ": {
+            "amount": 2010000,
+            "assets": [],
+            "auth_address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+            "min_balance": 100000
+          },
+          "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM",
+            "min_balance": 100000
+          },
+          "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI": {
+            "amount": 1590000,
+            "assets": [],
+            "auth_address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+            "min_balance": 771000
+          },
+          "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+            "min_balance": 100000
+          },
+          "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ": {
+            "amount": 1987000,
+            "assets": [],
+            "auth_address": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+            "min_balance": 100000
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "PdgpZ/+AQaIMsdJUor6XOpfAVfr3vCVfsOAhaAqbgk0=",
+          "paid": 1,
+          "recipient": "1Rfd/2jeyh5WjeuL0KKxNcPPwz8467rq3LFvGpXWfNA=",
+          "restored": 1,
+          "staking": "pO7Nc7iOVz+OvvOVDTK2ewzc0riCEVTj1MO+8O7XX3Y="
+        }
+      },
+      "before": {
+        "accounts": {
+          "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ": {
+            "amount": 2010000,
+            "assets": [],
+            "auth_address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+            "min_balance": 100000
+          },
+          "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "3X4ABWUJOBYVXI6HC245NYWR5VYXDMFIAQDKQLNV5G3GQ7FRWZAUVAQ3YM",
+            "min_balance": 100000
+          },
+          "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI": {
+            "amount": 1590000,
+            "assets": [],
+            "auth_address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+            "min_balance": 771000
+          },
+          "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+            "min_balance": 100000
+          },
+          "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ": {
+            "amount": 1987000,
+            "assets": [],
+            "auth_address": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+            "min_balance": 100000
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "PdgpZ/+AQaIMsdJUor6XOpfAVfr3vCVfsOAhaAqbgk0=",
+          "paid": 1,
+          "recipient": "1Rfd/2jeyh5WjeuL0KKxNcPPwz8467rq3LFvGpXWfNA=",
+          "restored": 1,
+          "staking": "pO7Nc7iOVz+OvvOVDTK2ewzc0riCEVTj1MO+8O7XX3Y="
+        }
+      },
+      "expected_guard": "global GroupSize",
+      "expected_teal_line": 5,
+      "label": "group_size",
+      "passed": true,
+      "simulation": {
+        "eval-overrides": {
+          "allow-empty-signatures": true
+        },
+        "last-round": 21,
+        "txn-groups": [
+          {
+            "app-budget-added": 1400,
+            "app-budget-consumed": 6,
+            "failed-at": [
+              0
+            ],
+            "failure-message": "transaction C76BKKPJD33GVDFB4XPKBAC4ZCHWEC77EZRIJWRWXNY3GHRLBIZQ: logic eval error: assert failed pc=93. Details: app=1012, pc=93, opcodes=intc_1 // 1; ==; assert",
+            "group-fees-paid": 4000,
+            "group-usage": 2000000,
+            "txn-results": [
+              {
+                "app-budget-consumed": 6,
+                "fees-paid": 2000,
+                "txn-result": {
+                  "pool-error": "",
+                  "txn": {
+                    "txn": {
+                      "apaa": [
+                        "cmVzdG9yZQ=="
+                      ],
+                      "apat": [
+                        "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+                        "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ"
+                      ],
+                      "apid": 1012,
+                      "fee": 2000,
+                      "fv": 21,
+                      "gen": "dockernet-v1",
+                      "gh": "0TJVyrVwfL/CRhaQzRG1mF29GzfDdG4Dzr2M5uXbg2o=",
+                      "grp": "4K2jpZdxEqWkejQF1ULmiJ/S6//aURRTKnQq+wTA25w=",
+                      "lv": 1021,
+                      "note": "Z3VhcmQtZ3JvdXAtMQ==",
+                      "snd": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+                      "type": "appl"
+                    }
+                  }
+                }
+              },
+              {
+                "fees-paid": 2000,
+                "txn-result": {
+                  "pool-error": "",
+                  "txn": {
+                    "txn": {
+                      "apaa": [
+                        "cmVzdG9yZQ=="
+                      ],
+                      "apat": [
+                        "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+                        "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ"
+                      ],
+                      "apid": 1012,
+                      "fee": 2000,
+                      "fv": 21,
+                      "gen": "dockernet-v1",
+                      "gh": "0TJVyrVwfL/CRhaQzRG1mF29GzfDdG4Dzr2M5uXbg2o=",
+                      "grp": "4K2jpZdxEqWkejQF1ULmiJ/S6//aURRTKnQq+wTA25w=",
+                      "lv": 1021,
+                      "note": "Z3VhcmQtZ3JvdXAtMg==",
+                      "snd": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+                      "type": "appl"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "version": 2
+      }
+    }
+  ]
+}

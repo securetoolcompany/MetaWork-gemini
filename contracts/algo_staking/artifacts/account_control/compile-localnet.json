@@ -1,0 +1,25 @@
+{
+  "algod_url": "http://127.0.0.1:4001",
+  "deployment": "not executed",
+  "genesis_hash_base64": "0TJVyrVwfL/CRhaQzRG1mF29GzfDdG4Dzr2M5uXbg2o=",
+  "genesis_id": "dockernet-v1",
+  "network": "localnet",
+  "programs": {
+    "approval.bin": {
+      "algod_program_hash": "NPYE446MGP3ZT55JWQDTCN5ZNDVXLE6ZIOR36ZGPCFT6S75NRUZZWFVUGA",
+      "bytes": 372,
+      "sha256": "7144d01f5e141d0f00961ed932bc291c3db724f5f962723e3c6f596173688347",
+      "teal_sha256": "d99090ae64b701f3267b1bab9969e94ed4eb081c553552413300bb5670e5cf6f"
+    },
+    "clear.bin": {
+      "algod_program_hash": "RQVU74KV6DLORKPZ3AJPR3BYRVOOIWB4LEKPHWPGEFUL66HCM3IRGNP664",
+      "bytes": 4,
+      "sha256": "baa698f7e6728cd2257d20588deaae7ff497fb535bd35e1dd745988d380c66c5",
+      "teal_sha256": "fc81615f5a9c563235e6706d5fc5a054235f1045ccbb2bc108e591c9a34e4a27"
+    }
+  },
+  "purpose": "disposable-account-control-proof-only",
+  "signing": "not performed",
+  "source_sha256": "2192c10567a2e87e98c374b702142e4fe39869d2930ff6077689a5b679eff1f1",
+  "stage": "algod-bytecode-compilation"
+}

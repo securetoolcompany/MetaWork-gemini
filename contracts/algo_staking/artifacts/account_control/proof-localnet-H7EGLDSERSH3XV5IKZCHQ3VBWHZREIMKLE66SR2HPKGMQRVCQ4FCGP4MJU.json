@@ -1,0 +1,363 @@
+{
+  "application_address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
+  "application_id": 1005,
+  "artifact_source_sha256": "9f69f07278c98d1bf4c65b611c155871bf223610f26041e47eff8740b767d827",
+  "checks": {
+    "application_authorization": "passed",
+    "fixed_creation_parameters": "passed"
+  },
+  "cleanup": {
+    "message": "TransactionPool.Remember: transaction WNGZR5SB2LQR5CSAZIC64Q5ASTQABNVACVZYVM6JLJJ5GV2T3RGQ: logic eval error: unavailable Account AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ. Details: app=1005, pc=209, opcodes=itxn_field Amount; global ZeroAddress; itxn_field CloseRemainderTo",
+    "status": "restoration failed",
+    "type": "AlgodHTTPError"
+  },
+  "error": {
+    "message": "TransactionPool.Remember: transaction 5XCETTNKTQVHTQHBOAW5GP2HE4WI6DBJIMGXC563HYVI4QBP3MFQ: logic eval error: unavailable Account AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY5HFKQ. Details: app=1005, pc=249, opcodes=itxn_field Amount; global ZeroAddress; itxn_field CloseRemainderTo",
+    "type": "AlgodHTTPError"
+  },
+  "funding": [
+    {
+      "amount_microalgo": 2000000,
+      "confirmed_round": 1,
+      "recipient": "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y",
+      "sender": "2KCNNJI2GQEZ7OWNAMNYV5IJN74QP6J77YA6SNOBNLPL3IBOFL4ROTW5NU",
+      "txid": "JWFYQ6BITRAMDYZ6AKZO47V5DN4B7OEU3QRSZLUFVRP5BJVVJ5IA"
+    },
+    {
+      "amount_microalgo": 2000000,
+      "confirmed_round": 2,
+      "recipient": "H7EGLDSERSH3XV5IKZCHQ3VBWHZREIMKLE66SR2HPKGMQRVCQ4FCGP4MJU",
+      "sender": "2KCNNJI2GQEZ7OWNAMNYV5IJN74QP6J77YA6SNOBNLPL3IBOFL4ROTW5NU",
+      "txid": "76J4WVION2H7QE7IJZ3V5V7QFJPU47MNHVAG2TGC2C7FWX2ADD7Q"
+    },
+    {
+      "amount_microalgo": 2000000,
+      "confirmed_round": 3,
+      "recipient": "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA",
+      "sender": "2KCNNJI2GQEZ7OWNAMNYV5IJN74QP6J77YA6SNOBNLPL3IBOFL4ROTW5NU",
+      "txid": "DOF3Y26UG67M64JGI3E2ZG4OOIDURJUAMNTNX6REII7MAPWDDCAA"
+    },
+    {
+      "amount_microalgo": 2000000,
+      "confirmed_round": 4,
+      "recipient": "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII",
+      "sender": "2KCNNJI2GQEZ7OWNAMNYV5IJN74QP6J77YA6SNOBNLPL3IBOFL4ROTW5NU",
+      "txid": "ZEARQUU3NWJTAG45WEJSHOVSHR5U4IHWUANUTKVYVINAB74RA2XA"
+    }
+  ],
+  "genesis_hash_base64": "0TJVyrVwfL/CRhaQzRG1mF29GzfDdG4Dzr2M5uXbg2o=",
+  "genesis_id": "dockernet-v1",
+  "network": "localnet",
+  "operator": "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y",
+  "outsider": "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII",
+  "payment_microalgo": 10000,
+  "purpose": "disposable-account-control-proof-only",
+  "recipient": "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA",
+  "rejections": [
+    {
+      "after": {
+        "accounts": {
+          "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
+            "min_balance": 100000
+          },
+          "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII",
+            "min_balance": 100000
+          },
+          "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA",
+            "min_balance": 100000
+          },
+          "H7EGLDSERSH3XV5IKZCHQ3VBWHZREIMKLE66SR2HPKGMQRVCQ4FCGP4MJU": {
+            "amount": 1999000,
+            "assets": [],
+            "auth_address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
+            "min_balance": 100000
+          },
+          "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y": {
+            "amount": 1798000,
+            "assets": [],
+            "auth_address": "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y",
+            "min_balance": 435500
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "UKHWy5roU3G7EKmaomrdGP3Jvt/UW/Hlc+0cl4+868g=",
+          "paid": 0,
+          "recipient": "B9dO6OxMw0jiTUB7I2Mt18vv3+pojxEj99xfPzeK46k=",
+          "restored": 0,
+          "staking": "P8hljkSMj7vXqFZEeG6hsfMSIYpZPelHR3qMyEaihwo="
+        }
+      },
+      "before": {
+        "accounts": {
+          "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
+            "min_balance": 100000
+          },
+          "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII",
+            "min_balance": 100000
+          },
+          "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA",
+            "min_balance": 100000
+          },
+          "H7EGLDSERSH3XV5IKZCHQ3VBWHZREIMKLE66SR2HPKGMQRVCQ4FCGP4MJU": {
+            "amount": 1999000,
+            "assets": [],
+            "auth_address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
+            "min_balance": 100000
+          },
+          "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y": {
+            "amount": 1798000,
+            "assets": [],
+            "auth_address": "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y",
+            "min_balance": 435500
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "UKHWy5roU3G7EKmaomrdGP3Jvt/UW/Hlc+0cl4+868g=",
+          "paid": 0,
+          "recipient": "B9dO6OxMw0jiTUB7I2Mt18vv3+pojxEj99xfPzeK46k=",
+          "restored": 0,
+          "staking": "P8hljkSMj7vXqFZEeG6hsfMSIYpZPelHR3qMyEaihwo="
+        }
+      },
+      "error": "TransactionPool.Remember: transaction ESYQQQA4XBEVA4COELFP4HOQ3EID6WH2PJ55H77EZJSVUY6EQ3OA: logic eval error: assert failed pc=130. Details: app=1005, pc=130, opcodes=app_global_get; ==; assert",
+      "http_status": 400,
+      "label": "unauthorized_payment",
+      "rollback_unchanged": true,
+      "txid": "ESYQQQA4XBEVA4COELFP4HOQ3EID6WH2PJ55H77EZJSVUY6EQ3OA"
+    },
+    {
+      "after": {
+        "accounts": {
+          "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
+            "min_balance": 100000
+          },
+          "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII",
+            "min_balance": 100000
+          },
+          "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA",
+            "min_balance": 100000
+          },
+          "H7EGLDSERSH3XV5IKZCHQ3VBWHZREIMKLE66SR2HPKGMQRVCQ4FCGP4MJU": {
+            "amount": 1999000,
+            "assets": [],
+            "auth_address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
+            "min_balance": 100000
+          },
+          "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y": {
+            "amount": 1798000,
+            "assets": [],
+            "auth_address": "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y",
+            "min_balance": 435500
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "UKHWy5roU3G7EKmaomrdGP3Jvt/UW/Hlc+0cl4+868g=",
+          "paid": 0,
+          "recipient": "B9dO6OxMw0jiTUB7I2Mt18vv3+pojxEj99xfPzeK46k=",
+          "restored": 0,
+          "staking": "P8hljkSMj7vXqFZEeG6hsfMSIYpZPelHR3qMyEaihwo="
+        }
+      },
+      "before": {
+        "accounts": {
+          "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
+            "min_balance": 100000
+          },
+          "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII",
+            "min_balance": 100000
+          },
+          "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA",
+            "min_balance": 100000
+          },
+          "H7EGLDSERSH3XV5IKZCHQ3VBWHZREIMKLE66SR2HPKGMQRVCQ4FCGP4MJU": {
+            "amount": 1999000,
+            "assets": [],
+            "auth_address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
+            "min_balance": 100000
+          },
+          "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y": {
+            "amount": 1798000,
+            "assets": [],
+            "auth_address": "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y",
+            "min_balance": 435500
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "UKHWy5roU3G7EKmaomrdGP3Jvt/UW/Hlc+0cl4+868g=",
+          "paid": 0,
+          "recipient": "B9dO6OxMw0jiTUB7I2Mt18vv3+pojxEj99xfPzeK46k=",
+          "restored": 0,
+          "staking": "P8hljkSMj7vXqFZEeG6hsfMSIYpZPelHR3qMyEaihwo="
+        }
+      },
+      "error": "TransactionPool.Remember: transaction UXH7XVYPY366GRBUZ6FXOEGWTDFGAYK32WQU5F25UXYCHLGJRA3Q: logic eval error: assert failed pc=130. Details: app=1005, pc=130, opcodes=app_global_get; ==; assert",
+      "http_status": 400,
+      "label": "unauthorized_restoration",
+      "rollback_unchanged": true,
+      "txid": "UXH7XVYPY366GRBUZ6FXOEGWTDFGAYK32WQU5F25UXYCHLGJRA3Q"
+    },
+    {
+      "after": {
+        "accounts": {
+          "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
+            "min_balance": 100000
+          },
+          "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII",
+            "min_balance": 100000
+          },
+          "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA",
+            "min_balance": 100000
+          },
+          "H7EGLDSERSH3XV5IKZCHQ3VBWHZREIMKLE66SR2HPKGMQRVCQ4FCGP4MJU": {
+            "amount": 1999000,
+            "assets": [],
+            "auth_address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
+            "min_balance": 100000
+          },
+          "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y": {
+            "amount": 1798000,
+            "assets": [],
+            "auth_address": "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y",
+            "min_balance": 435500
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "UKHWy5roU3G7EKmaomrdGP3Jvt/UW/Hlc+0cl4+868g=",
+          "paid": 0,
+          "recipient": "B9dO6OxMw0jiTUB7I2Mt18vv3+pojxEj99xfPzeK46k=",
+          "restored": 0,
+          "staking": "P8hljkSMj7vXqFZEeG6hsfMSIYpZPelHR3qMyEaihwo="
+        }
+      },
+      "before": {
+        "accounts": {
+          "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ": {
+            "amount": 200000,
+            "assets": [],
+            "auth_address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
+            "min_balance": 100000
+          },
+          "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "2OZPWYKH7WK6GJLCY3CT64AB2PFMAOMQBFEHYSPSJIYQXJLNOTIAVJUJII",
+            "min_balance": 100000
+          },
+          "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA": {
+            "amount": 2000000,
+            "assets": [],
+            "auth_address": "A7LU52HMJTBURYSNIB5SGYZN27F67X7KNCHRCI7X3RPT6N4K4OUYMZYFZA",
+            "min_balance": 100000
+          },
+          "H7EGLDSERSH3XV5IKZCHQ3VBWHZREIMKLE66SR2HPKGMQRVCQ4FCGP4MJU": {
+            "amount": 1999000,
+            "assets": [],
+            "auth_address": "2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ",
+            "min_balance": 100000
+          },
+          "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y": {
+            "amount": 1798000,
+            "assets": [],
+            "auth_address": "KCQ5NS425BJXDOYQVGNKE2W5DD64TPW72RN7DZLT5UOJPD545PEADLZ66Y",
+            "min_balance": 435500
+          }
+        },
+        "global_state": {
+          "amount": 10000,
+          "operator": "UKHWy5roU3G7EKmaomrdGP3Jvt/UW/Hlc+0cl4+868g=",
+          "paid": 0,
+          "recipient": "B9dO6OxMw0jiTUB7I2Mt18vv3+pojxEj99xfPzeK46k=",
+          "restored": 0,
+          "staking": "P8hljkSMj7vXqFZEeG6hsfMSIYpZPelHR3qMyEaihwo="
+        }
+      },
+      "error": "TransactionPool.Remember: transaction J2QG4QCQ4ENEBJQ7BKAULJPD2X5I4Q5AJMVNHVKYNCKUA6W5QZ3Q: should have been authorized by 2473OSBX37GQG3RVAS7CT7FXGOO7MTZ5UWKL4TZHLQUNOZZDDAHBYWIWGQ but was actually authorized by H7EGLDSERSH3XV5IKZCHQ3VBWHZREIMKLE66SR2HPKGMQRVCQ4FCGP4MJU",
+      "http_status": 400,
+      "label": "original_key_spending_before_restoration",
+      "rollback_unchanged": true,
+      "txid": "J2QG4QCQ4ENEBJQ7BKAULJPD2X5I4Q5AJMVNHVKYNCKUA6W5QZ3Q"
+    }
+  ],
+  "staking": "H7EGLDSERSH3XV5IKZCHQ3VBWHZREIMKLE66SR2HPKGMQRVCQ4FCGP4MJU",
+  "status": "failed",
+  "transactions": [
+    {
+      "confirmed_round": 5,
+      "label": "create_proof_application",
+      "status": "confirmed",
+      "txid": "QCJPVAT2Z7YCSX2LJD45CAC7YHDIGAA3CQ63UET6O2MR5IKPJDJQ"
+    },
+    {
+      "confirmed_round": 6,
+      "label": "fund_proof_application",
+      "status": "confirmed",
+      "txid": "5QRUKCS2SMWVFXD2J5CBYCE7RPXF42DZ2EV4EKXM7Q3UOKYEQHCQ"
+    },
+    {
+      "confirmed_round": 7,
+      "label": "bind_disposable_account",
+      "status": "confirmed",
+      "txid": "H2ZPZQ5IMOMDKTUEBWHDWIKPWC6TJSFVNUVHRCEBOH76ORAEZPSA"
+    },
+    {
+      "label": "fixed_inner_payment",
+      "status": "prepared",
+      "txid": "5XCETTNKTQVHTQHBOAW5GP2HE4WI6DBJIMGXC563HYVI4QBP3MFQ"
+    },
+    {
+      "label": "failure_cleanup_restoration",
+      "status": "prepared",
+      "txid": "WNGZR5SB2LQR5CSAZIC64Q5ASTQABNVACVZYVM6JLJJ5GV2T3RGQ"
+    }
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "automated_checks": "passed_pending_response_review",
+  "failures": [],
+  "limitations": [
+    "Empty-signature simulation does not verify signing authority.",
+    "Simulation does not submit or commit application creation.",
+    "State and validity must be rechecked before approved execution.",
+    "Full response and minimum-balance commitment require review."
+  ],
+  "purpose": "unsigned-tokenizer-creation-simulation-only",
+  "response": {
+    "eval-overrides": {
+      "allow-empty-signatures": true
+    },
+    "last-round": 22,
+    "txn-groups": [
+      {
+        "app-budget-added": 700,
+        "app-budget-consumed": 69,
+        "group-fees-paid": 1000,
+        "group-usage": 1000000,
+        "txn-results": [
+          {
+            "app-budget-consumed": 69,
+            "fees-paid": 1000,
+            "txn-result": {
+              "application-index": 1028,
+              "global-state-delta": [
+                {
+                  "key": "aW5pdGlhbGl6ZWQ=",
+                  "value": {
+                    "action": 2
+                  }
+                },
+                {
+                  "key": "c2hhcmVfYXNhX2lk",
+                  "value": {
+                    "action": 2
+                  }
+                },
+                {
+                  "key": "b3V0c3RhbmRpbmdfc2hhcmVz",
+                  "value": {
+                    "action": 2
+                  }
+                },
+                {
+                  "key": "b3BlcmF0aW5nX3Jlc2VydmU=",
+                  "value": {
+                    "action": 2
+                  }
+                },
+                {
+                  "key": "b3RoZXJfZXhjbHVzaW9ucw==",
+                  "value": {
+                    "action": 2
+                  }
+                },
+                {
+                  "key": "YmFja2luZ19iYXNlbGluZQ==",
+                  "value": {
+                    "action": 2
+                  }
+                },
+                {
+                  "key": "c3Rha2luZw==",
+                  "value": {
+                    "action": 1,
+                    "bytes": "r4Xg2gpHFy2UWSM7dDjiZqUoSQH4LuRWQT0betSWYG0="
+                  }
+                },
+                {
+                  "key": "c2VlZF9yZWNpcGllbnQ=",
+                  "value": {
+                    "action": 1,
+                    "bytes": "SlyBaUbLwBC+8bF6l/vr3WtemTvfMQlOUAy3BWQRoKk="
+                  }
+                },
+                {
+                  "key": "ZmVlX3JhdGU=",
+                  "value": {
+                    "action": 2
+                  }
+                },
+                {
+                  "key": "ZmVlX2xpYWJpbGl0eQ==",
+                  "value": {
+                    "action": 2
+                  }
+                },
+                {
+                  "key": "aW5pdGlhbGl6ZXI=",
+                  "value": {
+                    "action": 1,
+                    "bytes": "gCt8q5uRqJF8cNQF5YbTBgShmcb96SLiEUhJrZssO3Y="
+                  }
+                }
+              ],
+              "pool-error": "",
+              "txn": {
+                "txn": {
+                  "apap": "CiAFAAECAwQmDiCvheDaCkcXLZRZIzt0OOJmpShJAfgu5FZBPRt61JZgbQxzaGFyZV9hc2FfaWQggCt8q5uRqJF8cNQF5YbTBgShmcb96SLiEUhJrZssO3YLaW5pdGlhbGl6ZWQgSlyBaUbLwBC+8bF6l/vr3WtemTvfMQlOUAy3BWQRoKkSb3V0c3RhbmRpbmdfc2hhcmVzEGJhY2tpbmdfYmFzZWxpbmUSY3JlYXRlX3NoYXJlX2Fzc2V0D2luaXRpYWxpemVfc2VlZA9yZXN0b3JlX3ByZWluaXQRb3BlcmF0aW5nX3Jlc2VydmUQb3RoZXJfZXhjbHVzaW9ucwhmZWVfcmF0ZQ1mZWVfbGlhYmlsaXR5MRkiEkQxIDIDEkQxCTIDEkQxFTIDEkQxGCISQAMRMRsjEkQ2GgAnBxJAAjw2GgAnCBJAAH02GgAnCRJAAAEAMRkiEkQxIDIDEkQxCTIDEkQxFTIDEkQxGCINRDIEIxJEMRsjEkQ2GgAnCRJEMQAqEkQiK2U1HjUdNB5ENB0iEkQocwI1IDUfNCBENB8yChJEMQEyACQLD0SxI7IQKLIAKLIHIrIIMgOyCSiyICKyAbMjQzEZIhJEMSAyAxJEMQkyAxJEMRUyAxJEMRgiDUQxACoSRDEbIxJENhoAJwgSRDIEJBIyBCUSEUQxFjIEIwkSRCIrZTUQNQ80EEQ0DyISRCInBWU1EjURNBJENBEiEkQiJwplNRQ1EzQURDQTIhJEIicLZTUWNRU0FkQ0FSISRCInDGU1GDUXNBhENBciEkQiJw1lNRo1GTQaRDQZIhJEIicGZTUcNRs0HEQ0GyISRClkIg1EMwAQIxJEMwAAKBJEMwAHKBJEMwAIIhJEMwABIhJEMwAJMgMSRDMAIDIKEkQyBCUSQACJMQEyADIEIwgLD0QocwI1BzUGNAdENAYyChJEJwQpZHAANQs1CjQLRDIKKWRwADUJNQg0CUQoYDUMKHg1DTQMNA0PRDQMNA0JNQ40DiINRDQINA4PRLEhBLIQMgqyAClkshEnBLIUNA6yEjIDshMyA7IVMgOyICKyAbMnBTQOZycGNA5nKyNnI0MzARAhBBJEMwEAJwQSRDMBFCcEEkQzAREpZBJEMwESIhJEMwETMgMSRDMBFTIDEkQzAQkyAxJEMwEgMgMSRDMBASISREL/MDEZIhJEMSAyAxJEMQkyAxJEMRUyAxJEMRgiDUQyBCMSRDEbIxJENhoAJwcSRDEAKhJEIitlNQE1ADQBRDQAIhJEIillNQM1AjQDRDQCIhJEIicFZTUFNQQ0BUQ0BCISRDEBMgAkCw9EsSWyEDIKsgAisiGBgICapuqv4wGyIoEGsiMisiSAE01ldGFXb3JrIERheTEgU2hhcmWyJoAETVdEMbIlMgOyKTIKsioyA7IrMgOyLDIDsiAisgGztDwiDUQptDxnI0MyBCMSRDEbIhJEMQAqEkQrImcpImcnBSJnJwoiZycLImcnDCJnJw0iZycGImeAC2luaXRpYWxpemVyKmeAB3N0YWtpbmcoZ4AOc2VlZF9yZWNpcGllbnQnBGcjQw==",
+                  "apgs": {
+                    "nbs": 3,
+                    "nui": 8
+                  },
+                  "apsu": "CoEAQw==",
+                  "fee": 1000,
+                  "fv": 22,
+                  "gen": "dockernet-v1",
+                  "gh": "0TJVyrVwfL/CRhaQzRG1mF29GzfDdG4Dzr2M5uXbg2o=",
+                  "lv": 1022,
+                  "snd": "QAVXZK43SGUJC7DQ2QC6LBWTAYCKDGOG7XUSFYQRJBE23GZMHN3ORHFG3M",
+                  "type": "appl"
+                }
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "version": 2
+  },
+  "settings": {
+    "allow_empty_signatures": true,
+    "allow_more_logs": false,
+    "allow_unnamed_resources": false,
+    "extra_opcode_budget": 0
+  },
+  "unsigned_msgpack_sha256": "30b2714a50e0eb09395d38bc22119d27981ceda7a14ab681b1919ff02d818f52",
+  "unsigned_txid": "ZCFVYTKDS552FMUJKWDOIGFVIGKRVPLM4ABGAQYPIUKYEE7AZGYA"
+}

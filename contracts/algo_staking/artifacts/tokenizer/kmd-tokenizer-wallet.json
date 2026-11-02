@@ -1,0 +1,34 @@
+{
+  "accounts": {
+    "creator_initializer": "QAVXZK43SGUJC7DQ2QC6LBWTAYCKDGOG7XUSFYQRJBE23GZMHN3ORHFG3M",
+    "seed_recipient": "JJOIC2KGZPABBPXRWF5JP67L3VVV5GJ334YQSTSQBS3QKZARUCUSKJER4Y",
+    "staking": "V6C6BWQKI4LS3FCZEM5XIOHCM2SSQSIB7AXOIVSBHUNXVVEWMBWTMXRWFU"
+  },
+  "deployment": "not performed",
+  "deployment_configuration_binding": "not performed",
+  "funding": "not performed",
+  "genesis_hash_base64": "0TJVyrVwfL/CRhaQzRG1mF29GzfDdG4Dzr2M5uXbg2o=",
+  "genesis_id": "dockernet-v1",
+  "handle_release": "confirmed",
+  "network": "localnet",
+  "purpose": "disposable-day1-tokenizer-identities-only",
+  "rekeying": "not performed",
+  "role_mapping_approval": "pending",
+  "signing": "not performed",
+  "status": "identities_created_role_approval_pending",
+  "storage": {
+    "container": "algokit_sandbox_algod",
+    "container_id": "b604c779920fde24732e79348e6cb7063fced4021c23b5a73fbb572ce96bd257",
+    "directory_candidate": "/algod/data/kmd-v0.5/sqlite_wallets",
+    "location_note": "New filenames observed in candidate directory; exact wallet-file association and persistence are not independently verified.",
+    "location_verified": false,
+    "new_wallet_files": [
+      "/algod/data/kmd-v0.5/sqlite_wallets/metawork-disposable-tokenizer-6649f0c6d57f4526ab9fede6d7e30ea2.147e5400ba0afa7e1ef3935426e876e6.db"
+    ],
+    "reset_or_container_removal_survival": "not guaranteed",
+    "restart_persistence": "not tested"
+  },
+  "submission": "not performed",
+  "wallet_id": "147e5400ba0afa7e1ef3935426e876e6",
+  "wallet_name": "metawork-disposable-tokenizer-6649f0c6d57f4526ab9fede6d7e30ea2"
+}

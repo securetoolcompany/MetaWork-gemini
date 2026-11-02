@@ -1,0 +1,113 @@
+{
+  "after": {
+    "2KCNNJI2GQEZ7OWNAMNYV5IJN74QP6J77YA6SNOBNLPL3IBOFL4ROTW5NU": {
+      "amount": 3999999980789000,
+      "assets": [],
+      "authority": "2KCNNJI2GQEZ7OWNAMNYV5IJN74QP6J77YA6SNOBNLPL3IBOFL4ROTW5NU",
+      "created_apps": [],
+      "created_assets": [],
+      "local_apps": [],
+      "min_balance": 100000
+    },
+    "JJOIC2KGZPABBPXRWF5JP67L3VVV5GJ334YQSTSQBS3QKZARUCUSKJER4Y": {
+      "amount": 200000,
+      "assets": [],
+      "authority": "JJOIC2KGZPABBPXRWF5JP67L3VVV5GJ334YQSTSQBS3QKZARUCUSKJER4Y",
+      "created_apps": [],
+      "created_assets": [],
+      "local_apps": [],
+      "min_balance": 100000
+    },
+    "QAVXZK43SGUJC7DQ2QC6LBWTAYCKDGOG7XUSFYQRJBE23GZMHN3ORHFG3M": {
+      "amount": 1000000,
+      "assets": [],
+      "authority": "QAVXZK43SGUJC7DQ2QC6LBWTAYCKDGOG7XUSFYQRJBE23GZMHN3ORHFG3M",
+      "created_apps": [],
+      "created_assets": [],
+      "local_apps": [],
+      "min_balance": 100000
+    },
+    "V6C6BWQKI4LS3FCZEM5XIOHCM2SSQSIB7AXOIVSBHUNXVVEWMBWTMXRWFU": {
+      "amount": 2000000,
+      "assets": [],
+      "authority": "V6C6BWQKI4LS3FCZEM5XIOHCM2SSQSIB7AXOIVSBHUNXVVEWMBWTMXRWFU",
+      "created_apps": [],
+      "created_assets": [],
+      "local_apps": [],
+      "min_balance": 100000
+    }
+  },
+  "before": {
+    "2KCNNJI2GQEZ7OWNAMNYV5IJN74QP6J77YA6SNOBNLPL3IBOFL4ROTW5NU": {
+      "amount": 3999999983992000,
+      "assets": [],
+      "authority": "2KCNNJI2GQEZ7OWNAMNYV5IJN74QP6J77YA6SNOBNLPL3IBOFL4ROTW5NU",
+      "created_apps": [],
+      "created_assets": [],
+      "local_apps": [],
+      "min_balance": 100000
+    },
+    "JJOIC2KGZPABBPXRWF5JP67L3VVV5GJ334YQSTSQBS3QKZARUCUSKJER4Y": {
+      "amount": 0,
+      "assets": [],
+      "authority": "JJOIC2KGZPABBPXRWF5JP67L3VVV5GJ334YQSTSQBS3QKZARUCUSKJER4Y",
+      "created_apps": [],
+      "created_assets": [],
+      "local_apps": [],
+      "min_balance": 100000
+    },
+    "QAVXZK43SGUJC7DQ2QC6LBWTAYCKDGOG7XUSFYQRJBE23GZMHN3ORHFG3M": {
+      "amount": 0,
+      "assets": [],
+      "authority": "QAVXZK43SGUJC7DQ2QC6LBWTAYCKDGOG7XUSFYQRJBE23GZMHN3ORHFG3M",
+      "created_apps": [],
+      "created_assets": [],
+      "local_apps": [],
+      "min_balance": 100000
+    },
+    "V6C6BWQKI4LS3FCZEM5XIOHCM2SSQSIB7AXOIVSBHUNXVVEWMBWTMXRWFU": {
+      "amount": 0,
+      "assets": [],
+      "authority": "V6C6BWQKI4LS3FCZEM5XIOHCM2SSQSIB7AXOIVSBHUNXVVEWMBWTMXRWFU",
+      "created_apps": [],
+      "created_assets": [],
+      "local_apps": [],
+      "min_balance": 100000
+    }
+  },
+  "container_id": "b604c779920fde24732e79348e6cb7063fced4021c23b5a73fbb572ce96bd257",
+  "genesis_hash_base64": "0TJVyrVwfL/CRhaQzRG1mF29GzfDdG4Dzr2M5uXbg2o=",
+  "genesis_id": "dockernet-v1",
+  "group_id_base64": "NDWkZkVlINiNmkr4432eqi9JgEnS73+6f6AwTXsJ5a4=",
+  "handle_release": "confirmed",
+  "maximum_total_debit_microalgo": 3203000,
+  "network": "localnet",
+  "payments": [
+    {
+      "amount_microalgo": 1000000,
+      "confirmed_round": 22,
+      "destination": "QAVXZK43SGUJC7DQ2QC6LBWTAYCKDGOG7XUSFYQRJBE23GZMHN3ORHFG3M",
+      "fee_microalgo": 1000,
+      "txid": "KNV2N3XCXRUKXHCIPPJ5VDKZ6T2DCJD3TSTXWQIUHYXAPKMNX7JQ"
+    },
+    {
+      "amount_microalgo": 2000000,
+      "confirmed_round": 22,
+      "destination": "V6C6BWQKI4LS3FCZEM5XIOHCM2SSQSIB7AXOIVSBHUNXVVEWMBWTMXRWFU",
+      "fee_microalgo": 1000,
+      "txid": "XZM7KLI3MRIBK4SRUAIBNHNIJKYQBH5LW2EQVOUDZ6BLUF5QNEAA"
+    },
+    {
+      "amount_microalgo": 200000,
+      "confirmed_round": 22,
+      "destination": "JJOIC2KGZPABBPXRWF5JP67L3VVV5GJ334YQSTSQBS3QKZARUCUSKJER4Y",
+      "fee_microalgo": 1000,
+      "txid": "EDNGISQ7T4BS2YXYIYZZ667TYIIXTHP2MXGZQNZ4QK6KV7LI6ORA"
+    }
+  ],
+  "purpose": "approved-disposable-tokenizer-account-funding-only",
+  "sender": "2KCNNJI2GQEZ7OWNAMNYV5IJN74QP6J77YA6SNOBNLPL3IBOFL4ROTW5NU",
+  "status": "three_exact_funding_payments_confirmed",
+  "submission_response_txid": "KNV2N3XCXRUKXHCIPPJ5VDKZ6T2DCJD3TSTXWQIUHYXAPKMNX7JQ",
+  "wallet_id": "e10bffa165b871191b7295078b85265e"
+}

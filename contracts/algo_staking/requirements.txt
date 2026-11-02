@@ -1,0 +1,5 @@
+# Compile independently implemented account-control and Tokenizer contracts.
+pyteal==0.27.0
+
+# Compile TEAL through Algod and support disposable-network integration tests.
+py-algorand-sdk==2.11.1

@@ -1,0 +1,187 @@
+#pragma version 10
+global GroupSize
+int 1
+==
+assert
+txn RekeyTo
+global ZeroAddress
+==
+assert
+txn CloseRemainderTo
+global ZeroAddress
+==
+assert
+txn AssetCloseTo
+global ZeroAddress
+==
+assert
+txn OnCompletion
+int NoOp
+==
+assert
+txn ApplicationID
+int 0
+==
+bnz main_l6
+txn Sender
+byte "operator"
+app_global_get
+==
+assert
+txn NumAppArgs
+int 1
+==
+assert
+byte "restored"
+app_global_get
+int 0
+==
+assert
+byte "staking"
+app_global_get
+acct_params_get AcctAuthAddr
+store 1
+store 0
+load 1
+assert
+load 0
+global CurrentApplicationAddress
+==
+assert
+txna ApplicationArgs 0
+byte "pay_once"
+==
+bnz main_l5
+txna ApplicationArgs 0
+byte "restore"
+==
+bnz main_l4
+err
+main_l4:
+itxn_begin
+int pay
+itxn_field TypeEnum
+byte "staking"
+app_global_get
+itxn_field Sender
+byte "staking"
+app_global_get
+itxn_field Receiver
+int 0
+itxn_field Amount
+byte "staking"
+app_global_get
+itxn_field RekeyTo
+int 0
+itxn_field Fee
+itxn_submit
+byte "restored"
+int 1
+app_global_put
+int 1
+return
+main_l5:
+byte "paid"
+app_global_get
+int 0
+==
+assert
+itxn_begin
+int pay
+itxn_field TypeEnum
+byte "staking"
+app_global_get
+itxn_field Sender
+byte "recipient"
+app_global_get
+itxn_field Receiver
+byte "amount"
+app_global_get
+itxn_field Amount
+int 0
+itxn_field Fee
+itxn_submit
+byte "paid"
+int 1
+app_global_put
+int 1
+return
+main_l6:
+txn NumAppArgs
+int 4
+==
+assert
+txna ApplicationArgs 0
+len
+int 32
+==
+assert
+txna ApplicationArgs 1
+len
+int 32
+==
+assert
+txna ApplicationArgs 2
+len
+int 32
+==
+assert
+txna ApplicationArgs 3
+len
+int 8
+==
+assert
+txna ApplicationArgs 0
+global ZeroAddress
+!=
+assert
+txna ApplicationArgs 1
+global ZeroAddress
+!=
+assert
+txna ApplicationArgs 2
+global ZeroAddress
+!=
+assert
+txna ApplicationArgs 0
+addr 73C6PQVLAPE6M2GFV3ZKXJRHCNZ4P75GY3LMTHJ7MS2MALZJ6RRJKNWHBU
+!=
+assert
+txna ApplicationArgs 1
+addr 73C6PQVLAPE6M2GFV3ZKXJRHCNZ4P75GY3LMTHJ7MS2MALZJ6RRJKNWHBU
+!=
+assert
+txna ApplicationArgs 2
+addr 73C6PQVLAPE6M2GFV3ZKXJRHCNZ4P75GY3LMTHJ7MS2MALZJ6RRJKNWHBU
+!=
+assert
+txn Sender
+txna ApplicationArgs 0
+==
+assert
+txna ApplicationArgs 3
+btoi
+int 0
+>
+assert
+byte "operator"
+txna ApplicationArgs 0
+app_global_put
+byte "staking"
+txna ApplicationArgs 1
+app_global_put
+byte "recipient"
+txna ApplicationArgs 2
+app_global_put
+byte "amount"
+txna ApplicationArgs 3
+btoi
+app_global_put
+byte "paid"
+int 0
+app_global_put
+byte "restored"
+int 0
+app_global_put
+int 1
+return

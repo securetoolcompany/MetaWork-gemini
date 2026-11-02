@@ -1,0 +1,61 @@
+{
+  "algod_url": "http://127.0.0.1:4001",
+  "approved_roles": {
+    "creator_initializer": "QAVXZK43SGUJC7DQ2QC6LBWTAYCKDGOG7XUSFYQRJBE23GZMHN3ORHFG3M",
+    "seed_recipient": "JJOIC2KGZPABBPXRWF5JP67L3VVV5GJ334YQSTSQBS3QKZARUCUSKJER4Y",
+    "staking": "V6C6BWQKI4LS3FCZEM5XIOHCM2SSQSIB7AXOIVSBHUNXVVEWMBWTMXRWFU"
+  },
+  "artifact_directory": "artifacts/tokenizer/compile-localnet-385709a7d1ba4be5a65e3e0042662967",
+  "avm_version": 10,
+  "container_id": "b604c779920fde24732e79348e6cb7063fced4021c23b5a73fbb572ce96bd257",
+  "dependencies": {
+    "py-algorand-sdk": "2.11.1",
+    "pyteal": "0.27.0"
+  },
+  "deployment": "not performed",
+  "genesis_hash_base64": "0TJVyrVwfL/CRhaQzRG1mF29GzfDdG4Dzr2M5uXbg2o=",
+  "genesis_id": "dockernet-v1",
+  "global_schema": {
+    "num_byte_slices": 3,
+    "num_uints": 8
+  },
+  "local_schema": {
+    "num_byte_slices": 0,
+    "num_uints": 0
+  },
+  "network": "localnet",
+  "program_page_requirements": "not yet assessed",
+  "programs": {
+    "approval": {
+      "algod_program_hash": "PKKV4XV6BS7HFWBEG4P2RXKT5UYO2PSDVVOXDQYZ4J3LFJBKLRWQWPVWM4",
+      "bytecode_bytes": 1186,
+      "bytecode_sha256": "45214e892f8036a738620b9e77863ad46e7a7fadbadb4f5af7c9d911408f8218",
+      "teal_bytes": 7518,
+      "teal_sha256": "02e8e8f31e460a1457b434db8a54f6700891e1d8300f28f1edff2278dace1acc"
+    },
+    "clear": {
+      "algod_program_hash": "RQVU74KV6DLORKPZ3AJPR3BYRVOOIWB4LEKPHWPGEFUL66HCM3IRGNP664",
+      "bytecode_bytes": 4,
+      "bytecode_sha256": "baa698f7e6728cd2257d20588deaae7ff497fb535bd35e1dd745988d380c66c5",
+      "teal_bytes": 32,
+      "teal_sha256": "fc81615f5a9c563235e6706d5fc5a054235f1045ccbb2bc108e591c9a34e4a27"
+    }
+  },
+  "purpose": "disposable-day1-tokenizer-only",
+  "signing": "not performed",
+  "simulation": "not performed",
+  "source_sha256": {
+    "compile_tokenizer_localnet.py": "5e3a725aded50483eb5489d0ef9bf63138d612bed2d792b2fb5f2879ff452626",
+    "inspect_kmd_storage.py": "24d8880ad8d2387168f5143345ffcdd871c82adc02dd59d67339ad6248bd19fc",
+    "localnet_safety.py": "b900c31b4eb95c25db83956b6b3f8c9f88a85d4c6176fe53efa9f8d40cdfb14c",
+    "prepare_tokenizer_wallet.py": "dd86b2839fd3ac66e261f86afa43ce8424b3ea7e6ae3fdc97307567b4eb079d8",
+    "requirements.txt": "20ef7a273e2697952d828c38ebf8e96482e882c5ecb49aa75f662fc82faec9f7",
+    "tokenizer.py": "96441fe6978ebedaf51c932b7cfdad049140d99471f99afeb61d288bfa7b4021",
+    "tokenizer_asset.py": "850d6866f16ab41ad236889a2438af9ad87444b27c0b9f05e63c888cddc93289",
+    "tokenizer_authority.py": "8985d4f11d086370c2b0366fa87bfacb5888ed6f30084c6f4b796de72728c6dc",
+    "tokenizer_config.py": "ea69f8e77620434bec4a996e266a45c9a0257c31b98060e928b83d2646043682",
+    "tokenizer_initialization.py": "4c4f1d02cf3687896440884acfd55b8d9d3ca32625b1964b58aad6bf1729b48d",
+    "tokenizer_localnet_config.py": "b831b77c8db4599e6d6b47d1ffe7e9fe65adc390efad108259c380112947cbaa"
+  },
+  "stage": "algod-bytecode-compilation"
+}

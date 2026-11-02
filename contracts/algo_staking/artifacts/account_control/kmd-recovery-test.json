@@ -1,0 +1,329 @@
+{
+  "accounts": {
+    "operator": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+    "outsider": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+    "recipient": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+    "staking": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ"
+  },
+  "after_binding": {
+    "accounts": {
+      "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ": {
+        "amount": 2010000,
+        "assets": [],
+        "auth_address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+        "min_balance": 100000
+      },
+      "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI": {
+        "amount": 1592000,
+        "assets": [],
+        "auth_address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+        "min_balance": 771000
+      },
+      "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ": {
+        "amount": 2000000,
+        "assets": [],
+        "auth_address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+        "min_balance": 100000
+      },
+      "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ": {
+        "amount": 1987000,
+        "assets": [],
+        "auth_address": "UUYWEZJ2JPVKQGBYHVCGTQ3QVQSBTYVABUIRGHFSIP7IITDYQIY2VNXI4Q",
+        "min_balance": 100000
+      },
+      "UUYWEZJ2JPVKQGBYHVCGTQ3QVQSBTYVABUIRGHFSIP7IITDYQIY2VNXI4Q": {
+        "amount": 200000,
+        "assets": [],
+        "auth_address": "UUYWEZJ2JPVKQGBYHVCGTQ3QVQSBTYVABUIRGHFSIP7IITDYQIY2VNXI4Q",
+        "min_balance": 100000
+      }
+    },
+    "global_state": {
+      "amount": 10000,
+      "operator": "PdgpZ/+AQaIMsdJUor6XOpfAVfr3vCVfsOAhaAqbgk0=",
+      "paid": 0,
+      "recipient": "1Rfd/2jeyh5WjeuL0KKxNcPPwz8467rq3LFvGpXWfNA=",
+      "restored": 0,
+      "staking": "pO7Nc7iOVz+OvvOVDTK2ewzc0riCEVTj1MO+8O7XX3Y="
+    }
+  },
+  "application_address": "UUYWEZJ2JPVKQGBYHVCGTQ3QVQSBTYVABUIRGHFSIP7IITDYQIY2VNXI4Q",
+  "application_approval_sha256": "7144d01f5e141d0f00961ed932bc291c3db724f5f962723e3c6f596173688347",
+  "application_id": 1020,
+  "artifact_source_sha256": "2192c10567a2e87e98c374b702142e4fe39869d2930ff6077689a5b679eff1f1",
+  "baseline_accounts": {
+    "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ": {
+      "amount": 2010000,
+      "assets": [],
+      "auth_address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+      "min_balance": 100000
+    },
+    "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI": {
+      "amount": 1794000,
+      "assets": [],
+      "auth_address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+      "min_balance": 435500
+    },
+    "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ": {
+      "amount": 2000000,
+      "assets": [],
+      "auth_address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+      "min_balance": 100000
+    },
+    "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ": {
+      "amount": 1988000,
+      "assets": [],
+      "auth_address": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+      "min_balance": 100000
+    }
+  },
+  "before_binding": {
+    "accounts": {
+      "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ": {
+        "amount": 2010000,
+        "assets": [],
+        "auth_address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+        "min_balance": 100000
+      },
+      "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI": {
+        "amount": 1592000,
+        "assets": [],
+        "auth_address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+        "min_balance": 771000
+      },
+      "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ": {
+        "amount": 2000000,
+        "assets": [],
+        "auth_address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+        "min_balance": 100000
+      },
+      "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ": {
+        "amount": 1988000,
+        "assets": [],
+        "auth_address": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+        "min_balance": 100000
+      },
+      "UUYWEZJ2JPVKQGBYHVCGTQ3QVQSBTYVABUIRGHFSIP7IITDYQIY2VNXI4Q": {
+        "amount": 200000,
+        "assets": [],
+        "auth_address": "UUYWEZJ2JPVKQGBYHVCGTQ3QVQSBTYVABUIRGHFSIP7IITDYQIY2VNXI4Q",
+        "min_balance": 100000
+      }
+    },
+    "global_state": {
+      "amount": 10000,
+      "operator": "PdgpZ/+AQaIMsdJUor6XOpfAVfr3vCVfsOAhaAqbgk0=",
+      "paid": 0,
+      "recipient": "1Rfd/2jeyh5WjeuL0KKxNcPPwz8467rq3LFvGpXWfNA=",
+      "restored": 0,
+      "staking": "pO7Nc7iOVz+OvvOVDTK2ewzc0riCEVTj1MO+8O7XX3Y="
+    }
+  },
+  "checks": {},
+  "funding": "existing balances; no faucet funding",
+  "genesis_hash_base64": "0TJVyrVwfL/CRhaQzRG1mF29GzfDdG4Dzr2M5uXbg2o=",
+  "genesis_id": "dockernet-v1",
+  "network": "localnet",
+  "payment_microalgo": 10000,
+  "primary_proof": {
+    "application_id": 1012,
+    "record_name": "kmd-proof-wallet.json",
+    "record_sha256": "eed88dad6957915250c3c1ebc8d11ed1633158aee23d90ac76f862ee2a52774f",
+    "status": "primary_account_control_proof_passed"
+  },
+  "purpose": "disposable-account-control-proof-only",
+  "recovery": {
+    "after": {
+      "accounts": {
+        "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ": {
+          "amount": 2010000,
+          "assets": [],
+          "auth_address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+          "min_balance": 100000
+        },
+        "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI": {
+          "amount": 1590000,
+          "assets": [],
+          "auth_address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+          "min_balance": 771000
+        },
+        "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ": {
+          "amount": 2000000,
+          "assets": [],
+          "auth_address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+          "min_balance": 100000
+        },
+        "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ": {
+          "amount": 1987000,
+          "assets": [],
+          "auth_address": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+          "min_balance": 100000
+        },
+        "UUYWEZJ2JPVKQGBYHVCGTQ3QVQSBTYVABUIRGHFSIP7IITDYQIY2VNXI4Q": {
+          "amount": 200000,
+          "assets": [],
+          "auth_address": "UUYWEZJ2JPVKQGBYHVCGTQ3QVQSBTYVABUIRGHFSIP7IITDYQIY2VNXI4Q",
+          "min_balance": 100000
+        }
+      },
+      "global_state": {
+        "amount": 10000,
+        "operator": "PdgpZ/+AQaIMsdJUor6XOpfAVfr3vCVfsOAhaAqbgk0=",
+        "paid": 0,
+        "recipient": "1Rfd/2jeyh5WjeuL0KKxNcPPwz8467rq3LFvGpXWfNA=",
+        "restored": 1,
+        "staking": "pO7Nc7iOVz+OvvOVDTK2ewzc0riCEVTj1MO+8O7XX3Y="
+      }
+    },
+    "application_address": "UUYWEZJ2JPVKQGBYHVCGTQ3QVQSBTYVABUIRGHFSIP7IITDYQIY2VNXI4Q",
+    "application_id": 1020,
+    "before": {
+      "accounts": {
+        "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ": {
+          "amount": 2010000,
+          "assets": [],
+          "auth_address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+          "min_balance": 100000
+        },
+        "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI": {
+          "amount": 1592000,
+          "assets": [],
+          "auth_address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+          "min_balance": 771000
+        },
+        "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ": {
+          "amount": 2000000,
+          "assets": [],
+          "auth_address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+          "min_balance": 100000
+        },
+        "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ": {
+          "amount": 1987000,
+          "assets": [],
+          "auth_address": "UUYWEZJ2JPVKQGBYHVCGTQ3QVQSBTYVABUIRGHFSIP7IITDYQIY2VNXI4Q",
+          "min_balance": 100000
+        },
+        "UUYWEZJ2JPVKQGBYHVCGTQ3QVQSBTYVABUIRGHFSIP7IITDYQIY2VNXI4Q": {
+          "amount": 200000,
+          "assets": [],
+          "auth_address": "UUYWEZJ2JPVKQGBYHVCGTQ3QVQSBTYVABUIRGHFSIP7IITDYQIY2VNXI4Q",
+          "min_balance": 100000
+        }
+      },
+      "global_state": {
+        "amount": 10000,
+        "operator": "PdgpZ/+AQaIMsdJUor6XOpfAVfr3vCVfsOAhaAqbgk0=",
+        "paid": 0,
+        "recipient": "1Rfd/2jeyh5WjeuL0KKxNcPPwz8467rq3LFvGpXWfNA=",
+        "restored": 0,
+        "staking": "pO7Nc7iOVz+OvvOVDTK2ewzc0riCEVTj1MO+8O7XX3Y="
+      }
+    },
+    "confirmed_round": 21,
+    "staking": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+    "status": "original authority restored and verified",
+    "txid": "V3N3A36MIC35QTGTEQZ2BDU2CYTME6TEGIUN2NI5UQGB5TYP5AQQ"
+  },
+  "rekeying": "confirmed",
+  "reopen_verification": {
+    "accounts": {
+      "operator": {
+        "address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+        "signature_verified": true,
+        "submitted": false
+      },
+      "outsider": {
+        "address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+        "signature_verified": true,
+        "submitted": false
+      },
+      "recipient": {
+        "address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+        "signature_verified": true,
+        "submitted": false
+      },
+      "staking": {
+        "address": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+        "signature_verified": true,
+        "submitted": false
+      }
+    },
+    "container": {
+      "container_id": "b604c779920fde24732e79348e6cb7063fced4021c23b5a73fbb572ce96bd257",
+      "started_at": "2026-11-02T19:02:39.260659838Z"
+    },
+    "submission": "not performed",
+    "wallet_id": "7371f4c178c6bf70c522cfb860905dba"
+  },
+  "restart_verification": {
+    "accounts": {
+      "operator": {
+        "address": "HXMCSZ77QBA2EDFR2JKKFPUXHKL4AVP2666CKX5Q4AQWQCU3QJGZH62GPI",
+        "signature_verified": true,
+        "submitted": false
+      },
+      "outsider": {
+        "address": "QY6XONG5TIPFSSLAAMSOU2CXH4ZSE7ZAXSBQ7E2N3VVOFERZRKV7AWMGIQ",
+        "signature_verified": true,
+        "submitted": false
+      },
+      "recipient": {
+        "address": "2UL5373I33FB4VUN5OF5BIVRGXB47QZ7HDV3V2W4WFXRVFOWPTIDN2PGTQ",
+        "signature_verified": true,
+        "submitted": false
+      },
+      "staking": {
+        "address": "UTXM245YRZLT7DV66OKQ2MVWPMGNZUVYQIIVJY6UYO7PB3WXL53GQNMMPQ",
+        "signature_verified": true,
+        "submitted": false
+      }
+    },
+    "container": {
+      "container_id": "b604c779920fde24732e79348e6cb7063fced4021c23b5a73fbb572ce96bd257",
+      "started_at": "2026-11-02T20:43:07.314739979Z"
+    },
+    "submission": "not performed",
+    "wallet_id": "7371f4c178c6bf70c522cfb860905dba"
+  },
+  "scenario": "fresh-process-restoration-without-payment",
+  "status": "recovered_original_authority",
+  "storage": {
+    "container": "algokit_sandbox_algod",
+    "container_removal_or_localnet_reset_survival": "not guaranteed",
+    "directory_candidate": "/algod/data/kmd-v0.5/sqlite_wallets",
+    "location_verified": true,
+    "new_wallet_files": [
+      "/algod/data/kmd-v0.5/sqlite_wallets/metawork-disposable-proof-ec651a73a0cc432fa4ab268f8c063058.7371f4c178c6bf70c522cfb860905dba.db"
+    ],
+    "ordinary_restart_persistence": "verified by reopening and signing after container restart",
+    "outside_repository": "Docker container filesystem; no wallet file written by this script to the repository"
+  },
+  "transaction_ids": [
+    "R3YX5F6YS3FOSBRIFEY2Y5CSYI2YSFY7LU6ZWTMTYHDMT2S6TBNQ",
+    "AI47NAHT5Q3CDVVR2IOHK6U5NKGUDYG2YX6BYGVUDEA2BALGXIKQ",
+    "TH4X6NBG5T2OBOZWJBM4OJCOLY6J5RMKORAJDFATVDG6VZIZNZ7A",
+    "V3N3A36MIC35QTGTEQZ2BDU2CYTME6TEGIUN2NI5UQGB5TYP5AQQ"
+  ],
+  "transactions": [
+    {
+      "confirmed_round": 18,
+      "label": "create_recovery_test_application",
+      "status": "confirmed",
+      "txid": "R3YX5F6YS3FOSBRIFEY2Y5CSYI2YSFY7LU6ZWTMTYHDMT2S6TBNQ"
+    },
+    {
+      "confirmed_round": 19,
+      "label": "fund_recovery_test_application",
+      "status": "confirmed",
+      "txid": "AI47NAHT5Q3CDVVR2IOHK6U5NKGUDYG2YX6BYGVUDEA2BALGXIKQ"
+    },
+    {
+      "confirmed_round": 20,
+      "label": "bind_for_fresh_process_recovery",
+      "status": "confirmed",
+      "txid": "TH4X6NBG5T2OBOZWJBM4OJCOLY6J5RMKORAJDFATVDG6VZIZNZ7A"
+    }
+  ],
+  "wallet_id": "7371f4c178c6bf70c522cfb860905dba",
+  "wallet_name": "metawork-disposable-proof-ec651a73a0cc432fa4ab268f8c063058"
+}
