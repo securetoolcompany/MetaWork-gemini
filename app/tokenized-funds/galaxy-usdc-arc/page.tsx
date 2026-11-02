@@ -49,9 +49,9 @@ export default async function GalaxyArcPage() {
   const performanceFeePercent = vault.performanceFeeBps / 100;
   const managementFeePercent = vault.managementFeeBps / 100;
 
-  const publicDepositsEnabled = false;
+  const publicDepositsEnabled = vault.depositsEnabled;
 
-  const publicRedemptionsEnabled = false;
+  const publicRedemptionsEnabled = vault.redemptionsEnabled;
 
   const availabilityLabel = publicDepositsEnabled
     ? 'Deposits enabled'

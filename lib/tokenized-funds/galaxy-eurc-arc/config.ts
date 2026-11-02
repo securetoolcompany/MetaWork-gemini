@@ -17,6 +17,7 @@ export const GALAXY_ARC = {
   "sentinel": "0x39bb4a10626b58430abfa8284b0f001f49734f70",
   "performanceFeeBps": 1000,
   "managementFeeBps": 0,
-  "depositsEnabled": false,
+  "depositsEnabled": true,
+  "redemptionsEnabled": true,
   "href": "/tokenized-funds/galaxy-eurc-arc"
 } as const;
