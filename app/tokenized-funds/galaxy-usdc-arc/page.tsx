@@ -120,7 +120,7 @@ export default async function GalaxyArcPage() {
 
             <div>
               <p className="text-xs font-medium uppercase tracking-[0.24em] text-sky-400">
-                MetaWork Tokenizer
+                MetaWork Earn
               </p>
 
               <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
