@@ -1,0 +1,22 @@
+export const GALAXY_ARC = {
+  "id": "galaxy-eurc-arc",
+  "name": "Galaxy EURC on Arc",
+  "wrapperName": "MetaWork Galaxy EURC on Arc",
+  "wrapperSymbol": "mwGEURCa",
+  "chainId": 5042,
+  "network": "Arc",
+  "assetSymbol": "EURC",
+  "assetDecimals": 6,
+  "shareDecimals": 18,
+  "assetAddress": "0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1",
+  "underlyingVault": "0x389abdf4355e0cf4f19298179991705a98f21c18",
+  "wrapperAddress": "0x624fcccc862a71932f61e32e22eee3ac64252809",
+  "wrapperAdapter": "0x848238081d2fb92274fc0e0838ab00e0bd3b2ee4",
+  "administrator": "0x39bb4a10626b58430abfa8284b0f001f49734f70",
+  "feeRecipient": "0x39bb4a10626b58430abfa8284b0f001f49734f70",
+  "sentinel": "0x39bb4a10626b58430abfa8284b0f001f49734f70",
+  "performanceFeeBps": 1000,
+  "managementFeeBps": 0,
+  "depositsEnabled": false,
+  "href": "/tokenized-funds/galaxy-eurc-arc"
+} as const;

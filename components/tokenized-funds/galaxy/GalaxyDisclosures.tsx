@@ -1,23 +1,47 @@
 import { GALAXY_USDC } from '../../../lib/tokenized-funds/galaxy/config';
 import { GALAXY_QUALITY } from '../../../lib/tokenized-funds/galaxy-quality/config';
+import { GALAXY_ARC as GALAXY_ARC_USDC } from '../../../lib/tokenized-funds/galaxy-usdc-arc/config';
+import { GALAXY_ARC as GALAXY_ARC_EURC } from '../../../lib/tokenized-funds/galaxy-eurc-arc/config';
 
 type Props = {
-  product: 'enhanced' | 'quality';
+  product: 'enhanced' | 'quality' | 'arc-usdc' | 'arc-eurc';
 };
 
 export default function GalaxyDisclosures({ product }: Props) {
   const quality = product === 'quality';
-  const config = quality ? GALAXY_QUALITY : GALAXY_USDC;
+  const arcConfig =
+    product === 'arc-usdc'
+      ? GALAXY_ARC_USDC
+      : product === 'arc-eurc'
+        ? GALAXY_ARC_EURC
+        : null;
+
+  const arc = arcConfig !== null;
+  const assetSymbol = arcConfig?.assetSymbol ?? 'USDC';
+  const config = arcConfig ?? (quality ? GALAXY_QUALITY : GALAXY_USDC);
 
   const vault = {
     ...config,
-    wrapperSymbol: quality ? GALAXY_QUALITY.wrapperSymbol : 'mwGUSDCe',
-    assetAddress: quality
-      ? GALAXY_QUALITY.assetAddress
-      : '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+    name: arcConfig
+      ? 'Galaxy ' + arcConfig.assetSymbol
+      : config.name,
+    wrapperSymbol: arcConfig
+      ? arcConfig.wrapperSymbol
+      : quality
+        ? GALAXY_QUALITY.wrapperSymbol
+        : 'mwGUSDCe',
+    assetAddress: arcConfig
+      ? arcConfig.assetAddress
+      : quality
+        ? GALAXY_QUALITY.assetAddress
+        : '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
   };
 
-  const productLabel = quality ? 'Quality' : 'Enhanced';
+  const productLabel = arc
+    ? 'Galaxy ' + assetSymbol
+    : quality
+      ? 'Quality'
+      : 'Enhanced';
 
   const riskItems = [
     {
@@ -46,7 +70,7 @@ export default function GalaxyDisclosures({ product }: Props) {
       text:
         `The Tokenizer, underlying vault, adapters, lending markets, wallet, ` +
         `${vault.network} network, and external services introduce technical risks. ` +
-        'USDC can lose its peg; collateral tokens can introduce issuer, ' +
+        assetSymbol + ' can lose its peg; collateral tokens can introduce issuer, ' +
         'custodian, operational, or bridge dependencies.',
     },
     {
@@ -107,7 +131,33 @@ export default function GalaxyDisclosures({ product }: Props) {
               costs are separate.
             </p>
 
-            {quality ? (
+            {arc ? (
+              <>
+                <p>
+                  The recorded deployment verification found nine
+                  administrator timelocks ranging from one to three days.
+                  Selected administrator powers remain available; not every
+                  administrative action is delayed. The owner, curator,
+                  allocator, Sentinel, and performance-fee recipient
+                  were the same wallet.
+                </p>
+                <p>
+                  The force-deallocation penalty was verified at zero.
+                  Its setter remains retained behind a two-day change
+                  timelock. Initial protection shares were minted to the
+                  configured dead address and are separate from
+                  wallet-owned customer positions.
+                </p>
+                <p>
+                  The underlying vault retains a Send Assets Gate
+                  permission. Changes can block new deposits and the
+                  in-kind underlying-share exit leg. Asset redemption
+                  still depends on liquidity and successful execution.
+                  These are recorded deployment observations, not
+                  continuously refreshed permission checks.
+                </p>
+              </>
+            ) : quality ? (
               <p>
                 In the deployment snapshot checked during setup, Tokenizer
                 fee rates and recipients remained mutable, with zero
@@ -191,9 +241,9 @@ export default function GalaxyDisclosures({ product }: Props) {
           <p className="mt-4 text-sm leading-7 text-slate-400">
             Your {vault.wrapperSymbol} position tokens represent your
             proportional interest in the MetaWork Tokenizer. The position
-            panel shows your token balance and its estimated USDC asset
+            panel shows your token balance and its estimated {assetSymbol} asset
             value. That value is not a guaranteed withdrawal quote and
-            does not represent a fixed USDC amount per token.
+            does not represent a fixed {assetSymbol} amount per token.
           </p>
           <p className="mt-3 text-sm leading-7 text-slate-400">
             Position tokens provide access to the underlying vault
@@ -209,7 +259,7 @@ export default function GalaxyDisclosures({ product }: Props) {
           </summary>
 
           <p className="mt-4 text-sm leading-7 text-slate-400">
-            USDC withdrawals depend on available underlying liquidity
+            {assetSymbol} withdrawals depend on available underlying liquidity
             and contract configuration. Instant withdrawal is not
             guaranteed. The withdrawal panel supports redemption of all
             position tokens held by your connected wallet.
@@ -228,11 +278,32 @@ export default function GalaxyDisclosures({ product }: Props) {
           </summary>
 
           <p className="mt-4 text-sm leading-7 text-slate-400">
-            This product is on {quality ? 'Base, not Ethereum mainnet' : 'Ethereum mainnet, not Base'}.
+            This product is on {
+              arc
+                ? 'Arc, not Base or Ethereum mainnet'
+                : quality
+                  ? 'Base, not Ethereum mainnet'
+                  : 'Ethereum mainnet, not Base'
+            }.
             {' '}Wallet transactions must use chain ID {vault.chainId}.
-            The deposit asset is USDC at the address below. Keep ETH
-            available on {vault.network} for approval, deposit, and
-            redemption gas fees.
+            The deposit asset is {assetSymbol} at the address below.
+            {' '}{arc
+              ? 'Keep native USDC available on Arc for approval, deposit, and redemption gas fees.'
+              : 'Keep ETH available on ' + vault.network +
+                ' for approval, deposit, and redemption gas fees.'}
+            {arc && assetSymbol === 'EURC' && (
+              <>
+                {' '}EURC is the deposit asset; it does not pay the
+                native-USDC gas fee.
+              </>
+            )}
+            {arc && assetSymbol === 'USDC' && (
+              <>
+                {' '}The USDC deposit balance and native-USDC gas
+                balance represent the same funds in different
+                denominations, not separate spending reserves.
+              </>
+            )}
           </p>
 
           <p className="mt-3 break-all font-mono text-xs leading-6 text-slate-300">

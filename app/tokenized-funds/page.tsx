@@ -43,6 +43,26 @@ const funds = [
     platformFee: '10% of yield earned',
     linkLabel: 'View product details',
   },
+  {
+    "id": "galaxy-usdc-arc",
+    "name": "Galaxy USDC on Arc",
+    "category": "DeFi Lending · Arc",
+    "description": "Explore Galaxy-curated USDC lending on Arc, with current vault metrics, live allocation breakdowns, and a MetaWork Tokenizer position panel. Transactions are currently disabled.",
+    "href": "/tokenized-funds/galaxy-usdc-arc",
+    "asset": "USDC on Arc",
+    "platformFee": "10% of yield earned",
+    "linkLabel": "View live vault details"
+  },
+  {
+    "id": "galaxy-eurc-arc",
+    "name": "Galaxy EURC on Arc",
+    "category": "DeFi Lending · Arc",
+    "description": "Explore Galaxy-curated EURC lending on Arc, with current vault metrics, live allocation breakdowns, and a MetaWork Tokenizer position panel. Transactions are currently disabled.",
+    "href": "/tokenized-funds/galaxy-eurc-arc",
+    "asset": "EURC on Arc",
+    "platformFee": "10% of yield earned",
+    "linkLabel": "View live vault details"
+  },
 ];
 
 export default function TokenizedFundsPage() {

@@ -1,0 +1,22 @@
+export const GALAXY_ARC = {
+  "id": "galaxy-usdc-arc",
+  "name": "Galaxy USDC on Arc",
+  "wrapperName": "MetaWork Galaxy USDC on Arc",
+  "wrapperSymbol": "mwGUSDCa",
+  "chainId": 5042,
+  "network": "Arc",
+  "assetSymbol": "USDC",
+  "assetDecimals": 6,
+  "shareDecimals": 18,
+  "assetAddress": "0x3600000000000000000000000000000000000000",
+  "underlyingVault": "0x8e357432cc12ff425c36432f312968aeb16112af",
+  "wrapperAddress": "0xa6870d240db24ab2c626d52fb621241e8c86441e",
+  "wrapperAdapter": "0xedb5d5691d143a7ce52c42d98495a781e91fbba5",
+  "administrator": "0x39bb4a10626b58430abfa8284b0f001f49734f70",
+  "feeRecipient": "0x39bb4a10626b58430abfa8284b0f001f49734f70",
+  "sentinel": "0x39bb4a10626b58430abfa8284b0f001f49734f70",
+  "performanceFeeBps": 1000,
+  "managementFeeBps": 0,
+  "depositsEnabled": false,
+  "href": "/tokenized-funds/galaxy-usdc-arc"
+} as const;
