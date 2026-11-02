@@ -71,7 +71,7 @@ export default function TokenizedFundsPage() {
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <header className="max-w-3xl">
           <p className="text-sm font-medium uppercase tracking-widest text-blue-400">
-            MetaWork
+            MetaWork Earn
           </p>
 
           <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">

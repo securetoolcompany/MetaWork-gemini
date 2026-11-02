@@ -1,0 +1,839 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createHash, randomBytes } from 'node:crypto';
+import { createServer } from 'node:http';
+import { config } from 'dotenv';
+import {
+  createPublicClient, http, parseAbi, getAddress,
+  keccak256, decodeFunctionData, decodeFunctionResult, encodeFunctionData, toHex,
+} from 'viem';
+
+config({ path: '.env.local', quiet: true });
+
+const rpc = process.env.ARC_SIMULATION_RPC_URL?.trim();
+assert.ok(rpc, 'ARC_SIMULATION_RPC_URL missing.');
+
+const PLAN_PATH =
+  'output/galaxy-arc-plans/galaxy-eurc-arc.0x624fcccc862a71932f61e32e22eee3ac64252809.review.json';
+const PLAN_HASH =
+  'fa44183d72d11bbbd274f73beed2f3ca8d8934384c4777071095602fa23b02ae';
+const OPERATOR = '0x39bb4a10626b58430abfa8284b0f001f49734f70';
+const FACTORY = '0x624fcccc862a71932f61e32e22eee3ac64252809';
+const VAULT = '0x624fcccc862a71932f61e32e22eee3ac64252809';
+const ADAPTER = '0x848238081d2fb92274fc0e0838ab00e0bd3b2ee4';
+const EURC = '0xbef5f6d51cb62b58e6a8f77868681825c6fe21c1';
+const CALLDATA_HASH =
+  '0xfa0dc921720961fdfadfbe88cd6d254afda335cda47237128860f524f5026dcd';
+const FACTORY_CODE_HASH =
+  '0x4e1024d5bfd17914a3ca6ad49905eabdfd60122ccd5a577406e7a4a765bd49ad';
+const ANCHOR_BLOCK = 29073000n;
+const ANCHOR_HASH =
+  '0x5537de370a81daded6b27ce3338ebc03a0402f9583d0cc6f434934741fab7f50';
+
+const GAS = 5_000_000n;
+const MAX_FEE = 42_000_000_000n;
+const TIP = 1_000_000_000n;
+const NONCE = 8;
+const COMBINED_RESERVE = 5_000_000n * MAX_FEE;
+
+const same = (a, b) => getAddress(a) === getAddress(b);
+const digest = raw => createHash('sha256').update(raw).digest('hex');
+
+const raw = readFileSync(PLAN_PATH);
+assert.equal(digest(raw), PLAN_HASH, 'Approved plan changed.');
+const approvedPlan = JSON.parse(raw.toString());
+
+const PAYLOAD = Object.freeze({
+  from: OPERATOR,
+  to: FACTORY,
+  chainId: '0x13b2',
+  nonce: '0x8',
+  data: approvedPlan.transactions[3].data,
+  value: '0x0',
+  gas: '0x4c4b40',
+  maxFeePerGas: '0x9c7652400',
+  maxPriorityFeePerGas: '0x3b9aca00',
+});
+
+assert.equal(keccak256(PAYLOAD.data), CALLDATA_HASH);
+assert.equal(BigInt(PAYLOAD.gas), GAS);
+assert.equal(BigInt(PAYLOAD.maxFeePerGas), MAX_FEE);
+assert.equal(BigInt(PAYLOAD.maxPriorityFeePerGas), TIP);
+
+const factoryAbi = parseAbi([
+  'function multicall(bytes[])',
+]);
+const vaultAbi = parseAbi([
+  'function owner() view returns (address)',
+  'function asset() view returns (address)',
+]);
+
+const client = createPublicClient({
+  transport: http(rpc, { timeout: 90_000, retryCount: 0 }),
+});
+const port = 8787;
+const origin = 'http://127.0.0.1:' + port;
+const secret = randomBytes(24).toString('hex');
+const root = '/' + secret + '/';
+let verifying = false;
+
+function safeMessage(error) {
+  return String(error?.shortMessage || error?.message || error)
+    .split(rpc).join('[REDACTED_RPC_URL]')
+    .replace(/https?:\/\/[^\s"'<>]+/g, '[REDACTED_URL]')
+    .slice(0, 1800);
+}
+
+function readPlan() {
+  const raw = readFileSync(PLAN_PATH);
+  assert.equal(digest(raw), PLAN_HASH, 'Approved plan changed.');
+  const p = JSON.parse(raw.toString());
+
+  assert.equal(p.productId, 'galaxy-eurc-arc');
+  assert.equal(p.chainId, 5042);
+  assert.equal(p.status, 'review-only-not-authorized');
+  assert.equal(p.deploymentAuthorized, false);
+  assert.equal(p.customerDepositsEnabled, false);
+  assert.equal(p.transactionsSent, 0);
+  assert.equal(p.transactions.length, 4);
+  assert.ok(same(p.administrator, OPERATOR));
+  assert.ok(same(p.feeRecipient, OPERATOR));
+  assert.ok(same(p.sentinel, OPERATOR));
+  assert.equal(p.sentinelPolicyConfirmed, true);
+  assert.ok(same(p.asset, EURC));
+  assert.ok(same(p.predictedTokenizerAddress, VAULT));
+  assert.ok(same(p.predictedAdapterAddress, ADAPTER));
+  assert.equal(p.performanceFeeBps, 1000);
+  assert.equal(p.managementFeeBps, 0);
+  assert.equal(p.forceDeallocatePenaltyBps, 0);
+  assert.equal(p.forceDeallocatePenaltySetterAbdicated, false);
+  assert.equal(p.administratorTimelocks.length, 9);
+
+  for (const t of p.transactions) {
+    assert.equal(keccak256(t.data), t.calldataHash);
+  }
+
+  const t = p.transactions[3];
+  assert.equal(t.sequence, 4);
+  assert.equal(t.chainId, 5042);
+  assert.ok(same(t.from, OPERATOR));
+  assert.ok(same(t.to, VAULT));
+  assert.equal(BigInt(t.value), 0n);
+  assert.equal(t.data, PAYLOAD.data);
+  assert.equal(t.calldataHash, CALLDATA_HASH);
+  assert.equal(
+    decodeFunctionData({ abi: factoryAbi, data: t.data }).functionName,
+    'multicall',
+  );
+  return p;
+}
+
+async function checkNonce() {
+  assert.equal(await client.getTransactionCount({
+    address: OPERATOR, blockTag: 'latest',
+  }), NONCE, 'Confirmed nonce changed. Stop and inspect wallet history.');
+  assert.equal(await client.getTransactionCount({
+    address: OPERATOR, blockTag: 'pending',
+  }), NONCE, 'Pending transaction or nonce change. Stop.');
+}
+
+async function checkExistingVault(blockNumber) {
+  const receipt = await client.getTransactionReceipt({
+    hash: '0x6b8a7197676f44e8a2d07b24e0616d25bc91ad79eef0e0796a5b3c1dc8d2bf10',
+  });
+  assert.equal(receipt.status, 'success', 'TX1 is not successful.');
+  assert.equal(receipt.blockNumber, 29077001n, 'TX1 receipt block changed.');
+  assert.ok(same(receipt.from, OPERATOR));
+  assert.ok(same(receipt.to,
+    '0x3b0eefabfa22ec7cf2c73877ac16e78d76749f12'));
+  assert.ok(blockNumber >= receipt.blockNumber + 1n,
+    'Wait for at least two TX1 confirmations.');
+
+  const canonical = await client.getBlock({
+    blockNumber: receipt.blockNumber,
+  });
+  assert.equal(canonical.hash, receipt.blockHash,
+    'TX1 receipt is no longer canonical.');
+
+  const code = await client.getCode({
+    address: VAULT, blockNumber,
+  });
+  assert.ok(code && code !== '0x', 'Created vault code missing.');
+  assert.equal(keccak256(code),
+    '0x0d9a18645e4c23fd5698069edd84ca001b630b0aeff6dd64863debaa2f2dc511',
+    'Created vault code changed.');
+
+  assert.ok(same(await client.readContract({
+    address: VAULT, abi: vaultAbi, functionName: 'owner', blockNumber,
+  }), OPERATOR), 'Vault owner mismatch.');
+  assert.ok(same(await client.readContract({
+    address: VAULT, abi: vaultAbi, functionName: 'asset', blockNumber,
+  }), EURC), 'Vault asset mismatch.');
+}
+
+const tokenAbi = parseAbi([
+  'function allowance(address,address) view returns (uint256)',
+  'function balanceOf(address) view returns (uint256)',
+]);
+
+async function readAllowance(blockNumber) {
+  return client.readContract({
+    address: EURC, abi: tokenAbi, functionName: 'allowance',
+    args: [OPERATOR, VAULT], blockNumber,
+  });
+}
+
+async function checkExistingAdapter(blockNumber) {
+  const receipt = await client.getTransactionReceipt({
+    hash: '0xa3f858cfbd37ced362f7f3beffc6b69c5f9c67a5d2fff5f7899e6683bb160096',
+  });
+  assert.equal(receipt.status, 'success', 'TX2 is not successful.');
+  assert.equal(receipt.blockNumber, 29077284n, 'TX2 receipt block changed.');
+  assert.ok(same(receipt.from, OPERATOR));
+  assert.ok(same(receipt.to,
+    '0x77788033b22ceab8d51ec8f9dfd4a40e54f380b0'));
+  assert.ok(blockNumber >= receipt.blockNumber + 1n,
+    'Wait for at least two TX2 confirmations.');
+
+  const canonical = await client.getBlock({
+    blockNumber: receipt.blockNumber,
+  });
+  assert.equal(canonical.hash, receipt.blockHash,
+    'TX2 receipt is no longer canonical.');
+
+  const adapterCode = await client.getCode({
+    address: ADAPTER, blockNumber,
+  });
+  assert.ok(adapterCode && adapterCode !== '0x');
+  assert.equal(keccak256(adapterCode),
+    '0xe32d6649a80ace9a3be39fc8ebbab86138828ec0e0d17daa159f21964bf12248',
+    'Adapter code changed.');
+
+  const abi = parseAbi([
+    'function parentVault() view returns (address)',
+    'function morphoVaultV1() view returns (address)',
+    'function factory() view returns (address)',
+  ]);
+  const plan = readPlan();
+  for (const [functionName, expected] of [
+    ['parentVault', VAULT],
+    ['morphoVaultV1', plan.childVault],
+    ['factory', '0x77788033b22ceab8d51ec8f9dfd4a40e54f380b0'],
+  ]) {
+    assert.ok(same(await client.readContract({
+      address: ADAPTER, abi, functionName, blockNumber,
+    }), expected), 'Adapter connection mismatch: ' + functionName);
+  }
+}
+
+const ZERO = '0x0000000000000000000000000000000000000000';
+
+const configAbi = parseAbi([
+  'function multicall(bytes[])',
+  'function submit(bytes)',
+  'function setCurator(address)',
+  'function setIsSentinel(address,bool)',
+  'function setName(string)',
+  'function setSymbol(string)',
+  'function setIsAllocator(address,bool)',
+  'function setPerformanceFeeRecipient(address)',
+  'function setManagementFeeRecipient(address)',
+  'function setPerformanceFee(uint256)',
+  'function setManagementFee(uint256)',
+  'function setForceDeallocatePenalty(address,uint256)',
+  'function setAdapterRegistry(address)',
+  'function addAdapter(address)',
+  'function setLiquidityAdapterAndData(address,bytes)',
+  'function setMaxRate(uint256)',
+  'function increaseAbsoluteCap(bytes,uint256)',
+  'function increaseRelativeCap(bytes,uint256)',
+  'function increaseTimelock(bytes4,uint256)',
+  'function abdicate(bytes4)',
+  'function allocate(address,bytes,uint256)',
+  'function mint(uint256,address) returns (uint256)',
+]);
+
+const stateAbi = parseAbi([
+  'function owner() view returns (address)',
+  'function asset() view returns (address)',
+  'function curator() view returns (address)',
+  'function name() view returns (string)',
+  'function symbol() view returns (string)',
+  'function isSentinel(address) view returns (bool)',
+  'function isAllocator(address) view returns (bool)',
+  'function performanceFeeRecipient() view returns (address)',
+  'function managementFeeRecipient() view returns (address)',
+  'function performanceFee() view returns (uint256)',
+  'function managementFee() view returns (uint256)',
+  'function forceDeallocatePenalty(address) view returns (uint256)',
+  'function adapterRegistry() view returns (address)',
+  'function isAdapter(address) view returns (bool)',
+  'function adaptersLength() view returns (uint256)',
+  'function liquidityAdapter() view returns (address)',
+  'function liquidityData() view returns (bytes)',
+  'function maxRate() view returns (uint256)',
+  'function absoluteCap(bytes32) view returns (uint256)',
+  'function relativeCap(bytes32) view returns (uint256)',
+  'function timelock(bytes4) view returns (uint256)',
+  'function abdicated(bytes4) view returns (bool)',
+  'function executableAt(bytes) view returns (uint256)',
+  'function totalSupply() view returns (uint256)',
+  'function balanceOf(address) view returns (uint256)',
+  'function receiveSharesGate() view returns (address)',
+  'function sendSharesGate() view returns (address)',
+  'function receiveAssetsGate() view returns (address)',
+  'function sendAssetsGate() view returns (address)',
+]);
+
+const selector = signature => keccak256(
+  '0x' + Buffer.from(signature, 'utf8').toString('hex'),
+).slice(0, 10);
+
+function postChecks() {
+  const p = readPlan();
+  const checks = [];
+
+  const add = (name, args, expected) => checks.push({
+    address: VAULT,
+    abi: stateAbi,
+    functionName: name,
+    args,
+    expected,
+  });
+
+  add('owner', [], OPERATOR);
+  add('asset', [], EURC);
+  add('curator', [], OPERATOR);
+  add('name', [], p.name);
+  add('symbol', [], p.symbol);
+  add('isSentinel', [OPERATOR], true);
+  add('isAllocator', [OPERATOR], true);
+  add('performanceFeeRecipient', [], OPERATOR);
+  add('performanceFee', [], BigInt(p.performanceFeeBps) * 10n ** 14n);
+  add('managementFee', [], 0n);
+  add('forceDeallocatePenalty', [ADAPTER], 0n);
+  add('isAdapter', [ADAPTER], true);
+  add('adaptersLength', [], 1n);
+  add('adapterRegistry', [], ZERO);
+
+  for (const name of [
+    'receiveSharesGate',
+    'sendSharesGate',
+    'receiveAssetsGate',
+    'sendAssetsGate',
+  ]) {
+    add(name, [], ZERO);
+  }
+
+  add('totalSupply', [], BigInt(p.protectionSharesRaw));
+  add(
+    'balanceOf',
+    [p.protectionRecipient],
+    BigInt(p.protectionSharesRaw),
+  );
+  add('balanceOf', [OPERATOR], 0n);
+
+  checks.push({
+    address: EURC,
+    abi: tokenAbi,
+    functionName: 'allowance',
+    args: [OPERATOR, VAULT],
+    expected: 0n,
+  });
+
+  for (const policy of p.administratorTimelocks) {
+    add(
+      'timelock',
+      [selector(policy.signature)],
+      BigInt(policy.seconds),
+    );
+  }
+
+  add(
+    'abdicated',
+    [selector('setForceDeallocatePenalty(address,uint256)')],
+    false,
+  );
+
+  const inner = decodeFunctionData({
+    abi: configAbi,
+    data: PAYLOAD.data,
+  }).args[0];
+
+  const direct = new Set(inner.map(x => x.toLowerCase()));
+  let minted = 0;
+  let installed = 0;
+
+  for (const data of inner) {
+    const d = decodeFunctionData({ abi: configAbi, data });
+    const a = d.args;
+
+    switch (d.functionName) {
+      case 'submit':
+        assert.ok(
+          direct.has(a[0].toLowerCase()),
+          'Submitted action not executed.',
+        );
+        const submitted = decodeFunctionData({
+          abi: configAbi,
+          data: a[0],
+        });
+        add(
+          'executableAt',
+          [a[0]],
+          submitted.functionName === 'setMaxRate'
+            ? 'setup-block-timestamp'
+            : 0n,
+        );
+        break;
+
+      case 'setCurator':
+        assert.ok(same(a[0], OPERATOR));
+        break;
+
+      case 'setIsSentinel':
+      case 'setIsAllocator':
+        assert.ok(same(a[0], OPERATOR));
+        assert.equal(a[1], true);
+        break;
+
+      case 'setName':
+        assert.equal(a[0], p.name);
+        break;
+
+      case 'setSymbol':
+        assert.equal(a[0], p.symbol);
+        break;
+
+      case 'setPerformanceFeeRecipient':
+        assert.ok(same(a[0], OPERATOR));
+        break;
+
+      case 'setManagementFeeRecipient':
+        add('managementFeeRecipient', [], a[0]);
+        break;
+
+      case 'setPerformanceFee':
+        assert.equal(
+          a[0],
+          BigInt(p.performanceFeeBps) * 10n ** 14n,
+        );
+        break;
+
+      case 'setManagementFee':
+        assert.equal(a[0], 0n);
+        break;
+
+      case 'setForceDeallocatePenalty':
+        assert.ok(same(a[0], ADAPTER));
+        assert.equal(a[1], 0n);
+        break;
+
+      case 'setAdapterRegistry':
+        assert.ok(same(a[0], ZERO));
+        break;
+
+      case 'addAdapter':
+        assert.ok(same(a[0], ADAPTER));
+        break;
+
+      case 'setLiquidityAdapterAndData':
+        assert.ok(same(a[0], ADAPTER));
+        add('liquidityAdapter', [], a[0]);
+        add('liquidityData', [], a[1]);
+        break;
+
+      case 'setMaxRate':
+        add('maxRate', [], a[0]);
+        break;
+
+      case 'increaseAbsoluteCap':
+        add('absoluteCap', [keccak256(a[0])], a[1]);
+        break;
+
+      case 'increaseRelativeCap':
+        add('relativeCap', [keccak256(a[0])], a[1]);
+        break;
+
+      case 'increaseTimelock': {
+        const policy = p.administratorTimelocks.find(
+          x => selector(x.signature) === a[0],
+        );
+        assert.ok(policy, 'Unexpected timelock selector.');
+        assert.equal(a[1], BigInt(policy.seconds));
+        installed++;
+        break;
+      }
+
+      case 'abdicate':
+        add('abdicated', [a[0]], true);
+        break;
+
+      case 'allocate':
+        assert.ok(same(a[0], ADAPTER));
+        assert.equal(a[2], 0n);
+        break;
+
+      case 'mint':
+        assert.equal(a[0], BigInt(p.protectionSharesRaw));
+        assert.ok(same(a[1], p.protectionRecipient));
+        minted++;
+        break;
+
+      default:
+        throw new Error(
+          'Unreviewed configuration action: ' + d.functionName,
+        );
+    }
+  }
+
+  assert.equal(minted, 1);
+  assert.equal(installed, 9);
+  return checks;
+}
+
+function assertState(check, actual, setupTimestamp) {
+  const expected = check.expected;
+
+  if (expected === 'setup-block-timestamp') {
+    assert.equal(
+      typeof setupTimestamp,
+      'bigint',
+      'Missing setup block timestamp.',
+    );
+    assert.ok(setupTimestamp > 0n);
+    assert.equal(
+      actual,
+      setupTimestamp,
+      'setMaxRate submission must retain the setup block timestamp.',
+    );
+    return;
+  }
+  const label =
+    check.functionName + '(' + check.args.map(String).join(',') + ')';
+
+  if (typeof expected === 'string' && expected.startsWith('0x')) {
+    assert.equal(
+      String(actual).toLowerCase(),
+      expected.toLowerCase(),
+      label,
+    );
+  } else {
+    assert.equal(actual, expected, label);
+  }
+}
+
+async function readState(check, blockNumber) {
+  const { expected, ...request } = check;
+  return client.readContract({ ...request, blockNumber });
+}
+
+async function checkApprovalReceipt(blockNumber) {
+  const r = await client.getTransactionReceipt({
+    hash: '0x64ee6898cd6470662ff09b598d3327f336549877ee76a5d72a7f5218f90fc44c',
+  });
+
+  assert.equal(r.status, 'success', 'TX3 not successful.');
+  assert.equal(r.blockNumber, 29077551n, 'TX3 receipt changed.');
+  assert.ok(same(r.from, OPERATOR));
+  assert.ok(same(r.to, EURC));
+  assert.ok(
+    blockNumber >= r.blockNumber + 1n,
+    'Wait for two TX3 confirmations.',
+  );
+  assert.equal(
+    (await client.getBlock({ blockNumber: r.blockNumber })).hash,
+    r.blockHash,
+    'TX3 is no longer canonical.',
+  );
+}
+
+async function prepare() {
+  readPlan();
+  const checks = postChecks();
+
+  assert.equal(await client.getChainId(), 5042, 'Wrong RPC chain.');
+  assert.equal(
+    (await client.getBlock({ blockNumber: ANCHOR_BLOCK })).hash,
+    ANCHOR_HASH,
+    'Reviewed anchor changed.',
+  );
+
+  const block = await client.getBlock({ blockTag: 'latest' });
+  assert.ok(block.number != null);
+  assert.equal(typeof block.baseFeePerGas, 'bigint');
+
+  await checkExistingVault(block.number);
+  await checkExistingAdapter(block.number);
+  await checkApprovalReceipt(block.number);
+  await checkNonce();
+
+  assert.equal(
+    await readAllowance(block.number),
+    1_000_000n,
+    'Protection allowance is not exactly 1 EURC.',
+  );
+
+  assert.equal(
+    await client.readContract({
+      address: VAULT,
+      abi: stateAbi,
+      functionName: 'totalSupply',
+      blockNumber: block.number,
+    }),
+    0n,
+    'Vault already has shares. Stop; do not configure or retry blindly.',
+  );
+
+  assert.ok(
+    await client.readContract({
+      address: EURC,
+      abi: tokenAbi,
+      functionName: 'balanceOf',
+      args: [OPERATOR],
+      blockNumber: block.number,
+    }) >= 1_000_000n,
+    'Protection EURC unavailable.',
+  );
+
+  assert.ok(
+    block.baseFeePerGas + TIP <= MAX_FEE,
+    'Approved fee cap no longer covers base fee plus tip.',
+  );
+
+  assert.ok(
+    await client.getBalance({
+      address: OPERATOR,
+      blockNumber: block.number,
+    }) >= COMBINED_RESERVE,
+    'Native USDC below final EURC-transaction gas reserve.',
+  );
+
+  const request = {
+    account: OPERATOR,
+    to: VAULT,
+    data: PAYLOAD.data,
+    value: 0n,
+    gas: GAS,
+    nonce: NONCE,
+    maxFeePerGas: MAX_FEE,
+    maxPriorityFeePerGas: TIP,
+  };
+
+  await client.call({ ...request, blockNumber: block.number });
+
+  const estimatedGas = await client.estimateGas({
+    ...request,
+    blockNumber: block.number,
+  });
+
+  assert.ok(
+    estimatedGas * 125n <= GAS * 100n,
+    'Less than 25% gas headroom.',
+  );
+
+  const common = {
+    from: OPERATOR,
+    value: '0x0',
+    type: '0x2',
+    maxFeePerGas: toHex(MAX_FEE),
+    maxPriorityFeePerGas: toHex(TIP),
+  };
+
+  const calls = [{
+    ...common,
+    to: VAULT,
+    input: PAYLOAD.data,
+    gas: toHex(GAS),
+    nonce: toHex(NONCE),
+  }];
+
+  for (const [i, check] of checks.entries()) {
+    calls.push({
+      ...common,
+      to: check.address,
+      input: encodeFunctionData({
+        abi: check.abi,
+        functionName: check.functionName,
+        args: check.args,
+      }),
+      gas: toHex(150_000n),
+      nonce: toHex(NONCE + 1 + i),
+    });
+  }
+
+  const result = await client.request({
+    method: 'eth_simulateV1',
+    params: [{
+      blockStateCalls: [{ calls }],
+      validation: true,
+      traceTransfers: false,
+    }, toHex(block.number)],
+  });
+
+  assert.equal(
+    result?.length,
+    1,
+    'Incomplete final-state simulation.',
+  );
+
+  const outputs = result[0].calls;
+  assert.equal(outputs?.length, calls.length);
+
+  for (const [i, output] of outputs.entries()) {
+    assert.equal(
+      output.status,
+      '0x1',
+      'Simulation call ' + i + ': ' +
+        (output.error?.message ?? 'failed'),
+    );
+
+    if (i > 0) {
+      const check = checks[i - 1];
+      assertState(
+        check,
+        decodeFunctionResult({
+          abi: check.abi,
+          functionName: check.functionName,
+          data: output.returnData,
+        }),
+        BigInt(result[0].timestamp),
+      );
+    }
+  }
+
+  await checkNonce();
+  readPlan();
+
+  return {
+    checkedAt: new Date().toISOString(),
+    checkedAtMs: Date.now(),
+    blockNumber: String(block.number),
+    estimatedGas: String(estimatedGas),
+    configurationAndPostStateSimulationPassed: true,
+    postStateChecksPassed: checks.length,
+    administratorTimelocksVerified: 9,
+    payload: PAYLOAD,
+    tx4ApprovalOnly: true,
+    transactionsSentByServer: 0,
+  };
+}
+
+async function verify(hash) {
+  assert.match(hash, /^0x[0-9a-fA-F]{64}$/);
+
+  const receipt = await client.waitForTransactionReceipt({
+    hash,
+    confirmations: 2,
+    timeout: 180000,
+  });
+  const tx = await client.getTransaction({ hash });
+
+  assert.ok(same(tx.from, OPERATOR), 'Mined sender mismatch.');
+  assert.ok(same(tx.to, VAULT), 'Mined destination mismatch.');
+  assert.equal(tx.chainId, 5042);
+  assert.equal(tx.nonce, NONCE);
+  assert.equal(tx.input.toLowerCase(), PAYLOAD.data.toLowerCase());
+  assert.equal(tx.value, 0n);
+  const envelopeDifferences = [];
+
+  for (const [field, approved, actual] of [
+    ['gas', GAS, tx.gas],
+    ['maxFeePerGas', MAX_FEE, tx.maxFeePerGas],
+    ['maxPriorityFeePerGas', TIP, tx.maxPriorityFeePerGas],
+  ]) {
+    if (actual !== approved) {
+      envelopeDifferences.push({
+        field,
+        approved: String(approved),
+        actual: actual == null ? null : String(actual),
+      });
+    }
+  }
+
+  console.log(JSON.stringify({
+    mode: 'read-only-mined-transaction-audit',
+    hash,
+    approvedEnvelopeMatched: envelopeDifferences.length === 0,
+    envelopeDifferences,
+    actualGasLimit: String(tx.gas),
+    actualMaxFeePerGasWei:
+      tx.maxFeePerGas == null ? null : String(tx.maxFeePerGas),
+    actualMaxPriorityFeePerGasWei:
+      tx.maxPriorityFeePerGas == null
+        ? null
+        : String(tx.maxPriorityFeePerGas),
+    transactionsSentByAudit: 0,
+  }, null, 2));
+  assert.equal(
+    receipt.status,
+    'success',
+    'TX4 reverted. Stop; do not resend.',
+  );
+
+  await checkExistingVault(receipt.blockNumber);
+  await checkExistingAdapter(receipt.blockNumber);
+  await checkApprovalReceipt(receipt.blockNumber);
+
+  const checks = postChecks();
+  const setupBlock = await client.getBlock({
+    blockNumber: receipt.blockNumber,
+  });
+
+  for (const check of checks) {
+    assertState(
+      check,
+      await readState(check, receipt.blockNumber),
+      setupBlock.timestamp,
+    );
+  }
+
+  const plan = readPlan();
+  const report = {
+    status: envelopeDifferences.length === 0
+      ? 'EURC ARC TX4 VERIFIED — EURC CONFIGURATION COMPLETE'
+      : 'EURC ARC TX4 STATE VERIFIED — GAS/FEE ENVELOPE DIFFERENCES RECORDED',
+    approvedEnvelopeMatched: envelopeDifferences.length === 0,
+    envelopeDifferences,
+    actualGasLimit: String(tx.gas),
+    hash,
+    chainId: 5042,
+    blockNumber: String(receipt.blockNumber),
+    gasUsed: String(receipt.gasUsed),
+    vault: VAULT,
+    adapter: ADAPTER,
+    name: plan.name,
+    symbol: plan.symbol,
+    administrator: OPERATOR,
+    sentinel: OPERATOR,
+    performanceFeeBps: 1000,
+    managementFeeBps: 0,
+    forceDeallocatePenaltyBps: 0,
+    forceDeallocatePenaltySetterRetained: true,
+    forceDeallocatePenaltyChangeTimelockSeconds: '172800',
+    protectionRecipient: plan.protectionRecipient,
+    protectionSharesRaw: plan.protectionSharesRaw,
+    protectionAllowanceRemainingAtomic: '0',
+    administratorTimelocksVerified: 9,
+    postStateChecksPassed: checks.length,
+    transactionsSentByAudit: 0,
+    completedEurcDeploymentTransactions: 4,
+    additionalDeploymentTransactionsAuthorized: false,
+    customerInterfaceEnablementAuthorized: false,
+    underlyingGateRiskRemoved: false,
+  };
+
+  console.log(JSON.stringify(report, null, 2));
+  return report;
+}
+
+
+try {
+  assert.equal(await client.getChainId(), 5042, 'Wrong RPC chain.');
+  await verify(
+    '0xc8e3c674d2db3e8817ebe731e93d9b8f1906f76c73f94f7274854e3dd7b7450d',
+  );
+} catch (error) {
+  console.error(safeMessage(error));
+  process.exitCode = 1;
+}
