@@ -3,6 +3,7 @@ import ArcAllocations from '../../../components/tokenized-funds/galaxy-usdc-arc/
 // app/tokenized-funds/galaxy-usdc-arc/page.tsx
 
 import Link from 'next/link';
+import GalaxyDepositFlow from '../../../components/tokenized-funds/galaxy/GalaxyDepositFlow';
 import {
   ArrowDownLeft,
   ArrowLeft,
@@ -218,8 +219,8 @@ export default async function GalaxyArcPage() {
                 {[
                   {
                     icon: Wallet,
-                    title: 'Deposit through the Tokenizer',
-                    text: 'Use your own wallet and USDC on Arc. The MetaWork Tokenizer routes deposits through its adapter into the underlying Galaxy USDC vault.',
+                    title: 'Deposit into the Galaxy vault',
+                    text: 'A completed deposit transfers USDC out of your wallet through the MetaWork Tokenizer and its adapter into the underlying Galaxy USDC vault on Arc. Connecting your wallet alone does not deposit funds.',
                   },
                   {
                     icon: ShieldCheck,
@@ -326,6 +327,7 @@ export default async function GalaxyArcPage() {
               </div>
 
               <div className="p-6">
+                <GalaxyDepositFlow assetSymbol="USDC" />
                 <ArcWalletPanel />
               </div>
 

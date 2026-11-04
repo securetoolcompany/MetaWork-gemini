@@ -3,6 +3,7 @@ import GalaxyAllocations from '../../../components/tokenized-funds/galaxy/Galaxy
 // app/tokenized-funds/galaxy-usdc/page.tsx
 
 import Link from 'next/link';
+import GalaxyDepositFlow from '../../../components/tokenized-funds/galaxy/GalaxyDepositFlow';
 import {
   ArrowDownLeft,
   ArrowLeft,
@@ -200,8 +201,8 @@ export default async function GalaxyUsdcPage() {
                 {[
                   {
                     icon: Wallet,
-                    title: 'Deposit through the Tokenizer',
-                    text: 'Use your own wallet and USDC on Ethereum. The MetaWork Tokenizer routes deposits through its adapter into the underlying Galaxy USDC Enhanced vault.',
+                    title: 'Deposit into the Galaxy vault',
+                    text: 'A completed deposit transfers USDC out of your wallet through the MetaWork Tokenizer and its adapter into the underlying Galaxy USDC Enhanced vault on Ethereum. Connecting your wallet alone does not deposit funds.',
                   },
                   {
                     icon: ShieldCheck,
@@ -286,6 +287,7 @@ export default async function GalaxyUsdcPage() {
           </div>
 
           <aside className="space-y-4 lg:sticky lg:top-6">
+            <GalaxyDepositFlow assetSymbol="USDC" />
             <EthereumWalletPanel />
 
             <section className={`${card} space-y-3 px-6 py-5`}>

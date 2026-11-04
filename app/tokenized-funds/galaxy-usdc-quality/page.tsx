@@ -2,6 +2,7 @@ import GalaxyAllocations from '../../../components/tokenized-funds/galaxy/Galaxy
 // app/tokenized-funds/galaxy-usdc-quality/page.tsx
 
 import Link from 'next/link';
+import GalaxyDepositFlow from '../../../components/tokenized-funds/galaxy/GalaxyDepositFlow';
 import {
   ArrowDownLeft,
   ArrowLeft,
@@ -221,8 +222,8 @@ export default async function GalaxyQualityPage() {
                 {[
                   {
                     icon: Wallet,
-                    title: 'Deposit through the Tokenizer',
-                    text: 'Use your own wallet and USDC on Base. The MetaWork Tokenizer routes deposits through its adapter into the underlying Galaxy USDC Quality vault.',
+                    title: 'Deposit into the Galaxy vault',
+                    text: 'A completed deposit transfers USDC out of your wallet through the MetaWork Tokenizer and its adapter into the underlying Galaxy USDC Quality vault on Base. Connecting your wallet alone does not deposit funds.',
                   },
                   {
                     icon: ShieldCheck,
@@ -329,6 +330,7 @@ export default async function GalaxyQualityPage() {
               </div>
 
               <div className="p-6">
+                <GalaxyDepositFlow assetSymbol="USDC" />
                 <BaseWalletPanel />
               </div>
 

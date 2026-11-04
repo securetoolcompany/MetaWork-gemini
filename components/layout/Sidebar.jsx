@@ -95,6 +95,16 @@ const investMenuItem = {
       href: '/tokenized-funds',
     },
     {
+      icon: HandCoins,
+      label: 'Collateralized Loans',
+      href: '/tokenized-funds#available-funds-heading',
+    },
+    {
+      icon: Terminal,
+      label: 'Node Operations',
+      href: '/tokenized-funds#node-operations-heading',
+    },
+    {
       icon: TrendingUp,
       label: 'My Earnings',
       href: '/earnings',
@@ -321,7 +331,11 @@ const publicMenuItems = [
 function matchesHref(href, pathname, searchParams) {
   if (!href) return false;
 
-  const [targetPath, targetQuery] = href.split('?');
+  // Remove the anchor before comparing the route.
+  const [targetPath, targetQuery] = href.split('#')[0].split('?');
+
+  // Section links navigate normally without marking both sections active.
+  if (href.includes('#')) return false;
 
   if (pathname !== targetPath) return false;
   if (!targetQuery) return true;
