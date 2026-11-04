@@ -29,7 +29,7 @@ SHARE_ASA_ID = pt.Bytes("share_asa_id")
 OUTSTANDING_SHARES = pt.Bytes("outstanding_shares")
 
 
-def create_share_asset():
+def create_share_asset(*, network="localnet"):
     """Create exactly one fixed-supply ASA before seed initialization.
 
     The fixed initializer funds the outer fee pool. Application funding for
@@ -49,7 +49,7 @@ def create_share_asset():
         pt.Assert(pt.Global.group_size() == pt.Int(1)),
         pt.Assert(pt.Txn.application_args.length() == pt.Int(1)),
         pt.Assert(pt.Txn.application_args[0] == pt.Bytes("create_share_asset")),
-        fixed_initializer_guard(),
+        fixed_initializer_guard(network=network),
         initialized,
         pt.Assert(initialized.hasValue()),
         pt.Assert(initialized.value() == pt.Int(0)),

@@ -4,8 +4,8 @@ No investor redemption or post-initialization authority restoration exists.
 Initialized backing may remain inaccessible. Replacement deployment does
 not migrate custody, backing, or ownership.
 
-Importing this module does not compile through Algod, deploy, sign, submit,
-create an ASA, or change custody.
+Profiles select fixed identities at contract-generation time only.
+Importing this module does not contact Algod, sign, submit, or change custody.
 """
 
 import pyteal as pt
@@ -17,6 +17,7 @@ from tokenizer_asset import (
 )
 from tokenizer_authority import (
     INITIALIZED,
+    _role_addresses,
     defensive_restore,
     fixed_initializer_guard,
     outer_call_guard,
@@ -28,11 +29,6 @@ from tokenizer_initialization import (
     OPERATING_RESERVE,
     OTHER_EXCLUSIONS,
     initialize_seed,
-)
-from tokenizer_localnet_config import (
-    CREATOR_INITIALIZER,
-    SEED_RECIPIENT,
-    STAKING,
 )
 
 
@@ -55,31 +51,40 @@ UINT_STATE_KEYS = (
 )
 
 
-def approval_program():
-    """Creation has no arguments; approved public identities are fixed.
+def approval_program(*, network="localnet"):
+    """Generate the immutable application with one fixed identity profile.
 
-    Only three post-creation selectors exist:
+    Creation accepts no arguments.
+
+    Supported post-creation selectors:
       create_share_asset
       initialize_seed
       restore_preinit
 
-    No administrator role, upgrade, deletion, arbitrary payment, asset
-    reconfiguration, reserve change, fee change, or migration method exists.
+    No administrator, upgrade, deletion, arbitrary payment, configurable
+    fees, migration, or post-initialization recovery capability is provided.
     """
+    roles = _role_addresses(network)
+
     create = pt.Seq(
         pt.Assert(pt.Global.group_size() == pt.Int(1)),
         pt.Assert(pt.Txn.application_args.length() == pt.Int(0)),
-        fixed_initializer_guard(),
+        fixed_initializer_guard(network=network),
         *[
             pt.App.globalPut(key, pt.Int(0))
             for key in UINT_STATE_KEYS
         ],
         pt.App.globalPut(
-            INITIALIZER_ADDRESS, pt.Addr(CREATOR_INITIALIZER)
+            INITIALIZER_ADDRESS,
+            pt.Addr(roles["creator_initializer"]),
         ),
-        pt.App.globalPut(STAKING_ADDRESS, pt.Addr(STAKING)),
         pt.App.globalPut(
-            SEED_RECIPIENT_ADDRESS, pt.Addr(SEED_RECIPIENT)
+            STAKING_ADDRESS,
+            pt.Addr(roles["staking"]),
+        ),
+        pt.App.globalPut(
+            SEED_RECIPIENT_ADDRESS,
+            pt.Addr(roles["seed_recipient"]),
         ),
         pt.Approve(),
     )
@@ -88,23 +93,33 @@ def approval_program():
         pt.Assert(pt.Txn.application_args.length() == pt.Int(1)),
         pt.Cond(
             [
-                pt.Txn.application_args[0] == pt.Bytes("create_share_asset"),
-                pt.Seq(create_share_asset(), pt.Approve()),
+                pt.Txn.application_args[0]
+                == pt.Bytes("create_share_asset"),
+                pt.Seq(
+                    create_share_asset(network=network),
+                    pt.Approve(),
+                ),
             ],
             [
-                pt.Txn.application_args[0] == pt.Bytes("initialize_seed"),
-                pt.Seq(initialize_seed(), pt.Approve()),
+                pt.Txn.application_args[0]
+                == pt.Bytes("initialize_seed"),
+                pt.Seq(
+                    initialize_seed(network=network),
+                    pt.Approve(),
+                ),
             ],
             [
-                pt.Txn.application_args[0] == pt.Bytes("restore_preinit"),
-                pt.Seq(defensive_restore(), pt.Approve()),
+                pt.Txn.application_args[0]
+                == pt.Bytes("restore_preinit"),
+                pt.Seq(
+                    defensive_restore(network=network),
+                    pt.Approve(),
+                ),
             ],
         ),
     )
 
     return pt.Seq(
-        # Apply to creation and every existing-application path, regardless
-        # of caller. Non-NoOp completions cannot reach any method.
         outer_call_guard(),
         pt.If(pt.Txn.application_id() == pt.Int(0))
         .Then(create)

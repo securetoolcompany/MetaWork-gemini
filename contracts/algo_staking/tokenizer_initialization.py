@@ -9,6 +9,7 @@ import pyteal as pt
 from tokenizer_asset import OUTSTANDING_SHARES, SHARE_ASA_ID
 from tokenizer_authority import (
     INITIALIZED,
+    _role_addresses,
     fixed_initializer_guard,
     outer_call_guard,
 )
@@ -31,7 +32,7 @@ def _require_zero_state(key):
     )
 
 
-def initialize_seed():
+def initialize_seed(*, network="localnet"):
     """Validate one of exactly two approved initialization group shapes.
 
     Two transactions:
@@ -47,8 +48,9 @@ def initialize_seed():
     application call funds all outer transactions and one inner share transfer.
     No standalone custody-binding method is provided.
     """
-    staking = pt.Addr(STAKING)
-    recipient = pt.Addr(SEED_RECIPIENT)
+    roles = _role_addresses(network)
+    staking = pt.Addr(roles["staking"])
+    recipient = pt.Addr(roles["seed_recipient"])
     asset_id = pt.App.globalGet(SHARE_ASA_ID)
 
     authority = pt.AccountParam.authAddr(staking)
@@ -67,7 +69,7 @@ def initialize_seed():
     return pt.Seq(
         outer_call_guard(),
         pt.Assert(pt.Txn.application_id() > pt.Int(0)),
-        fixed_initializer_guard(),
+        fixed_initializer_guard(network=network),
         pt.Assert(pt.Txn.application_args.length() == pt.Int(1)),
         pt.Assert(pt.Txn.application_args[0] == pt.Bytes("initialize_seed")),
         pt.Assert(
