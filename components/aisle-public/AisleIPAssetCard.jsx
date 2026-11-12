@@ -32,25 +32,23 @@ function getDescription(ip) {
 }
 
 function getPrice(ip) {
-  const rawPrice =
-    ip?.licensingFee ??
-    ip?.licensingFeeCents ??
-    ip?.price ??
-    ip?.priceCents ??
-    ip?.licensePrice ??
-    0;
+  const cents = ip?.licensingFeeCents ?? ip?.priceCents;
 
-  const numericPrice = Number(rawPrice) || 0;
-
-  // Fields ending in "Cents" are stored in cents.
-  if (
-    ip?.licensingFeeCents !== undefined ||
-    ip?.priceCents !== undefined
-  ) {
-    return numericPrice / 100;
+  if (cents !== undefined && cents !== null && cents !== '') {
+    const numericCents = Number(cents);
+    return Number.isFinite(numericCents) ? numericCents / 100 : 0;
   }
 
-  return numericPrice;
+  const dollars =
+    ip?.licensingFee ??
+    ip?.licenseFeeUsd ??
+    ip?.licensePrice ??
+    ip?.pricePerUse ??
+    ip?.price ??
+    0;
+
+  const numericDollars = Number(dollars);
+  return Number.isFinite(numericDollars) ? numericDollars : 0;
 }
 
 export default function AisleIPAssetCard({ item, ipAsset, accentColor = '#8b5cf6' }) {
