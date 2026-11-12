@@ -26,6 +26,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { getPublicTransactionParams } from '@/lib/algorand-public';
+import ModelViewer from '@/components/model-viewer/ModelViewer';
+import { checkStlSize, parseStl } from '@/lib/model-viewer/parse-stl';
 
 // ── Shared category taxonomy (mirrors showroom IP_FILTER_GROUPS) ──────────────
 export const IP_CATEGORY_GROUPS = [
@@ -61,6 +63,27 @@ function UploadIPInner() {
   });
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [stlModel, setStlModel] = useState(null);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaError, setMediaError] = useState('');
+  const [modelWireframe, setModelWireframe] = useState(false);
+  const [modelResetKey, setModelResetKey] = useState(0);
+  const mediaGenerationRef = useRef(0);
+  const selectedMediaRef = useRef(null);
+  const imageReaderRef = useRef(null);
+  const submissionActiveRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      mediaGenerationRef.current += 1;
+      selectedMediaRef.current = null;
+      imageReaderRef.current?.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => stlModel?.geometry.dispose();
+  }, [stlModel]);
   const [charCount, setCharCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
@@ -326,19 +349,90 @@ function UploadIPInner() {
     }));
   };
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (!selectedFile) return;
-    if (selectedFile.size > 50 * 1024 * 1024) {
-      toast.error('File too large', {
-        description: 'Maximum file size is 50MB',
-      });
-      return;
+  const clearMedia = () => {
+    if (submissionActiveRef.current) return;
+    mediaGenerationRef.current += 1;
+    selectedMediaRef.current = null;
+    imageReaderRef.current?.abort();
+    imageReaderRef.current = null;
+    setFile(null);
+    setPreview(null);
+    setStlModel(null);
+    setMediaLoading(false);
+    setMediaError('');
+    setShowTokenizationConfirm(false);
+    setTokenizationConfirmed(false);
+    tokenizationOperationKeyRef.current = null;
+    const input = document.getElementById('file-upload');
+    if (input) input.value = '';
+  };
+
+  const handleFileChange = async (e) => {
+    const selectedFile = e.target.files?.[0];
+    e.target.value = '';
+    if (!selectedFile || submissionActiveRef.current) return;
+
+    clearMedia();
+    const generation = mediaGenerationRef.current;
+    const isCurrent = () => generation === mediaGenerationRef.current;
+    const isStl = /\.stl$/i.test(selectedFile.name);
+    const isImage = /\.(png|jpe?g|svg)$/i.test(selectedFile.name);
+
+    setMediaLoading(true);
+
+    try {
+      if (!isStl && !isImage) {
+        throw new Error('Choose a PNG, JPG, JPEG, SVG, or STL file.');
+      }
+
+      if (isStl) {
+        checkStlSize(selectedFile.size);
+        const bytes = await selectedFile.arrayBuffer();
+        if (!isCurrent()) return;
+
+        const parsed = parseStl(bytes);
+        if (!isCurrent()) {
+          parsed.geometry.dispose();
+          return;
+        }
+
+        selectedMediaRef.current = { file: selectedFile, kind: 'stl' };
+        setFile(selectedFile);
+        setStlModel(parsed);
+        setModelWireframe(false);
+        setModelResetKey(0);
+      } else {
+        if (selectedFile.size > 50 * 1024 * 1024) {
+          throw new Error('Maximum image file size is 50 MiB.');
+        }
+
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          imageReaderRef.current = reader;
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => reject(new Error('The image could not be read.'));
+          reader.onabort = () => reject(new Error('Image selection cancelled.'));
+          reader.readAsDataURL(selectedFile);
+        });
+
+        if (!isCurrent()) return;
+        imageReaderRef.current = null;
+        selectedMediaRef.current = { file: selectedFile, kind: 'image' };
+        setFile(selectedFile);
+        setPreview(dataUrl);
+      }
+    } catch (error) {
+      if (!isCurrent()) return;
+      selectedMediaRef.current = null;
+      setFile(null);
+      setPreview(null);
+      setStlModel(null);
+      setMediaError(
+        `${error instanceof Error ? error.message : 'The file could not be opened.'} No file is selected.`,
+      );
+    } finally {
+      if (isCurrent()) setMediaLoading(false);
     }
-    setFile(selectedFile);
-    const reader = new FileReader();
-    reader.onloadend = () => setPreview(reader.result);
-    reader.readAsDataURL(selectedFile);
   };
 
   const handleDescriptionChange = (e) => {
@@ -394,6 +488,26 @@ function UploadIPInner() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Read the current selection, not a potentially stale render closure.
+    const currentMedia = selectedMediaRef.current;
+    if (
+      !currentMedia ||
+      currentMedia.kind !== 'image' ||
+      !/\.(png|jpe?g|svg)$/i.test(currentMedia.file.name)
+    ) {
+      setShowTokenizationConfirm(false);
+      setTokenizationConfirmed(false);
+      toast.error(
+        currentMedia?.kind === 'stl'
+          ? 'Local preview only. STL tokenization is not available yet.'
+          : 'Select a ready image before submitting.',
+      );
+      return;
+    }
+
+    // A stale confirmation must not submit a different selection.
+    if (currentMedia.file !== file || submissionActiveRef.current) return;
+
     if (!formData.name || formData.category.length === 0 || !file) {
       toast.error('Missing fields', {
         description:
@@ -410,10 +524,17 @@ function UploadIPInner() {
     }
 
     if (!tokenizationConfirmed) {
+      const confirmationGeneration = mediaGenerationRef.current;
       await loadCreditBalance();
+      if (
+        confirmationGeneration !== mediaGenerationRef.current ||
+        selectedMediaRef.current !== currentMedia
+      ) return;
       setShowTokenizationConfirm(true);
       return;
     }
+
+    if (selectedMediaRef.current !== currentMedia) return;
 
     if (!tokenizationOperationKeyRef.current) {
       tokenizationOperationKeyRef.current = crypto.randomUUID();
@@ -421,6 +542,7 @@ function UploadIPInner() {
 
     const authHeaders = getAuthHeader();
 
+    submissionActiveRef.current = true;
     setIsLoading(true);
     const toastId = toast.loading('Starting IP creation...');
     try {
@@ -671,6 +793,7 @@ function UploadIPInner() {
           : error.message,
       );
     } finally {
+      submissionActiveRef.current = false;
       setIsLoading(false);
     }
   };
@@ -776,45 +899,123 @@ function UploadIPInner() {
               </div>
 
               {/* File Upload */}
-              <div className="relative space-y-2">
-                <Label className="text-foreground">File Upload *</Label>
-                <div className="relative">
-                  <input
-                    type="file"
-                    id="file-upload"
-                    className="hidden"
-                    accept=".png,.jpg,.jpeg,.svg"
-                    onChange={handleFileChange}
-                  />
-                  <label
-                    htmlFor="file-upload"
-                    className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-border rounded-lg cursor-pointer bg-background hover:bg-accent/50 transition-colors"
-                  >
-                    {preview ? (
-                      <img
-                        src={preview}
-                        alt="Preview"
-                        className="h-full object-contain"
+              <div className="relative space-y-3">
+                <Label htmlFor="file-upload" className="text-foreground">
+                  File Upload *
+                </Label>
+                <input
+                  type="file"
+                  id="file-upload"
+                  className="hidden"
+                  accept=".png,.jpg,.jpeg,.svg,.stl"
+                  onChange={handleFileChange}
+                  disabled={isLoading}
+                />
+
+                {stlModel ? (
+                  <div className="space-y-3">
+                    <div className="h-[420px]">
+                      <ModelViewer
+                        geometry={stlModel.geometry}
+                        wireframe={modelWireframe}
+                        resetKey={modelResetKey}
                       />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <Upload className="w-8 h-8 mb-3 text-muted-foreground" />
-                        <p className="mb-1 text-sm text-muted-foreground">
-                          <span className="font-semibold">Click to upload</span>{' '}
-                          or drag and drop
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          PNG, JPG, SVG (max 10MB)
-                        </p>
-                      </div>
-                    )}
-                  </label>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setModelResetKey(value => value + 1)}
+                      >
+                        Reset / fit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        aria-pressed={modelWireframe}
+                        onClick={() => setModelWireframe(value => !value)}
+                      >
+                        {modelWireframe ? 'Show solid' : 'Show wireframe'}
+                      </Button>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-2 text-sm">
+                      <dt>File size</dt>
+                      <dd>{(stlModel.stats.byteLength / (1024 * 1024)).toFixed(2)} MiB</dd>
+                      <dt>Encoding</dt>
+                      <dd>{stlModel.stats.encoding}</dd>
+                      <dt>Triangles</dt>
+                      <dd>{stlModel.stats.triangleCount.toLocaleString()}</dd>
+                      {Object.entries(stlModel.stats.extents).map(([axis, extent]) => (
+                        <div key={axis} className="contents">
+                          <dt>{axis.toUpperCase()} extent (model units)</dt>
+                          <dd>{Number(extent.toPrecision(6)).toLocaleString(undefined, {
+                            maximumSignificantDigits: 6,
+                          })}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <p role="status" className="text-sm text-amber-600 dark:text-amber-300">
+                      Local preview only - STL tokenization is not available yet.
+                      This model is not uploaded or saved.
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      STL does not specify physical units. Preview limits:
+                      100 MiB and 2,000,000 triangles. Parsing runs on the main
+                      thread; large models may pause the page or render slowly.
+                      These are not server ingestion limits or performance
+                      guarantees. No source repairs are applied.
+                    </p>
+                  </div>
+                ) : preview ? (
+                  <div className="flex h-40 items-center justify-center rounded-lg border border-border bg-background">
+                    <img src={preview} alt="Preview" className="h-full max-w-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="flex h-40 flex-col items-center justify-center rounded-lg border-2 border-dashed border-border bg-background">
+                    <Upload className="mb-3 h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      {mediaLoading ? 'Opening local file...' : 'Choose an image or STL to preview'}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isLoading}
+                    onClick={() => document.getElementById('file-upload')?.click()}
+                  >
+                    {file || mediaLoading ? 'Replace file' : 'Choose file'}
+                  </Button>
+                  {(file || mediaLoading || mediaError) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={isLoading}
+                      onClick={clearMedia}
+                    >
+                      Clear file
+                    </Button>
+                  )}
                 </div>
+
                 {file && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="break-all text-sm text-muted-foreground">
                     Selected: {file.name}
                   </p>
                 )}
+                {mediaLoading && (
+                  <p role="status" className="text-sm text-muted-foreground">
+                    Reading and validating locally. Submission is unavailable until ready.
+                  </p>
+                )}
+                {mediaError && (
+                  <p role="alert" className="text-sm text-destructive">{mediaError}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  PNG, JPG, JPEG, SVG: up to 50 MiB. STL: local preview only.
+                </p>
               </div>
 
               {/* Categories */}
@@ -1287,7 +1488,10 @@ function UploadIPInner() {
               }
               onClick={() => {
                 setShowTokenizationConfirm(false);
-                setTokenizationConfirmed(true);
+                setTokenizationConfirmed(
+                        selectedMediaRef.current?.kind === 'image' &&
+                        selectedMediaRef.current?.file === file
+                      );
 
                 setTimeout(() => {
                   document.querySelector('form')?.requestSubmit();
