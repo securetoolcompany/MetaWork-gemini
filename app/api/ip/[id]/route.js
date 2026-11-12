@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import {
+  publicProductEligibility,
+} from '@/lib/public-inventory-eligibility';
 
 function parseUsdToCents(value, fieldName) {
   const normalized = String(value ?? '').trim();
@@ -60,18 +63,37 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'IP asset not found' }, { status: 404 });
     }
 
-    // 2. Auth Logic: Determine if the visitor is the owner
+    // Owners may inspect their unpublished IP using bearer or cookie auth.
     const authHeader = request.headers.get('authorization');
-    const token = authHeader?.substring(7);
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : request.cookies.get('auth_token')?.value;
+
     let isOwner = false;
 
     if (token) {
       try {
         const decoded = verifyToken(token);
-        if (decoded?.userId === ipAsset.ownerId) {
-          isOwner = true;
-        }
-      } catch (e) { /* Invalid token, proceed as guest */ }
+
+        isOwner = Boolean(
+          decoded?.userId &&
+          ipAsset.ownerId &&
+          String(decoded.userId) === String(ipAsset.ownerId)
+        );
+      } catch {
+        // Invalid authentication receives guest-level access only.
+      }
+    }
+
+    const isPubliclyEligible =
+      ipAsset.isPublic === true &&
+      ipAsset.status === 'active';
+
+    if (!isOwner && !isPubliclyEligible) {
+      return NextResponse.json(
+        { error: 'IP asset not found' },
+        { status: 404 },
+      );
     }
 
     // 3. Data Integrity: BigInt to String conversion for JSON safety
@@ -98,8 +120,7 @@ export async function GET(request, { params }) {
 
       db.collection('products')
         .find({
-          isDraft: { $ne: true },
-          status: { $ne: 'draft' },
+          ...publicProductEligibility(),
           $or: [
             { 'ipUsages.ipAssetId': { $in: ipIds } },
             { 'selectedIPs.id': { $in: ipIds } },

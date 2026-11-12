@@ -3,19 +3,20 @@
 import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/lib/mongodb';
+import {
+  publicProductEligibility,
+  publicIpEligibility,
+} from '@/lib/public-inventory-eligibility';
+
+import {
+  toPublicProductListing,
+  toPublicIpListing,
+} from '@/lib/public-listing-serializers';
 
 export const dynamic = 'force-dynamic';
 
 function escapeRegex(value) {
   return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function toPublicDocument(document) {
-  return {
-    ...document,
-    _id: document._id?.toString(),
-    id: document.id?.toString() || document._id?.toString(),
-  };
 }
 
 export async function GET(request, { params }) {
@@ -85,14 +86,7 @@ export async function GET(request, { params }) {
     const publicProductQuery = {
       $and: [
         productOwnerQuery,
-        {
-          $or: [
-            { isPublic: true },
-            { isVisible: true },
-            { showroomListed: true },
-            { status: 'live' },
-          ],
-        },
+        publicProductEligibility(),
       ],
     };
 
@@ -116,7 +110,12 @@ export async function GET(request, { params }) {
 
     const [products, ipAssets] = await Promise.all([
       db.collection('products').find(publicProductQuery).toArray(),
-      db.collection('ip_assets').find(ipOwnerQuery).toArray(),
+      db.collection('ip_assets').find({
+        $and: [
+          ipOwnerQuery,
+          publicIpEligibility(),
+        ],
+      }).toArray(),
     ]);
 
     console.log('[public-aisle] inventory loaded', {
@@ -154,8 +153,8 @@ export async function GET(request, { params }) {
         logo: creator.aisleSettings?.logo || creator.avatar,
         heroImage: creator.aisleSettings?.heroImage || creator.banner,
       },
-      products: products.map(toPublicDocument),
-      ipAssets: ipAssets.map(toPublicDocument),
+      products: products.map(toPublicProductListing),
+      ipAssets: ipAssets.map(toPublicIpListing),
       collections: formattedCollections,
     });
   } catch (error) {

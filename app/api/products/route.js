@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
+import { verifyToken } from '@/lib/auth';
+import {
+  publicProductEligibility,
+} from '@/lib/public-inventory-eligibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,23 +25,104 @@ export async function GET(request) {
     const category = searchParams.get('category'); // pill category
     const q = searchParams.get('q');               // text search
 
-    const query = {};
+    const includeDrafts =
+      searchParams.get('includeDrafts') === 'true';
 
-    if (creator) {
-      // adjust to your schema: userId / creatorId / ownerUsername
-      query.$or = [
-        { userId: creator },
-        { creatorId: creator },
-        { ownerUsername: creator },
-      ];
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : request.cookies.get('auth_token')?.value;
+
+    let authenticatedUser = null;
+
+    if (token && creator && includeDrafts) {
+      let decoded = null;
+
+      try {
+        decoded = verifyToken(token);
+      } catch {
+        // Invalid authentication receives public-only access.
+      }
+
+      if (decoded?.userId) {
+        const userId = String(decoded.userId).trim();
+
+        const identityFilters = [
+          { _id: userId },
+          { id: userId },
+          { userId },
+        ];
+
+        if (ObjectId.isValid(userId)) {
+          identityFilters.unshift({ _id: new ObjectId(userId) });
+        }
+
+        authenticatedUser = await db.collection('users').findOne(
+          { $or: identityFilters },
+          { projection: { _id: 1, id: 1, userId: 1, username: 1 } },
+        );
+      }
     }
 
-    if (status) {
-      query.status = status;
+    const ownerAliases = authenticatedUser
+      ? [...new Set([
+          authenticatedUser._id,
+          authenticatedUser.id,
+          authenticatedUser.userId,
+          authenticatedUser.username,
+        ].filter(Boolean).map(String))]
+      : [];
+
+    const canReadOwnDrafts = Boolean(
+      creator &&
+      includeDrafts &&
+      authenticatedUser &&
+      ownerAliases.includes(creator)
+    );
+
+    function creatorFilter(values, username) {
+      const stringValues = [...new Set(values.filter(Boolean).map(String))];
+      const objectValues = stringValues
+        .filter((value) => ObjectId.isValid(value))
+        .map((value) => new ObjectId(value));
+
+      return {
+        $or: [
+          { userId: { $in: [...stringValues, ...objectValues] } },
+          { creatorId: { $in: [...stringValues, ...objectValues] } },
+          { ownerId: { $in: [...stringValues, ...objectValues] } },
+          ...(username
+            ? [
+                { ownerUsername: username },
+                { creatorUsername: username },
+              ]
+            : []),
+        ],
+      };
+    }
+
+    const clauses = [];
+
+    if (canReadOwnDrafts) {
+      clauses.push(creatorFilter(
+        ownerAliases,
+        authenticatedUser.username,
+      ));
+
+      // No status restriction means all of this owner's states.
+      if (status) clauses.push({ status });
     } else {
-      // default to public/live products
-      query.status = { $in: ['live', 'active'] };
+      clauses.push(publicProductEligibility());
+
+      if (creator) {
+        clauses.push(creatorFilter([creator], creator));
+      }
+
+      // Requested status may narrow public eligibility, never expand it.
+      if (status) clauses.push({ status });
     }
+
+    const query = { $and: clauses };
 
     if (category) {
       // assuming categories: string[] on the product
@@ -49,16 +135,6 @@ export async function GET(request) {
       // query.title = { $regex: q, $options: 'i' };
     }
 
-// Only apply isPublic filter if we are NOT looking for a specific creator's own stuff
-// Or if a "showDrafts" flag isn't passed.
-if (!creator) {
-  query.isPublic = { $ne: false };
-  query.status = { $in: ['live', 'active'] };
-} else {
-  // If a creator ID is provided, we assume we want to see their 
-  // catalog for management, so we loosen the restriction.
-  // Optional: Check session here to ensure ONLY the owner sees non-public items.
-}
     const cursor = db
       .collection('products')
       .find(query)

@@ -337,6 +337,35 @@ export async function GET(request, { params }) {
 
     const localProduct = await db.collection('products').findOne(filter);
 
+    if (localProduct) {
+      const authenticatedUserId = getAuthenticatedUserId(request);
+      const productOwnerId = String(
+        localProduct.userId ??
+        localProduct.ownerId ??
+        localProduct.creatorId ??
+        ''
+      );
+
+      const isOwner = Boolean(
+        authenticatedUserId &&
+        productOwnerId &&
+        authenticatedUserId === productOwnerId
+      );
+
+      const isPubliclyEligible =
+        localProduct.isPublic === true &&
+        ['live', 'active'].includes(localProduct.status) &&
+        localProduct.isDraft !== true &&
+        localProduct.isVisible !== false;
+
+      if (!isOwner && !isPubliclyEligible) {
+        return NextResponse.json(
+          { success: false, error: 'Product not found' },
+          { status: 404 },
+        );
+      }
+    }
+
     if (!localProduct) {
       const pfRes = await fetch(`https://api.printful.com/products/${id}`, {
         headers: { Authorization: `Bearer ${process.env.PRINTFUL_API_KEY}`, 'Content-Type': 'application/json' },

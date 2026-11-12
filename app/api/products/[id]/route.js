@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/lib/mongodb';
+import { verifyToken } from '@/lib/auth';
+import {
+  publicProductEligibility,
+} from '@/lib/public-inventory-eligibility';
 
 async function generatePrintfulMockup(productId, templateId) {
   const res = await fetch('https://api.printful.com/mockup-generator', {
@@ -66,6 +70,45 @@ export async function GET(request, { params }) {
     
     if (!product) {
       return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
+    }
+
+    // Preserve authenticated owner access to unpublished products.
+    const authHeader = request.headers.get('authorization');
+    const token = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice(7).trim()
+      : request.cookies.get('auth_token')?.value;
+
+    const productOwnerId = String(
+      product.userId ?? product.ownerId ?? product.creatorId ?? ''
+    );
+
+    let isOwner = false;
+
+    if (token) {
+      try {
+        const decoded = verifyToken(token);
+
+        isOwner = Boolean(
+          decoded?.userId &&
+          productOwnerId &&
+          String(decoded.userId) === productOwnerId
+        );
+      } catch {
+        // Invalid authentication receives guest-level access only.
+      }
+    }
+
+    const isPubliclyEligible =
+      product.isPublic === true &&
+      ['live', 'active'].includes(product.status) &&
+      product.isDraft !== true &&
+      product.isVisible !== false;
+
+    if (!isOwner && !isPubliclyEligible) {
+      return NextResponse.json(
+        { success: false, error: 'Product not found' },
+        { status: 404 },
+      );
     }
 
     let rawImages =
@@ -164,7 +207,7 @@ const uniqueImages = [...new Set(allImages)];
             { $or: [{ id: { $ne: productIdForExclusion } }, { _id: { $ne: product._id } }] },
             { $or: [{ userId: creatorId }, { creatorId: creatorId }] }
           ],
-          isVisible: true,
+          ...publicProductEligibility(),
         })
         .limit(4)
         .toArray();

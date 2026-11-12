@@ -1,5 +1,11 @@
 import { ObjectId } from 'mongodb';
+import {
+  toPublicProductListing,
+} from '@/lib/public-listing-serializers';
 import { connectToDatabase } from '@/lib/mongodb';
+import {
+  showroomProductEligibility,
+} from '@/lib/public-inventory-eligibility';
 
 export async function GET(request) {
   try {
@@ -61,17 +67,9 @@ export async function GET(request) {
       }
 
       const filter = {
-        isDraft: { $ne: true },
-        status: { $ne: 'draft' },
+        ...showroomProductEligibility(),
 
         $and: [
-          {
-            $or: [
-              { showroomListed: true },
-              { status: { $in: ['live', 'active'] } },
-              { isPublic: true },
-            ],
-          },
           {
             $or: [
               { selectedIPs: { $in: ipIds } },
@@ -100,7 +98,7 @@ export async function GET(request) {
 
       return Response.json({
         success: true,
-        products,
+        products: products.map(toPublicProductListing),
         pagination: {
           page,
           limit,
@@ -111,13 +109,8 @@ export async function GET(request) {
     }
 
     const filter = {
-      isDraft: { $ne: true },
-      status: { $ne: 'draft' },
-      $or: [
-        { showroomListed: true },
-        { status: { $in: ['live', 'active'] } },
-        { isPublic: true },
-      ],
+      ...showroomProductEligibility(),
+
     };
 
     if (query) {
@@ -144,7 +137,7 @@ export async function GET(request) {
 
     return Response.json({
       success: true,
-      products,
+      products: products.map(toPublicProductListing),
       pagination: {
         page,
         limit,

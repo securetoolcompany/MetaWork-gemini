@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase, normalizeIds } from '@/lib/mongodb';
+import {
+  toPublicProductListing,
+  toPublicIpListing,
+} from '@/lib/public-listing-serializers';
+import {
+  showroomProductEligibility,
+  publicIpEligibility,
+} from '@/lib/public-inventory-eligibility';
 
 const cleanUrl = (url) => {
   if (!url) return "/placeholder.png";
@@ -74,22 +82,9 @@ export async function GET() {
     const { db } = await connectToDatabase();
 
     const [products, usersWithAisles, ipAssets] = await Promise.all([
-      db.collection('products').find({
-        isDraft: { $ne: true },
-        status: { $ne: 'draft' },
-        $or: [
-          { showroomListed: true },
-          { status: { $in: ['live', 'active'] } },
-          { isPublic: true }
-        ]
-      }).toArray(),
+      db.collection('products').find(showroomProductEligibility()).toArray(),
       db.collection('users').find({ aisleSettings: { $exists: true } }).toArray(),
-      db.collection('ip_assets').find({
-        $or: [
-          { isPublic: true },
-          { status: { $in: ['active', 'live'] } }
-        ]
-      }).toArray()
+      db.collection('ip_assets').find(publicIpEligibility()).toArray()
     ]);
 
     const formattedUserAisles = usersWithAisles
@@ -138,14 +133,14 @@ export async function GET() {
 
     const normalizedProducts = normalizeIds(products)
       .map(p => ({
-        ...normalizeProductImageFields(p),
+        ...toPublicProductListing(normalizeProductImageFields(p)),
         type: 'product'
       }))
       .filter(hasUsableImage);
 
     const normalizedIPAssets = normalizeIds(ipAssets)
       .map(i => ({
-        ...i,
+        ...toPublicIpListing(i),
         imageUrl: cleanUrl(i.imageUrl || i.thumbnailUrl || i.image),
         type: 'ip'
       }))

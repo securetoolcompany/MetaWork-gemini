@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb';
+import {
+  publicProductEligibility,
+} from '@/lib/public-inventory-eligibility';
 
 export const dynamic = 'force-dynamic';
 
@@ -71,19 +74,24 @@ export async function GET(request) {
 
     const { db } = await connectToDatabase();
 
+    // Requested statuses can narrow public eligibility, never expand it.
+    const publicQuery = {
+      $and: [
+        publicProductEligibility(),
+        { status: { $in: status } },
+      ],
+    };
+
     const query = {};
 
-    if (isPublicRequest) {
-      query.isPublic = true;
-      query.status = { $in: status };
-    } else if (currentUserId) {
+    if (!isPublicRequest && currentUserId) {
+      // Preserve the existing authenticated owner's inventory access.
       query.$or = [
         { userId: currentUserId },
-        { isPublic: true, status: { $in: status } }
+        publicQuery,
       ];
     } else {
-      query.isPublic = true;
-      query.status = { $in: status };
+      query.$and = [...publicQuery.$and];
     }
 
     if (search) {
