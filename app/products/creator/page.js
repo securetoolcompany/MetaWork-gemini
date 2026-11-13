@@ -846,7 +846,7 @@ function ProductCreatorInner() {
   }, [selectedBlank, originalPlacementAssets]);
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden font-sans relative">
+    <div className="min-h-dvh flex flex-col bg-background font-sans relative md:h-screen md:min-h-0 md:overflow-hidden">
       <header className="h-16 border-b flex items-center justify-between px-6 bg-card z-[60] shadow-sm relative shrink-0">
         <div className="flex items-center gap-6">
           <Button
@@ -920,7 +920,7 @@ function ProductCreatorInner() {
         </nav>
       )}
 
-      <div className="flex-1 overflow-hidden relative">
+      <div className="flex-1 min-h-0 relative md:overflow-hidden">
         {step === 'catalog' && (
           <main className="h-full overflow-y-auto bg-black no-scrollbar scroll-smooth p-6 md:p-12">
             <div className="max-w-[1920px] mx-auto text-white">
@@ -955,11 +955,11 @@ function ProductCreatorInner() {
         )}
 
         {step === 'design' && (
-          <div className="h-full w-full flex flex-col md:flex-row bg-black overflow-hidden relative">
+          <div className="w-full flex flex-col bg-black relative pb-[calc(8rem+env(safe-area-inset-bottom))] md:h-full md:flex-row md:overflow-hidden md:pb-0">
             <div
               className={cn(
                 'shrink-0 bg-zinc-950 border-zinc-800 relative z-30',
-                isMobile ? 'w-full h-32 border-b' : 'w-80 border-r h-full'
+                isMobile ? 'w-full h-48 border-b overflow-hidden' : 'w-80 border-r h-full'
               )}
             >
               <IPLibraryPanel
@@ -971,7 +971,7 @@ function ProductCreatorInner() {
               />
             </div>
 
-            <main className="flex-1 relative bg-slate-950 z-10 w-full min-h-0">
+            <main className="relative bg-slate-950 z-10 w-full h-[75dvh] min-h-[600px] shrink-0 md:h-auto md:min-h-0 md:flex-1">
               {edmLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-40 pointer-events-none">
                   <Loader2 className="animate-spin h-10 w-10 text-indigo-500" />
@@ -981,7 +981,7 @@ function ProductCreatorInner() {
               <div
                 className={cn(
                   'absolute inset-0 z-10',
-                  isMobile ? 'bottom-[72px]' : 'bottom-0'
+                  'bottom-0'
                 )}
               >
                 <div
