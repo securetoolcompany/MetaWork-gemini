@@ -390,7 +390,23 @@ function ProductCreatorInner() {
           },
 
           onError: (error) => {
-            toast.error(`Design Maker error: ${error}`)
+            const message =
+              typeof error === 'string'
+                ? error
+                : error?.message || String(error);
+
+            if (/no valid nonce found for the provided value/i.test(message)) {
+              console.warn('[EDM] Editor session ended:', error);
+              toast.warning(
+                'Editor session ended. Finish saving your product, then reopen it from My Products before editing or saving again.',
+                {
+                  id: 'edm-session-ended',
+                  duration: 10000,
+                }
+              );
+            } else {
+              toast.error(`Design Maker error: ${message}`);
+            }
             clearGlobalInteractionLocks()
             setEdmLoading(false)
           },
