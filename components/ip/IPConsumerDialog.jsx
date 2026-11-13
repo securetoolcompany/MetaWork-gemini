@@ -7,13 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { ShareButton } from '@/components/ui/share-button';
-import { 
-  User, 
-  MapPin, 
-  Info, 
-  Tag, 
-  DollarSign, 
-  CheckCircle, 
+import {
+  User,
+  MapPin,
+  Info,
+  Tag,
+  DollarSign,
+  CheckCircle,
   ArrowLeft,
   Paintbrush,
   Globe,
@@ -28,7 +28,7 @@ import {
 export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
   const router = useRouter();
   const pathname = usePathname(); // Detect where the user is
-  
+
   if (!ip) return null;
 
   // Normalize tags defensively — DB may store as string or array
@@ -69,9 +69,9 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
       // Send them to the creator with this IP pre-selected
       router.push(`/products/creator?ipId=${ip.id || ip._id}`);
     }
-  }; 
-  
-  
+  };
+
+
   // Calculate stats
   const usageCount = ip.usageCount || 0;
   const totalRevenue = ip.totalRevenue || 0;
@@ -79,9 +79,9 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
   const viewCount = ip.viewCount || 0;
 
   return (
-    <div className="flex flex-col min-h-0 h-full bg-background text-foreground animate-in fade-in slide-in-from-right-4 duration-200">      
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground animate-in fade-in slide-in-from-right-4 duration-200">
       {/* Header / Nav */}
-      <div className="flex items-center gap-3 p-4 border-b">
+      <div className="flex shrink-0 items-center gap-3 border-b p-4 pr-12">
         <Button variant="ghost" size="sm" onClick={onBack} className="gap-1 text-muted-foreground hover:text-foreground">
           <ArrowLeft className="h-4 w-4" />
           Back to Library
@@ -90,13 +90,13 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
         <h2 className="font-semibold text-sm truncate">Asset Details</h2>
       </div>
 
-      <div className="flex-1 overflow-hidden">
-        <div className="grid grid-cols-1 md:grid-cols-12 min-h-0 flex-1 overflow-y-auto md:overflow-hidden">          
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain md:overflow-hidden">
+        <div className="grid min-w-0 grid-cols-1 md:h-full md:min-h-0 md:grid-cols-12">
           {/* Left: Image */}
           <div className="md:col-span-4 lg:col-span-5 bg-muted/30 p-4 md:p-8 flex items-center justify-center border-b md:border-b-0 md:border-r">
             <div className="relative aspect-square w-full max-w-[250px] md:max-w-sm rounded-lg ...">
-                <img 
-                  src={ip.imageUrl || ip.thumbnailUrl} 
+                <img
+                  src={ip.imageUrl || ip.thumbnailUrl}
                   alt={ip.name}
                   className="w-full h-full object-contain"
                 />
@@ -104,9 +104,9 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
           </div>
 
           {/* Right: Info */}
-            <div className="md:col-span-8 lg:col-span-7 flex flex-col h-full min-h-0">            <ScrollArea className="flex-1">
+            <div className="flex min-w-0 flex-col md:col-span-8 md:h-full md:min-h-0 lg:col-span-7">            <ScrollArea className="min-w-0 md:min-h-0 md:flex-1">
               <div className="p-6 space-y-6">
-                
+
                 {/* Header Info */}
                 <div>
                    <div className="flex items-start justify-between">
@@ -134,7 +134,7 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
                 {/* GLOBAL STATS SECTION */}
                 <div className="bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 rounded-lg p-4 border border-blue-200/50">
                   <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-blue-500" /> 
+                    <TrendingUp className="h-4 w-4 text-blue-500" />
                     Marketplace Performance
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
@@ -174,7 +174,7 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
                       <p className="text-2xl font-bold">{viewCount}</p>
                     </div>
                   </div>
-                  
+
                   {/* Popularity Indicator */}
                   {usageCount > 0 && (
                     <div className="mt-3 pt-3 border-t border-white/10">
@@ -182,8 +182,8 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
                         <span className="text-muted-foreground">Popularity:</span>
                         <div className="flex items-center gap-1">
                           {[...Array(5)].map((_, i) => (
-                            <Star 
-                              key={i} 
+                            <Star
+                              key={i}
                               className={`h-3 w-3 ${i < Math.min(Math.ceil(usageCount / 5), 5) ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'}`}
                             />
                           ))}
@@ -213,11 +213,11 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
                          <p className="text-xs text-muted-foreground">Creator</p>
                       </div>
                    </div>
-                   
+
                    {ip.ownerUsername && (
-                       <Button 
-                         variant="outline" 
-                         size="sm" 
+                       <Button
+                         variant="outline"
+                         size="sm"
                          className="gap-2 text-xs h-8"
                          onClick={() => window.open(`/aisle/${ip.ownerUsername}`, '_blank')}
                        >
@@ -254,16 +254,16 @@ export default function IPConsumerDialog({ ip, onBack, onSelect, ...props }) {
             </ScrollArea>
 
             {/* Footer Action */}
-            <div className="p-4 border-t bg-muted/10">
-               <div className="flex items-center justify-between gap-4">
+            <div className="shrink-0 border-t bg-muted/10 p-4">
+               <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-xs text-muted-foreground">
                      <p className="flex items-center gap-1.5">
                         <CheckCircle className="h-3 w-3 text-green-500" />
                         Valid for commercial use
                      </p>
                   </div>
-                  <div className="flex flex-wrap md:flex-nowrap gap-2 justify-end w-full">
-                     <ShareButton 
+                  <div className="flex w-full flex-wrap justify-end gap-2 sm:w-auto">
+                     <ShareButton
                        url={typeof window !== 'undefined' ? `${window.location.origin}/ip/${ip.id || ip._id}` : ''}
                        title={`Check out this IP: ${ip.name}`}
                        text="License this IP to create your own products!"

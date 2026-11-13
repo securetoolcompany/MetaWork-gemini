@@ -78,12 +78,12 @@ export default function IPLibraryDialog({ open, onOpenChange, onSelectIP, isConn
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedCreator, setSelectedCreator] = useState('all');
-  
+
   const [ips, setIps] = useState([]);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState([]);
   const [creators, setCreators] = useState([]);
-  
+
   // Track which IP is being viewed in detail
   const [viewingIP, setViewingIP] = useState(null);
 
@@ -105,11 +105,11 @@ export default function IPLibraryDialog({ open, onOpenChange, onSelectIP, isConn
     try {
       let url = activeTab === 'global' ? '/api/ip/library' : '/api/ip/my-library';
       const params = new URLSearchParams();
-      
+
       if (searchQuery) params.set('search', searchQuery);
       if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
       if (selectedCreator && selectedCreator !== 'all') params.set('creator', selectedCreator);
-      
+
       const response = await fetch(`${url}?${params.toString()}`);
       const data = await response.json();
 
@@ -213,8 +213,8 @@ export default function IPLibraryDialog({ open, onOpenChange, onSelectIP, isConn
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0 gap-0 bg-background/95 backdrop-blur-xl">
-        
+      <DialogContent className="flex h-[85dvh] max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-5xl min-h-0 flex-col overflow-hidden p-0 gap-0 bg-background/95 backdrop-blur-xl">
+
         {/* Render DETAILS view if an IP is selected */}
         {viewingIP ? (
         <>
@@ -259,14 +259,14 @@ export default function IPLibraryDialog({ open, onOpenChange, onSelectIP, isConn
             <div className="p-4 border-b flex flex-wrap gap-3 items-center bg-muted/30">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search assets, descriptions, or creators..." 
+                <Input
+                  placeholder="Search assets, descriptions, or creators..."
                   className="pl-9 bg-background"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              
+
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                 <SelectTrigger className="w-[160px] bg-background">
                   <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
@@ -297,14 +297,14 @@ export default function IPLibraryDialog({ open, onOpenChange, onSelectIP, isConn
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
               <div className="px-4 pt-2 border-b">
                 <TabsList className="bg-transparent p-0 gap-4">
-                  <TabsTrigger 
-                    value="global" 
+                  <TabsTrigger
+                    value="global"
                     className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 pb-2"
                   >
                     Global Market
                   </TabsTrigger>
-                  <TabsTrigger 
-                    value="my-ip" 
+                  <TabsTrigger
+                    value="my-ip"
                     disabled={!isConnected}
                     className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-2 pb-2"
                   >
