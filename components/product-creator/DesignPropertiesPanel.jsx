@@ -321,12 +321,13 @@ export default function DesignPropertiesPanel({
 
       setResolvedTemplateId(freshTemplateId);
       setShowNameDialog(true);
+      if (isMobile) setIsExpanded?.(false);
     } catch (error) {
       toast.error(error?.message || "Design save failed");
     } finally {
       setSaving(false);
     }
-  }, [saving, onTriggerEdmSave, hasLibraryIPs, hasEdmAssets, hasEdmPlacements]);
+  }, [saving, onTriggerEdmSave, hasLibraryIPs, hasEdmAssets, hasEdmPlacements, isMobile, setIsExpanded]);
 
   useEffect(() => {
     setResolvedTemplateId(null);
@@ -539,7 +540,7 @@ export default function DesignPropertiesPanel({
 
       {/* Name Product Dialog */}
       <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-slate-100 max-w-[90vw] rounded-xl">
+        <DialogContent className="z-[120] max-h-[calc(100dvh-2rem)] overflow-y-auto bg-slate-900 border-slate-700 text-slate-100 max-w-[90vw] rounded-xl">
           <DialogHeader>
             <DialogTitle>Name Product</DialogTitle>
           </DialogHeader>
