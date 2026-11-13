@@ -22,62 +22,8 @@ import DesignPropertiesPanel from 'components/product-creator/DesignPropertiesPa
 import { useSearchParams } from 'next/navigation'
 import { useIsMobile } from '@/hooks/use-mobile'
 import BlankProductDetailsDialog from 'components/product-creator/BlankProductDetailsDialog'
-
-const CATEGORY_ID_MAP = {
-  Activewear: ['leggings', 'sports bra', 'athletic', 'joggers', 'active'],
-  Fightwear: ['rash guard', 'bjj', 'mma', 'boxing', 'fighter', 'martial'],
-  Formalwear: ['dress', 'blazer', 'formal', 'suit'],
-  Headwear: ['hat', 'beanie', 'cap', 'snapback', 'headband', 'visor'],
-  Patches: ['patch', 'patches', 'embroidered'],
-  'Phone Cases': ['iphone', 'samsung', 'case', 'airpods', 'magsafe'],
-  'Purses Tote Bags': ['bag', 'tote', 'purse', 'handbag'],
-  Schoolwear: ['school uniform', 'varsity', 'college'],
-  Streetwear: [
-    'hoodie',
-    'sweatshirt',
-    'tee',
-    't-shirt',
-    'tank',
-    'men',
-    'women',
-    'unisex',
-    'longsleeve',
-    'sweater',
-  ],
-  Swimwear: ['swimsuit', 'swim', 'bikini', 'trunks', 'boardshort'],
-  Bedroom: ['pillow', 'blanket', 'duvet', 'sheet', 'slipper'],
-  Kitchen: ['apron', 'mug', 'coaster', 'towel'],
-  'Magnets Stickers': ['magnet', 'sticker'],
-  Pets: ['pet', 'dog', 'cat'],
-  'Posters Wall Art': ['poster', 'canvas', 'framed', 'flag', 'wall art'],
-  Tech: ['mouse pad', 'laptop sleeve', 'ipad'],
-  Backpacks: ['backpack', 'bag'],
-  Study: ['notebook', 'stationery'],
-}
-
-const TOP_LEVEL_GROUPS = {
-  'Apparel Accessories': [
-    'Activewear',
-    'Fightwear',
-    'Formalwear',
-    'Headwear',
-    'Patches',
-    'Phone Cases',
-    'Purses Tote Bags',
-    'Schoolwear',
-    'Streetwear',
-    'Swimwear',
-  ],
-  'Home Office': [
-    'Bedroom',
-    'Kitchen',
-    'Magnets Stickers',
-    'Pets',
-    'Posters Wall Art',
-    'Tech',
-  ],
-  'School University': ['Backpacks', 'Study'],
-}
+import { PRODUCT_BROWSE_CATEGORIES } from '@/lib/productBrowseCategories'
+import { classifyBlankProduct } from '@/lib/classifyBlankProduct'
 
 const generateSlug = (text) => {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
@@ -86,6 +32,7 @@ const generateSlug = (text) => {
 function ProductCreatorInner() {
   const { accountAddress } = useWallet()
 
+  const catalogResultsRef = useRef(null)
   const pfDesignMakerRef = useRef(null)
   const edmSaveResolveRef = useRef(null)
   const currentNonceRef = useRef(null)
@@ -627,48 +574,87 @@ function ProductCreatorInner() {
     fetchCatalog()
   }, [])
 
-  const filteredProducts = useMemo(() => {
-    let list = [...catalogProducts]
+  const selectBrowseCategory = useCallback((categoryId) => {
+    setSelectedCategory(categoryId)
 
-    if (selectedCategory === 'All Products' && !searchQuery) {
-      list.sort((a, b) =>
-        (a.printfulCategories?.[0] || '').localeCompare(
-          b.printfulCategories?.[0] || ''
-        )
-      )
-    }
+    window.requestAnimationFrame(() => {
+      const prefersReducedMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)'
+      ).matches
 
-    if (searchQuery) {
-      list = list.filter((p) =>
-        p.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    }
-
-    if (selectedCategory !== 'All Products') {
-      let targetKeywords = []
-
-      if (TOP_LEVEL_GROUPS[selectedCategory]) {
-        TOP_LEVEL_GROUPS[selectedCategory].forEach((sub) => {
-          targetKeywords = [...targetKeywords, ...(CATEGORY_ID_MAP[sub] || [])]
-        })
-      } else {
-        targetKeywords = CATEGORY_ID_MAP[selectedCategory] || []
-      }
-
-      list = list.filter((p) => {
-        const nameLower = p.name.toLowerCase()
-        const tags = p.printfulCategories?.map((t) => t.toLowerCase()) || []
-
-        return targetKeywords.some(
-          (kw) =>
-            tags.includes(kw.toLowerCase()) ||
-            new RegExp(kw.toLowerCase(), 'i').test(nameLower)
-        )
+      catalogResultsRef.current?.scrollIntoView({
+        behavior: prefersReducedMotion ? 'instant' : 'smooth',
+        block: 'start',
+        inline: 'nearest',
       })
+    })
+  }, [])
+
+  const browseProducts = useMemo(() => {
+    return catalogProducts.map((product) => {
+      const categoryIds = classifyBlankProduct(product)
+      const matchingGroups = PRODUCT_BROWSE_CATEGORIES.filter((group) =>
+        group.children.some((child) => categoryIds.includes(child.id))
+      )
+      const labels = matchingGroups.flatMap((group) => [
+        group.label,
+        ...group.children
+          .filter((child) => categoryIds.includes(child.id))
+          .map((child) => child.label),
+      ])
+
+      return {
+        product,
+        categoryIds,
+        groupIds: matchingGroups.map((group) => group.id),
+        searchText: [
+          product.name,
+          product.type_name,
+          ...labels,
+        ].filter(Boolean).join(' ').toLowerCase(),
+      }
+    })
+  }, [catalogProducts])
+
+  const browseCounts = useMemo(() => {
+    const counts = {}
+
+    for (const item of browseProducts) {
+      for (const id of [...item.categoryIds, ...item.groupIds]) {
+        counts[id] = (counts[id] || 0) + 1
+      }
     }
 
-    return list
-  }, [catalogProducts, selectedCategory, searchQuery])
+    return counts
+  }, [browseProducts])
+
+  const activeBrowseGroup = PRODUCT_BROWSE_CATEGORIES.find((group) =>
+    group.id === selectedCategory ||
+    group.children.some((child) => child.id === selectedCategory)
+  )
+
+  const activeBrowseLabel =
+    selectedCategory === 'All Products'
+      ? 'All Blanks'
+      : activeBrowseGroup?.children.find(
+          (child) => child.id === selectedCategory
+        )?.label || activeBrowseGroup?.label || 'All Blanks'
+
+  const filteredProducts = useMemo(() => {
+    const terms = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean)
+
+    return browseProducts
+      .filter((item) => {
+        const matchesCategory =
+          selectedCategory === 'All Products' ||
+          item.groupIds.includes(selectedCategory) ||
+          item.categoryIds.includes(selectedCategory)
+
+        return matchesCategory &&
+          terms.every((term) => item.searchText.includes(term))
+      })
+      .map((item) => item.product)
+  }, [browseProducts, selectedCategory, searchQuery])
 
   useEffect(() => {
     if (!urlExternalProductId || step !== 'catalog') return
@@ -884,50 +870,28 @@ function ProductCreatorInner() {
       </header>
 
       {step === 'catalog' && (
-        <nav className="bg-background border-b px-6 py-4 flex flex-col md:flex-row items-center gap-4 md:gap-10 z-40 shrink-0">
-          <div className="flex items-center gap-4">
-            <Button
-              variant={selectedCategory === 'All Products' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                setSelectedCategory('All Products')
-                setSearchQuery('')
-              }}
-              className={cn(
-                'font-bold h-10 px-6 rounded-full border-zinc-800 transition-all',
-                selectedCategory === 'All Products'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-zinc-300'
-              )}
-            >
-              <Database className="mr-2 h-4 w-4" />
-              All Blanks
-            </Button>
-          </div>
+        <nav
+          aria-label="Blank product search"
+          className="bg-background border-b px-6 py-4 flex flex-col sm:flex-row gap-4 z-40 shrink-0"
+        >
+          <Button
+            variant={selectedCategory === 'All Products' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setSelectedCategory('All Products')
+              setSearchQuery('')
+            }}
+            className="h-10 rounded-full px-6"
+          >
+            <Database className="mr-2 h-4 w-4" />
+            All Blanks ({catalogProducts.length})
+          </Button>
 
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
-            {Object.keys(TOP_LEVEL_GROUPS).map((group) => (
-              <Button
-                key={group}
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedCategory(group)}
-                className={cn(
-                  'text-xs font-bold h-10 px-4 rounded-full transition-colors whitespace-nowrap',
-                  selectedCategory === group
-                    ? 'bg-indigo-900/40 text-indigo-400'
-                    : 'text-zinc-300 hover:bg-zinc-800'
-                )}
-              >
-                {group}
-              </Button>
-            ))}
-          </div>
-
-          <div className="flex-1 w-full relative max-w-lg ml-auto">
+          <div className="relative w-full sm:max-w-lg sm:ml-auto">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
             <Input
-              placeholder="Search catalog..."
+              aria-label="Search blank products"
+              placeholder="Search products, types, or categories..."
               className="pl-11 h-10 bg-zinc-900 border-zinc-800 rounded-full"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -946,9 +910,109 @@ function ProductCreatorInner() {
                 </div>
               ) : (
                 <div className="space-y-12">
-                  <h2 className="text-2xl md:text-4xl font-black uppercase tracking-tighter">
-                    {selectedCategory}
-                  </h2>
+                  <section className="space-y-6" aria-label="Browse blank categories">
+                    <div>
+                      <h2 className="text-2xl md:text-4xl font-black tracking-tight">
+                        What would you like to create?
+                      </h2>
+                      <p className="mt-2 text-sm text-zinc-400">
+                        Choose a product category, then find a blank to customize.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {PRODUCT_BROWSE_CATEGORIES
+                        .filter((group) => browseCounts[group.id] > 0)
+                        .map((group) => (
+                          <button
+                            key={group.id}
+                            type="button"
+                            aria-pressed={activeBrowseGroup?.id === group.id}
+                            onClick={() => selectBrowseCategory(group.id)}
+                            className={cn(
+                              'rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400',
+                              activeBrowseGroup?.id === group.id
+                                ? 'border-indigo-500 bg-indigo-950/60'
+                                : 'border-zinc-800 bg-zinc-900/60 hover:border-zinc-600'
+                            )}
+                          >
+                            <span className="block text-sm font-semibold">
+                              {group.label}
+                            </span>
+                            <span className="mt-1 block text-xs text-zinc-400">
+                              {browseCounts[group.id]} blanks
+                            </span>
+                            <span className="mt-3 block text-xs leading-relaxed text-zinc-500">
+                              {group.children
+                                .filter((child) => browseCounts[child.id] > 0)
+                                .map((child) => child.label)
+                                .slice(0, 3)
+                                .join(' · ')}
+                            </span>
+                          </button>
+                        ))}
+                    </div>
+
+                    {activeBrowseGroup && (
+                      <div className="flex flex-wrap gap-2" aria-label="Subcategories">
+                        <Button
+                          size="sm"
+                          variant={
+                            selectedCategory === activeBrowseGroup.id
+                              ? 'default'
+                              : 'outline'
+                          }
+                          onClick={() => selectBrowseCategory(activeBrowseGroup.id)}
+                        >
+                          All {activeBrowseGroup.label}
+                          {' '}({browseCounts[activeBrowseGroup.id] || 0})
+                        </Button>
+
+                        {activeBrowseGroup.children
+                          .filter((child) => browseCounts[child.id] > 0)
+                          .map((child) => (
+                            <Button
+                              key={child.id}
+                              size="sm"
+                              variant={
+                                selectedCategory === child.id ? 'default' : 'outline'
+                              }
+                              onClick={() => selectBrowseCategory(child.id)}
+                            >
+                              {child.label} ({browseCounts[child.id]})
+                            </Button>
+                          ))}
+                      </div>
+                    )}
+
+                    <div
+                      ref={catalogResultsRef}
+                      className="scroll-mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 pt-5"
+                    >
+                      <h3 className="text-xl font-semibold">
+                        {activeBrowseLabel}
+                      </h3>
+                      <p className="text-sm text-zinc-400" role="status">
+                        {filteredProducts.length} matching blanks
+                      </p>
+                    </div>
+
+                    {filteredProducts.length === 0 && (
+                      <div className="rounded-xl border border-dashed border-zinc-700 p-8 text-center">
+                        <p>No blanks match your category and search.</p>
+                        <Button
+                          variant="outline"
+                          className="mt-4"
+                          onClick={() => {
+                            setSelectedCategory('All Products')
+                            setSearchQuery('')
+                          }}
+                        >
+                          Clear filters
+                        </Button>
+                      </div>
+                    )}
+                  </section>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-6">
                     {filteredProducts.map((p) => (
