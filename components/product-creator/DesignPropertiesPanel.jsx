@@ -268,9 +268,9 @@ export default function DesignPropertiesPanel({
         toast.success("Product saved to My Products", {
           id: "creator-product-save",
         });
-        router.refresh();
         setPendingTitle(title);
         setShowNameDialog(false);
+        router.replace("/my-products");
       } catch (error) {
         toast.error(
           error?.message || "Could not save your product. Please try again.",
