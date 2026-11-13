@@ -510,9 +510,31 @@ function buildPricedVariants({
         ""
     ).trim();
 
-    if (!size || !color) {
+    // Require a dimension only when this catalog product uses it.
+    const catalogHasSize = catalogVariants.some((variant) =>
+      [
+        variant?.attributes?.pa_size,
+        variant?.attributes?.size,
+        variant?.size,
+      ].some((value) => String(value ?? "").trim().length > 0)
+    );
+
+    const catalogHasColor = catalogVariants.some((variant) =>
+      [
+        variant?.attributes?.pa_color,
+        variant?.attributes?.color,
+        variant?.color,
+      ].some((value) => String(value ?? "").trim().length > 0)
+    );
+
+    const missingDimensions = [
+      catalogHasSize && !size ? "size" : null,
+      catalogHasColor && !color ? "color" : null,
+    ].filter(Boolean);
+
+    if (missingDimensions.length > 0) {
       throw new Error(
-        `Selected variant ${catalogVariantId} is missing its size or color.`
+        `Selected variant ${catalogVariantId} is missing its ${missingDimensions.join(" and ")}.`
       );
     }
 
