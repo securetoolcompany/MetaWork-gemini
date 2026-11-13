@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Layers, X, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +42,8 @@ export default function DesignPropertiesPanel({
   const [selectedVariantId, setSelectedVariantId] = useState(null);
   const [loadingVariants, setLoadingVariants] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [persisting, setPersisting] = useState(false);
+  const persistInFlightRef = useRef(false);
   const [showNameDialog, setShowNameDialog] = useState(false);
   const [pendingTitle, setPendingTitle] = useState("");
   const [resolvedTemplateId, setResolvedTemplateId] = useState(null);
@@ -212,6 +214,7 @@ export default function DesignPropertiesPanel({
 
   const handleConfirmSave = useCallback(
     async (options = {}) => {
+      if (persistInFlightRef.current) return;
       const { titleOverride, resolvedTemplateId: resolvedTemplateIdArg } =
         options;
       const title = titleOverride || pendingTitle.trim();
@@ -231,6 +234,9 @@ export default function DesignPropertiesPanel({
         resolvedTemplateId ||
         printfulTemplateId ||
         null;
+
+      persistInFlightRef.current = true;
+      setPersisting(true);
 
       try {
         const res = await fetch("/api/products/save-draft", {
@@ -259,14 +265,20 @@ export default function DesignPropertiesPanel({
           throw new Error(data.error || "Save failed");
         }
 
-        toast.success("Draft saved successfully");
+        toast.success("Product saved to My Products", {
+          id: "creator-product-save",
+        });
         router.refresh();
         setPendingTitle(title);
         setShowNameDialog(false);
       } catch (error) {
         toast.error(
-          error?.message || "Draft save database synchronization failed"
+          error?.message || "Could not save your product. Please try again.",
+          { id: "creator-product-save" }
         );
+      } finally {
+        persistInFlightRef.current = false;
+        setPersisting(false);
       }
     },
     [
@@ -525,12 +537,17 @@ export default function DesignPropertiesPanel({
             size={isMobile ? "default" : "lg"}
             className="w-full shadow-lg bg-blue-600 hover:bg-blue-700"
             onClick={handleSaveDraft}
+            aria-busy={saving || persisting}
             disabled={
-              saving || (!hasLibraryIPs && !hasEdmAssets && !hasEdmPlacements)
+              saving || persisting || showNameDialog ||
+              (!hasLibraryIPs && !hasEdmAssets && !hasEdmPlacements)
             }
           >
-            {saving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            {saving || persisting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {persisting ? "Saving product..." : "Preparing design..."}
+              </>
             ) : (
               "Save Draft"
             )}
@@ -539,7 +556,12 @@ export default function DesignPropertiesPanel({
       </div>
 
       {/* Name Product Dialog */}
-      <Dialog open={showNameDialog} onOpenChange={setShowNameDialog}>
+      <Dialog
+        open={showNameDialog}
+        onOpenChange={(open) => {
+          if (!persistInFlightRef.current) setShowNameDialog(open);
+        }}
+      >
         <DialogContent className="z-[120] max-h-[calc(100dvh-2rem)] overflow-y-auto bg-slate-900 border-slate-700 text-slate-100 max-w-[90vw] rounded-xl">
           <DialogHeader>
             <DialogTitle>Name Product</DialogTitle>
@@ -547,13 +569,24 @@ export default function DesignPropertiesPanel({
           <Input
             placeholder="Working title..."
             value={pendingTitle}
+            disabled={persisting}
             onChange={(e) => setPendingTitle(e.target.value)}
             className="bg-slate-800 border-slate-700 mt-2"
           />
+          <p
+            role="status"
+            aria-live="polite"
+            className="min-h-5 text-xs text-slate-400"
+          >
+            {persisting
+              ? "Saving your product. This may take several seconds."
+              : "Choose a name for your product draft."}
+          </p>
           <div className="flex gap-2 mt-4">
             <Button
               variant="outline"
               onClick={() => setShowNameDialog(false)}
+              disabled={persisting}
               className="flex-1 border-slate-700"
             >
               Cancel
@@ -565,8 +598,17 @@ export default function DesignPropertiesPanel({
                 })
               }
               className="flex-1 bg-blue-600"
+              disabled={persisting || !pendingTitle.trim()}
+              aria-busy={persisting}
             >
-              Save
+              {persisting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving product...
+                </>
+              ) : (
+                "Save"
+              )}
             </Button>
           </div>
         </DialogContent>

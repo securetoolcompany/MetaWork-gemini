@@ -413,7 +413,7 @@ function ProductCreatorInner() {
               saveErrorListenerRef.current = null;
             }
 
-            toast.success('Design saved!');
+            // Product-save feedback is owned by DesignPropertiesPanel.
           },
         }
 
