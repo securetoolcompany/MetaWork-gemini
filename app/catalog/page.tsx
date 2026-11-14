@@ -1,73 +1,20 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Box, Layers, Cpu, ArrowRight, Loader2, Paintbrush, Search, ChevronLeft, ChevronRight, Database } from 'lucide-react';
 import { BlankProductCard } from '@/components/product-creator/BlankProductCard';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-
-// Bring in the exact mapping logic from the creator page
-const CATEGORY_ID_MAP: Record<string, string[]> = {
-  Activewear: ['leggings', 'sports bra', 'athletic', 'joggers', 'active'],
-  Fightwear: ['rash guard', 'bjj', 'mma', 'boxing', 'fighter', 'martial'],
-  Formalwear: ['dress', 'blazer', 'formal', 'suit'],
-  Headwear: ['hat', 'beanie', 'cap', 'snapback', 'headband', 'visor'],
-  Patches: ['patch', 'patches', 'embroidered'],
-  'Phone Cases': ['iphone', 'samsung', 'case', 'airpods', 'magsafe'],
-  'Purses Tote Bags': ['bag', 'tote', 'purse', 'handbag'],
-  Schoolwear: ['school uniform', 'varsity', 'college'],
-  Streetwear: [
-    'hoodie',
-    'sweatshirt',
-    'tee',
-    't-shirt',
-    'tank',
-    'men',
-    'women',
-    'unisex',
-    'longsleeve',
-    'sweater',
-  ],
-  Swimwear: ['swimsuit', 'swim', 'bikini', 'trunks', 'boardshort'],
-  Bedroom: ['pillow', 'blanket', 'duvet', 'sheet', 'slipper'],
-  Kitchen: ['apron', 'mug', 'coaster', 'towel'],
-  'Magnets Stickers': ['magnet', 'sticker'],
-  Pets: ['pet', 'dog', 'cat'],
-  'Posters Wall Art': ['poster', 'canvas', 'framed', 'flag', 'wall art'],
-  Tech: ['mouse pad', 'laptop sleeve', 'ipad'],
-  Backpacks: ['backpack', 'bag'],
-  Study: ['notebook', 'stationery'],
-};
-
-const TOP_LEVEL_GROUPS: Record<string, string[]> = {
-  'Apparel Accessories': [
-    'Activewear',
-    'Fightwear',
-    'Formalwear',
-    'Headwear',
-    'Patches',
-    'Phone Cases',
-    'Purses Tote Bags',
-    'Schoolwear',
-    'Streetwear',
-    'Swimwear',
-  ],
-  'Home Office': [
-    'Bedroom',
-    'Kitchen',
-    'Magnets Stickers',
-    'Pets',
-    'Posters Wall Art',
-    'Tech',
-  ],
-  'School University': ['Backpacks', 'Study'],
-};
+import { PRODUCT_BROWSE_CATEGORIES } from '@/lib/productBrowseCategories';
+import { classifyBlankProduct } from '@/lib/classifyBlankProduct';
 
 const ITEMS_PER_PAGE = 24;
 
 export default function MetaManufacturingPage() {
+  const catalogResultsRef = useRef<HTMLDivElement>(null);
+  const catalogNavRef = useRef<HTMLElement>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -101,46 +48,93 @@ export default function MetaManufacturingPage() {
     fetchCatalog();
   }, []);
 
-  // Filter Logic (Identical to Creator Page)
-  const filteredProducts = useMemo(() => {
-    let list = [...products];
+  const selectBrowseCategory = useCallback((categoryId: string) => {
+    setSelectedCategory(categoryId);
+    setCurrentPage(1);
 
-    // Search Query
-    if (searchQuery) {
-      list = list.filter((p) =>
-        String(p.name).toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
+    window.requestAnimationFrame(() => {
+      const target = catalogResultsRef.current;
+      if (!target) return;
 
-    // Category Filter
-    if (selectedCategory !== 'All Products') {
-      let targetKeywords: string[] = [];
+      const navHeight = catalogNavRef.current?.getBoundingClientRect().height || 0;
+      const top =
+        window.scrollY + target.getBoundingClientRect().top - navHeight - 16;
+      const prefersReducedMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)'
+      ).matches;
 
-      if (TOP_LEVEL_GROUPS[selectedCategory]) {
-        // It's a top-level group (e.g., 'Apparel Accessories')
-        TOP_LEVEL_GROUPS[selectedCategory].forEach((sub) => {
-          targetKeywords = [...targetKeywords, ...(CATEGORY_ID_MAP[sub] || [])];
-        });
-      } else {
-        // It's a specific sub-category
-        targetKeywords = CATEGORY_ID_MAP[selectedCategory] || [];
-      }
-
-      list = list.filter((p) => {
-        const nameLower = String(p.name).toLowerCase();
-        const tags = (p.printfulCategories || []).map((t: string) => String(t).toLowerCase());
-        
-        // Custom search to catch Printful tags or direct string matches in the name
-        return targetKeywords.some(
-          (kw) =>
-            tags.includes(kw.toLowerCase()) ||
-            new RegExp(kw.toLowerCase(), 'i').test(nameLower)
-        );
+      window.scrollTo({
+        top: Math.max(0, top),
+        behavior: prefersReducedMotion ? 'instant' : 'smooth',
       });
+    });
+  }, []);
+
+  const browseProducts = useMemo(() => {
+    return products.map((product) => {
+      const categoryIds = classifyBlankProduct(product);
+      const matchingGroups = PRODUCT_BROWSE_CATEGORIES.filter((group) =>
+        group.children.some((child) => categoryIds.includes(child.id))
+      );
+      const labels = matchingGroups.flatMap((group) => [
+        group.label,
+        ...group.children
+          .filter((child) => categoryIds.includes(child.id))
+          .map((child) => child.label),
+      ]);
+
+      return {
+        product,
+        categoryIds,
+        groupIds: matchingGroups.map((group) => group.id),
+        searchText: [
+          product.name,
+          product.type_name,
+          ...labels,
+        ].filter(Boolean).join(' ').toLowerCase(),
+      };
+    });
+  }, [products]);
+
+  const browseCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+
+    for (const item of browseProducts) {
+      for (const id of [...item.categoryIds, ...item.groupIds]) {
+        counts[id] = (counts[id] || 0) + 1;
+      }
     }
 
-    return list;
-  }, [products, selectedCategory, searchQuery]);
+    return counts;
+  }, [browseProducts]);
+
+  const activeBrowseGroup = PRODUCT_BROWSE_CATEGORIES.find((group) =>
+    group.id === selectedCategory ||
+    group.children.some((child) => child.id === selectedCategory)
+  );
+
+  const activeBrowseLabel =
+    selectedCategory === 'All Products'
+      ? 'All Blanks'
+      : activeBrowseGroup?.children.find(
+          (child) => child.id === selectedCategory
+        )?.label || activeBrowseGroup?.label || 'All Blanks';
+
+  const filteredProducts = useMemo(() => {
+    const terms = searchQuery.trim().toLowerCase().split(/\s+/).filter(Boolean);
+
+    return browseProducts
+      .filter((item) => {
+        const matchesCategory =
+          selectedCategory === 'All Products' ||
+          item.groupIds.includes(selectedCategory) ||
+          item.categoryIds.includes(selectedCategory);
+
+        return matchesCategory &&
+          terms.every((term) => item.searchText.includes(term));
+      })
+      .map((item) => item.product);
+  }, [browseProducts, selectedCategory, searchQuery]);
 
   // Pagination Math
   const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
@@ -220,55 +214,37 @@ export default function MetaManufacturingPage() {
       <section className="bg-zinc-950 flex-1 flex flex-col">
         
         {/* EXACT SAME STICKY NAV FROM CREATOR PAGE */}
-        <nav className="sticky top-0 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800 px-6 py-4 flex flex-col md:flex-row items-center gap-4 md:gap-10 z-40 w-full">
-            <div className="flex items-center gap-4 w-full md:w-auto">
-            <Button
-                variant={selectedCategory === 'All Products' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => {
-                setSelectedCategory('All Products');
-                setSearchQuery('');
-                }}
-                className={cn(
-                'font-bold h-10 px-6 rounded-full border-zinc-800 transition-all w-full md:w-auto',
-                selectedCategory === 'All Products'
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'text-zinc-300 bg-transparent hover:bg-zinc-900'
-                )}
-            >
-                <Database className="mr-2 h-4 w-4" />
-                All Blanks
-            </Button>
-            </div>
+        <nav
+          ref={catalogNavRef}
+          aria-label="Manufacturing catalog search"
+          className="sticky top-0 bg-zinc-950/90 backdrop-blur-md border-b border-zinc-800 px-6 py-4 flex flex-col sm:flex-row gap-4 z-40 w-full"
+        >
+          <Button
+            variant={selectedCategory === 'All Products' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setSearchQuery('');
+              selectBrowseCategory('All Products');
+            }}
+            className="h-10 rounded-full px-6"
+          >
+            <Database className="mr-2 h-4 w-4" />
+            All Blanks ({products.length})
+          </Button>
 
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar w-full md:w-auto pb-2 md:pb-0">
-            {Object.keys(TOP_LEVEL_GROUPS).map((group) => (
-                <Button
-                key={group}
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedCategory(group)}
-                className={cn(
-                    'text-xs font-bold h-10 px-4 rounded-full transition-colors whitespace-nowrap',
-                    selectedCategory === group
-                    ? 'bg-blue-900/40 text-blue-400'
-                    : 'text-zinc-300 hover:bg-zinc-800'
-                )}
-                >
-                {group}
-                </Button>
-            ))}
-            </div>
-
-            <div className="flex-1 w-full relative max-w-lg md:ml-auto">
+          <div className="relative w-full sm:max-w-lg sm:ml-auto">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
             <Input
-                placeholder="Search catalog..."
-                className="pl-11 h-10 bg-zinc-900 border-zinc-800 rounded-full text-white focus-visible:ring-blue-500 focus-visible:ring-offset-0"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search blank products"
+              placeholder="Search products, types, or categories..."
+              className="pl-11 h-10 bg-zinc-900 border-zinc-800 rounded-full text-white focus-visible:ring-blue-500 focus-visible:ring-offset-0"
+              value={searchQuery}
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+                setCurrentPage(1);
+              }}
             />
-            </div>
+          </div>
         </nav>
 
         {/* CATALOG GRID */}
@@ -280,23 +256,114 @@ export default function MetaManufacturingPage() {
             </div>
           ) : (
             <div className="space-y-8">
-              <div className="flex items-center justify-between">
-                <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tighter text-zinc-100">
-                  {selectedCategory}
-                </h2>
-                <span className="font-mono text-xs text-zinc-500">{filteredProducts.length} Assets Found</span>
-              </div>
+              <section className="space-y-6" aria-label="Browse manufacturing categories">
+                <div>
+                  <h2 className="text-2xl md:text-4xl font-black tracking-tight">
+                    What would you like to create?
+                  </h2>
+                  <p className="mt-2 text-sm text-zinc-400">
+                    Explore blank products available to customize through MetaManufacturing.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {PRODUCT_BROWSE_CATEGORIES
+                    .filter((group) => browseCounts[group.id] > 0)
+                    .map((group) => (
+                      <button
+                        key={group.id}
+                        type="button"
+                        aria-pressed={activeBrowseGroup?.id === group.id}
+                        onClick={() => selectBrowseCategory(group.id)}
+                        className={cn(
+                          'rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400',
+                          activeBrowseGroup?.id === group.id
+                            ? 'border-blue-500 bg-blue-950/60'
+                            : 'border-zinc-800 bg-zinc-900/60 hover:border-zinc-600'
+                        )}
+                      >
+                        <span className="block text-sm font-semibold">
+                          {group.label}
+                        </span>
+                        <span className="mt-1 block text-xs text-zinc-400">
+                          {browseCounts[group.id]} blanks
+                        </span>
+                        <span className="mt-3 block text-xs leading-relaxed text-zinc-500">
+                          {group.children
+                            .filter((child) => browseCounts[child.id] > 0)
+                            .map((child) => child.label)
+                            .slice(0, 3)
+                            .join(' · ')}
+                        </span>
+                      </button>
+                    ))}
+                </div>
+
+                {activeBrowseGroup && (
+                  <div className="flex flex-wrap gap-2" aria-label="Subcategories">
+                    <Button
+                      size="sm"
+                      variant={
+                        selectedCategory === activeBrowseGroup.id
+                          ? 'default'
+                          : 'outline'
+                      }
+                      onClick={() => selectBrowseCategory(activeBrowseGroup.id)}
+                    >
+                      All {activeBrowseGroup.label}
+                      {' '}({browseCounts[activeBrowseGroup.id] || 0})
+                    </Button>
+
+                    {activeBrowseGroup.children
+                      .filter((child) => browseCounts[child.id] > 0)
+                      .map((child) => (
+                        <Button
+                          key={child.id}
+                          size="sm"
+                          variant={
+                            selectedCategory === child.id ? 'default' : 'outline'
+                          }
+                          onClick={() => selectBrowseCategory(child.id)}
+                        >
+                          {child.label} ({browseCounts[child.id]})
+                        </Button>
+                      ))}
+                  </div>
+                )}
+
+                <div
+                  ref={catalogResultsRef}
+                  className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800 pt-5"
+                >
+                  <h3 className="text-xl font-semibold">
+                    {activeBrowseLabel}
+                  </h3>
+                  <p className="text-sm text-zinc-400" role="status">
+                    {filteredProducts.length} matching blanks
+                  </p>
+                </div>
+              </section>
 
               {currentProducts.length === 0 ? (
-                <div className="py-20 text-center font-mono text-sm text-zinc-500 border border-dashed border-zinc-800 rounded-lg">
-                  NO_ASSETS_MATCHING_CRITERIA
+                <div className="rounded-xl border border-dashed border-zinc-700 p-8 text-center">
+                  <p>No blanks match your category and search.</p>
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => {
+                      setSearchQuery('');
+                      selectBrowseCategory('All Products');
+                    }}
+                  >
+                    Clear filters
+                  </Button>
                 </div>
               ) : (
                 <>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-6">
                     {currentProducts.map((product: any) => (
                       <BlankProductCard 
-                        key={product.id} 
+                        key={product.catalogProductId || product.id || product._id} 
                         product={product}
                         hideButtons={true} 
                         onSelect={() => {}}
