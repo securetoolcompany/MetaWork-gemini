@@ -16,6 +16,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useWallet } from '@/lib/WalletContext';
 import { useAuth } from '@/lib/AuthContext';
 import InsufficientCreditsModal from '@/components/credits/InsufficientCreditsModal';
+import { CREDIT_COSTS, CREDITS_PER_DOLLAR } from '@/lib/credit-costs';
+import { createIpUploadClient } from '@/lib/ip-upload-client';
 import algosdk from "algosdk";
 import {
   Dialog,
@@ -36,6 +38,14 @@ export const IP_CATEGORY_GROUPS = [
   { id: 'usage', icon: '🎯', label: 'Best For',      options: ['Merch Designs', 'Social Media', 'Game Assets', 'Apparel Print', 'Brand Identity'] },
   { id: 'theme', icon: '🌌', label: 'Theme',         options: ['Esports & Gaming', 'Nature & Wildlife', 'Sci-Fi & Fantasy', 'Spiritual', 'Corporate'] },
 ];
+
+// Staging only. Activation requires separate validation/enforcement review.
+const IP_UPLOAD_V2_ENABLED = false;
+
+const IP_TOKENIZATION_CREDITS = CREDIT_COSTS.MINT_IP;
+const IP_TOKENIZATION_USD = (
+  IP_TOKENIZATION_CREDITS / CREDITS_PER_DOLLAR
+).toFixed(2);
 
 export default function UploadIPPage() {
   return (
@@ -105,6 +115,23 @@ function UploadIPInner() {
   ]);
 
   const tokenizationOperationKeyRef = useRef(null);
+  const v2UploadRef = useRef(null);
+  const confirmationSnapshotRef = useRef(null);
+  const currentInputSnapshotRef = useRef(null);
+
+  currentInputSnapshotRef.current = JSON.stringify({
+    walletAddress: accountAddress || '',
+    formData,
+    stakeholders,
+    mediaGeneration: mediaGenerationRef.current,
+    source: file
+      ? {
+          filename: file.name,
+          byteLength: file.size,
+          lastModified: file.lastModified,
+        }
+      : null,
+  });
 
   useEffect(() => {
     if (!accountAddress) return;
@@ -523,13 +550,23 @@ function UploadIPInner() {
       return;
     }
 
-    if (!tokenizationConfirmed) {
+    const inputSnapshot = currentInputSnapshotRef.current;
+
+    if (
+      !tokenizationConfirmed ||
+      confirmationSnapshotRef.current !== inputSnapshot
+    ) {
+      setTokenizationConfirmed(false);
+      confirmationSnapshotRef.current = null;
       const confirmationGeneration = mediaGenerationRef.current;
-      await loadCreditBalance();
+      const balance = await loadCreditBalance();
       if (
+        balance === null ||
         confirmationGeneration !== mediaGenerationRef.current ||
-        selectedMediaRef.current !== currentMedia
+        selectedMediaRef.current !== currentMedia ||
+        currentInputSnapshotRef.current !== inputSnapshot
       ) return;
+      confirmationSnapshotRef.current = inputSnapshot;
       setShowTokenizationConfirm(true);
       return;
     }
@@ -546,6 +583,102 @@ function UploadIPInner() {
     setIsLoading(true);
     const toastId = toast.loading('Starting IP creation...');
     try {
+      if (IP_UPLOAD_V2_ENABLED || v2UploadRef.current) {
+        let operation = v2UploadRef.current;
+
+        if (
+          operation &&
+          (
+            operation.inputSnapshot !== inputSnapshot ||
+            operation.media !== currentMedia
+          )
+        ) {
+          throw new Error(
+            'An existing V2 upload has different inputs. Preserve it for recovery; do not start another upload.',
+          );
+        }
+
+        if (!operation) {
+          const snapshot = JSON.parse(inputSnapshot);
+          const sourceFile = currentMedia.file;
+          const extension = sourceFile.name.split('.').pop().toLowerCase();
+          const format = extension === 'jpg' ? 'jpeg' : extension;
+          const revision = crypto.randomUUID();
+          const operationKey = tokenizationOperationKeyRef.current;
+          const generation = mediaGenerationRef.current;
+          const licensingFeeCents = snapshot.formData.isPublic
+            ? Math.max(
+                0,
+                Math.round(Number(snapshot.formData.licensingFee || 0) * 100),
+              )
+            : 0;
+
+          const draft = {
+            walletAddress: snapshot.walletAddress,
+            name: snapshot.formData.name,
+            description: snapshot.formData.description,
+            category: snapshot.formData.category.join(','),
+            isPublic: snapshot.formData.isPublic,
+            licensable: snapshot.formData.isPublic,
+            licensingFeeCents,
+            licenseFeeUsd: licensingFeeCents / 100,
+            stakeholders: snapshot.stakeholders.map((stakeholder, index) => ({
+              name: (
+                stakeholder.name || (index === 0 ? 'Creator' : '')
+              ).trim(),
+              address: (
+                index === 0
+                  ? snapshot.walletAddress
+                  : stakeholder.address || ''
+              ).trim(),
+              percentage: String(stakeholder.percentage ?? '').trim(),
+            })),
+          };
+
+          const client = createIpUploadClient({
+            file: sourceFile,
+            authorizationRequest: {
+              action: 'authorize',
+              operationKey,
+              revision,
+              purpose: 'source',
+              confirmTokenization: true,
+              draft,
+              source: {
+                format,
+                filename: sourceFile.name,
+                byteLength: sourceFile.size,
+              },
+            },
+            getAuthHeaders: () => authHeaders,
+            isCurrent: () =>
+              currentInputSnapshotRef.current === inputSnapshot &&
+              mediaGenerationRef.current === generation &&
+              selectedMediaRef.current === currentMedia,
+          });
+
+          operation = {
+            inputSnapshot,
+            media: currentMedia,
+            client,
+          };
+          v2UploadRef.current = operation;
+        }
+
+        toast.loading('Processing staged V2 source upload...', {
+          id: toastId,
+        });
+
+        await operation.client.run();
+
+        // Receipt association is not source validation or mint permission.
+        toast.success(
+          'Upload receipt confirmed. Source validation is pending; tokenization has not started.',
+          { id: toastId },
+        );
+        return;
+      }
+
       // 1) Get IPFS key
       toast.loading('Preparing upload...', { id: toastId });
       const keyRes = await fetch('/api/ipfs/key', {
@@ -1399,7 +1532,7 @@ function UploadIPInner() {
           <DialogHeader>
             <DialogTitle>Confirm IP tokenization charge</DialogTitle>
             <DialogDescription>
-              Tokenizing this IP costs 25 credits ($0.25).
+              Tokenizing this IP costs {IP_TOKENIZATION_CREDITS} credits (${IP_TOKENIZATION_USD}).
             </DialogDescription>
           </DialogHeader>
 
@@ -1417,7 +1550,7 @@ function UploadIPInner() {
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-muted-foreground">IP tokenization</span>
                 <span className="font-semibold text-destructive">
-                  −25 credits
+                  {'\u2212'}{IP_TOKENIZATION_CREDITS} credits
                 </span>
               </div>
 
@@ -1428,18 +1561,18 @@ function UploadIPInner() {
                 <span className="font-semibold">
                   {creditBalance === null
                     ? '—'
-                    : `${Math.max(0, creditBalance - 25).toLocaleString()} credits`}
+                    : `${Math.max(0, creditBalance - IP_TOKENIZATION_CREDITS).toLocaleString()} credits`}
                 </span>
               </div>
             </div>
 
-            {creditBalance !== null && creditBalance < 25 ? (
+            {creditBalance !== null && creditBalance < IP_TOKENIZATION_CREDITS ? (
               <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3">
                 <p className="font-medium text-destructive">
                   You need more credits
                 </p>
                 <p className="mt-1 text-muted-foreground">
-                  IP tokenization requires 25 credits. Your current balance is{' '}
+                  IP tokenization requires {IP_TOKENIZATION_CREDITS} credits. Your current balance is{' '}
                   {creditBalance.toLocaleString()} credits.
                 </p>
               </div>
@@ -1484,21 +1617,36 @@ function UploadIPInner() {
               disabled={
                 isLoading ||
                 creditBalance === null ||
-                creditBalance < 25
+                creditBalance < IP_TOKENIZATION_CREDITS
               }
               onClick={() => {
                 setShowTokenizationConfirm(false);
-                setTokenizationConfirmed(
-                        selectedMediaRef.current?.kind === 'image' &&
-                        selectedMediaRef.current?.file === file
-                      );
+                const confirmedSnapshot = confirmationSnapshotRef.current;
+                const canConfirm =
+                  confirmedSnapshot !== null &&
+                  confirmedSnapshot === currentInputSnapshotRef.current &&
+                  selectedMediaRef.current?.kind === 'image' &&
+                  selectedMediaRef.current?.file === file;
+
+                setTokenizationConfirmed(canConfirm);
+
+                if (!canConfirm) {
+                  confirmationSnapshotRef.current = null;
+                  toast.error('Inputs changed. Review and confirm again.');
+                  return;
+                }
 
                 setTimeout(() => {
-                  document.querySelector('form')?.requestSubmit();
+                  if (
+                    confirmationSnapshotRef.current === confirmedSnapshot &&
+                    currentInputSnapshotRef.current === confirmedSnapshot
+                  ) {
+                    document.querySelector('form')?.requestSubmit();
+                  }
                 }, 0);
               }}
             >
-              Use 25 Credits and Continue
+              Use {IP_TOKENIZATION_CREDITS} Credits and Continue
             </Button>
           </DialogFooter>
         </DialogContent>

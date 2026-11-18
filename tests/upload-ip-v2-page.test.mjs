@@ -1,0 +1,204 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import test from 'node:test';
+
+const require = createRequire(import.meta.url);
+const ts = require('typescript');
+const source = readFileSync(
+  new URL('../app/upload-ip/page.js', import.meta.url),
+  'utf8',
+);
+
+const page = ts.createSourceFile(
+  'page.jsx',
+  source,
+  ts.ScriptTarget.Latest,
+  true,
+  ts.ScriptKind.JSX,
+);
+
+function findAll(predicate, root = page) {
+  const found = [];
+
+  function visit(node) {
+    if (predicate(node)) found.push(node);
+    ts.forEachChild(node, visit);
+  }
+
+  visit(root);
+  return found;
+}
+
+function exactlyOne(nodes, description) {
+  assert.equal(nodes.length, 1, description);
+  return nodes[0];
+}
+
+function declaration(name) {
+  return exactlyOne(
+    findAll(node =>
+      ts.isVariableDeclaration(node) &&
+      node.name.getText(page) === name
+    ),
+    `Expected one declaration of ${name}`,
+  );
+}
+
+function stagedBranch() {
+  return exactlyOne(
+    findAll(node =>
+      ts.isIfStatement(node) &&
+      node.expression.getText(page) ===
+        'IP_UPLOAD_V2_ENABLED || v2UploadRef.current'
+    ),
+    'Expected one sticky V2 branch',
+  );
+}
+
+test('upload page parses as JSX without syntax errors', () => {
+  const diagnostics = page.parseDiagnostics.map(diagnostic =>
+    ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
+  );
+
+  assert.deepEqual(diagnostics, []);
+});
+
+test('V2 defaults off and imports the shared client helper', () => {
+  assert.equal(
+    declaration('IP_UPLOAD_V2_ENABLED').initializer.kind,
+    ts.SyntaxKind.FalseKeyword,
+  );
+
+  const importNode = exactlyOne(
+    findAll(node =>
+      ts.isImportDeclaration(node) &&
+      node.moduleSpecifier.text === '@/lib/ip-upload-client'
+    ),
+    'Expected shared V2 helper import',
+  );
+
+  assert.match(importNode.getText(page), /\bcreateIpUploadClient\b/);
+});
+
+test('staged V2 returns before legacy upload and financial preparation', () => {
+  const branch = stagedBranch();
+  const block = branch.thenStatement;
+  assert.ok(ts.isBlock(block));
+
+  const terminal = block.statements.at(-1);
+  assert.ok(ts.isReturnStatement(terminal));
+  assert.equal(terminal.expression, undefined);
+
+  const body = block.getText(page);
+
+  assert.match(body, /await operation\.client\.run\(\)/);
+  assert.match(body, /validation is pending/);
+  assert.doesNotMatch(body, /catch\s*\(/);
+
+  for (const forbidden of [
+    'pinFileToIPFS',
+    'tokenizationEndpoint',
+    '/api/ip/pool-funding',
+    'signTransactionGroup',
+  ]) {
+    assert.ok(!body.includes(forbidden), forbidden);
+  }
+
+  const submit = declaration('handleSubmit').initializer;
+  const legacyFetch = exactlyOne(
+    findAll(node =>
+      ts.isCallExpression(node) &&
+      node.expression.getText(page) === 'fetch' &&
+      node.arguments[0] &&
+      ts.isStringLiteral(node.arguments[0]) &&
+      node.arguments[0].text ===
+        'https://api.pinata.cloud/pinning/pinFileToIPFS',
+      submit,
+    ),
+    'Expected preserved legacy image upload',
+  );
+
+  assert.ok(legacyFetch.getStart(page) > branch.end);
+});
+
+test('V2 preserves its client across retries and rejects changed inputs', () => {
+  const body = stagedBranch().thenStatement.getText(page);
+
+  assert.match(body, /let operation = v2UploadRef\.current/);
+  assert.match(body, /operation\.inputSnapshot !== inputSnapshot/);
+  assert.match(body, /operation\.media !== currentMedia/);
+  assert.match(body, /if \(!operation\)/);
+  assert.match(body, /v2UploadRef\.current = operation/);
+
+  assert.equal(
+    findAll(node =>
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      node.left.getText(page) === 'v2UploadRef.current'
+    ).length,
+    1,
+    'No other page code may reset or replace the V2 operation',
+  );
+
+  assert.match(
+    body,
+    /currentInputSnapshotRef\.current === inputSnapshot/,
+  );
+  assert.match(body, /mediaGenerationRef\.current === generation/);
+  assert.match(body, /selectedMediaRef\.current === currentMedia/);
+});
+
+test('STL submission remains blocked before the staged V2 branch', () => {
+  const submit = declaration('handleSubmit').initializer;
+
+  const guard = exactlyOne(
+    findAll(node =>
+      ts.isIfStatement(node) &&
+      node.expression.getText(page).includes(
+        "currentMedia.kind !== 'image'",
+      ),
+      submit,
+    ),
+    'Expected image-only submission guard',
+  );
+
+  assert.ok(guard.end < stagedBranch().getStart(page));
+  assert.match(
+    guard.thenStatement.getText(page),
+    /STL tokenization is not available yet/,
+  );
+  assert.ok(
+    findAll(node => ts.isReturnStatement(node), guard.thenStatement).length,
+  );
+});
+
+test('confirmation checks the current snapshot and central credit price', () => {
+  assert.equal(
+    declaration('IP_TOKENIZATION_CREDITS').initializer.getText(page),
+    'CREDIT_COSTS.MINT_IP',
+  );
+
+  assert.match(
+    declaration('IP_TOKENIZATION_USD').initializer.getText(page),
+    /IP_TOKENIZATION_CREDITS \/ CREDITS_PER_DOLLAR/,
+  );
+
+  const submit = declaration('handleSubmit').initializer.getText(page);
+  assert.match(
+    submit,
+    /confirmationSnapshotRef\.current !== inputSnapshot/,
+  );
+  assert.match(
+    submit,
+    /currentInputSnapshotRef\.current !== inputSnapshot/,
+  );
+
+  assert.match(
+    declaration('canConfirm').initializer.getText(page),
+    /confirmedSnapshot === currentInputSnapshotRef\.current/,
+  );
+
+  assert.doesNotMatch(source, /creditBalance\s*[<-]\s*25\b/);
+  assert.doesNotMatch(source, /Use 25 Credits|requires 25 credits/);
+});
