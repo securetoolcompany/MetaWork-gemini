@@ -76,7 +76,17 @@ function harness(options = {}) {
     },
     getUsdcAssetId: () => 1,
     algosdk: {
-      isValidAddress: value => value === 'fixture-wallet',
+      isValidAddress: value => ['fixture-wallet', 'fixture-treasury'].includes(value),
+      makePaymentTxnWithSuggestedParamsFromObject({ suggestedParams }) {
+        return {
+          txID: () => 'fixture-funding-txid',
+          fee: 1000n,
+          firstValid: 10n,
+          lastValid: 100n,
+          genesisID: suggestedParams.genesisID,
+          genesisHash: suggestedParams.genesisHash,
+        };
+      },
       makeAssetCreateTxnWithSuggestedParamsFromObject(args) {
         calls.transactions.push(args);
         return { offline: true };
@@ -91,13 +101,19 @@ function harness(options = {}) {
       calls.uploads.push(args);
       return { ipfsUrl: 'ipfs://offline-metadata-cid' };
     },
-    getTransactionParams: async () => ({ offline: true }),
+    getTransactionParams: async () => ({
+      offline: true,
+      genesisID: 'mainnet-v1.0',
+      genesisHash: new Uint8Array(32),
+    }),
+    TextEncoder,
     safeJson: value => value,
     crypto,
     CREDIT_COSTS: { MINT_IP: 25 },
     console: { error() {} },
     process: { env: {
       PINATA_GATEWAY: 'https://fixture.invalid/ipfs',
+      NEXT_PUBLIC_TREASURY_ADDRESS: 'fixture-treasury',
       METAWORK_IP_UPLOAD_V2_ENABLED: options.enabled === false ? 'false' : 'true',
     } },
     loadIpUploadOperation: async () => null,

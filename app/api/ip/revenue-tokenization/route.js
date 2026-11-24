@@ -103,6 +103,7 @@ function ipPreparationResponse(asset) {
       success: true, step: 'mint_nft', ipAssetId: asset.id,
       mbrMicroAlgos: asset.mbrMicroAlgos,
       transaction: asset.preparedNftTransaction, resumed: true,
+      fundingUnsigned: asset.fundingAttempt?.status === 'awaiting_signature' ? asset.fundingAttempt.unsigned : null,
     }));
   }
   return NextResponse.json({
@@ -413,6 +414,7 @@ export async function POST(request) {
             ipAssetId: existingIpAsset.id,
             mbrMicroAlgos: existingIpAsset.mbrMicroAlgos,
             transaction: existingIpAsset.preparedNftTransaction,
+            fundingUnsigned: existingIpAsset.fundingAttempt?.status === 'awaiting_signature' ? existingIpAsset.fundingAttempt.unsigned : null,
             resumed: true,
           }),
         );
@@ -530,6 +532,27 @@ export async function POST(request) {
       revenueAssetMbr +
       poolFundingBuffer;
 
+    const treasury = process.env.NEXT_PUBLIC_TREASURY_ADDRESS?.trim();
+    if (!treasury || !algosdk.isValidAddress(treasury)) {
+      throw new Error('NEXT_PUBLIC_TREASURY_ADDRESS is missing or invalid.');
+    }
+    if (params.genesisID !== 'mainnet-v1.0' || !params.genesisHash) {
+      throw new Error('Expected mainnet funding parameters.');
+    }
+    const payment = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+      sender: senderWallet, receiver: treasury, amount: mbrMicroAlgos,
+      note: new TextEncoder().encode(`metawork:ip:${ipAssetId}:${operationKey}`),
+      suggestedParams: params,
+    });
+    const fundingAttempt = {
+      status: 'awaiting_signature', expectedTransactionId: payment.txID(),
+      unsigned: Buffer.from(algosdk.encodeUnsignedTransaction(payment)).toString('base64'),
+      sender: senderWallet, receiver: treasury, amount: mbrMicroAlgos,
+      fee: Number(payment.fee), firstValid: Number(payment.firstValid),
+      lastValid: Number(payment.lastValid), genesisId: payment.genesisID,
+      genesisHash: Buffer.from(payment.genesisHash).toString('base64'),
+    };
+
     // 5. Persist ip_asset (tokenized)
     const ipAsset = {
       id: ipAssetId,
@@ -565,6 +588,7 @@ export async function POST(request) {
       creditChargedAt: null,
       mbrMicroAlgos,
       preparedNftTransaction,
+      fundingAttempt,
       updatedAt: new Date(),
       createdAt: new Date(),
     };
@@ -584,6 +608,7 @@ export async function POST(request) {
         ipAssetId,
         mbrMicroAlgos, // <-- NEW: tell frontend how much ALGO to charge
         transaction: preparedNftTransaction,
+        fundingUnsigned: fundingAttempt.unsigned,
       }),
     );
   } catch (e) {

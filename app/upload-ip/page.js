@@ -27,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { getPublicTransactionParams } from '@/lib/algorand-public';
+import { readIpFundingStatus } from '@/lib/ip-source/funding-client';
 import ModelViewer from '@/components/model-viewer/ModelViewer';
 import { checkStlSize, parseStl } from '@/lib/model-viewer/parse-stl';
 
@@ -59,7 +59,7 @@ function UploadIPInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { accountAddress, signTransactionGroup } = useWallet();
-  const { getAuthHeader } = useAuth();
+  const { getAuthHeader, user, loading: authLoading } = useAuth();
   const mode = searchParams.get('mode') || 'token'; // 'auth' or 'token'
   const tokenizationEndpoint = '/api/ip/revenue-tokenization';
 
@@ -515,6 +515,30 @@ function UploadIPInner() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (authLoading) {
+      toast.error('Wait for your session to finish loading.');
+      return;
+    }
+    const fundingOwnerId = user?.id ?? user?._id;
+    if (!fundingOwnerId) {
+      toast.error('Sign in before creating or recovering IP funding.');
+      return;
+    }
+    const resumeKey = `metawork:ip-funding:${String(fundingOwnerId)}`;
+    try {
+      const saved = localStorage.getItem(resumeKey);
+      if (saved) {
+        const status = await readIpFundingStatus(JSON.parse(saved), getAuthHeader());
+        toast.info(status === 'confirmed'
+          ? 'Original funding confirmed. Do not pay again.'
+          : 'Original funding is unresolved. Do not sign or pay again.');
+        return;
+      }
+    } catch {
+      toast.error('Unable to recover original funding. Do not sign or pay again.');
+      return;
+    }
+
     // Read the current selection, not a potentially stale render closure.
     const currentMedia = selectedMediaRef.current;
     if (
@@ -869,44 +893,35 @@ function UploadIPInner() {
         );
       }
 
-      // 5) Build & sign MBR payment from user → platform
-      // Use the MBR computed by the backend (pool + round-buffer + small buffer)
-      const mbrMicroAlgos = step1.mbrMicroAlgos;
+      const fundingPointer = { ipAssetId: step1.ipAssetId,
+        operationKey: tokenizationOperationKeyRef.current };
+      if (localStorage.getItem(resumeKey)) throw new Error('Recover the existing funding attempt first.');
+      const savedFundingPointer = JSON.stringify(fundingPointer);
+      localStorage.setItem(resumeKey, savedFundingPointer);
+      if (!step1.fundingUnsigned) throw new Error('Funding requires recovery or review. Do not pay again.');
       toast.loading('Funding pool creation MBR...', { id: toastId });
-
-      const params = await getPublicTransactionParams();
-      const platformAddr = process.env.NEXT_PUBLIC_TREASURY_ADDRESS?.trim();
-
-      if (!platformAddr || !algosdk.isValidAddress(platformAddr)) {
-        throw new Error(
-          'NEXT_PUBLIC_TREASURY_ADDRESS is missing or invalid for this deployment.'
-        );
+      const signedMbr = await signTransactionGroup([
+        new Uint8Array(Buffer.from(step1.fundingUnsigned, 'base64')),
+      ]);
+      if (!signedMbr?.[0]) {
+        // No signed payload and no funding POST from this request.
+        // Do not remove a pointer that another tab has since replaced.
+        if (localStorage.getItem(resumeKey) === savedFundingPointer) {
+          localStorage.removeItem(resumeKey);
+        }
+        throw new Error('Funding signing cancelled. No payment was submitted.');
       }
-      const mbrPayTxn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
-        sender: accountAddress,
-        receiver: platformAddr,
-        amount: mbrMicroAlgos,
-        suggestedParams: params,
-      });
-
-      // Encode to bytes for WalletContext
-      const mbrPayBytes = algosdk.encodeUnsignedTransaction(mbrPayTxn);
-
-      const signedMbr = await signTransactionGroup([mbrPayBytes]);
-      if (!signedMbr || signedMbr.length === 0)
-        throw new Error('MBR funding cancelled');
-
       const mbrRes = await fetch('/api/ip/pool-funding', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
-        body: JSON.stringify({
-          ipAssetId: step1.ipAssetId,
+        body: JSON.stringify({ ...fundingPointer,
           signedMbrTxn: Buffer.from(signedMbr[0]).toString('base64'),
-          mbrAmount: mbrMicroAlgos,
         }),
       });
       const mbrJson = await mbrRes.json();
-      if (!mbrRes.ok) throw new Error(mbrJson.error || 'MBR funding failed');
+      if (!mbrRes.ok || mbrJson.status !== 'confirmed') {
+        throw new Error('Funding is unresolved. Submit again to check status without signing.');
+      }
 
       // 6) Sign NFT mint tx
       toast.loading('Sign NFT Mint Transaction...', { id: toastId });
@@ -935,6 +950,7 @@ function UploadIPInner() {
       const step2 = await res2.json();
       if (!res2.ok) throw new Error(step2.error || 'NFT/Pool Confirmation failed');
 
+      localStorage.removeItem(resumeKey);
       toast.success('IP Successfully Minted and Tokenized!', { id: toastId });
       tokenizationOperationKeyRef.current = null;
       setTimeout(() => router.push('/my-ip'), 1000);
