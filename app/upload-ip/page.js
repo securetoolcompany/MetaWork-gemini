@@ -583,6 +583,8 @@ function UploadIPInner() {
     setIsLoading(true);
     const toastId = toast.loading('Starting IP creation...');
     try {
+      let v2TokenizationRequest = null;
+
       if (IP_UPLOAD_V2_ENABLED || v2UploadRef.current) {
         let operation = v2UploadRef.current;
 
@@ -660,6 +662,9 @@ function UploadIPInner() {
           operation = {
             inputSnapshot,
             media: currentMedia,
+            operationKey,
+            revision,
+            draft: structuredClone(draft),
             client,
           };
           v2UploadRef.current = operation;
@@ -669,52 +674,69 @@ function UploadIPInner() {
           id: toastId,
         });
 
-        await operation.client.run();
+        const validated = await operation.client.run();
 
-        // Receipt association is not source validation or mint permission.
-        toast.success(
-          'Upload receipt confirmed. Source validation is pending; tokenization has not started.',
-          { id: toastId },
-        );
-        return;
+        if (
+          validated.step !== 'source_validated' ||
+          validated.validationStatus !== 'valid' ||
+          validated.operationKey !== operation.operationKey ||
+          validated.revision !== operation.revision ||
+          currentInputSnapshotRef.current !== inputSnapshot ||
+          selectedMediaRef.current !== currentMedia
+        ) {
+          throw new Error('The validated upload no longer matches this submission.');
+        }
+
+        v2TokenizationRequest = {
+          operationKey: operation.operationKey,
+          sourceUpload: {
+            revision: operation.revision,
+            authorizationId: validated.authorizationId,
+            providerFileId: validated.providerFileId,
+          },
+          draft: structuredClone(operation.draft),
+        };
       }
 
-      // 1) Get IPFS key
-      toast.loading('Preparing upload...', { id: toastId });
-      const keyRes = await fetch('/api/ipfs/key', {
-        method: 'POST',
-        headers: authHeaders,
-      });
-      let keyJson;
-      try {
-        keyJson = await keyRes.json();
-      } catch {
-        throw new Error('Failed to get upload key');
-      }
-      if (!keyRes.ok) throw new Error(keyJson.error || 'Key generation failed');
-
-      // 2) Upload file to IPFS
-      toast.loading('Uploading to IPFS...', { id: toastId });
-      const pinataData = new FormData();
-      pinataData.append('file', file);
-      const pinataRes = await fetch(
-        'https://api.pinata.cloud/pinning/pinFileToIPFS',
-        {
+      let ipfsHash;
+      if (!v2TokenizationRequest) {
+        // 1) Get IPFS key
+        toast.loading('Preparing upload...', { id: toastId });
+        const keyRes = await fetch('/api/ipfs/key', {
           method: 'POST',
-          headers: { Authorization: `Bearer ${keyJson.JWT}` },
-          body: pinataData,
-        },
-      );
-      let pinataJson;
-      try {
-        pinataJson = await pinataRes.json();
-      } catch {
-        throw new Error(`Upload failed (${pinataRes.status})`);
-      }
-      if (!pinataRes.ok || !pinataJson.IpfsHash)
-        throw new Error(pinataJson.error || 'IPFS upload failed');
+          headers: authHeaders,
+        });
+        let keyJson;
+        try {
+          keyJson = await keyRes.json();
+        } catch {
+          throw new Error('Failed to get upload key');
+        }
+        if (!keyRes.ok) throw new Error(keyJson.error || 'Key generation failed');
 
-      const ipfsHash = pinataJson.IpfsHash;
+        // 2) Upload file to IPFS
+        toast.loading('Uploading to IPFS...', { id: toastId });
+        const pinataData = new FormData();
+        pinataData.append('file', file);
+        const pinataRes = await fetch(
+          'https://api.pinata.cloud/pinning/pinFileToIPFS',
+          {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${keyJson.JWT}` },
+            body: pinataData,
+          },
+        );
+        let pinataJson;
+        try {
+          pinataJson = await pinataRes.json();
+        } catch {
+          throw new Error(`Upload failed (${pinataRes.status})`);
+        }
+        if (!pinataRes.ok || !pinataJson.IpfsHash)
+          throw new Error(pinataJson.error || 'IPFS upload failed');
+
+        ipfsHash = pinataJson.IpfsHash;
+      }
 
       // 3) Prepare mint payload (for tokenization API)
       const preparedStakeholders = stakeholders.map((stakeholder, index) => ({
@@ -799,7 +821,7 @@ function UploadIPInner() {
         ? Math.max(0, Math.round(Number(formData.licensingFee || 0) * 100))
         : 0;
 
-      const mintPayload = {
+      const mintPayload = v2TokenizationRequest || {
         operationKey: tokenizationOperationKeyRef.current,
         walletAddress: accountAddress,
         name: formData.name,
@@ -817,7 +839,13 @@ function UploadIPInner() {
       toast.loading('Preparing NFT Mint...', { id: toastId });
       const res1 = await fetch(tokenizationEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeader() },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
+          ...(v2TokenizationRequest
+            ? { 'x-metawork-upload-version': '2' }
+            : {}),
+        },
         body: JSON.stringify(mintPayload),
       });
       const step1 = await res1.json();

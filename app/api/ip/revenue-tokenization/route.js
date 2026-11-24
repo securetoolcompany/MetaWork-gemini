@@ -14,6 +14,19 @@ import { uploadJsonToPinata, createARC3Metadata } from "@/lib/pinata";
 import { safeJson } from "@/lib/utils";
 import crypto from "crypto";
 import { CREDIT_COSTS } from '@/lib/credit-costs';
+import { prepareValidatedIpTokenization } from '@/lib/ip-source/prepare-tokenization';
+import {
+  acquireIpTokenizationPreparation,
+  startIpTokenizationMetadata,
+  recordIpTokenizationMetadata,
+  persistIpTokenizationPreparation,
+} from '@/lib/ip-source/tokenization-reservation';
+import {
+  uploadIpPreparationMetadata,
+  reconcileIpPreparationMetadata,
+} from '@/lib/ip-source/tokenization-metadata';
+import { loadIpUploadOperation } from '@/lib/ip-upload-operations';
+
 
 // V10 server-side revenue-pool configuration.
 function getRevenuePoolAppId() {
@@ -78,7 +91,29 @@ function parseUsdToCents(value, fieldName) {
 // =========================================================
 // POST: PREPARE TOKENIZATION MINT (NFT ONLY, STEP 1)
 // =========================================================
+function ipPreparationResponse(asset) {
+  if (asset.status === 'active') {
+    return NextResponse.json(safeJson({
+      success: true, step: 'complete', ipAssetId: asset.id,
+      revenueTokenId: asset.revenueTokenAssetId,
+    }));
+  }
+  if (asset.status === 'pending_nft_mint' && asset.mbrMicroAlgos && asset.preparedNftTransaction) {
+    return NextResponse.json(safeJson({
+      success: true, step: 'mint_nft', ipAssetId: asset.id,
+      mbrMicroAlgos: asset.mbrMicroAlgos,
+      transaction: asset.preparedNftTransaction, resumed: true,
+    }));
+  }
+  return NextResponse.json({
+    code: 'IP_PREPARATION_LIFECYCLE_REVIEW_REQUIRED',
+    error: 'The existing asset is not in a resumable preparation state.',
+  }, { status: 409 });
+}
+
 export async function POST(request) {
+  const IP_UPLOAD_V2_SERVER_ENABLED = false;
+  let preparationMayNeedRecovery = false;
   try {
     const authHeader = request.headers.get("authorization");
     const token = authHeader?.substring(7);
@@ -93,8 +128,39 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
-    const { db } = await connectToDatabase();
-    const body = await request.json();
+    const { client, db } = await connectToDatabase();
+    const submitted = await request.json();
+
+    if (!submitted || typeof submitted !== 'object' || Array.isArray(submitted)) {
+      return NextResponse.json(
+        { error: 'A JSON object is required.' },
+        { status: 400 },
+      );
+    }
+
+    const uploadVersion = request.headers.get('x-metawork-upload-version');
+    if (uploadVersion === '2' && (!IP_UPLOAD_V2_SERVER_ENABLED || process.env.METAWORK_IP_UPLOAD_V2_ENABLED !== 'true')) {
+      return NextResponse.json({ code: 'IP_UPLOAD_V2_DISABLED', error: 'V2 uploads are disabled.' }, { status: 503 });
+    }
+    let body = submitted;
+
+    if (uploadVersion === '2') {
+      body = await prepareValidatedIpTokenization({
+        db,
+        ownerId: decoded.userId,
+        operationKey: submitted.operationKey,
+        sourceUpload: submitted.sourceUpload,
+        draft: submitted.draft,
+      });
+    } else if (
+      uploadVersion !== null ||
+      Object.prototype.hasOwnProperty.call(submitted, 'sourceUpload')
+    ) {
+      return NextResponse.json(
+        { error: 'Unsupported upload contract version.' },
+        { status: 400 },
+      );
+    }
 
     const {
       operationKey,
@@ -130,6 +196,9 @@ export async function POST(request) {
     const avatar =
       user.profile?.avatar || user.avatar || user.profileImage || "";
 
+    if (uploadVersion === '2' && (!connectedWallet || !algosdk.isValidAddress(connectedWallet))) {
+      return NextResponse.json({ error: 'The bound draft must include a valid wallet address.' }, { status: 400 });
+    }
     const senderWallet = connectedWallet || user.walletAddress;
     if (!senderWallet || !algosdk.isValidAddress(senderWallet)) {
       return NextResponse.json(
@@ -142,7 +211,7 @@ export async function POST(request) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
     }
 
-    const ipAssetId = new (await import("mongodb")).ObjectId().toString();
+    let ipAssetId = new (await import("mongodb")).ObjectId().toString();
 
     const isPublicIp = isPublic !== false;
     const isLicensableIp = licensable !== false;
@@ -289,12 +358,38 @@ export async function POST(request) {
       );
     }
 
+    let v2Preparation = null;
+    if (uploadVersion === '2') {
+      v2Preparation = await acquireIpTokenizationPreparation({
+        db, ownerId: decoded.userId, operationKey,
+        sourceUpload: submitted.sourceUpload, draft: submitted.draft,
+        expectedCid: imageCid,
+      });
+      if (v2Preparation.state === 'prepared') {
+        return ipPreparationResponse(v2Preparation.asset);
+      }
+      if (v2Preparation.state === 'in_progress') {
+        return NextResponse.json({
+          success: false, step: 'preparation_in_progress',
+          code: 'IP_PREPARATION_IN_PROGRESS',
+          ipAssetId: v2Preparation.ipAssetId,
+        }, { status: 202, headers: { 'Retry-After': '2', 'Cache-Control': 'no-store' } });
+      }
+      ipAssetId = v2Preparation.reservation.ipAssetId;
+    } else if (await loadIpUploadOperation({ db, ownerId: decoded.userId, operationKey })) {
+      // Do not allow an unversioned request to race or bypass a bound operation.
+      return NextResponse.json({
+        code: 'IP_PREPARATION_BOUND_CONTRACT_REQUIRED',
+        error: 'This operation requires the bound source-upload contract.',
+      }, { status: 409 });
+    }
+
     const existingIpAsset = await db.collection("ip_assets").findOne({
       ownerId: decoded.userId,
       tokenizationOperationKey: operationKey,
     });
 
-    if (existingIpAsset) {
+    if (existingIpAsset && uploadVersion !== '2') {
       if (existingIpAsset.status === 'active') {
         return NextResponse.json(
           safeJson({
@@ -359,20 +454,41 @@ export async function POST(request) {
       ? imageCid
       : `ipfs://${imageCid}`;
 
-    const meta = createARC3Metadata({
-      name,
-      description,
-      imageUrl,
-      ipAssetId,
-      category,
-      creator: senderWallet,
-    });
-
-    const metaRes = await uploadJsonToPinata(meta, name + "_meta");
-    const metadataHash = crypto
-      .createHash("sha256")
-      .update(JSON.stringify(meta))
-      .digest("base64");
+    let metaRes;
+    let metadataHash;
+    if (v2Preparation) {
+      preparationMayNeedRecovery = true;
+      if (v2Preparation.state === 'recovery_required') {
+        metaRes = await reconcileIpPreparationMetadata(v2Preparation.request);
+        v2Preparation.reservation = await recordIpTokenizationMetadata({
+          db, reservation: v2Preparation.reservation, metadata: metaRes,
+        });
+        metadataHash = v2Preparation.request.metadataHash;
+      } else if (v2Preparation.metadata) {
+        metaRes = v2Preparation.metadata;
+        metadataHash = v2Preparation.request.metadataHash;
+      } else {
+        const metadata = createARC3Metadata({
+          name, description, imageUrl, ipAssetId, category, creator: senderWallet,
+        });
+        const request = await startIpTokenizationMetadata({
+          db, reservation: v2Preparation.reservation, metadata,
+        });
+        // Once the start marker is persisted, failures are reconciled by lookup.
+        // They must never cause another upload for this reservation.
+        metaRes = await uploadIpPreparationMetadata(request);
+        v2Preparation.reservation = await recordIpTokenizationMetadata({
+          db, reservation: v2Preparation.reservation, metadata: metaRes,
+        });
+        metadataHash = request.metadataHash;
+      }
+    } else {
+      const meta = createARC3Metadata({
+        name, description, imageUrl, ipAssetId, category, creator: senderWallet,
+      });
+      metaRes = await uploadJsonToPinata(meta, name + "_meta");
+      metadataHash = crypto.createHash('sha256').update(JSON.stringify(meta)).digest('base64');
+    }
 
     // 4. Create NFT Mint Transaction
     const params = await getTransactionParams('mainnet');
@@ -453,6 +569,12 @@ export async function POST(request) {
       createdAt: new Date(),
     };
 
+    if (v2Preparation) {
+      const stored = await persistIpTokenizationPreparation({
+        client, db, reservation: v2Preparation.reservation, asset: ipAsset,
+      });
+      return ipPreparationResponse(stored);
+    }
     await db.collection("ip_assets").insertOne(ipAsset);
 
     return NextResponse.json(
@@ -466,6 +588,40 @@ export async function POST(request) {
     );
   } catch (e) {
     console.error("Revenue Tokenization POST Error:", e);
+
+    if (typeof e?.code === 'string' && e.code.startsWith('IP_PREPARATION_')) {
+      return NextResponse.json({
+        code: e.code,
+        error: 'Preparation requires recovery or review. Preserve this operation; do not upload again.',
+      }, { status: e.status || 409, headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    if (e?.code === 'IP_UPLOAD_OPERATION_CONFLICT') {
+      return NextResponse.json(
+        {
+          error: 'The source upload no longer matches this tokenization operation.',
+          code: e.code,
+        },
+        { status: 409 },
+      );
+    }
+
+    if (e?.code === 'SOURCE_READ_FAILED') {
+      return NextResponse.json(
+        {
+          error: 'Source retrieval failed. Retry validation for the same operation.',
+          code: e.code,
+        },
+        { status: 503 },
+      );
+    }
+
+    if (preparationMayNeedRecovery) {
+      return NextResponse.json({
+        code: 'IP_PREPARATION_METADATA_RECOVERY_REQUIRED',
+        error: 'Preparation was interrupted. Preserve this operation and retry it; do not upload again.',
+      }, { status: 409, headers: { 'Cache-Control': 'no-store' } });
+    }
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }

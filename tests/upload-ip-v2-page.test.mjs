@@ -81,31 +81,56 @@ test('V2 defaults off and imports the shared client helper', () => {
   assert.match(importNode.getText(page), /\bcreateIpUploadClient\b/);
 });
 
-test('staged V2 returns before legacy upload and financial preparation', () => {
+test('validated V2 bypasses legacy upload and feeds shared tokenization', () => {
   const branch = stagedBranch();
   const block = branch.thenStatement;
   assert.ok(ts.isBlock(block));
-
-  const terminal = block.statements.at(-1);
-  assert.ok(ts.isReturnStatement(terminal));
-  assert.equal(terminal.expression, undefined);
+  assert.ok(!ts.isReturnStatement(block.statements.at(-1)));
 
   const body = block.getText(page);
 
   assert.match(body, /await operation\.client\.run\(\)/);
-  assert.match(body, /validation is pending/);
-  assert.doesNotMatch(body, /catch\s*\(/);
+  assert.match(body, /validated\.step !== 'source_validated'/);
+  assert.match(body, /validated\.validationStatus !== 'valid'/);
+  assert.match(body, /validated\.operationKey !== operation\.operationKey/);
+  assert.match(body, /validated\.revision !== operation\.revision/);
+  assert.doesNotMatch(body, /validation is pending/);
 
-  for (const forbidden of [
-    'pinFileToIPFS',
-    'tokenizationEndpoint',
-    '/api/ip/pool-funding',
-    'signTransactionGroup',
-  ]) {
-    assert.ok(!body.includes(forbidden), forbidden);
-  }
+  const assignment = exactlyOne(
+    findAll(node =>
+      ts.isBinaryExpression(node) &&
+      node.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      node.left.getText(page) === 'v2TokenizationRequest',
+      block,
+    ),
+    'Expected bound V2 tokenization request',
+  );
+
+  assert.ok(
+    declaration('validated').getStart(page) < assignment.getStart(page),
+    'Validation must finish before constructing the tokenization request',
+  );
+
+  const payload = assignment.right.getText(page);
+  assert.match(payload, /operationKey: operation\.operationKey/);
+  assert.match(payload, /revision: operation\.revision/);
+  assert.match(payload, /authorizationId: validated\.authorizationId/);
+  assert.match(payload, /providerFileId: validated\.providerFileId/);
+  assert.match(payload, /draft: structuredClone\(operation\.draft\)/);
+  assert.doesNotMatch(payload, /\bimage\s*:|\bcid\s*:/);
 
   const submit = declaration('handleSubmit').initializer;
+  const legacyGuard = exactlyOne(
+    findAll(node =>
+      ts.isIfStatement(node) &&
+      node.expression.getText(page) === '!v2TokenizationRequest',
+      submit,
+    ),
+    'Expected legacy upload only when no V2 request exists',
+  );
+
+  assert.ok(legacyGuard.getStart(page) > branch.end);
+
   const legacyFetch = exactlyOne(
     findAll(node =>
       ts.isCallExpression(node) &&
@@ -116,10 +141,38 @@ test('staged V2 returns before legacy upload and financial preparation', () => {
         'https://api.pinata.cloud/pinning/pinFileToIPFS',
       submit,
     ),
-    'Expected preserved legacy image upload',
+    'Expected exactly one preserved legacy image upload',
   );
 
-  assert.ok(legacyFetch.getStart(page) > branch.end);
+  assert.ok(
+    legacyFetch.getStart(page) > legacyGuard.thenStatement.getStart(page) &&
+    legacyFetch.end < legacyGuard.thenStatement.end,
+    'Legacy upload must be inside its fallback guard',
+  );
+
+  const mintPayload = declaration('mintPayload').initializer;
+  assert.ok(ts.isBinaryExpression(mintPayload));
+  assert.equal(mintPayload.operatorToken.kind, ts.SyntaxKind.BarBarToken);
+  assert.equal(mintPayload.left.getText(page), 'v2TokenizationRequest');
+  assert.ok(ts.isObjectLiteralExpression(mintPayload.right));
+
+  const tokenizationFetch = exactlyOne(
+    findAll(node =>
+      ts.isCallExpression(node) &&
+      node.expression.getText(page) === 'fetch' &&
+      node.arguments[0]?.getText(page) === 'tokenizationEndpoint' &&
+      node.arguments[1]?.getText(page).includes("method: 'POST'"),
+      submit,
+    ),
+    'Expected one shared tokenization preparation POST',
+  );
+
+  const request = tokenizationFetch.arguments[1].getText(page);
+  assert.match(request, /body: JSON\.stringify\(mintPayload\)/);
+  assert.match(
+    request,
+    /v2TokenizationRequest\s*\?\s*\{\s*'x-metawork-upload-version': '2'\s*\}\s*:\s*\{\}/,
+  );
 });
 
 test('V2 preserves its client across retries and rejects changed inputs', () => {

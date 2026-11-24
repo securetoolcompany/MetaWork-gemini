@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { canonicalIpDraft } from '../lib/ip-upload-draft.js';
 
 const routeUrl = new URL('../app/api/ipfs/key/route.js', import.meta.url);
 
@@ -32,6 +33,7 @@ function harness(options = {}) {
   let databaseCalls = 0;
   const authorizations = [];
   const confirmations = [];
+  const validations = [];
   const db = { marker: 'mock-database' };
 
   const source = readFileSync(routeUrl, 'utf8')
@@ -48,9 +50,11 @@ function harness(options = {}) {
     'connectToDatabase',
     'authorizeIpUpload',
     'confirmIpUpload',
+    'canonicalIpDraft',
+    'validateIpUploadSource',
     'fetch',
     'process',
-    `${source}\nreturn POST;`,
+    `${source.replace('const IP_UPLOAD_V2_SERVER_ENABLED = false;', 'const IP_UPLOAD_V2_SERVER_ENABLED = true;')}\nreturn POST;`,
   )(
     {
       json(responseBody, config = {}) {
@@ -92,15 +96,30 @@ function harness(options = {}) {
       confirmations.push(args);
       return { step: 'upload_received', validationStatus: 'pending' };
     },
+    canonicalIpDraft,
+    async args => {
+      validations.push(args);
+      if (options.serviceError) throw options.serviceError;
+      return {
+        step: 'source_validated',
+        operationKey: args.operationKey,
+        revision: args.revision,
+        authorizationId: args.authorizationId,
+        providerFileId: args.providerFileId,
+        validationStatus: 'valid',
+        resumed: false,
+      };
+    },
     async () => {
       throw new Error('V2 must not call the legacy key endpoint');
     },
-    { env: {} },
+    { env: { METAWORK_IP_UPLOAD_V2_ENABLED: options.enabled === false ? 'false' : 'true' } },
   );
 
   return {
     authorizations,
     confirmations,
+    validations,
     get databaseCalls() { return databaseCalls; },
 
     async invoke(payload = body, config = {}) {
@@ -310,4 +329,86 @@ test('V2 forwards only the normalized source declaration', async () => {
     state.authorizations[0].sourceDeclaration,
     body.source,
   );
+});
+
+test('V2 validation forwards authenticated owner and bound identifiers only', async () => {
+  const state = harness();
+  const result = await state.invoke({
+    action: 'validate',
+    operationKey: body.operationKey,
+    revision: body.revision,
+    purpose: 'source',
+    authorizationId: 'authorization-1',
+    providerFileId: 'file-1',
+    ownerId: 'forged-owner',
+    cid: 'forged-cid',
+    sourceValidation: { result: 'forged' },
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.step, 'source_validated');
+  assert.equal(result.body.validationStatus, 'valid');
+  assert.equal(state.databaseCalls, 1);
+  assert.equal(state.authorizations.length, 0);
+  assert.equal(state.confirmations.length, 0);
+  assert.equal(state.validations.length, 1);
+  assert.deepEqual(state.validations[0], {
+    db: { marker: 'mock-database' },
+    ownerId: 'authenticated-owner',
+    operationKey: body.operationKey,
+    revision: body.revision,
+    authorizationId: 'authorization-1',
+    providerFileId: 'file-1',
+  });
+});
+
+test('V2 validation authenticates before database or validator access', async () => {
+  const state = harness();
+  const result = await state.invoke({
+    action: 'validate',
+    operationKey: body.operationKey,
+    revision: body.revision,
+    purpose: 'source',
+    authorizationId: 'authorization-1',
+    providerFileId: 'file-1',
+  }, { unauthenticated: true });
+
+  assert.equal(result.status, 401);
+  assert.equal(state.databaseCalls, 0);
+  assert.equal(state.validations.length, 0);
+});
+
+test('V2 validation preserves binding conflicts without exposing internals', async () => {
+  const serviceError = new Error('private validation diagnostic');
+  serviceError.code = 'IP_UPLOAD_OPERATION_CONFLICT';
+
+  const state = harness({ serviceError });
+  const result = await state.invoke({
+    action: 'validate',
+    operationKey: body.operationKey,
+    revision: body.revision,
+    purpose: 'source',
+    authorizationId: 'authorization-1',
+    providerFileId: 'file-1',
+  });
+
+  assert.equal(result.status, 409);
+  assert.equal(result.body.code, 'IP_UPLOAD_OPERATION_CONFLICT');
+  assert.equal(
+    JSON.stringify(result.body).includes('private validation diagnostic'),
+    false,
+  );
+  assert.equal(state.validations.length, 1);
+  assert.equal(state.authorizations.length, 0);
+  assert.equal(state.confirmations.length, 0);
+});
+
+
+test('V2 server gate rejects before database or provider access', async () => {
+  const state = harness({ enabled: false });
+  const response = await state.invoke();
+  assert.equal(response.status, 503);
+  assert.equal(response.body.code, 'IP_UPLOAD_V2_DISABLED');
+  assert.equal(state.databaseCalls, 0);
+  assert.equal(state.authorizations.length, 0);
 });

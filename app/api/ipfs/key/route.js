@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { canonicalIpDraft } from '@/lib/ip-upload-draft';
+import { validateIpUploadSource } from '@/lib/ip-source/validate-upload';
 import { verifyToken } from '@/lib/auth';
 import { createHash } from 'node:crypto';
 import { connectToDatabase } from '@/lib/mongodb';
@@ -111,45 +113,14 @@ function boundedIpString(value, name, maxLength) {
 
 // Deterministic serialization of the complete declared draft.
 // This freezes inputs; it does not replace financial or media validation.
-function canonicalIpDraft(value, depth = 0) {
-  if (depth > 8) {
-    throw new TypeError('IP draft nesting exceeds the supported limit');
-  }
-
-  if (
-    value === null ||
-    typeof value === 'string' ||
-    typeof value === 'boolean'
-  ) {
-    return value;
-  }
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (Array.isArray(value)) {
-    return value.map(item => canonicalIpDraft(item, depth + 1));
-  }
-
-  if (value && typeof value === 'object') {
-    const result = Object.create(null);
-
-    for (const key of Object.keys(value).sort()) {
-      if (['__proto__', 'prototype', 'constructor'].includes(key)) {
-        throw new TypeError('IP draft contains an unsupported key');
-      }
-
-      result[key] = canonicalIpDraft(value[key], depth + 1);
-    }
-
-    return result;
-  }
-
-  throw new TypeError('IP draft contains an unsupported value');
-}
 
 async function handleIpUploadV2(request, ownerId) {
+  const IP_UPLOAD_V2_SERVER_ENABLED = false;
+  if (!IP_UPLOAD_V2_SERVER_ENABLED || process.env.METAWORK_IP_UPLOAD_V2_ENABLED !== 'true') {
+    return NextResponse.json({
+      code: 'IP_UPLOAD_V2_DISABLED', error: 'V2 uploads are disabled.',
+    }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
   try {
     const body = await readIpUploadBody(request);
 
@@ -168,7 +139,7 @@ async function handleIpUploadV2(request, ownerId) {
       throw new TypeError('This upload contract currently supports source only');
     }
 
-    if (!['authorize', 'confirm'].includes(body.action)) {
+    if (!['authorize', 'confirm', 'validate'].includes(body.action)) {
       throw new TypeError('Unsupported upload action');
     }
 
@@ -249,6 +220,15 @@ async function handleIpUploadV2(request, ownerId) {
         purpose: 'source',
         maxBytes: normalized.rule.maxBytes,
         allowedMimeTypes: normalized.rule.mimeTypes,
+      });
+    } else if (body.action === 'validate') {
+      result = await validateIpUploadSource({
+        db,
+        ownerId,
+        operationKey: body.operationKey,
+        revision: body.revision,
+        authorizationId: body.authorizationId,
+        providerFileId: body.providerFileId,
       });
     } else {
       result = await confirmIpUpload({

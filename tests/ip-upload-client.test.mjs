@@ -6,6 +6,7 @@ function fixture(options = {}) {
   const calls = [];
   let current = true;
   let confirmations = 0;
+  let validations = 0;
 
   const authorizationRequest = {
     action: 'authorize',
@@ -74,6 +75,35 @@ function fixture(options = {}) {
           });
         }
 
+        if (payload.action === 'validate') {
+          validations++;
+
+          assert.deepEqual(payload, {
+            action: 'validate',
+            operationKey: 'abcdef12-abcd-4123-8123-abcdef123456',
+            revision: 'revision-1',
+            purpose: 'source',
+            authorizationId: 'authorization-1',
+            providerFileId: 'file-1',
+          });
+
+          if (options.failFirstValidate && validations === 1) {
+            throw new Error('offline validation failure');
+          }
+
+          if (options.staleAfterValidate) current = false;
+
+          return Response.json({
+            step: 'source_validated',
+            operationKey: payload.operationKey,
+            revision: payload.revision,
+            authorizationId: payload.authorizationId,
+            providerFileId: payload.providerFileId,
+            validationStatus: 'valid',
+            resumed: false,
+          });
+        }
+
         assert.equal(payload.action, 'confirm');
         confirmations++;
 
@@ -89,7 +119,7 @@ function fixture(options = {}) {
           authorizationId: payload.authorizationId,
           providerFileId: payload.providerFileId,
           network: 'public',
-          validationStatus: 'pending',
+          validationStatus: options.alreadyValidReceipt ? 'valid' : 'pending',
         });
       }
 
@@ -113,13 +143,14 @@ function fixture(options = {}) {
   return { client, calls, authorizationRequest };
 }
 
-test('V2 authorizes, uploads publicly, and confirms identifiers only', async () => {
+test('V2 authorizes, uploads, confirms identifiers, and validates', async () => {
   const { client, calls } = fixture();
   const result = await client.run();
 
-  assert.equal(calls.length, 3);
-  assert.equal(result.validationStatus, 'pending');
-  assert.equal(client.snapshot().phase, 'received');
+  assert.equal(calls.length, 4);
+  assert.equal(result.step, 'source_validated');
+  assert.equal(result.validationStatus, 'valid');
+  assert.equal(client.snapshot().phase, 'validated');
 
   const upload = calls[1].init;
   assert.equal(upload.body.get('network'), 'public');
@@ -141,7 +172,7 @@ test('V2 authorizes, uploads publicly, and confirms identifiers only', async () 
   assert.ok(!('cid' in result));
 
   await client.run();
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
 });
 
 test('authorization snapshot is independent of later object mutation', async () => {
@@ -181,11 +212,13 @@ test('receipt retry preserves identifiers and never uploads again', async () => 
 
   await client.run();
 
-  assert.equal(calls.length, 4);
+  assert.equal(calls.length, 5);
   assert.deepEqual(
     JSON.parse(calls[2].init.body),
     JSON.parse(calls[3].init.body),
   );
+  assert.equal(JSON.parse(calls[4].init.body).action, 'validate');
+  assert.equal(client.snapshot().phase, 'validated');
 });
 
 test('stale responses cannot continue to upload or confirmation', async () => {
@@ -216,5 +249,58 @@ test('concurrent calls cannot start duplicate authorization', async () => {
   await assert.rejects(client.run(), /already active/i);
   await first;
 
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4);
+});
+
+test('validation retry never repeats authorization, upload, or confirmation', async () => {
+  const { client, calls } = fixture({ failFirstValidate: true });
+
+  await assert.rejects(client.run(), /offline validation failure/);
+  assert.equal(client.snapshot().phase, 'received');
+  assert.equal(calls.length, 4);
+
+  const result = await client.run();
+
+  assert.equal(result.validationStatus, 'valid');
+  assert.equal(client.snapshot().phase, 'validated');
+  assert.equal(calls.length, 5);
+  assert.deepEqual(
+    JSON.parse(calls[3].init.body),
+    JSON.parse(calls[4].init.body),
+  );
+
+  const routeActions = calls
+    .filter(call => call.url === '/api/ipfs/key')
+    .map(call => JSON.parse(call.init.body).action);
+
+  assert.deepEqual(routeActions, [
+    'authorize',
+    'confirm',
+    'validate',
+    'validate',
+  ]);
+
+  await client.run();
+  assert.equal(calls.length, 5);
+});
+
+test('already-valid receipt continues through authoritative validation', async () => {
+  const { client, calls } = fixture({ alreadyValidReceipt: true });
+  const result = await client.run();
+
+  assert.equal(result.validationStatus, 'valid');
+  assert.equal(client.snapshot().phase, 'validated');
+  assert.equal(calls.length, 4);
+  assert.equal(JSON.parse(calls[3].init.body).action, 'validate');
+});
+
+test('stale validation response cannot complete the client operation', async () => {
+  const { client, calls } = fixture({ staleAfterValidate: true });
+
+  await assert.rejects(client.run(), /inputs changed/i);
+  assert.equal(calls.length, 4);
+  assert.equal(client.snapshot().phase, 'received');
+
+  await assert.rejects(client.run(), /inputs changed/i);
+  assert.equal(calls.length, 4);
 });
