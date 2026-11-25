@@ -844,6 +844,7 @@ export async function POST(request, { params }) {
         },
         {
           $set: {
+            'productRevenuePool.tokenizationStatus': 'pending_funding',
             'productRevenuePool.fundingAttempt.status': 'failed',
             'productRevenuePool.fundingAttempt.failureCode':
               'ALGOD_BROADCAST_FAILED',

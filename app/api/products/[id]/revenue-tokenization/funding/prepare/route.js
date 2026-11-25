@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
 import {
+  getAlgodClient,
   getSigner,
   getTransactionParams,
 } from '@/lib/algorand';
@@ -13,6 +14,9 @@ import {
 export const dynamic = 'force-dynamic';
 
 const FUNDING_ATTEMPT_TTL_MS = 15 * 60 * 1000;
+
+// Attempts that never reached the chain and are safe to replace.
+const RESETTABLE_FUNDING_ATTEMPT_STATUSES = ['failed', 'expired'];
 
 function getToken(request) {
   const authorization = request.headers.get('authorization');
@@ -297,7 +301,13 @@ export async function POST(request, { params }) {
         !Number.isNaN(existingExpiresAt.getTime()) &&
         existingExpiresAt.getTime() <= Date.now();
 
-      if (!hasExpiredFundingAttempt) {
+      // A failed or expired attempt never reached the chain and cannot recover.
+      const hasResettableFundingAttempt =
+        RESETTABLE_FUNDING_ATTEMPT_STATUSES.includes(
+          existingFundingAttempt?.status
+        );
+
+      if (!hasExpiredFundingAttempt && !hasResettableFundingAttempt) {
         return NextResponse.json(
           {
             success: false,
@@ -310,6 +320,11 @@ export async function POST(request, { params }) {
 
       const now = new Date();
 
+      const resolvedAttemptStatus =
+        existingFundingAttempt.status === 'awaiting_signature'
+          ? 'expired'
+          : existingFundingAttempt.status;
+
       const expireResult = await db.collection('products').updateOne(
         {
           ...ownershipFilter,
@@ -318,12 +333,12 @@ export async function POST(request, { params }) {
           'productRevenuePool.fundingAttempt.id':
             existingFundingAttempt.id,
           'productRevenuePool.fundingAttempt.status':
-            'awaiting_signature',
+            existingFundingAttempt.status,
         },
         {
           $set: {
             'productRevenuePool.tokenizationStatus': 'pending_funding',
-            'productRevenuePool.fundingAttempt.status': 'expired',
+            'productRevenuePool.fundingAttempt.status': resolvedAttemptStatus,
             'productRevenuePool.updatedAt': now,
             updatedAt: now,
           },
@@ -344,7 +359,7 @@ export async function POST(request, { params }) {
       productRevenuePool.tokenizationStatus = 'pending_funding';
       productRevenuePool.fundingAttempt = {
         ...existingFundingAttempt,
-        status: 'expired',
+        status: resolvedAttemptStatus,
       };
     }
 
@@ -436,6 +451,48 @@ export async function POST(request, { params }) {
         amount: amountMicroAlgos,
         suggestedParams,
       });
+
+    // Fail fast if this payment would push the wallet below its minimum balance.
+    try {
+      const accountInfo = await getAlgodClient()
+        .accountInformation(selectedWallet.address)
+        .do();
+
+      if (accountInfo?.amount !== undefined && accountInfo?.amount !== null) {
+        const balanceMicroAlgos = Number(accountInfo.amount);
+        const minBalanceMicroAlgos = Number(
+          accountInfo.minBalance ?? accountInfo['min-balance'] ?? 100000
+        );
+        const requiredMicroAlgos =
+          amountMicroAlgos + Number(fundingTxn.fee) + minBalanceMicroAlgos;
+
+        if (balanceMicroAlgos < requiredMicroAlgos) {
+          const shortfallMicroAlgos = requiredMicroAlgos - balanceMicroAlgos;
+
+          return NextResponse.json(
+            {
+              success: false,
+              code: 'INSUFFICIENT_ALGO_BALANCE',
+              error:
+                'Your wallet needs ' +
+                (requiredMicroAlgos / 1_000_000).toFixed(6) +
+                ' ALGO (payment + fee + minimum balance) but holds ' +
+                (balanceMicroAlgos / 1_000_000).toFixed(6) +
+                ' ALGO. Add at least ' +
+                (shortfallMicroAlgos / 1_000_000).toFixed(6) +
+                ' ALGO and try again.',
+            },
+            { status: 409 }
+          );
+        }
+      }
+    } catch (balanceError) {
+      // Fail open: funding/submit still rejects an underfunded payment safely.
+      console.warn(
+        '[products/revenue-tokenization/funding/prepare] balance check skipped:',
+        balanceError?.message
+      );
+    }
 
     const fundingAttemptId = crypto.randomUUID();
     const now = new Date();
