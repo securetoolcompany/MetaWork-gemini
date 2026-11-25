@@ -82,7 +82,7 @@ function showInsufficientAlgoToast(data) {
           <div>Total needed: {algo(data.requiredMicroAlgos)} ALGO</div>
           <div>You have: {algo(data.balanceMicroAlgos)} ALGO</div>
           <a
-            href="https://dev.algorand.co/concepts/accounts/overview/#minimum-balance"
+            href="https://dev.algorand.co/concepts/protocol/protocol-parameters/#minimum-balance-requirements"
             target="_blank"
             rel="noopener noreferrer"
             className="underline"
