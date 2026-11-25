@@ -8,7 +8,7 @@ import {
   ShieldCheck,
   Trash2,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast, Toaster } from "sonner";
 import { useAuth } from "@/lib/AuthContext";
 import { useWallet } from "@/lib/WalletContext";
 import algosdk from "algosdk";
@@ -964,6 +964,7 @@ export default function ProductTokenizationDialog({
 
   return (
    <>
+    <Toaster position="top-center" richColors />
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
