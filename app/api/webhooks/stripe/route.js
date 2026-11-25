@@ -581,7 +581,19 @@ export async function POST(req) {
           .filter(Boolean);
       });
 
-            console.log('[Resolver] placementConfigs', placementConfigs);
+            const filesByType = new Map();
+      for (const f of files) {
+        const existing = filesByType.get(f.type);
+        if (existing && existing.url !== f.url) {
+          throw new Error(
+            `FULFILLMENT_REVIEW_REQUIRED: product ${productId} has different files for placement "${f.type}" and no variant mapping`
+          );
+        }
+        if (!existing) filesByType.set(f.type, f);
+      }
+      files = [...filesByType.values()];
+
+      console.log('[Resolver] placementConfigs', placementConfigs);
       console.log('[Resolver] files', files);
 
       const canUseTemplateReference =
