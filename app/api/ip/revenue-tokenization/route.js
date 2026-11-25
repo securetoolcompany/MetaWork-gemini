@@ -26,6 +26,7 @@ import {
   reconcileIpPreparationMetadata,
 } from '@/lib/ip-source/tokenization-metadata';
 import { loadIpUploadOperation } from '@/lib/ip-upload-operations';
+import { provisionStlProducts } from '@/lib/ip-source/provision-stl-products';
 
 
 // V10 server-side revenue-pool configuration.
@@ -671,7 +672,7 @@ export async function PUT(request) {
 
     const { step, operationKey, ipAssetId, signedTxn, signedTxns } =
       await request.json();
-    const { db } = await connectToDatabase();
+    const { client, db } = await connectToDatabase();
     const algodClient = getAlgodClient('mainnet');
     const { ObjectId } = await import("mongodb");
 
@@ -709,6 +710,23 @@ export async function PUT(request) {
     // STEP 1: Confirm NFT Mint -> Admin Create Pool (after user MBR payment)
     // -----------------------------------------------------
     if (step === "confirm_nft") {
+      // Recovery: a completed, charged asset only needs provisioning.
+      // Never rebroadcast, recreate the pool, or charge again.
+      if (ipAsset.status === "active" && ipAsset.creditStatus === "consumed") {
+        try {
+          await provisionStlProducts({ client, db, ipAssetId });
+        } catch (provisionError) {
+          console.error("STL provisioning needs retry:", provisionError);
+        }
+        return NextResponse.json(
+          safeJson({
+            success: true,
+            step: "complete",
+            revenueTokenId: ipAsset.revenueTokenAssetId,
+          }),
+        );
+      }
+
       const txnBytes = signedTxns?.[0] ?? signedTxn;
       let nftAssetId;
 
@@ -934,6 +952,12 @@ export async function PUT(request) {
             },
           },
         );
+      }
+
+      try {
+        await provisionStlProducts({ client, db, ipAssetId });
+      } catch (provisionError) {
+        console.error("STL provisioning needs retry:", provisionError);
       }
 
       return NextResponse.json(
