@@ -334,8 +334,8 @@ test('prepare rejects an underfunded wallet with the exact shortfall', async () 
 
   assert.equal(response.status, 409);
   assert.equal(response.body.code, 'INSUFFICIENT_ALGO_BALANCE');
-  assert.match(response.body.error, /0\.078586/);
-  assert.match(response.body.error, /0\.514000/);
+  assert.match(response.body.error, /Add at least 0\.079 ALGO/);
+  assert.equal(response.body.requiredMicroAlgos, 514000);
   assert.equal(harness.store.writes, 0);
   assert.equal(pool.tokenizationStatus, 'pending_funding');
   assert.equal('fundingAttempt' in pool, false);
@@ -525,5 +525,20 @@ test('submit states the exact ALGO shortfall from the algod rejection', async ()
   const response = await harness.invoke();
 
   assert.equal(response.status, 502);
-  assert.match(response.body.error, /Add at least 0\.078586 ALGO/);
+  assert.match(response.body.error, /Add at least 0\.079 ALGO/);
+});
+
+test('prepare returns the labeled ALGO breakdown for the dialog', async () => {
+  const harness = createPrepareHarness(productWith(pendingPool), {
+    accountInfo: { amount: 435414n, minBalance: 200000n },
+  });
+  const response = await harness.invoke();
+
+  assert.equal(response.status, 409);
+  assert.equal(response.body.feeMicroAlgos, 1000);
+  assert.equal(response.body.paymentMicroAlgos, 313000);
+  assert.equal(response.body.mbrMicroAlgos, 200000);
+  assert.equal(response.body.requiredMicroAlgos, 514000);
+  assert.equal(response.body.balanceMicroAlgos, 435414);
+  assert.equal(response.body.shortfallMicroAlgos, 78586);
 });

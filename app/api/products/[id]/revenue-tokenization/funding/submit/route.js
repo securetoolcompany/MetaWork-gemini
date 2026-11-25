@@ -543,15 +543,15 @@ function describeBroadcastFailure(message) {
 
     if (shortfallMicroAlgos > 0) {
       return (
-        'Your wallet does not have enough ALGO. Add at least ' +
-        (shortfallMicroAlgos / 1_000_000).toFixed(6) +
-        ' ALGO and try again.'
+        'Not enough ALGO. Add at least ' +
+        (Math.ceil(shortfallMicroAlgos / 1000) / 1000).toFixed(3) +
+        ' ALGO to your wallet, then try again.'
       );
     }
   }
 
   if (/below min|overspend|insufficient/i.test(text)) {
-    return 'Your wallet does not have enough ALGO for this payment plus its minimum balance. Add ALGO and try again.';
+    return 'Not enough ALGO. Add ALGO to your wallet, then try again.';
   }
 
   return 'Algorand could not accept the funding payment. No funding confirmation was recorded.';

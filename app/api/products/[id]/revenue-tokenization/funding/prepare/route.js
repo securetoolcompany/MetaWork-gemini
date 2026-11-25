@@ -474,13 +474,15 @@ export async function POST(request, { params }) {
               success: false,
               code: 'INSUFFICIENT_ALGO_BALANCE',
               error:
-                'Your wallet needs ' +
-                (requiredMicroAlgos / 1_000_000).toFixed(6) +
-                ' ALGO (payment + fee + minimum balance) but holds ' +
-                (balanceMicroAlgos / 1_000_000).toFixed(6) +
-                ' ALGO. Add at least ' +
-                (shortfallMicroAlgos / 1_000_000).toFixed(6) +
-                ' ALGO and try again.',
+                'Not enough ALGO. Add at least ' +
+                (Math.ceil(shortfallMicroAlgos / 1000) / 1000).toFixed(3) +
+                ' ALGO to your wallet, then try again.',
+              requiredMicroAlgos,
+              balanceMicroAlgos,
+              shortfallMicroAlgos,
+              feeMicroAlgos: Number(fundingTxn.fee),
+              paymentMicroAlgos: amountMicroAlgos,
+              mbrMicroAlgos: minBalanceMicroAlgos,
             },
             { status: 409 }
           );

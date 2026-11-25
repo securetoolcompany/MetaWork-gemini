@@ -64,6 +64,37 @@ function bytesToBase64(bytes) {
   return window.btoa(binary);
 }
 
+function showInsufficientAlgoToast(data) {
+  const algo = (microAlgos) => (Number(microAlgos) / 1000000).toFixed(3);
+  const shortfall = (
+    Math.ceil(Number(data.shortfallMicroAlgos) / 1000) / 1000
+  ).toFixed(3);
+
+  toast.error(
+    "Not enough ALGO. Add at least " + shortfall + " ALGO to your wallet, then try again.",
+    {
+      duration: 15000,
+      description: (
+        <div className="mt-1 space-y-0.5">
+          <div>Network transaction fee: {algo(data.feeMicroAlgos)} ALGO</div>
+          <div>Pool creation payment: {algo(data.paymentMicroAlgos)} ALGO</div>
+          <div>MBR (minimum balance, stays in your wallet): {algo(data.mbrMicroAlgos)} ALGO</div>
+          <div>Total needed: {algo(data.requiredMicroAlgos)} ALGO</div>
+          <div>You have: {algo(data.balanceMicroAlgos)} ALGO</div>
+          <a
+            href="https://dev.algorand.co/concepts/accounts/overview/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            What is MBR?
+          </a>
+        </div>
+      ),
+    }
+  );
+}
+
 export default function ProductTokenizationDialog({
   product,
   open,
@@ -550,6 +581,11 @@ export default function ProductTokenizationDialog({
       const data = await response.json();
 
       if (!response.ok || data?.success !== true) {
+        if (data?.code === "INSUFFICIENT_ALGO_BALANCE") {
+          showInsufficientAlgoToast(data);
+          return;
+        }
+
         throw new Error(
           data?.error || "Unable to prepare product revenue-pool funding."
         );
