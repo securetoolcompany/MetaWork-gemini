@@ -305,6 +305,26 @@ export async function POST(request, { params }) {
     const currentPoolStatus =
       product?.productRevenuePool?.tokenizationStatus;
 
+    // Never replace a pool containing funding recovery information.
+    // Even terminal or malformed attempts require an explicit recovery policy.
+    if (
+      currentPoolStatus === 'awaiting_funding_signature' ||
+      Object.prototype.hasOwnProperty.call(
+        product.productRevenuePool || {},
+        'fundingAttempt'
+      )
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'This product already has funding state. Resume the existing operation instead of preparing tokenization again.',
+          code: 'TOKENIZATION_CONFLICT',
+        },
+        { status: 409 }
+      );
+    }
+
     if (
       currentPoolStatus === 'active' ||
       currentPoolStatus === 'creating'
@@ -400,6 +420,11 @@ export async function POST(request, { params }) {
         $and: [
           ownershipFilter,
           {
+            'productRevenuePool.fundingAttempt': {
+              $exists: false,
+            },
+          },
+          {
             $or: [
               {
                 'productRevenuePool.tokenizationStatus': {
@@ -412,6 +437,7 @@ export async function POST(request, { params }) {
                     'active',
                     'creating',
                     'pending_funding',
+                    'awaiting_funding_signature',
                   ],
                 },
               },
@@ -434,7 +460,12 @@ export async function POST(request, { params }) {
 
       if (
         latestProduct?.productRevenuePool?.tokenizationStatus ===
-        'pending_funding'
+          'pending_funding' &&
+        latestProduct.productRevenuePool.creditStatus === 'pending' &&
+        !Object.prototype.hasOwnProperty.call(
+          latestProduct.productRevenuePool,
+          'fundingAttempt'
+        )
       ) {
         const latestUser = await db.collection('users').findOne(
           userIdentityFilter,
