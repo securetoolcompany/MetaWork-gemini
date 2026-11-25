@@ -4,7 +4,9 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
 import {
   publicProductEligibility,
+  isPubliclyEligible,
 } from '@/lib/public-inventory-eligibility';
+import { isOfflineProductKind, OFFLINE_PROTECTED_FIELDS } from '@/lib/product-kinds';
 
 async function generatePrintfulMockup(productId, templateId) {
   const res = await fetch('https://api.printful.com/mockup-generator', {
@@ -98,13 +100,7 @@ export async function GET(request, { params }) {
       }
     }
 
-    const isPubliclyEligible =
-      product.isPublic === true &&
-      ['live', 'active'].includes(product.status) &&
-      product.isDraft !== true &&
-      product.isVisible !== false;
-
-    if (!isOwner && !isPubliclyEligible) {
+    if (!isOwner && !isPubliclyEligible(product)) {
       return NextResponse.json(
         { success: false, error: 'Product not found' },
         { status: 404 },
@@ -289,6 +285,54 @@ export async function PATCH(request, { params }) {
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'ID required' }, { status: 400 });
+    }
+
+    if (!updates || typeof updates !== 'object' || Array.isArray(updates)) {
+      return NextResponse.json({ success: false, error: 'A JSON object is required' }, { status: 400 });
+    }
+
+    const patchAuth = request.headers.get('authorization') || '';
+    const patchToken = patchAuth.startsWith('Bearer ')
+      ? patchAuth.slice(7).trim()
+      : request.cookies.get('auth_token')?.value;
+    let patchUserId = null;
+    try {
+      patchUserId = patchToken
+        ? String(verifyToken(patchToken)?.userId || '') || null
+        : null;
+    } catch {
+      patchUserId = null;
+    }
+    if (!patchUserId) {
+      return NextResponse.json({ success: false, error: 'Authentication required' }, { status: 401 });
+    }
+
+    const guardFilter = isValidObjectId(id)
+      ? { $or: [{ _id: new ObjectId(id) }, { id: id }] }
+      : { id: id };
+    const existingProduct = await db.collection('products').findOne(guardFilter);
+    if (!existingProduct) {
+      return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
+    }
+
+    const patchOwnerIds = [existingProduct.userId, existingProduct.ownerId, existingProduct.creatorId]
+      .filter(Boolean)
+      .map(String);
+    if (!patchOwnerIds.includes(patchUserId)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
+    delete updates.productKind;
+    delete updates.provisioning;
+
+    if (
+      isOfflineProductKind(existingProduct.productKind) &&
+      OFFLINE_PROTECTED_FIELDS.some(field => Object.prototype.hasOwnProperty.call(updates, field))
+    ) {
+      return NextResponse.json(
+        { success: false, code: 'PRODUCT_KIND_OFFLINE', error: 'This product kind cannot be published or listed.' },
+        { status: 409 },
+      );
     }
 
     // --- ENFORCE PRICING LOGIC HERE ---

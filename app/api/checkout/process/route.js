@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getUserFromToken } from '@/lib/auth';
 import { connectToDatabase } from '@/lib/mongodb';
+import { isOfflineProductKind } from '@/lib/product-kinds';
 
 export async function POST(req) {
   try {
@@ -23,6 +24,13 @@ export async function POST(req) {
 
     if (!product) {
       return NextResponse.json({ error: 'Product not found in database' }, { status: 404 });
+    }
+
+    if (isOfflineProductKind(product.productKind)) {
+      return NextResponse.json(
+        { code: 'PRODUCT_NOT_PURCHASABLE', error: 'This product is not available for purchase.' },
+        { status: 409 }
+      );
     }
 
     // If user is logged in, save the address to their profile automatically

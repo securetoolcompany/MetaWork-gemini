@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/lib/mongodb';
+import { isOfflineProductKind } from '@/lib/product-kinds';
 import {
   CART_COLLECTION,
   GUEST_CART_TTL_MS,
@@ -179,6 +180,13 @@ export async function POST(request) {
       return NextResponse.json(
         { success: false, error: 'Product not found' },
         { status: 404 }
+      );
+    }
+
+    if (isOfflineProductKind(product.productKind)) {
+      return NextResponse.json(
+        { success: false, code: 'PRODUCT_NOT_PURCHASABLE', error: 'This product is not available for purchase.' },
+        { status: 409 }
       );
     }
     

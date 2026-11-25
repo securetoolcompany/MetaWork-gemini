@@ -5,6 +5,7 @@ import { ObjectId } from 'mongodb';
 import {
   publicProductEligibility,
 } from '@/lib/public-inventory-eligibility';
+import { isOfflineProductKind, OFFLINE_PROTECTED_FIELDS } from '@/lib/product-kinds';
 
 export const dynamic = 'force-dynamic';
 
@@ -200,11 +201,59 @@ export async function PUT(request) {
 
     const { db } = await connectToDatabase();
 
+    const bulkAuth = request.headers.get('authorization') || '';
+    const bulkToken = bulkAuth.startsWith('Bearer ')
+      ? bulkAuth.slice(7).trim()
+      : request.cookies.get('auth_token')?.value;
+    let bulkUserId = null;
+    try {
+      bulkUserId = bulkToken
+        ? String(verifyToken(bulkToken)?.userId || '') || null
+        : null;
+    } catch {
+      bulkUserId = null;
+    }
+    if (!bulkUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const bulkFilter = { $or: [
+      { id: id },
+      { _id: /^[a-fA-F0-9]{24}$/.test(id) ? new ObjectId(id) : id }
+    ]};
+    const bulkExisting = await db.collection('products').findOne(bulkFilter);
+    if (!bulkExisting) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+
+    const bulkOwnerIds = [bulkExisting.userId, bulkExisting.ownerId, bulkExisting.creatorId]
+      .filter(Boolean)
+      .map(String);
+    if (!bulkOwnerIds.includes(bulkUserId)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    delete dataToUpdate.userId;
+    delete dataToUpdate.ownerId;
+    delete dataToUpdate.licensedRevenueTerms;
+    delete dataToUpdate.revenuePoolAddress;
+    delete dataToUpdate.revenuePoolAppId;
+    delete dataToUpdate.revenueTokenAssetId;
+    delete dataToUpdate.productKind;
+    delete dataToUpdate.provisioning;
+
+    if (
+      isOfflineProductKind(bulkExisting.productKind) &&
+      OFFLINE_PROTECTED_FIELDS.some(field => Object.prototype.hasOwnProperty.call(dataToUpdate, field))
+    ) {
+      return NextResponse.json(
+        { code: 'PRODUCT_KIND_OFFLINE', error: 'This product kind cannot be published or listed.' },
+        { status: 409 }
+      );
+    }
+
     const result = await db.collection('products').updateOne(
-      { $or: [
-        { id: id },
-        { _id: /^[a-fA-F0-9]{24}$/.test(id) ? new ObjectId(id) : id }
-      ]},
+      { _id: bulkExisting._id },
       { $set: { ...dataToUpdate, updatedAt: new Date() } }
     );
 

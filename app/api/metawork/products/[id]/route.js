@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
+import { isPubliclyEligible } from '@/lib/public-inventory-eligibility';
+import { isOfflineProductKind, OFFLINE_PROTECTED_FIELDS } from '@/lib/product-kinds';
 
 async function generatePrintfulMockup(productId, templateId) {
   const res = await fetch('https://api.printful.com/mockup-generator', {
@@ -352,13 +354,7 @@ export async function GET(request, { params }) {
         authenticatedUserId === productOwnerId
       );
 
-      const isPubliclyEligible =
-        localProduct.isPublic === true &&
-        ['live', 'active'].includes(localProduct.status) &&
-        localProduct.isDraft !== true &&
-        localProduct.isVisible !== false;
-
-      if (!isOwner && !isPubliclyEligible) {
+      if (!isOwner && !isPubliclyEligible(localProduct)) {
         return NextResponse.json(
           { success: false, error: 'Product not found' },
           { status: 404 },
@@ -481,6 +477,18 @@ export async function PUT(request, { params }) {
     delete updates.revenuePoolAddress;
     delete updates.revenuePoolAppId;
     delete updates.revenueTokenAssetId;
+    delete updates.productKind;
+    delete updates.provisioning;
+
+    if (
+      isOfflineProductKind(existingProduct.productKind) &&
+      OFFLINE_PROTECTED_FIELDS.some(field => Object.prototype.hasOwnProperty.call(updates, field))
+    ) {
+      return NextResponse.json(
+        { success: false, code: 'PRODUCT_KIND_OFFLINE', error: 'This product kind cannot be published or listed.' },
+        { status: 409 }
+      );
+    }
 
     console.log(`[METAWORK DEBUG] Updating product ${id} with:`, updates);
 

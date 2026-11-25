@@ -2,6 +2,11 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { ObjectId } from 'mongodb'; // ✅ Added ObjectId import
+import {
+  OFFLINE_PRODUCT_KINDS,
+  OFFLINE_PROTECTED_FIELDS,
+  isOfflineProductKind,
+} from '@/lib/product-kinds';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,6 +59,13 @@ export async function GET(request) {
       ];
     }
 
+    const viewingSelf =
+      !ipOwnerId &&
+      (!requestedUserId || String(requestedUserId) === String(decoded.userId));
+    if (!viewingSelf) {
+      query.productKind = { $nin: [...OFFLINE_PRODUCT_KINDS] };
+    }
+
     const products = await db
       .collection('products')
       .find(query)
@@ -91,6 +103,53 @@ export async function PATCH(request) {
 
     let queryId;
     try { queryId = new ObjectId(id); } catch { queryId = id; }
+
+    const patchAuth = request.headers.get('authorization') || '';
+    const patchToken = patchAuth.startsWith('Bearer ')
+      ? patchAuth.slice(7).trim()
+      : request.cookies.get('auth_token')?.value;
+    let patchUserId = null;
+    try {
+      patchUserId = patchToken
+        ? String(verifyToken(patchToken)?.userId || '') || null
+        : null;
+    } catch {
+      patchUserId = null;
+    }
+    if (!patchUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const existingProduct = await db.collection('products').findOne(
+      { $or: [{ _id: queryId }, { id: id }] }
+    );
+    if (!existingProduct) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+    }
+
+    const patchOwnerIds = [existingProduct.userId, existingProduct.ownerId, existingProduct.creatorId]
+      .filter(Boolean)
+      .map(String);
+    if (!patchOwnerIds.includes(patchUserId)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    delete dataToUpdate.userId;
+    delete dataToUpdate.ownerId;
+    delete dataToUpdate.creatorId;
+    delete dataToUpdate.licensedRevenueTerms;
+    delete dataToUpdate.productKind;
+    delete dataToUpdate.provisioning;
+
+    if (
+      isOfflineProductKind(existingProduct.productKind) &&
+      OFFLINE_PROTECTED_FIELDS.some(field => Object.prototype.hasOwnProperty.call(dataToUpdate, field))
+    ) {
+      return NextResponse.json(
+        { code: 'PRODUCT_KIND_OFFLINE', error: 'This product kind cannot be published or listed.' },
+        { status: 409 }
+      );
+    }
 
     const result = await db.collection('products').updateOne(
       { $or: [{ _id: queryId }, { id: id }] }, 
