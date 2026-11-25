@@ -1000,7 +1000,7 @@ export default function ProductTokenizationDialog({
 
   return (
    <>
-    <Toaster position="top-center" richColors />
+    <Toaster position="top-center" richColors style={{ pointerEvents: "auto" }} />
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
