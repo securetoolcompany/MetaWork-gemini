@@ -495,3 +495,35 @@ test('submit still moves a confirmed payment on to creating', async () => {
   assert.equal(pool.fundingAttempt.status, 'confirmed');
   assert.equal(pool.tokenizationStatus, 'creating');
 });
+
+test('submit tells the user to add ALGO on a minimum-balance rejection', async () => {
+  const harness = createSubmitHarness(productWith(submittablePool()), {
+    sendError: new Error('balance 121414 below min 200000 (1 assets)'),
+  });
+  const response = await harness.invoke();
+
+  assert.equal(response.status, 502);
+  assert.match(response.body.error, /enough ALGO/);
+});
+
+test('submit keeps the generic message for other broadcast failures', async () => {
+  const harness = createSubmitHarness(productWith(submittablePool()), {
+    sendError: new Error('network request timed out'),
+  });
+  const response = await harness.invoke();
+
+  assert.equal(response.status, 502);
+  assert.match(response.body.error, /could not accept/);
+});
+
+test('submit states the exact ALGO shortfall from the algod rejection', async () => {
+  const harness = createSubmitHarness(productWith(submittablePool()), {
+    sendError: new Error(
+      'TransactionPool.Remember: account X balance 121414 below min 200000 (1 assets)',
+    ),
+  });
+  const response = await harness.invoke();
+
+  assert.equal(response.status, 502);
+  assert.match(response.body.error, /Add at least 0\.078586 ALGO/);
+});

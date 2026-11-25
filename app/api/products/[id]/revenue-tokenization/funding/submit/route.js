@@ -533,6 +533,30 @@ async function reconcileSubmittedFundingAttempt({
   }
 }
 
+function describeBroadcastFailure(message) {
+  const text = String(message || '');
+  const minBalance = text.match(/balance\s+(\d+)\s+below\s+min\s+(\d+)/i);
+
+  if (minBalance) {
+    const shortfallMicroAlgos =
+      Number(minBalance[2]) - Number(minBalance[1]);
+
+    if (shortfallMicroAlgos > 0) {
+      return (
+        'Your wallet does not have enough ALGO. Add at least ' +
+        (shortfallMicroAlgos / 1_000_000).toFixed(6) +
+        ' ALGO and try again.'
+      );
+    }
+  }
+
+  if (/below min|overspend|insufficient/i.test(text)) {
+    return 'Your wallet does not have enough ALGO for this payment plus its minimum balance. Add ALGO and try again.';
+  }
+
+  return 'Algorand could not accept the funding payment. No funding confirmation was recorded.';
+}
+
 export async function POST(request, { params }) {
   try {
     const userId = getAuthenticatedUserId(request);
@@ -860,8 +884,7 @@ export async function POST(request, { params }) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            'Algorand could not accept the funding payment. No funding confirmation was recorded.',
+          error: describeBroadcastFailure(message),
         },
         { status: 502 }
       );

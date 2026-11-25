@@ -689,9 +689,14 @@ export default function ProductTokenizationDialog({
     const data = await response.json();
 
     if (!response.ok || data?.success !== true) {
-      throw new Error(
+      const submitError = new Error(
         data?.error || "Unable to submit the signed funding payment."
       );
+
+      // 502 means algod rejected the payment and the server already unlocked it.
+      submitError.fundingReset = response.status === 502;
+
+      throw submitError;
     }
 
     setFundingPreparation(null);
@@ -724,7 +729,15 @@ export default function ProductTokenizationDialog({
         "Funding signature cancelled. Your prepared payment is still available."
       );
     } else {
-      toast.error(message);
+      toast.error(message, { duration: 10000 });
+
+      if (error?.fundingReset) {
+        setFundingPreparation(null);
+        setPreparedRevenuePool((currentPool) => ({
+          ...currentPool,
+          tokenizationStatus: "pending_funding",
+        }));
+      }
     }
   } finally {
     setIsSigningFunding(false);
