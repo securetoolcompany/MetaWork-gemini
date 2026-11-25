@@ -1,0 +1,1250 @@
+{
+  "recordedAt": "2026-11-12T16:55:50.719Z",
+  "environment": {
+    "node": "v24.17.0",
+    "versions": {
+      "node": "24.17.0",
+      "acorn": "8.16.0",
+      "ada": "3.4.4",
+      "amaro": "1.1.9",
+      "ares": "1.34.6",
+      "brotli": "1.2.0",
+      "cldr": "48.0",
+      "icu": "78.3",
+      "llhttp": "9.4.2",
+      "merve": "1.2.2",
+      "modules": "137",
+      "napi": "10",
+      "nbytes": "0.1.4",
+      "ncrypto": "0.0.1",
+      "nghttp2": "1.69.0",
+      "nghttp3": "",
+      "ngtcp2": "",
+      "openssl": "3.5.7",
+      "simdjson": "4.6.1",
+      "simdutf": "6.4.0",
+      "sqlite": "3.53.0",
+      "tz": "2026b",
+      "undici": "7.28.0",
+      "unicode": "17.0",
+      "uv": "1.52.1",
+      "uvwasi": "0.0.23",
+      "v8": "13.6.233.17-node.49",
+      "zlib": "1.3.1-e00f703",
+      "zstd": "1.5.7"
+    },
+    "platform": "win32",
+    "arch": "x64",
+    "osRelease": "10.0.26200",
+    "cpu": "13th Gen Intel(R) Core(TM) i7-1355U",
+    "logicalCpuCount": 12,
+    "totalMemoryBytes": 16876888064,
+    "freeMemoryBytesAtReport": 849244160,
+    "execArgv": [],
+    "nodeOptions": null
+  },
+  "policy": {
+    "policyVersion": "stl-ingestion-benchmark-v1",
+    "validatorVersion": "stl-source-v1",
+    "maxBytes": 104857600,
+    "maxTriangles": 2000000,
+    "maxLineBytes": 4096,
+    "maxWorkUnits": 570572800,
+    "maxElapsedMs": 30000
+  },
+  "methodology": {
+    "repetitions": 3,
+    "freshProcessPerCase": true,
+    "elapsedExcludesFixtureGeneration": true,
+    "peakRssIncludesFixtureGeneration": true,
+    "syntheticTypicalTriangles": 100000,
+    "asciiTriangleLimitNote": "At this fixture encoding size the byte limit binds before two million triangles. Triangle-limit behavior is tested with reduced policies in unit tests.",
+    "overByteNote": "Over-byte fixtures reject before encoding detection; encoding identifies the benchmark lane only.",
+    "memoryNote": "Null peakProcessRssBytes means unavailable, not zero memory use. Before/after memory snapshots are not peak measurements.",
+    "productionCertification": false
+  },
+  "rows": [
+    {
+      "encoding": "binary",
+      "scenario": "small",
+      "byteLength": 134,
+      "fixtureElapsedMs": 0.17249999999999943,
+      "elapsedMs": 1.2737000000000052,
+      "peakProcessRssBytes": 46723072,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 45924352,
+        "heapTotal": 7806976,
+        "heapUsed": 6080272,
+        "external": 2364745,
+        "arrayBuffers": 44948
+      },
+      "memoryAfter": {
+        "rss": 46731264,
+        "heapTotal": 8855552,
+        "heapUsed": 5596104,
+        "external": 2349006,
+        "arrayBuffers": 29169
+      },
+      "accepted": true,
+      "triangleCount": 1,
+      "processing": {
+        "scannedBytes": 134,
+        "hashedBytes": 134,
+        "triangles": 1,
+        "workUnits": 249,
+        "elapsedMs": 0.8753999999999991
+      },
+      "error": null,
+      "repetition": 1
+    },
+    {
+      "encoding": "binary",
+      "scenario": "small",
+      "byteLength": 134,
+      "fixtureElapsedMs": 0.22350000000000136,
+      "elapsedMs": 1.8696999999999946,
+      "peakProcessRssBytes": 46874624,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 46047232,
+        "heapTotal": 7806976,
+        "heapUsed": 6080200,
+        "external": 2364745,
+        "arrayBuffers": 44948
+      },
+      "memoryAfter": {
+        "rss": 46878720,
+        "heapTotal": 8855552,
+        "heapUsed": 5597784,
+        "external": 2349006,
+        "arrayBuffers": 29169
+      },
+      "accepted": true,
+      "triangleCount": 1,
+      "processing": {
+        "scannedBytes": 134,
+        "hashedBytes": 134,
+        "triangles": 1,
+        "workUnits": 249,
+        "elapsedMs": 1.212600000000002
+      },
+      "error": null,
+      "repetition": 2
+    },
+    {
+      "encoding": "binary",
+      "scenario": "small",
+      "byteLength": 134,
+      "fixtureElapsedMs": 0.1494999999999962,
+      "elapsedMs": 1.2132000000000005,
+      "peakProcessRssBytes": 46874624,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 46055424,
+        "heapTotal": 7544832,
+        "heapUsed": 6080128,
+        "external": 2364745,
+        "arrayBuffers": 44948
+      },
+      "memoryAfter": {
+        "rss": 46886912,
+        "heapTotal": 8593408,
+        "heapUsed": 5600048,
+        "external": 2349006,
+        "arrayBuffers": 29169
+      },
+      "accepted": true,
+      "triangleCount": 1,
+      "processing": {
+        "scannedBytes": 134,
+        "hashedBytes": 134,
+        "triangles": 1,
+        "workUnits": 249,
+        "elapsedMs": 0.8214999999999932
+      },
+      "error": null,
+      "repetition": 3
+    },
+    {
+      "encoding": "binary",
+      "scenario": "typical",
+      "byteLength": 5000084,
+      "fixtureElapsedMs": 17.826800000000006,
+      "elapsedMs": 80.10479999999998,
+      "peakProcessRssBytes": 55472128,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 53260288,
+        "heapTotal": 9117696,
+        "heapUsed": 6525992,
+        "external": 7348844,
+        "arrayBuffers": 5029047
+      },
+      "memoryAfter": {
+        "rss": 53694464,
+        "heapTotal": 9117696,
+        "heapUsed": 6374800,
+        "external": 7348956,
+        "arrayBuffers": 5029119
+      },
+      "accepted": true,
+      "triangleCount": 100000,
+      "processing": {
+        "scannedBytes": 5000084,
+        "hashedBytes": 5000084,
+        "triangles": 100000,
+        "workUnits": 16400085,
+        "elapsedMs": 79.61049999999999
+      },
+      "error": null,
+      "repetition": 1
+    },
+    {
+      "encoding": "binary",
+      "scenario": "typical",
+      "byteLength": 5000084,
+      "fixtureElapsedMs": 16.130700000000004,
+      "elapsedMs": 70.7344,
+      "peakProcessRssBytes": 54935552,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 53383168,
+        "heapTotal": 8593408,
+        "heapUsed": 5653752,
+        "external": 7348844,
+        "arrayBuffers": 5029047
+      },
+      "memoryAfter": {
+        "rss": 53575680,
+        "heapTotal": 8855552,
+        "heapUsed": 6301536,
+        "external": 7348956,
+        "arrayBuffers": 5029119
+      },
+      "accepted": true,
+      "triangleCount": 100000,
+      "processing": {
+        "scannedBytes": 5000084,
+        "hashedBytes": 5000084,
+        "triangles": 100000,
+        "workUnits": 16400085,
+        "elapsedMs": 69.7623
+      },
+      "error": null,
+      "repetition": 2
+    },
+    {
+      "encoding": "binary",
+      "scenario": "typical",
+      "byteLength": 5000084,
+      "fixtureElapsedMs": 12.966599999999993,
+      "elapsedMs": 49.41329999999999,
+      "peakProcessRssBytes": 55345152,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 53288960,
+        "heapTotal": 8593408,
+        "heapUsed": 6226016,
+        "external": 7348844,
+        "arrayBuffers": 5029047
+      },
+      "memoryAfter": {
+        "rss": 53665792,
+        "heapTotal": 9117696,
+        "heapUsed": 6075592,
+        "external": 7348956,
+        "arrayBuffers": 5029119
+      },
+      "accepted": true,
+      "triangleCount": 100000,
+      "processing": {
+        "scannedBytes": 5000084,
+        "hashedBytes": 5000084,
+        "triangles": 100000,
+        "workUnits": 16400085,
+        "elapsedMs": 48.831900000000005
+      },
+      "error": null,
+      "repetition": 3
+    },
+    {
+      "encoding": "binary",
+      "scenario": "near-limit",
+      "byteLength": 100000084,
+      "fixtureElapsedMs": 101.8365,
+      "elapsedMs": 642.4842,
+      "peakProcessRssBytes": 150200320,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 148611072,
+        "heapTotal": 8593408,
+        "heapUsed": 5595072,
+        "external": 102348808,
+        "arrayBuffers": 100029011
+      },
+      "memoryAfter": {
+        "rss": 148910080,
+        "heapTotal": 8855552,
+        "heapUsed": 5492008,
+        "external": 102348920,
+        "arrayBuffers": 100029083
+      },
+      "accepted": true,
+      "triangleCount": 2000000,
+      "processing": {
+        "scannedBytes": 100000084,
+        "hashedBytes": 100000084,
+        "triangles": 2000000,
+        "workUnits": 328000085,
+        "elapsedMs": 641.9859
+      },
+      "error": null,
+      "repetition": 1
+    },
+    {
+      "encoding": "binary",
+      "scenario": "near-limit",
+      "byteLength": 100000084,
+      "fixtureElapsedMs": 62.8816,
+      "elapsedMs": 629.7617,
+      "peakProcessRssBytes": 149942272,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 148369408,
+        "heapTotal": 8069120,
+        "heapUsed": 5830856,
+        "external": 102348808,
+        "arrayBuffers": 100029011
+      },
+      "memoryAfter": {
+        "rss": 148860928,
+        "heapTotal": 8593408,
+        "heapUsed": 6049272,
+        "external": 102348920,
+        "arrayBuffers": 100029083
+      },
+      "accepted": true,
+      "triangleCount": 2000000,
+      "processing": {
+        "scannedBytes": 100000084,
+        "hashedBytes": 100000084,
+        "triangles": 2000000,
+        "workUnits": 328000085,
+        "elapsedMs": 629.2646
+      },
+      "error": null,
+      "repetition": 2
+    },
+    {
+      "encoding": "binary",
+      "scenario": "near-limit",
+      "byteLength": 100000084,
+      "fixtureElapsedMs": 60.471,
+      "elapsedMs": 641.1894,
+      "peakProcessRssBytes": 150679552,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 148799488,
+        "heapTotal": 8593408,
+        "heapUsed": 5529600,
+        "external": 102348808,
+        "arrayBuffers": 100029011
+      },
+      "memoryAfter": {
+        "rss": 149262336,
+        "heapTotal": 8855552,
+        "heapUsed": 5462824,
+        "external": 102348920,
+        "arrayBuffers": 100029083
+      },
+      "accepted": true,
+      "triangleCount": 2000000,
+      "processing": {
+        "scannedBytes": 100000084,
+        "hashedBytes": 100000084,
+        "triangles": 2000000,
+        "workUnits": 328000085,
+        "elapsedMs": 640.5853999999999
+      },
+      "error": null,
+      "repetition": 3
+    },
+    {
+      "encoding": "binary",
+      "scenario": "over-bytes",
+      "byteLength": 104857601,
+      "fixtureElapsedMs": 31.919599999999996,
+      "elapsedMs": 0.6000000000000085,
+      "peakProcessRssBytes": 151715840,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 151650304,
+        "heapTotal": 7282688,
+        "heapUsed": 6080000,
+        "external": 107222212,
+        "arrayBuffers": 104886528
+      },
+      "memoryAfter": {
+        "rss": 151728128,
+        "heapTotal": 8331264,
+        "heapUsed": 5199816,
+        "external": 107222252,
+        "arrayBuffers": 104886528
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "BYTE_LIMIT",
+        "message": "The STL source exceeds the byte limit",
+        "progress": {
+          "scannedBytes": 0,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 0
+        }
+      },
+      "repetition": 1
+    },
+    {
+      "encoding": "binary",
+      "scenario": "over-bytes",
+      "byteLength": 104857601,
+      "fixtureElapsedMs": 34.59629999999999,
+      "elapsedMs": 0.740399999999994,
+      "peakProcessRssBytes": 151662592,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 151625728,
+        "heapTotal": 7282688,
+        "heapUsed": 6080000,
+        "external": 107222212,
+        "arrayBuffers": 104886528
+      },
+      "memoryAfter": {
+        "rss": 151674880,
+        "heapTotal": 8331264,
+        "heapUsed": 5199816,
+        "external": 107222252,
+        "arrayBuffers": 104886528
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "BYTE_LIMIT",
+        "message": "The STL source exceeds the byte limit",
+        "progress": {
+          "scannedBytes": 0,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 0
+        }
+      },
+      "repetition": 2
+    },
+    {
+      "encoding": "binary",
+      "scenario": "over-bytes",
+      "byteLength": 104857601,
+      "fixtureElapsedMs": 31.5184,
+      "elapsedMs": 0.5948999999999955,
+      "peakProcessRssBytes": 151736320,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 151666688,
+        "heapTotal": 7544832,
+        "heapUsed": 6079928,
+        "external": 107222212,
+        "arrayBuffers": 104886528
+      },
+      "memoryAfter": {
+        "rss": 151760896,
+        "heapTotal": 8069120,
+        "heapUsed": 5199744,
+        "external": 107222252,
+        "arrayBuffers": 104886528
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "BYTE_LIMIT",
+        "message": "The STL source exceeds the byte limit",
+        "progress": {
+          "scannedBytes": 0,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 0
+        }
+      },
+      "repetition": 3
+    },
+    {
+      "encoding": "binary",
+      "scenario": "malformed",
+      "byteLength": 5000084,
+      "fixtureElapsedMs": 9.310200000000002,
+      "elapsedMs": 0.6659000000000077,
+      "peakProcessRssBytes": 53735424,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 53731328,
+        "heapTotal": 8855552,
+        "heapUsed": 6072928,
+        "external": 7348844,
+        "arrayBuffers": 5029047
+      },
+      "memoryAfter": {
+        "rss": 53583872,
+        "heapTotal": 8855552,
+        "heapUsed": 6124232,
+        "external": 7348956,
+        "arrayBuffers": 5029119
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "NUMERIC",
+        "message": "Binary STL contains nonfinite numeric data",
+        "progress": {
+          "scannedBytes": 0,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 50
+        }
+      },
+      "repetition": 1
+    },
+    {
+      "encoding": "binary",
+      "scenario": "malformed",
+      "byteLength": 5000084,
+      "fixtureElapsedMs": 10.056100000000008,
+      "elapsedMs": 0.6135000000000019,
+      "peakProcessRssBytes": 53608448,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 53387264,
+        "heapTotal": 9117696,
+        "heapUsed": 5721712,
+        "external": 7348844,
+        "arrayBuffers": 5029047
+      },
+      "memoryAfter": {
+        "rss": 53534720,
+        "heapTotal": 9117696,
+        "heapUsed": 5765544,
+        "external": 7348956,
+        "arrayBuffers": 5029119
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "NUMERIC",
+        "message": "Binary STL contains nonfinite numeric data",
+        "progress": {
+          "scannedBytes": 0,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 50
+        }
+      },
+      "repetition": 2
+    },
+    {
+      "encoding": "binary",
+      "scenario": "malformed",
+      "byteLength": 5000084,
+      "fixtureElapsedMs": 10.4161,
+      "elapsedMs": 0.7173000000000016,
+      "peakProcessRssBytes": 53768192,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 53116928,
+        "heapTotal": 8593408,
+        "heapUsed": 5654768,
+        "external": 7348844,
+        "arrayBuffers": 5029047
+      },
+      "memoryAfter": {
+        "rss": 53211136,
+        "heapTotal": 8593408,
+        "heapUsed": 5698600,
+        "external": 7348956,
+        "arrayBuffers": 5029119
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "NUMERIC",
+        "message": "Binary STL contains nonfinite numeric data",
+        "progress": {
+          "scannedBytes": 0,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 50
+        }
+      },
+      "repetition": 3
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "small",
+      "byteLength": 121,
+      "fixtureElapsedMs": 0.15500000000000114,
+      "elapsedMs": 2.210000000000001,
+      "peakProcessRssBytes": 46948352,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 46080000,
+        "heapTotal": 7806976,
+        "heapUsed": 6079968,
+        "external": 2364732,
+        "arrayBuffers": 44935
+      },
+      "memoryAfter": {
+        "rss": 46956544,
+        "heapTotal": 8855552,
+        "heapUsed": 5643816,
+        "external": 2348993,
+        "arrayBuffers": 29156
+      },
+      "accepted": true,
+      "triangleCount": 1,
+      "processing": {
+        "scannedBytes": 121,
+        "hashedBytes": 121,
+        "triangles": 1,
+        "workUnits": 428,
+        "elapsedMs": 1.7625000000000028
+      },
+      "error": null,
+      "repetition": 1
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "small",
+      "byteLength": 121,
+      "fixtureElapsedMs": 0.1577999999999946,
+      "elapsedMs": 2.363599999999998,
+      "peakProcessRssBytes": 47181824,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 46227456,
+        "heapTotal": 7806976,
+        "heapUsed": 6079968,
+        "external": 2364732,
+        "arrayBuffers": 44935
+      },
+      "memoryAfter": {
+        "rss": 47194112,
+        "heapTotal": 8855552,
+        "heapUsed": 5661744,
+        "external": 2348993,
+        "arrayBuffers": 29156
+      },
+      "accepted": true,
+      "triangleCount": 1,
+      "processing": {
+        "scannedBytes": 121,
+        "hashedBytes": 121,
+        "triangles": 1,
+        "workUnits": 428,
+        "elapsedMs": 1.9476000000000013
+      },
+      "error": null,
+      "repetition": 2
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "small",
+      "byteLength": 121,
+      "fixtureElapsedMs": 0.1670999999999978,
+      "elapsedMs": 2.706000000000003,
+      "peakProcessRssBytes": 47116288,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 46190592,
+        "heapTotal": 7282688,
+        "heapUsed": 6079896,
+        "external": 2364732,
+        "arrayBuffers": 44935
+      },
+      "memoryAfter": {
+        "rss": 47128576,
+        "heapTotal": 8331264,
+        "heapUsed": 5657960,
+        "external": 2348993,
+        "arrayBuffers": 29156
+      },
+      "accepted": true,
+      "triangleCount": 1,
+      "processing": {
+        "scannedBytes": 121,
+        "hashedBytes": 121,
+        "triangles": 1,
+        "workUnits": 428,
+        "elapsedMs": 2.1337000000000046
+      },
+      "error": null,
+      "repetition": 3
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "typical",
+      "byteLength": 8600035,
+      "fixtureElapsedMs": 19.672399999999996,
+      "elapsedMs": 380.7108,
+      "peakProcessRssBytes": 59109376,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 55959552,
+        "heapTotal": 8855552,
+        "heapUsed": 5577432,
+        "external": 10964646,
+        "arrayBuffers": 8628998
+      },
+      "memoryAfter": {
+        "rss": 58331136,
+        "heapTotal": 9379840,
+        "heapUsed": 6050952,
+        "external": 10948907,
+        "arrayBuffers": 8629070
+      },
+      "accepted": true,
+      "triangleCount": 100000,
+      "processing": {
+        "scannedBytes": 8600035,
+        "hashedBytes": 8600035,
+        "triangles": 100000,
+        "workUnits": 32200106,
+        "elapsedMs": 380.0471
+      },
+      "error": null,
+      "repetition": 1
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "typical",
+      "byteLength": 8600035,
+      "fixtureElapsedMs": 11.096399999999996,
+      "elapsedMs": 398.4817,
+      "peakProcessRssBytes": 58503168,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 55955456,
+        "heapTotal": 9117696,
+        "heapUsed": 5572672,
+        "external": 10964646,
+        "arrayBuffers": 8628998
+      },
+      "memoryAfter": {
+        "rss": 58040320,
+        "heapTotal": 9117696,
+        "heapUsed": 6740224,
+        "external": 10948907,
+        "arrayBuffers": 8629070
+      },
+      "accepted": true,
+      "triangleCount": 100000,
+      "processing": {
+        "scannedBytes": 8600035,
+        "hashedBytes": 8600035,
+        "triangles": 100000,
+        "workUnits": 32200106,
+        "elapsedMs": 397.9928
+      },
+      "error": null,
+      "repetition": 2
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "typical",
+      "byteLength": 8600035,
+      "fixtureElapsedMs": 11.099600000000002,
+      "elapsedMs": 379.424,
+      "peakProcessRssBytes": 58884096,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 56000512,
+        "heapTotal": 9117696,
+        "heapUsed": 5574768,
+        "external": 10964646,
+        "arrayBuffers": 8628998
+      },
+      "memoryAfter": {
+        "rss": 57794560,
+        "heapTotal": 9117696,
+        "heapUsed": 6130408,
+        "external": 10948907,
+        "arrayBuffers": 8629070
+      },
+      "accepted": true,
+      "triangleCount": 100000,
+      "processing": {
+        "scannedBytes": 8600035,
+        "hashedBytes": 8600035,
+        "triangles": 100000,
+        "workUnits": 32200106,
+        "elapsedMs": 378.94419999999997
+      },
+      "error": null,
+      "repetition": 3
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "near-limit",
+      "byteLength": 104857600,
+      "fixtureElapsedMs": 65.596,
+      "elapsedMs": 5132.5512,
+      "peakProcessRssBytes": 154632192,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 151744512,
+        "heapTotal": 8331264,
+        "heapUsed": 6119192,
+        "external": 107222211,
+        "arrayBuffers": 104886527
+      },
+      "memoryAfter": {
+        "rss": 153812992,
+        "heapTotal": 9117696,
+        "heapUsed": 6450936,
+        "external": 107206436,
+        "arrayBuffers": 104886599
+      },
+      "accepted": true,
+      "triangleCount": 1219274,
+      "processing": {
+        "scannedBytes": 104857600,
+        "hashedBytes": 104857600,
+        "triangles": 1219274,
+        "workUnits": 392606337,
+        "elapsedMs": 5131.9259
+      },
+      "error": null,
+      "repetition": 1
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "near-limit",
+      "byteLength": 104857600,
+      "fixtureElapsedMs": 136.9718,
+      "elapsedMs": 5363.315799999999,
+      "peakProcessRssBytes": 155205632,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 152313856,
+        "heapTotal": 8855552,
+        "heapUsed": 6123240,
+        "external": 107222211,
+        "arrayBuffers": 104886527
+      },
+      "memoryAfter": {
+        "rss": 154157056,
+        "heapTotal": 9379840,
+        "heapUsed": 5621352,
+        "external": 107206436,
+        "arrayBuffers": 104886599
+      },
+      "accepted": true,
+      "triangleCount": 1219274,
+      "processing": {
+        "scannedBytes": 104857600,
+        "hashedBytes": 104857600,
+        "triangles": 1219274,
+        "workUnits": 392606337,
+        "elapsedMs": 5362.769499999999
+      },
+      "error": null,
+      "repetition": 2
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "near-limit",
+      "byteLength": 104857600,
+      "fixtureElapsedMs": 71.3854,
+      "elapsedMs": 4967.1473,
+      "peakProcessRssBytes": 154886144,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 152203264,
+        "heapTotal": 8331264,
+        "heapUsed": 6119192,
+        "external": 107222211,
+        "arrayBuffers": 104886527
+      },
+      "memoryAfter": {
+        "rss": 154013696,
+        "heapTotal": 9117696,
+        "heapUsed": 5478768,
+        "external": 107206436,
+        "arrayBuffers": 104886599
+      },
+      "accepted": true,
+      "triangleCount": 1219274,
+      "processing": {
+        "scannedBytes": 104857600,
+        "hashedBytes": 104857600,
+        "triangles": 1219274,
+        "workUnits": 392606337,
+        "elapsedMs": 4966.3364
+      },
+      "error": null,
+      "repetition": 3
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "over-bytes",
+      "byteLength": 104857601,
+      "fixtureElapsedMs": 29.706200000000003,
+      "elapsedMs": 0.7492000000000019,
+      "peakProcessRssBytes": 151834624,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 151756800,
+        "heapTotal": 7806976,
+        "heapUsed": 6080000,
+        "external": 107222212,
+        "arrayBuffers": 104886528
+      },
+      "memoryAfter": {
+        "rss": 151846912,
+        "heapTotal": 8069120,
+        "heapUsed": 5199816,
+        "external": 107222252,
+        "arrayBuffers": 104886528
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "BYTE_LIMIT",
+        "message": "The STL source exceeds the byte limit",
+        "progress": {
+          "scannedBytes": 0,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 0
+        }
+      },
+      "repetition": 1
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "over-bytes",
+      "byteLength": 104857601,
+      "fixtureElapsedMs": 29.708800000000004,
+      "elapsedMs": 0.5317000000000007,
+      "peakProcessRssBytes": 151924736,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 151904256,
+        "heapTotal": 7806976,
+        "heapUsed": 6080072,
+        "external": 107222212,
+        "arrayBuffers": 104886528
+      },
+      "memoryAfter": {
+        "rss": 151937024,
+        "heapTotal": 8069120,
+        "heapUsed": 5199944,
+        "external": 107222252,
+        "arrayBuffers": 104886528
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "BYTE_LIMIT",
+        "message": "The STL source exceeds the byte limit",
+        "progress": {
+          "scannedBytes": 0,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 0
+        }
+      },
+      "repetition": 2
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "over-bytes",
+      "byteLength": 104857601,
+      "fixtureElapsedMs": 33.83669999999999,
+      "elapsedMs": 0.5831000000000017,
+      "peakProcessRssBytes": 151851008,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 151769088,
+        "heapTotal": 7806976,
+        "heapUsed": 6080000,
+        "external": 107222212,
+        "arrayBuffers": 104886528
+      },
+      "memoryAfter": {
+        "rss": 151863296,
+        "heapTotal": 8069120,
+        "heapUsed": 5199872,
+        "external": 107222252,
+        "arrayBuffers": 104886528
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "BYTE_LIMIT",
+        "message": "The STL source exceeds the byte limit",
+        "progress": {
+          "scannedBytes": 0,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 0
+        }
+      },
+      "repetition": 3
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "malformed",
+      "byteLength": 8600035,
+      "fixtureElapsedMs": 11.455100000000002,
+      "elapsedMs": 1.0733000000000033,
+      "peakProcessRssBytes": 57147392,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 56020992,
+        "heapTotal": 9117696,
+        "heapUsed": 5574800,
+        "external": 10964646,
+        "arrayBuffers": 8628998
+      },
+      "memoryAfter": {
+        "rss": 56147968,
+        "heapTotal": 9117696,
+        "heapUsed": 5628752,
+        "external": 10948907,
+        "arrayBuffers": 8629070
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "STRUCTURE",
+        "message": "Malformed ASCII STL vector",
+        "progress": {
+          "scannedBytes": 35,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 4131
+        }
+      },
+      "repetition": 1
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "malformed",
+      "byteLength": 8600035,
+      "fixtureElapsedMs": 12.45620000000001,
+      "elapsedMs": 1.181200000000004,
+      "peakProcessRssBytes": 57057280,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 56070144,
+        "heapTotal": 9117696,
+        "heapUsed": 5572184,
+        "external": 10964646,
+        "arrayBuffers": 8628998
+      },
+      "memoryAfter": {
+        "rss": 56156160,
+        "heapTotal": 9117696,
+        "heapUsed": 5626144,
+        "external": 10948907,
+        "arrayBuffers": 8629070
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "STRUCTURE",
+        "message": "Malformed ASCII STL vector",
+        "progress": {
+          "scannedBytes": 35,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 4131
+        }
+      },
+      "repetition": 2
+    },
+    {
+      "encoding": "ascii",
+      "scenario": "malformed",
+      "byteLength": 8600035,
+      "fixtureElapsedMs": 11.2817,
+      "elapsedMs": 1.098399999999998,
+      "peakProcessRssBytes": 57024512,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 55873536,
+        "heapTotal": 9117696,
+        "heapUsed": 5573376,
+        "external": 10964646,
+        "arrayBuffers": 8628998
+      },
+      "memoryAfter": {
+        "rss": 56004608,
+        "heapTotal": 9117696,
+        "heapUsed": 5627384,
+        "external": 10948907,
+        "arrayBuffers": 8629070
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "STRUCTURE",
+        "message": "Malformed ASCII STL vector",
+        "progress": {
+          "scannedBytes": 35,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 4131
+        }
+      },
+      "repetition": 3
+    },
+    {
+      "encoding": "binary",
+      "scenario": "over-triangles",
+      "byteLength": 100000134,
+      "fixtureElapsedMs": 64.65549999999999,
+      "elapsedMs": 0.8125,
+      "peakProcessRssBytes": 148746240,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 148692992,
+        "heapTotal": 8593408,
+        "heapUsed": 5349616,
+        "external": 102348858,
+        "arrayBuffers": 100029061
+      },
+      "memoryAfter": {
+        "rss": 148746240,
+        "heapTotal": 8593408,
+        "heapUsed": 5395192,
+        "external": 102348970,
+        "arrayBuffers": 100029133
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "TRIANGLE_LIMIT",
+        "message": "The STL source exceeds the triangle limit",
+        "progress": {
+          "scannedBytes": 0,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 0
+        }
+      },
+      "repetition": 1
+    },
+    {
+      "encoding": "binary",
+      "scenario": "over-triangles",
+      "byteLength": 100000134,
+      "fixtureElapsedMs": 64.4733,
+      "elapsedMs": 0.685600000000008,
+      "peakProcessRssBytes": 148631552,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 148529152,
+        "heapTotal": 8855552,
+        "heapUsed": 5567496,
+        "external": 102348858,
+        "arrayBuffers": 100029061
+      },
+      "memoryAfter": {
+        "rss": 148635648,
+        "heapTotal": 8855552,
+        "heapUsed": 5613072,
+        "external": 102348970,
+        "arrayBuffers": 100029133
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "TRIANGLE_LIMIT",
+        "message": "The STL source exceeds the triangle limit",
+        "progress": {
+          "scannedBytes": 0,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 0
+        }
+      },
+      "repetition": 2
+    },
+    {
+      "encoding": "binary",
+      "scenario": "over-triangles",
+      "byteLength": 100000134,
+      "fixtureElapsedMs": 58.087,
+      "elapsedMs": 0.629400000000004,
+      "peakProcessRssBytes": 148680704,
+      "peakRssMeasurement": "process.resourceUsage().maxRSS",
+      "memoryBefore": {
+        "rss": 148631552,
+        "heapTotal": 8593408,
+        "heapUsed": 6202920,
+        "external": 102348858,
+        "arrayBuffers": 100029061
+      },
+      "memoryAfter": {
+        "rss": 148680704,
+        "heapTotal": 8593408,
+        "heapUsed": 6248496,
+        "external": 102348970,
+        "arrayBuffers": 100029133
+      },
+      "accepted": false,
+      "triangleCount": null,
+      "processing": null,
+      "error": {
+        "name": "StlValidationError",
+        "code": "TRIANGLE_LIMIT",
+        "message": "The STL source exceeds the triangle limit",
+        "progress": {
+          "scannedBytes": 0,
+          "hashedBytes": 0,
+          "triangles": 0,
+          "workUnits": 0
+        }
+      },
+      "repetition": 3
+    }
+  ]
+}

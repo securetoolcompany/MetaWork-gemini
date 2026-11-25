@@ -541,11 +541,12 @@ function UploadIPInner() {
 
     // Read the current selection, not a potentially stale render closure.
     const currentMedia = selectedMediaRef.current;
-    if (
-      !currentMedia ||
-      currentMedia.kind !== 'image' ||
-      !/\.(png|jpe?g|svg)$/i.test(currentMedia.file.name)
-    ) {
+    const isStl = currentMedia?.kind === 'stl';
+    const isImage =
+      currentMedia?.kind === 'image' &&
+      /\.(png|jpe?g|svg)$/i.test(currentMedia.file.name);
+
+    if (!isImage && !(isStl && IP_UPLOAD_V2_ENABLED)) {
       setShowTokenizationConfirm(false);
       setTokenizationConfirmed(false);
       toast.error(
@@ -720,6 +721,10 @@ function UploadIPInner() {
           },
           draft: structuredClone(operation.draft),
         };
+      }
+
+      if (isStl && !v2TokenizationRequest) {
+        throw new Error('STL tokenization requires a validated source upload.');
       }
 
       let ipfsHash;

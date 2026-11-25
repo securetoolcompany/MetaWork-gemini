@@ -202,28 +202,30 @@ test('V2 preserves its client across retries and rejects changed inputs', () => 
   assert.match(body, /selectedMediaRef\.current === currentMedia/);
 });
 
-test('STL submission remains blocked before the staged V2 branch', () => {
-  const submit = declaration('handleSubmit').initializer;
+test('STL admission requires V2 and cannot fall back to legacy upload', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const assert = (await import('node:assert/strict')).default;
+  const source = await readFile(new URL('../app/upload-ip/page.js', import.meta.url), 'utf8');
+  const handler = source.slice(source.indexOf('const handleSubmit ='));
+  const guard = 'if (!isImage && !(isStl && IP_UPLOAD_V2_ENABLED))';
+  const v2 = 'if (IP_UPLOAD_V2_ENABLED || v2UploadRef.current)';
+  const noFallback = 'if (isStl && !v2TokenizationRequest)';
+  const legacy = 'let ipfsHash;';
+  for (const marker of [guard, v2, noFallback, legacy]) {
+    assert.ok(handler.includes(marker), `Missing ${marker}`);
+  }
+  assert.match(source, /const IP_UPLOAD_V2_ENABLED = false;/);
+  assert.ok(handler.indexOf(guard) < handler.indexOf(v2));
+  assert.ok(handler.indexOf(v2) < handler.indexOf(noFallback));
+  assert.ok(handler.indexOf(noFallback) < handler.indexOf(legacy));
 
-  const guard = exactlyOne(
-    findAll(node =>
-      ts.isIfStatement(node) &&
-      node.expression.getText(page).includes(
-        "currentMedia.kind !== 'image'",
-      ),
-      submit,
-    ),
-    'Expected image-only submission guard',
-  );
-
-  assert.ok(guard.end < stagedBranch().getStart(page));
-  assert.match(
-    guard.thenStatement.getText(page),
-    /STL tokenization is not available yet/,
-  );
-  assert.ok(
-    findAll(node => ts.isReturnStatement(node), guard.thenStatement).length,
-  );
+  // Execute the actual page's eligibility expression with test-only inputs.
+  const expression = handler.match(/if \((!isImage && !\(isStl && IP_UPLOAD_V2_ENABLED\))\)/)?.[1];
+  assert.ok(expression);
+  const blocked = new Function('isImage', 'isStl', 'IP_UPLOAD_V2_ENABLED', `return ${expression};`);
+  assert.equal(blocked(false, true, false), true);
+  assert.equal(blocked(false, true, true), false);
+  assert.equal(blocked(true, false, false), false);
 });
 
 test('confirmation checks the current snapshot and central credit price', () => {
