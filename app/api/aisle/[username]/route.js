@@ -133,6 +133,13 @@ export async function GET(request, { params }) {
       })),
     });
 
+    if (products.length === 0 && ipAssets.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Creator not found' },
+        { status: 404 },
+      );
+    }
+
     const formattedCollections = (creator.collections || [])
       .filter((collection) => collection?.active !== false)
       .map((collection) => ({

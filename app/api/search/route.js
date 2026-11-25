@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import {
+  showroomProductEligibility,
+  publicIpEligibility,
+} from '@/lib/public-inventory-eligibility';
 
 const escapeRegex = (value = '') =>
   value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -192,9 +196,79 @@ export async function GET(request) {
     // If the same aisle exists in the legacy collection and in users,
     // keep only one result. The user-backed record wins because it uses
     // the current source of truth and correct username-based route.
+    const hasPublicInventory = async (user) => {
+      if (!user) return false;
+      const strIds = [...new Set(
+        [user._id, user.id, user.userId, user.username]
+          .filter(Boolean)
+          .map(String)
+      )];
+      const objIds = strIds
+        .filter((v) => ObjectId.isValid(v))
+        .map((v) => new ObjectId(v));
+      const ids = [...strIds, ...objIds];
+
+      const owner = (idFields, nameFields) => ({
+        $or: [
+          ...idFields.map((f) => ({ [f]: { $in: ids } })),
+          ...(user.username
+            ? nameFields.map((f) => ({ [f]: user.username }))
+            : []),
+        ],
+      });
+
+      const [product, ip] = await Promise.all([
+        db.collection('products').findOne(
+          {
+            $and: [
+              owner(
+                ['creatorId', 'userId', 'ownerId'],
+                ['creatorUsername', 'ownerUsername']
+              ),
+              showroomProductEligibility(),
+            ],
+          },
+          { projection: { _id: 1 } }
+        ),
+        db.collection('ip_assets').findOne(
+          {
+            $and: [
+              owner(
+                ['ownerId', 'userId', 'creatorId'],
+                ['ownerUsername', 'creatorUsername', 'username']
+              ),
+              publicIpEligibility(),
+            ],
+          },
+          { projection: { _id: 1 } }
+        ),
+      ]);
+
+      return Boolean(product || ip);
+    };
+
+    const aisleCandidates = [
+      ...formattedLegacyAisles.map((aisle, index) => ({
+        aisle,
+        user: legacyUserMap.get(toIdString(legacyAisles[index].userId)),
+      })),
+      ...formattedUserAisles.map((aisle, index) => ({
+        aisle,
+        user: userAisles[index],
+      })),
+    ];
+
+    const visibleAisles = (
+      await Promise.all(
+        aisleCandidates.map(async ({ aisle, user }) =>
+          (await hasPublicInventory(user)) ? aisle : null
+        )
+      )
+    ).filter(Boolean);
+
     const aisleByPublicSlug = new Map();
 
-    [...formattedLegacyAisles, ...formattedUserAisles].forEach((aisle) => {
+    visibleAisles.forEach((aisle) => {
       if (!aisle.publicSlug) return;
 
       const key = aisle.publicSlug.toLowerCase();
