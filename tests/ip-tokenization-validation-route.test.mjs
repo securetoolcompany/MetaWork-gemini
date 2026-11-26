@@ -477,6 +477,7 @@ for (const valid of [true, false]) {
         const operation = await db.collection(IP_UPLOAD_OPERATIONS_COLLECTION).findOne({ operationKey });
         assert.equal(operation.receipts.source.sourceValidationStatus, 'pending');
         assert.equal(operation.tokenizationPreparation, undefined);
+        assert.equal(await db.collection('products').countDocuments({}), 0);
         return;
       }
 
@@ -601,8 +602,10 @@ for (const valid of [true, false]) {
       assert.equal(funded.body.mbrPaidMicroAlgos, asset.fundingAttempt.amount);
       assert.equal((await db.collection('users').findOne({ id: asset.ownerId })).credits, 1000);
 
+      const { provisionStlProducts } = await import('../lib/ip-source/provision-stl-products.js');
       const completionDeps = {
         ...state.dependencies,
+        provisionStlProducts,
         getAlgodClient,
         getSigner: () => ({
           address: platform.addr.toString(), signTxn: txn => txn.signTxn(platform.sk),
@@ -639,6 +642,40 @@ for (const valid of [true, false]) {
       assert.equal(active.creditChargeOperationKey, operationKey);
       const charged = await db.collection('users').findOne({ id: asset.ownerId });
       assert.equal(charged.credits, 1000 - asset.creditCost);
+
+      const provisioned = await db.collection('products').find({ ipAssetId: asset.id }).toArray();
+      assert.deepEqual(provisioned.map(p => p.productKind).sort(), ['3d_print', 'stl_file']);
+      assert.ok(provisioned.every(p => p.isPublic === false && p.status === 'unlisted' && p.isVisible === false));
+      assert.equal(provisioned.find(p => p.productKind === 'stl_file').delivery.fileProtection, 'none');
+      assert.equal(provisioned.find(p => p.productKind === '3d_print').fulfillment.status, 'offline');
+
+      const sendsBeforeRetry = sends.length;
+      const retried = await completePUT(new Request('http://localhost/api/ip/revenue-tokenization', {
+        method: 'PUT', headers,
+        body: JSON.stringify({
+          ...pointer, step: 'confirm_nft',
+          signedTxns: [Buffer.from(mint.signTxn(owner.sk)).toString('base64')],
+        }),
+      }));
+      assert.equal(retried.status, 200, JSON.stringify(retried.body));
+      assert.equal(retried.body.step, 'complete');
+      assert.equal(retried.body.revenueTokenId, 5678);
+      assert.equal(sends.length, sendsBeforeRetry);
+      assert.equal((await db.collection('users').findOne({ id: asset.ownerId })).credits, 1000 - asset.creditCost);
+      assert.equal(await db.collection('products').countDocuments({ ipAssetId: asset.id }), 2);
+
+      await db.collection('products').deleteOne({ ipAssetId: asset.id, productKind: 'stl_file' });
+      await completePUT(new Request('http://localhost/api/ip/revenue-tokenization', {
+        method: 'PUT', headers,
+        body: JSON.stringify({
+          ...pointer, step: 'confirm_nft',
+          signedTxns: [Buffer.from(mint.signTxn(owner.sk)).toString('base64')],
+        }),
+      }));
+      assert.deepEqual(
+        (await db.collection('products').find({ ipAssetId: asset.id }).toArray()).map(p => p.productKind),
+        ['3d_print'],
+      );
     } finally {
       await client?.close();
       await server.stop();
