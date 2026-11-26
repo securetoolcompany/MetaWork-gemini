@@ -7,6 +7,7 @@ import {
   publicProductEligibility,
   publicIpEligibility,
 } from '@/lib/public-inventory-eligibility';
+import { getAisleDisplayState } from '@/lib/aisle-displayability';
 
 import {
   toPublicProductListing,
@@ -16,7 +17,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 function escapeRegex(value) {
-  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return String(value || '').replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
 }
 
 export async function GET(request, { params }) {
@@ -149,6 +150,14 @@ export async function GET(request, { params }) {
           collection._id?.toString() ||
           Math.random().toString(36).slice(2, 11),
       }));
+
+    const display = getAisleDisplayState(creator, products, ipAssets, formattedCollections);
+    if (!display.ok) {
+      return NextResponse.json(
+        { success: false, error: 'Creator not found' },
+        { status: 404 },
+      );
+    }
 
     return NextResponse.json({
       success: true,

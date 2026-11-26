@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { ObjectId } from 'mongodb';
+import { getAisleDisplayState } from '@/lib/aisle-displayability';
 import {
-  showroomProductEligibility,
+  publicProductEligibility,
   publicIpEligibility,
 } from '@/lib/public-inventory-eligibility';
 
 const escapeRegex = (value = '') =>
-  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
 
 const toIdString = (value) => {
   if (!value) return null;
@@ -197,9 +198,12 @@ export async function GET(request) {
     // keep only one result. The user-backed record wins because it uses
     // the current source of truth and correct username-based route.
     const hasPublicInventory = async (user) => {
-      if (!user) return false;
+      if (!user?._id) return false;
+      const full = await db.collection('users').findOne({ _id: user._id });
+      if (!full) return false;
+
       const strIds = [...new Set(
-        [user._id, user.id, user.userId, user.username]
+        [full._id, full.id, full.userId, full.username]
           .filter(Boolean)
           .map(String)
       )];
@@ -211,27 +215,27 @@ export async function GET(request) {
       const owner = (idFields, nameFields) => ({
         $or: [
           ...idFields.map((f) => ({ [f]: { $in: ids } })),
-          ...(user.username
-            ? nameFields.map((f) => ({ [f]: user.username }))
+          ...(full.username
+            ? nameFields.map((f) => ({ [f]: full.username }))
             : []),
         ],
       });
 
-      const [product, ip] = await Promise.all([
-        db.collection('products').findOne(
-          {
+      const [products, ipAssets] = await Promise.all([
+        db.collection('products')
+          .find({
             $and: [
               owner(
                 ['creatorId', 'userId', 'ownerId'],
                 ['creatorUsername', 'ownerUsername']
               ),
-              showroomProductEligibility(),
+              publicProductEligibility(),
             ],
-          },
-          { projection: { _id: 1 } }
-        ),
-        db.collection('ip_assets').findOne(
-          {
+          })
+          .project({ _id: 1 })
+          .toArray(),
+        db.collection('ip_assets')
+          .find({
             $and: [
               owner(
                 ['ownerId', 'userId', 'creatorId'],
@@ -239,12 +243,16 @@ export async function GET(request) {
               ),
               publicIpEligibility(),
             ],
-          },
-          { projection: { _id: 1 } }
-        ),
+          })
+          .project({ _id: 1 })
+          .toArray(),
       ]);
 
-      return Boolean(product || ip);
+      const collections = (full.collections || []).filter(
+        (c) => c?.active !== false
+      );
+
+      return getAisleDisplayState(full, products, ipAssets, collections).ok;
     };
 
     const aisleCandidates = [
