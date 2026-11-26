@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getCreatorAisleState } from '@/lib/aisle-access';
 import { ObjectId } from 'mongodb';
 import { connectToDatabase } from '@/lib/mongodb';
 import { verifyToken } from '@/lib/auth';
@@ -171,6 +172,20 @@ const uniqueImages = [...new Set(allImages)];
             { projection: { password: 0 } }
           )
         : null;
+
+    if (!isOwner) {
+      const aisleState = await getCreatorAisleState(db, creator);
+      const pid = String(product._id);
+      const placed =
+        aisleState?.placedProductIds.has(pid) ||
+        (product.id ? aisleState?.placedProductIds.has(String(product.id)) : false);
+      if (!aisleState?.ok || !placed) {
+        return NextResponse.json(
+          { success: false, error: 'Product not found' },
+          { status: 404 },
+        );
+      }
+    }
 
     let aisle = null;
 

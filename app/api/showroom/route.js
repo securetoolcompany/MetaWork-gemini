@@ -8,6 +8,7 @@ import {
   showroomProductEligibility,
   publicIpEligibility,
 } from '@/lib/public-inventory-eligibility';
+import { getAisleDisplayState } from '@/lib/aisle-displayability';
 
 const cleanUrl = (url) => {
   if (!url) return "/placeholder.png";
@@ -77,6 +78,19 @@ function normalizeProductImageFields(product) {
   };
 }
 
+const ownerKeysOf = (item) =>
+  [
+    item.ownerId,
+    item.userId,
+    item.creatorId,
+    item.owner,
+    item.ownerUsername,
+    item.creatorUsername,
+    item.username,
+  ]
+    .filter(Boolean)
+    .map((v) => String(v));
+
 export async function GET() {
   try {
     const { db } = await connectToDatabase();
@@ -87,25 +101,35 @@ export async function GET() {
       db.collection('ip_assets').find(publicIpEligibility()).toArray()
     ]);
 
-    const formattedUserAisles = usersWithAisles
-      .map(user => {
+    const stateByKey = new Map();
+    const aisleStates = usersWithAisles.map((user) => {
+      const keys = new Set(
+        [user._id, user.id, user.username].filter(Boolean).map(String)
+      );
+      const matches = (item) => ownerKeysOf(item).some((k) => keys.has(k));
+      const userProducts = products.filter(matches);
+      const userIps = ipAssets.filter(matches);
+      const collections = (user.collections || []).filter((c) => c?.active !== false);
+      const state = getAisleDisplayState(user, userProducts, userIps, collections);
+      keys.forEach((k) => stateByKey.set(k, state));
+      return { user, state };
+    });
+
+    const stateFor = (item) => {
+      for (const k of ownerKeysOf(item)) {
+        const s = stateByKey.get(k);
+        if (s) return s;
+      }
+      return null;
+    };
+
+    const formattedUserAisles = aisleStates
+      .filter(({ state }) => state.ok)
+      .map(({ user, state }) => {
         const userIdStr = user._id.toString();
         const username = user.username || '';
         const settings = user.aisleSettings || {};
         const displayName = settings.title || user.profile?.displayName || user.name || username;
-
-        const actualProductsCount = products.filter(p =>
-          p.ownerId?.toString() === userIdStr ||
-          p.userId?.toString() === userIdStr ||
-          p.owner === username ||
-          p.ownerUsername === username
-        ).length;
-
-        const actualIPsCount = ipAssets.filter(i =>
-          i.ownerId?.toString() === userIdStr ||
-          i.userId?.toString() === userIdStr ||
-          i.owner === username
-        ).length;
 
         return {
           id: userIdStr,
@@ -116,8 +140,8 @@ export async function GET() {
           headerImage: cleanUrl(settings.heroImage || user.banner),
           avatar: cleanUrl(settings.logo || user.avatar),
           stats: user.stats || { views: 0, sales: 0 },
-          totalProducts: actualProductsCount,
-          totalIPAssets: actualIPsCount,
+          totalProducts: state.placedProductIds.size,
+          totalIPAssets: state.placedIpIds.size,
           source: 'live_database_lazy'
         };
       })
@@ -126,19 +150,35 @@ export async function GET() {
           .filter(Boolean)
           .map(v => String(v).trim().toLowerCase());
 
-        const isHidden = candidates.some(v => HIDDEN_SHOWROOM_AISLES.has(v));
-
-        return !isHidden && (aisle.totalProducts > 0 || aisle.totalIPAssets > 0);
+        return !candidates.some(v => HIDDEN_SHOWROOM_AISLES.has(v));
       });
 
-    const normalizedProducts = normalizeIds(products)
+    const visibleProducts = products.filter((p) => {
+      const s = stateFor(p);
+      return Boolean(
+        s?.ok &&
+          (s.placedProductIds.has(String(p._id)) ||
+            (p.id && s.placedProductIds.has(String(p.id))))
+      );
+    });
+
+    const visibleIpAssets = ipAssets.filter((i) => {
+      const s = stateFor(i);
+      return Boolean(
+        s?.ok &&
+          (s.placedIpIds.has(String(i._id)) ||
+            (i.id && s.placedIpIds.has(String(i.id))))
+      );
+    });
+
+    const normalizedProducts = normalizeIds(visibleProducts)
       .map(p => ({
         ...toPublicProductListing(normalizeProductImageFields(p)),
         type: 'product'
       }))
       .filter(hasUsableImage);
 
-    const normalizedIPAssets = normalizeIds(ipAssets)
+    const normalizedIPAssets = normalizeIds(visibleIpAssets)
       .map(i => ({
         ...toPublicIpListing(i),
         imageUrl: cleanUrl(i.imageUrl || i.thumbnailUrl || i.image),

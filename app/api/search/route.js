@@ -8,7 +8,7 @@ import {
 } from '@/lib/public-inventory-eligibility';
 
 const escapeRegex = (value = '') =>
-  value.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const toIdString = (value) => {
   if (!value) return null;
@@ -43,12 +43,17 @@ export async function GET(request) {
           isPublic: true,
           status: { $in: ['active', 'live'] },
         })
-        .limit(10)
+        .limit(40)
         .project({
           _id: 1,
           id: 1,
           name: 1,
           title: 1,
+          creatorId: 1,
+          userId: 1,
+          ownerId: 1,
+          creatorUsername: 1,
+          ownerUsername: 1,
         })
         .toArray(),
 
@@ -197,10 +202,11 @@ export async function GET(request) {
     // If the same aisle exists in the legacy collection and in users,
     // keep only one result. The user-backed record wins because it uses
     // the current source of truth and correct username-based route.
-    const hasPublicInventory = async (user) => {
-      if (!user?._id) return false;
+    const stateCache = new Map();
+    const computeAisleState = async (user) => {
+      if (!user?._id) return null;
       const full = await db.collection('users').findOne({ _id: user._id });
-      if (!full) return false;
+      if (!full) return null;
 
       const strIds = [...new Set(
         [full._id, full.id, full.userId, full.username]
@@ -252,8 +258,59 @@ export async function GET(request) {
         (c) => c?.active !== false
       );
 
-      return getAisleDisplayState(full, products, ipAssets, collections).ok;
+      return getAisleDisplayState(full, products, ipAssets, collections);
     };
+
+    const getAisleState = (user) => {
+      const key = String(user?._id || '');
+      if (!stateCache.has(key)) stateCache.set(key, computeAisleState(user));
+      return stateCache.get(key);
+    };
+
+    const hasPublicInventory = async (user) => (await getAisleState(user))?.ok === true;
+
+    const ownerStrIds = [...new Set(
+      products.flatMap((p) => [p.creatorId, p.userId, p.ownerId]).filter(Boolean).map(String)
+    )];
+    const ownerNames = [...new Set(
+      products.flatMap((p) => [p.creatorUsername, p.ownerUsername]).filter(Boolean)
+    )];
+    const ownerObjIds = ownerStrIds.filter((v) => ObjectId.isValid(v)).map((v) => new ObjectId(v));
+    const ownerUsers = (ownerStrIds.length || ownerNames.length)
+      ? await db.collection('users')
+          .find({
+            $or: [
+              { _id: { $in: ownerObjIds } },
+              { id: { $in: ownerStrIds } },
+              { username: { $in: ownerNames } },
+            ],
+          })
+          .project({ _id: 1, id: 1, username: 1 })
+          .toArray()
+      : [];
+    const userByKey = new Map();
+    ownerUsers.forEach((u) => {
+      [u._id, u.id, u.username].filter(Boolean).forEach((k) => userByKey.set(String(k), u));
+    });
+
+    const productKeep = await Promise.all(
+      products.map(async (p) => {
+        const keys = [p.creatorId, p.userId, p.ownerId, p.creatorUsername, p.ownerUsername]
+          .filter(Boolean)
+          .map(String);
+        const owner = keys.map((k) => userByKey.get(k)).find(Boolean);
+        if (!owner) return false;
+        const state = await getAisleState(owner);
+        if (!state?.ok) return false;
+        return state.placedProductIds.has(String(p._id)) ||
+          (p.id ? state.placedProductIds.has(String(p.id)) : false);
+      })
+    );
+
+    const visibleProducts = products
+      .filter((_, i) => productKeep[i])
+      .slice(0, 10)
+      .map((p) => ({ _id: p._id, id: p.id, name: p.name, title: p.title }));
 
     const aisleCandidates = [
       ...formattedLegacyAisles.map((aisle, index) => ({
@@ -290,7 +347,7 @@ export async function GET(request) {
     const aisles = Array.from(aisleByPublicSlug.values()).slice(0, 10);
 
     return NextResponse.json({
-      products,
+      products: visibleProducts,
       aisles,
       profiles,
     });
